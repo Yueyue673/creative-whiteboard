@@ -1,0 +1,2 @@
+// Classify only the rendered surface; stored note colors are not rewritten.
+(()=>{const before=noteMarkup;noteMarkup=function(n){let extra='';const neutral=(n.color||'').toLowerCase()==='#ffffff';if(n.type==='table'||n.assetId||n.mediaId||neutral)extra='theme-surface ';else if(/^#[\da-f]{6}$/i.test(n.color||'')){const rgb=n.color.slice(1).match(/../g).map(x=>parseInt(x,16));if(rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722<125)extra='theme-dark '}return before(n).replace('class="node ','class="node '+extra)}})();
