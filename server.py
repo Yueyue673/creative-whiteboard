@@ -63,9 +63,11 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    f=DATA/(m[1]+'.json')
    if not f.exists():self.reply(404,{'error':'找不到这张白板'});return
    raw=f.read_bytes();self.reply(200,raw,etag=digest(raw));return
-  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css']:
+  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
-  if p in ['/','/index.html']:
+  if p=='/':
+   self.reply(200,(APP_ROOT/'shell.html').read_bytes(),'text/html; charset=utf-8');return
+  if p=='/index.html':
    self.reply(200,(APP_ROOT/'index.html').read_bytes(),'text/html; charset=utf-8');return
   self.reply(404,{'error':'不存在'})
  def do_DELETE(self):

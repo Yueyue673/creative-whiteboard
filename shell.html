@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>创作白板</title><link rel="stylesheet" href="/shell.css"></head>
+<body>
+<header id="shellHeader"><b>创作白板</b><nav><button id="openBoards">白板</button><button data-command="library">内容库</button><button data-command="ai">AI 整理</button><button data-command="help">使用帮助</button></nav><span id="shellStatus" aria-live="polite"></span><button id="splitToggle" aria-pressed="false">左右分栏</button><details id="shellMore"><summary>更多</summary><div><button data-command="search">搜索内容</button><button data-command="boards">管理白板文件夹</button><button data-command="rename">重命名当前白板</button><button data-command="group">将选中内容分组</button><button data-command="export">导出当前白板</button><button data-command="markdown">导出文字</button><button data-command="settings">界面大小</button><button data-command="recovery">恢复与历史</button><button id="externalWindow">在独立窗口打开</button></div></details></header>
+<main id="workspace" style="--split:50%">
+<div id="tabHeaders"><section class="tab-group" data-side="left"><div class="tabs" role="tablist" aria-label="左侧白板标签"></div><button class="add-tab" data-side="left" title="打开或新建白板" aria-label="左侧打开白板">＋</button></section><section class="tab-group right-group" data-side="right"><div class="tabs" role="tablist" aria-label="右侧白板标签"></div><button class="add-tab" data-side="right" title="打开或新建白板" aria-label="右侧打开白板">＋</button></section></div>
+<div id="frameDeck"><div class="empty-pane" data-side="left"><h2>在这里打开白板</h2><p>打开多个标签，再按自己的顺序编排。</p><button class="choose-board" data-side="left">选择白板</button></div><div class="empty-pane right-empty" data-side="right"><h2>右侧放什么？</h2><p>打开另一张白板，或把已有标签拖到这边。</p><button class="choose-board" data-side="right">选择白板</button></div></div>
+<div id="splitter" role="separator" tabindex="0" aria-label="调整左右分栏宽度，双击恢复各半" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" aria-valuenow="50"></div>
+<div id="dragGlass"></div><div id="rightDropTarget">放到右侧分栏</div>
+</main>
+<dialog id="boardPicker"><form method="dialog"><h2>打开白板</h2><button class="dialog-close" aria-label="关闭">×</button></form><input id="boardQuery" type="search" placeholder="搜索白板名称" aria-label="搜索白板"><div id="boardChoices"></div><div class="new-board"><input id="newBoardName" placeholder="新白板名称" aria-label="新白板名称"><button id="createBoard">新建并打开</button></div><p id="pickerHint"></p></dialog>
+<div id="tabContext" hidden><button data-tab-action="move">移到另一侧</button><button data-tab-action="close">关闭标签</button></div>
+<div id="shellToast" hidden role="status"></div><script src="/shell.js"></script>
+</body></html>

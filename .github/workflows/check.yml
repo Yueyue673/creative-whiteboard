@@ -22,6 +22,9 @@ jobs:
       - run: node --check workspace.js
       - run: node --check workflow.js
       - run: node --check preview-pan.js
+      - run: node --check shell.js
+      - run: node --check pane.js
+      - run: node --check cells.js
   browser:
     runs-on: ubuntu-latest
     steps:
