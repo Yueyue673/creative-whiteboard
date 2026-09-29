@@ -1,23 +1,22 @@
-# 创作白板 · Creative Whiteboard
+<h1>创作白板</h1>
 
-把文字、图片、视频和表格放在同一张白板上，自己整理、连接和编排。
+把笔记、资料和表格摆在一起，拖动、连接，慢慢整理出自己的思路。
 
-A local-first whiteboard for notes, media, tables, and reusable content. Runs with Python’s standard library and a browser.
+![创作白板：自由摆放便签，用连线和表格整理内容](docs/cover.png)
 
-![创作白板实际界面：便签、表格和内容连线](docs/overview.png)
+[开始使用](#开始使用) · [操作说明](docs/usage.md) · [查看完整界面](docs/overview.png) · [反馈问题](https://github.com/Yueyue673/creative-whiteboard/issues)
 
-## 可以做什么
+## 内容可以怎样摆放
 
-- **自由编排**：便签、分组、连线、四角调整大小；鼠标附近粘贴，整组复制时保留内部连线。
-- **混合内容**：图片、音视频、HTML、JSON 与表格。表格单元格支持多张图片和行列移动。
-- **积累和复用**：嵌套文件夹、多选分类；白板内容可以收进库，再整组或逐块取出。
-- **接着上次工作**：记住媒体播放进度和文档阅读位置，提供历史记录与删除恢复。
-- **两个窗口一起用**：在不同白板间复制内容；同一张白板同时修改时检查版本冲突。
-- **让 AI 帮忙整理**：导出上下文，导入修改提案，再逐项决定是否采用。没有内置模型调用。
+**先写下来，再决定顺序。** 双击空白处写便签，直接编辑内容，拖动四角调整大小。把相关内容放在一起，用连线说明它们的关系。需要按行列整理时，可以换用表格；单元格里也能放多张图片。
 
-## 启动
+**资料放在想法旁边。** 图片、音视频、本地 HTML 和 JSON 可以放进白板查看。视频记住播放进度，支持的文档记住阅读位置，方便下次接着看。
 
-需要 **Python 3.10 或更新版本**。无需安装 Python 第三方依赖。推荐使用近期版本的 Chrome 或 Edge。
+**用过的内容，还能继续用。** 内容库支持嵌套文件夹。可以收起一组内容，也可以只取出其中一块。复制选中的内容，切换白板后直接粘贴；组内连线一起保留。
+
+## 开始使用
+
+需要 **Python 3.10 或更新版本**，以及 Chrome 或 Edge。无需安装 Python 第三方依赖。
 
 ```sh
 git clone https://github.com/Yueyue673/creative-whiteboard.git
@@ -25,64 +24,44 @@ cd creative-whiteboard
 python server.py
 ```
 
-打开 **http://127.0.0.1:18746/**。有些系统使用 `python3 server.py`。
+在浏览器打开 **http://127.0.0.1:18746/**。如果系统使用 `python3`，将最后一行改为 `python3 server.py`。
 
-Windows 也可以在安装好 Python 后，右键运行 `启动白板.ps1`。按照终端提示打开浏览器；关闭服务终端可停止运行。
+不使用 Git 的话，也可以从仓库的 **Code → Download ZIP** 下载，解压后运行。Windows 用户安装好 Python 后，可以右键运行 `启动白板.ps1`。使用过程中保留服务终端；关闭它会停止服务。
 
-首次启动是一张空白板。想先试操作，可以把 [通用示例](examples/getting-started.json) 下载后拖到画布。
+首次打开是空白板。可以从一条便签开始，也可以下载 [示例白板](examples/getting-started.json)，拖入画布后试着移动、编辑和连接。示例只是演示，不会预设你的项目分类。
 
-## 常用操作
+## 最常用的几个操作
 
-| 想做什么 | 操作 |
+| 操作 | 方法 |
 | --- | --- |
-| 写便签 | 双击空白处；双击便签编辑 |
-| 移动画布 | 右键拖动，也支持中键 |
-| 缩放白板 | Ctrl＋滚轮，以鼠标位置为中心 |
-| 调整便签大小 | 拖便签四角的方形手柄 |
-| 连接内容 | 拖边缘圆点；Esc 或在空白处松手取消 |
-| 复制、剪切、粘贴 | Ctrl＋C / X / V，支持跨白板与窗口 |
-| 撤销、搜索 | Ctrl＋Z；Ctrl＋K |
-| 查看完整编排 | Shift＋1 |
-| 调整工具栏和侧栏大小 | 更多 → 界面大小 |
+| 写内容、改内容 | 双击空白处新建；双击便签编辑 |
+| 移动画布 | 按住右键拖动，也支持中键 |
+| 缩放白板 | Ctrl＋滚轮，围绕鼠标位置缩放 |
+| 调整便签大小 | 拖动四角的方形手柄 |
+| 连线 | 从边缘圆点拖向另一块内容；Esc 取消 |
+| 跨白板复制 | Ctrl＋C，切换白板，Ctrl＋V |
+| 撤销、搜索 | Ctrl＋Z、Ctrl＋K |
+| 查看整张白板 | Shift＋1 |
 
-文字输入框保留正常编辑快捷键。JSON、HTML 顶部的比例按钮调整文档阅读大小；Ctrl＋滚轮仍然缩放白板。
+粘贴时，鼠标在画布内就放在鼠标附近；在侧栏时放到画布中央。输入框中的复制粘贴仍用于编辑文字。
 
-## 文件存在哪里
+## 保存与 AI 整理
 
-默认在项目下的 `data/` 保存个人数据，此目录已被 Git 忽略。
+白板和内容库默认保存在本机 `data/` 文件夹。可直接备份该文件夹；引用在其他位置的媒体也需要单独备份。[查看文件位置与配置](docs/usage.md#文件位置与配置)。
 
-| 路径 | 内容 |
-| --- | --- |
-| `data/内容/` | 每张白板一个 JSON 文件 |
-| `data/目录.json` | 白板文件夹关系 |
-| `data/素材目录.json` | 内容库及文件引用 |
-| `data/素材文件/` | 上传的文件 |
-| `data/历史记录/`、`data/回收站/` | 恢复记录 |
-| `data/AI待审核/` | 等待确认的 AI 提案 |
+需要 AI 帮忙时，可以导出内容，让 AI 整理成修改提案，再导入逐项查看、决定是否采用。工具本身不调用模型，也不会自动上传资料。[查看 AI 协作说明](docs/usage.md#ai-协作)。
 
-可以通过环境变量 `CREATIVE_BOARD_DATA_DIR` 指定数据目录；`CREATIVE_BOARD_PORT` 设置端口。浏览位置和界面偏好保存在浏览器本地存储，换浏览器不会自动同步。引用外部媒体时，备份白板 JSON 不等于备份媒体文件。
+## 使用前了解
 
-## 当前边界
+- 当前是本机工具。双开可以分别工作、跨窗口复制，但不支持多人实时协作；同一白板发生修改冲突时会提示。
+- 音视频播放取决于浏览器支持的格式。阅读位置保存在当前浏览器里；外部网站和部分动态网页无法恢复。
+- 历史记录可以帮助恢复误操作，仍建议独立备份。服务没有远程访问鉴权，请勿直接开放到公网。
+- Windows 与 Chrome 是主要的界面验证环境。自动检查覆盖 Windows、Linux 的 Python 3.10 与 3.13；其他桌面环境仍需实际验证。
 
-这是持续迭代中的本机工具。Windows 与 Chromium 是主要验证环境；其他系统可运行 Python 服务，但桌面操作仍需更多测试。
+更多信息：[使用说明](docs/usage.md) · [参与开发](CONTRIBUTING.md) · [安全说明](SECURITY.md)
 
-- 仅监听本机地址，没有账号、远程访问鉴权或多人实时合并。不要通过端口转发直接开放到公网。
-- 双开支持独立工作和冲突提示，不会自动合并两个人的修改。
-- AI 接入采用导出、提案和审核流程，不会自动上传内容。
-- 音视频格式能否播放取决于浏览器。外部网站和动态网页的内部状态不保证恢复。
-- 历史记录与当前文件在同一数据目录中，不能替代独立备份。
-- 当前前端保留了多轮迭代的覆盖式实现；模块化与更多交互回归测试仍待完善。
+---
 
-[使用说明](docs/usage.md) · [参与开发](CONTRIBUTING.md) · [安全说明](SECURITY.md)
+Creative Whiteboard is a local-first canvas for notes, media and tables. It runs with Python’s standard library and a browser. The interface and documentation are currently in Chinese.
 
-## 测试
-
-```sh
-python -m unittest discover -s tests -v
-```
-
-测试使用临时数据目录，不读取个人工作区。GitHub Actions 会在 Windows、Linux 上检查 Python 3.10 与 3.13，并检查独立 JavaScript 文件语法。
-
-## 许可证
-
-[MIT](LICENSE)。许可证适用于本仓库程序和通用示例；导入的第三方媒体保留各自的权利与使用条件。
+[MIT License](LICENSE) applies to the application and included examples. Imported media retains its original license.
