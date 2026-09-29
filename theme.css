@@ -13,3 +13,23 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 #links .connector-line{stroke:#9a9ba1}#links .connector:hover .connector-line,#links .connector.selected .connector-line,#links .connector-preview{stroke:var(--ui-accent)}#links .connector text{fill:#dadade;stroke:var(--ui-canvas)}
 /* Secondary labels retain readable contrast on the dark panels. */
 #workspaceSidebar .location-heading strong{color:var(--ui-text)}.wf-explain,.wf-diff small,.wf-result small,.wf-empty,.wf-origin-status,.wf-search-snippet,.wf-history-row small,.destination-browser small,.destination-footer small,.destination-toggle small{color:var(--ui-muted)}.wf-result p{color:var(--ui-text)}.wf-history-row{border-color:var(--ui-line)}.node .inline-toolbar button,.node.table .table-actions button{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line)}
+
+/* Compact navigation and content-aware table reading layout. */
+#workspaceSidebar .workspace-tabs{display:flex;align-items:center;gap:3px;padding:6px;margin:10px 10px 8px}
+#workspaceSidebar .workspace-tabs #sidebarClose{order:10;flex:0 0 26px;min-width:26px;padding:5px 0;background:transparent;color:var(--ui-muted)}
+#workspaceSidebar .location-heading{display:none}
+#workspaceSidebar .clear-location{padding:10px 12px;margin-top:0}
+#workspaceSidebar .clear-location nav{flex-wrap:wrap;line-height:1.5}
+.node.table .read-layout .empty-field{display:none!important}
+.node.table .read-layout .add-cell-image{display:none!important}
+.node.table .read-layout td{vertical-align:top}
+.node.table .read-layout .cell-content{margin:0 0 8px;padding:10px;min-height:0}
+.node.table .read-layout .cell-content:last-child{margin-bottom:0}
+.node.table .cell-file{background:var(--ui-panel);border-color:var(--ui-line);color:var(--ui-text)}
+.node.table .cell-file textarea{color:var(--ui-text)}
+.node.table .cell-file a{color:#a7c5e5}
+.node.table .cell-content audio{display:block;margin:8px 0 2px}
+.node.table .cell-contents:empty,.node.table .cell-images:empty{display:none}
+.node.table .read-layout .cell-content textarea{overflow:hidden;resize:none}
+
+.node.table .read-layout .edit-table th:not(.row-number){padding-top:10px;padding-bottom:10px}

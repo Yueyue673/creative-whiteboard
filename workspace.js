@@ -90,7 +90,7 @@ window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0
 for(const name of ['gesturestart','gesturechange','gestureend'])window.addEventListener(name,e=>e.preventDefault(),{passive:false});
 
 function mediaMarkup(n){const a=n.mediaId?assetById(n.mediaId):null;return a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></video>':a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></audio>':''}
-function growContentFields(root=document){root.querySelectorAll('.node textarea').forEach(el=>{el.style.height='auto';el.style.height=Math.max(el.scrollHeight+2,el.matches('[data-row]')?40:28)+'px'})}
+function growContentFields(root=document){root.querySelectorAll('.node textarea').forEach(el=>{el.classList.toggle('empty-field',!el.value.trim());el.style.height='0px';el.style.height=Math.max(el.scrollHeight+2,el.matches('[data-row]')?40:28)+'px'})}
 const beforeUnifiedDraw=drawNodes;drawNodes=function(){beforeUnifiedDraw();growContentFields()};
 document.addEventListener('input',e=>{if(e.target.matches('.node textarea'))growContentFields(e.target.closest('.node'))});
 
@@ -160,7 +160,7 @@ $('assetPane').querySelector('.manager-hint').textContent='拖入或粘贴图片
 const sidebar=document.createElement('aside');sidebar.id='workspaceSidebar';
 const sideTop=document.createElement('div');sideTop.className='sidebar-top';sideTop.innerHTML='<span>工作空间</span><button id="sidebarClose" title="收起侧栏 · Ctrl+\\" aria-label="收起侧栏">‹</button>';
 const tabs=document.createElement('nav');tabs.className='workspace-tabs';tabs.setAttribute('aria-label','工作空间导航');
-sidebar.append(sideTop,tabs);document.querySelector('main').prepend(sidebar);
+sidebar.append(tabs);tabs.append(sideTop.querySelector('button'));document.querySelector('main').prepend(sidebar);
 for(const [button,panel,label]of [['manage','manager','白板'],['assetsButton','assetPane','素材'],['toggleOutline','outline','本页内容']]){const b=$(button);b.textContent=label;b.setAttribute('role','tab');tabs.append(b);sidebar.append($(panel))}
 const toggle=document.createElement('button');toggle.id='sidebarToggle';toggle.textContent='☰';toggle.title='展开 / 收起侧栏 · Ctrl+\\';toggle.setAttribute('aria-label','展开或收起侧栏');document.querySelector('header').prepend(toggle);
 let workspaceTab='manager';
