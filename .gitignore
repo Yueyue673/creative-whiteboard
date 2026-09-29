@@ -1,0 +1,19 @@
+# Personal workspaces and local runtime state
+/data/
+/内容/
+/素材文件/
+/回收站/
+/历史记录/
+/维护备份/
+/AI待审核/
+/目录.json
+/素材目录.json
+__pycache__/
+*.py[cod]
+*.log
+.env
+.env.*
+.venv/
+node_modules/
+.DS_Store
+Thumbs.db

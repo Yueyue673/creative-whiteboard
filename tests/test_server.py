@@ -1,0 +1,99 @@
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+import urllib.request
+import urllib.error
+
+ROOT = Path(__file__).resolve().parents[1]
+
+class ServerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            cls.port = s.getsockname()[1]
+        cls.base = f"http://127.0.0.1:{cls.port}"
+        env = dict(os.environ, CREATIVE_BOARD_PORT=str(cls.port),
+                   CREATIVE_BOARD_DATA_DIR=cls.tmp.name, PYTHONIOENCODING="utf-8")
+        cls.process = subprocess.Popen([sys.executable, str(ROOT / "server.py")],
+                                      env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        for _ in range(100):
+            if cls.process.poll() is not None:
+                raise RuntimeError(cls.process.stderr.read().decode("utf-8", "replace"))
+            try:
+                with urllib.request.urlopen(cls.base + "/api/health", timeout=.5):
+                    return
+            except OSError:
+                time.sleep(.05)
+        raise RuntimeError("Server did not become ready")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.process.terminate()
+        cls.process.wait(timeout=10)
+        cls.process.stderr.close()
+        cls.tmp.cleanup()
+
+    def request(self, path, method="GET", value=None, headers=None):
+        data = json.dumps(value).encode() if value is not None else None
+        req = urllib.request.Request(self.base + path, data=data, method=method,
+                                     headers=headers or {})
+        try:
+            response = urllib.request.urlopen(req, timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            raw = response.read()
+            return response.status, response.headers, raw
+
+    def test_blank_workspace_and_static_files(self):
+        status, _, raw = self.request("/api/folders")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw), {"folders": []})
+        for path in ["/", "/workspace.js", "/workflow.js", "/workspace.css"]:
+            self.assertEqual(self.request(path)[0], 200)
+        self.assertEqual(self.request("/app_paths.py")[0], 404)
+
+    def test_conflict_and_trash_restore(self):
+        board = {"format": "creative-board", "version": 1, "name": "test", "folder": "", "nodes": [], "edges": []}
+        status, headers, _ = self.request("/api/boards/test", "PUT", board, {"If-Match": "new"})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.request("/api/boards/test", "PUT", board, {"If-Match": "new"})[0], 409)
+        status, _, raw = self.request("/api/boards/test", "DELETE", headers={"If-Match": headers["ETag"]})
+        self.assertEqual(status, 200)
+        ticket = json.loads(raw)["ticket"]
+        self.assertEqual(self.request("/api/boards/test")[0], 404)
+        self.assertEqual(self.request("/api/trash/" + ticket, "PUT")[0], 200)
+        self.assertEqual(json.loads(self.request("/api/boards/test")[2]), board)
+
+    def test_origin_and_host_checks(self):
+        self.assertEqual(self.request("/api/folders", "PUT", {"folders": []},
+                         {"Origin": "https://example.com", "If-Match": "new"})[0], 403)
+        self.assertEqual(self.request("/api/health", headers={"Host": "example.com"})[0], 403)
+
+    def test_json_upload_and_media(self):
+        req = urllib.request.Request(self.base + "/api/assets/upload", data=b'{"name":"sample"}',
+              method="POST", headers={"Content-Type": "application/octet-stream", "X-File-Name": "sample.json"})
+        with urllib.request.urlopen(req) as response:
+            item = json.load(response)
+        self.assertTrue(Path(item["path"]).resolve().is_relative_to(Path(self.tmp.name).resolve()))
+        status, _, raw = self.request("/api/media/" + item["id"])
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw), {"name": "sample"})
+        self.assertEqual(self.request("/api/media/" + item["id"], headers={"Range": "bytes=0-3"})[0], 206)
+
+    def test_public_example_is_valid(self):
+        example = json.loads((ROOT / "examples/getting-started.json").read_text(encoding="utf-8"))
+        self.assertEqual(self.request("/api/boards/example", "PUT", example, {"If-Match": "new"})[0], 200)
+        self.assertEqual(self.request("/api/checkpoints/example", "PUT")[0], 200)
+        self.assertTrue(json.loads(self.request("/api/history/boards/example")[2]))
+
+if __name__ == "__main__":
+    unittest.main()
