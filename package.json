@@ -1,0 +1,10 @@
+{
+  "name": "creative-whiteboard",
+  "private": true,
+  "scripts": {
+    "test:browser": "node tests/browser-workflows.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

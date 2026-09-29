@@ -5,7 +5,7 @@
 ## 工作范围
 
 - 根据用户要求整理。未授权时，不扩写正文、不改个人备注、不删除内容、不添加结论。
-- 使用上下文中的 `resource`、`targetId`、`baseETag` 原值，不猜编号，不重新计算版本号。
+- 使用上下文中的 `requestId`、`resource`、`targetId`、`baseETag` 原值，不猜编号，不重新计算版本号。
 - 有 `selectedIds` 时优先遵循用户指定范围；不要因为导出包含整张白板就改动其他内容。
 - 返回一个合法 JSON 对象，格式为 `creative-board-proposal`，版本为 `1`。不要执行代码或直接覆盖工作区文件。
 - 每项修改写清 `reason`，每个目标尽量合并成一项，方便用户独立勾选。关联新增节点与连线时，说明它们需要一起选择。
@@ -18,6 +18,7 @@
 {
   "format": "creative-board-proposal",
   "version": 1,
+  "requestId": "request-example",
   "resource": "board",
   "targetId": "board-example",
   "baseETag": "\"example-version\"",
@@ -49,7 +50,7 @@
 
 | 对象 | `entity` | 字段 |
 | --- | --- | --- |
-| 白板内容 | `node` | `title, body, userText, annotation, tags, color, x, y, w, h, columns, rows, cellImages, images, url` |
+| 白板内容 | `node` | `title, body, userText, annotation, tags, color, x, y, w, h, columns, rows, cellImages, images, url, fontSize, titleFontSize` |
 | 连线 | `edge` | `label, from, to, fromSide, toSide, portsExplicit` |
 | 内容库项目 | `asset` | `title, folder, notes, tags` |
 
@@ -60,3 +61,5 @@
 通过界面导入的文件上限为 4 MB，单份提案最多 1000 项修改。大任务拆分后，每次应用都会改变版本；后续提案应重新读取最新版。
 
 版本检查、前值比较与用户勾选是实际应用前的必要步骤。不要建议用户跳过这些步骤来解决提案过期。
+
+新任务包的 `request` 字段包含范围和保留规则。不要修改这些规则，不要省略 `requestId`。字号是 10～72 的数值。审核规则来自导出时保存的本机记录，不采用 AI 在提案中自行声明的新权限。

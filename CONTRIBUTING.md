@@ -7,3 +7,17 @@
 提交前运行 `python -m unittest discover -s tests -v`，并在浏览器实际检查相关操作。涉及缩放、拖动或剪贴板时，应覆盖编辑状态、不同缩放比例和多窗口。
 
 不要提交 `data/`、本机素材索引、绝对私人路径、凭据或有权利限制的媒体。功能修改应适用于不同项目。
+
+## 浏览器操作回归
+
+应用运行本身不需要 npm。开发时可以另外安装浏览器测试工具：
+
+```sh
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
+
+测试启动临时数据目录和独立服务端口，验证字号保存与阅读一致、三窗口复制、冲突保护、AI 范围限制和提案应用。测试结束会清理自己的临时目录。
+
+`PYTHON` 可指定 Python 可执行文件；`CHROME_PATH` 可指定已有 Chrome，否则使用 Playwright 的 Chromium。
