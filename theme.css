@@ -109,3 +109,31 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 @media(max-width:600px){#canvas #creationDock button{padding-left:8px;padding-right:8px}#creationDock .text-size-popup{left:auto;right:0;transform:none;min-width:215px}}
 
 .node .playback-state[hidden]{display:none!important}
+
+/* Shared content controls and readable task/reply exchange. */
+.node .block-actions{position:absolute;right:9px;top:8px;z-index:8;display:flex;gap:2px;opacity:0;pointer-events:none;padding:2px;border-radius:4px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 1px 5px #0002}
+.node.active:not(:has(.live-layout)) .block-actions,.node .block-actions:focus-within{opacity:1;pointer-events:auto}
+.node .block-actions button{display:grid;place-items:center;width:25px;height:25px;padding:0;border:0;border-radius:3px;background:transparent;font-size:18px;color:inherit}
+.node .block-actions button:hover{background:var(--ui-hover)}
+.node .block-actions .block-transfer{cursor:grab}.node .block-actions .block-transfer:active{cursor:grabbing}
+.node.active:not(:has(.live-layout)) [data-preview-id=title]{padding-right:60px}
+.node #inlineDuplicate,.node #inlineDelete{display:none}
+.node:is([data-file-kind=audio],[data-file-kind=video],[data-file-kind=image]) .edit-scroll>[data-file-link]{display:none}
+.node.table .table-scroll{border:0;border-radius:0;background:transparent}
+.node.table .edit-table{border:1px solid var(--ui-line)}
+.node .cell-content textarea[data-cell-note-field=title]{min-height:28px!important}
+.node .drop-target{background:#465264!important;outline:2px solid var(--ui-accent);outline-offset:-2px}
+body.content-transfer .node .read-layout [data-cell]{pointer-events:auto}
+#referencePaths,#aiReplyText{font:13px/1.65 ui-monospace,Consolas,monospace;resize:vertical;width:100%;min-height:85px}
+#referenceError,#aiReplyStatus{font-size:13px;line-height:1.6;overflow-wrap:anywhere;margin:8px 0;color:var(--ui-text)}
+.ai-compose{display:grid;gap:12px;min-width:0}.ai-compose>label{display:grid;gap:6px;font-size:13px}
+.ai-compose #aiTaskText{min-height:95px;margin:0;line-height:1.75;font:14px/1.75 inherit;resize:vertical}
+.ai-compose .task-presets{margin:0;gap:6px}.ai-compose .task-presets button{background:transparent;border-color:var(--ui-line);color:var(--ui-muted);padding:6px 10px}
+.ai-compose .ai-options{border:0;margin:0;padding:0}.ai-compose .ai-options summary{padding:7px 0;background:transparent;border:0;font-size:13px;color:var(--ui-muted)}
+.ai-compose .task-options{padding:6px 0;margin:0}.ai-compose .task-options label{display:flex;align-items:center;gap:7px}
+.ai-task-controls{display:flex;gap:8px;flex-wrap:wrap}.ai-task-controls button{padding:9px 12px;font-size:13px}
+#aiCopyTask,#aiReviewReply{background:#52627a;border-color:#677a93;color:#f4f5f7}
+#aiReplyArea{border-top:1px solid var(--ui-line);padding-top:14px}#aiReplyArea[hidden]{display:none}
+#aiReplyArea>label{display:grid;gap:6px;font-size:13px}#aiReplyArea button{font-size:13px;padding:8px 10px;margin-right:5px}
+.ai-connection-note{font-size:12px!important;color:var(--ui-muted)!important;margin:0;line-height:1.7!important}
+.experience-help h3{font-size:15px;margin:18px 0 6px}.experience-help p{font-size:13px;line-height:1.8;margin:0}

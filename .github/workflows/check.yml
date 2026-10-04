@@ -25,6 +25,7 @@ jobs:
       - run: node --check shell.js
       - run: node --check pane.js
       - run: node --check cells.js
+      - run: node --check experience.js
   browser:
     runs-on: ubuntu-latest
     steps:

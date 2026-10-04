@@ -91,25 +91,70 @@ class AssetMixin:
    self.reply(200,{'saved':True},etag=etag)
   except Exception as e:self.reply(400,{'error':str(e)})
   return True
+ def asset_reference(self):
+  try:
+   length=int(self.headers.get('Content-Length','0'))
+   if not 0<length<=256*1024:raise ValueError('文件路径信息过长')
+   request=json.loads(self.rfile.read(length));paths=request.get('paths');folder=request.get('folder','');replace=request.get('replaceId')
+   if not isinstance(paths,list) or not 1<=len(paths)<=40 or any(not isinstance(p,str) for p in paths):raise ValueError('请填写文件完整路径，每行一个')
+   if not isinstance(folder,str) or len(folder)>1000:raise ValueError('存放位置无效')
+   if replace and (not isinstance(replace,str) or len(paths)!=1):raise ValueError('重新定位时只填写一个路径')
+   files=[]
+   for p in paths:
+    f=Path(p).expanduser()
+    if not f.is_absolute():raise ValueError('请使用完整路径：'+p)
+    f=f.resolve()
+    if not f.is_file():raise ValueError('找不到文件：'+p)
+    files.append(f)
+   with LOCK:
+    d=data();result=[]
+    if replace:
+     item=next((a for a in d['assets'] if a['id']==replace),None)
+     if not item or item.get('mime')=='application/x-creative-bundle':raise ValueError('这项内容不是可重新定位的文件')
+     f=files[0];item.update(path=str(f),mime=kind(f),size=f.stat().st_size,isReference=True)
+     item.pop('contentHash',None);item.pop('contentMtime',None);result.append(item)
+    else:
+     for f in files:
+      existing=next((a for a in d['assets'] if not a.get('archived') and a.get('path')==str(f) and a.get('folder')==folder),None)
+      if existing:result.append(existing);continue
+      item={'id':uuid.uuid4().hex,'title':f.name,'path':str(f),'folder':folder,'mime':kind(f),'size':f.stat().st_size,'notes':'','tags':[],'isReference':True}
+      d['assets'].append(item);result.append(item)
+     if folder and folder not in d['folders']:d['folders'].append(folder)
+    save(d)
+   self.reply(200,{'assets':result})
+  except Exception as e:self.reply(400,{'error':str(e)})
+  return True
  def do_POST(self):
   if not self.allowed() or self.headers.get('Origin') not in [None,'http://'+self.headers.get('Host','')]:self.reply(403,{'error':'仅限本机'});return
+  if urlparse(self.path).path=='/api/assets/reference':return self.asset_reference()
   if urlparse(self.path).path!='/api/assets/upload':self.reply(404,{'error':'不存在'});return
   f=None
   try:
    length=int(self.headers.get('Content-Length','0'))
-   if not 0<length<=256*1024*1024:raise ValueError('拖入文件最多256MB；更大的素材请通过目录登记原路径')
+   if not 0<length<=256*1024*1024:raise ValueError('直接上传最多256MB；更大的素材请使用“导入 → 引用本地文件”')
    name=Path(unquote(self.headers.get('X-File-Name','文件'))).name
    folder=unquote(self.headers.get('X-Folder',''))
    ident=uuid.uuid4().hex;ext=Path(name).suffix[:20];FILES.mkdir(exist_ok=True);f=FILES/(ident+ext)
+   content_hash=hashlib.sha256()
    with f.open('wb') as stream:
     remaining=length
     while remaining:
      chunk=self.rfile.read(min(1024*1024,remaining))
      if not chunk:raise ValueError('上传未完成')
-     stream.write(chunk);remaining-=len(chunk)
-   item={'id':ident,'title':name,'path':str(f),'folder':folder,'mime':kind(f),'notes':'','tags':[],'size':length}
+     stream.write(chunk);content_hash.update(chunk);remaining-=len(chunk)
+   item={'id':ident,'title':name,'path':str(f),'folder':folder,'mime':kind(f),'notes':'','tags':[],'size':length,'contentHash':content_hash.hexdigest(),'contentMtime':f.stat().st_mtime_ns}
    with LOCK:
-    d=data();d['assets'].append(item)
+    d=data();match=None
+    for a in d['assets']:
+     if a.get('contentHash')!=item['contentHash'] or a.get('size')!=length:continue
+     old=Path(a['path'])
+     if old.parent.resolve()==FILES.resolve() and old.is_file() and old.stat().st_size==length and a.get('contentMtime')==old.stat().st_mtime_ns:match=a;break
+    if match:
+     f.unlink()
+     same=next((a for a in d['assets'] if not a.get('archived') and a.get('path')==match['path'] and a.get('title')==name and a.get('folder')==folder),None)
+     if same:self.reply(200,same);return
+     item['path']=match['path'];item['contentMtime']=match['contentMtime']
+    d['assets'].append(item)
     if folder and folder not in d['folders']:d['folders'].append(folder)
     save(d)
    self.reply(200,item)

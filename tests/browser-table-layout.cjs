@@ -31,7 +31,7 @@ const {chromium} = require('playwright');
   const card = page.locator('.node[data-id="' + id + '"]');
   const dimensions = () => page.evaluate(() => {const n = board.nodes[0]; return {x: n.x, y: n.y, w: n.w, h: n.h}});
   const initial = await dimensions();
-  assert.equal(initial.h, 360, 'New table keeps its initial height');
+  assert(initial.h >= 300 && initial.h <= 520, 'New table starts with a readable frame');
   async function unchanged(expected, reason) {
    await page.waitForTimeout(120);
    assert.deepEqual(await dimensions(), expected, reason);

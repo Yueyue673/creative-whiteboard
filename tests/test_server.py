@@ -57,7 +57,7 @@ class ServerTest(unittest.TestCase):
         status, _, raw = self.request("/api/folders")
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(raw), {"folders": []})
-        for path in ["/", "/index.html", "/workspace.js", "/workflow.js", "/workspace.css", "/shell.js", "/shell.css", "/pane.js", "/cells.js"]:
+        for path in ["/", "/index.html", "/workspace.js", "/workflow.js", "/workspace.css", "/shell.js", "/shell.css", "/pane.js", "/cells.js", "/experience.js"]:
             self.assertEqual(self.request(path)[0], 200)
         self.assertEqual(self.request("/app_paths.py")[0], 404)
 
