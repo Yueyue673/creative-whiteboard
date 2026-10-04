@@ -92,3 +92,5 @@ button,summary,select{transition:none}
 .ai-compose>p{line-height:1.75}.ai-compose>.wf-explain{margin-top:4px;margin-bottom:18px}.ai-compose .ai-context-details{margin:12px 0}.media-controls{position:relative}.media-controls .media-marker-tick{top:0!important}
 @media(max-width:420px){.media-marker-editor{grid-template-columns:minmax(0,1fr)}.media-marker-description,.media-marker-actions,.media-marker-error{grid-column:1}.media-marker-heading{flex-wrap:wrap}.media-marker-heading strong{flex-basis:100%}.media-marker-actions{flex-wrap:wrap}}
 .hand-tool .web-frame-host::after,.space-panning .web-frame-host::after{content:"";position:absolute;inset:0;background:transparent;z-index:4;cursor:grab;pointer-events:auto}.hand-tool.document-panning .web-frame-host::after,.space-panning.document-panning .web-frame-host::after{cursor:grabbing}
+
+.asset-row.cut-pending,[data-asub].cut-pending,[data-afolder].cut-pending{opacity:.45}

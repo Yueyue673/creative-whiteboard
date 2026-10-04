@@ -82,7 +82,7 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    f=DATA/(m[1]+'.json')
    if not f.exists():self.reply(404,{'error':'找不到这张白板'});return
    raw=f.read_bytes();self.reply(200,raw,etag=digest(raw));return
-  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js']:
+  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
   if p=='/vendor/html2canvas.min.js':
    self.reply(200,(APP_ROOT/'vendor/html2canvas.min.js').read_bytes(),'text/javascript; charset=utf-8');return
