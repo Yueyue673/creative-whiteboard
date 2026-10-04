@@ -33,3 +33,40 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node.table .read-layout .cell-content textarea{overflow:hidden;resize:none}
 
 .node.table .read-layout .edit-table th:not(.row-number){padding-top:10px;padding-bottom:10px}
+
+/* Keep editing tools together inside the card, with a stable table viewport. */
+.node .read-layout .inline-toolbar{display:none}
+.node .live-layout .inline-toolbar{position:relative;left:auto;bottom:auto;top:auto;width:100%;min-width:0;max-width:100%;height:auto;min-height:36px;border:0;border-bottom:1px solid var(--ui-line);border-radius:0;box-shadow:none;padding:6px 10px;background:var(--ui-panel);display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0}
+.node .live-layout .inline-toolbar #inlineDone{margin-left:auto}
+.node .live-layout .inline-toolbar button,.node .table-actions summary{padding:5px 8px;font-size:12px;line-height:1.4}
+.node.table .live-layout #inlineImages{display:none}
+.node.table .table-actions{position:static;display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:0;margin:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+.node.table .table-options{position:relative;margin:0}
+.node.table .table-options summary{border:0;border-radius:4px;background:var(--ui-raised);color:var(--ui-text)}
+.node.table .table-options[open]>div{position:absolute;top:calc(100% + 5px);left:0;z-index:20;min-width:150px;padding:6px;display:grid;gap:4px;border:1px solid var(--ui-line);border-radius:6px;background:var(--ui-panel);box-shadow:0 5px 18px #0004}
+.node.table .table-options button{text-align:left;white-space:nowrap}
+.node.table .content-table{padding:12px;min-height:0}
+.node.table .edit-table tbody td{position:relative;vertical-align:top;height:48px}
+.node.table .read-layout td>textarea.empty-field{display:block!important;height:40px!important;min-height:40px!important}
+.node.table .read-layout td:has(.cell-content,.cell-images)>textarea.empty-field{display:none!important}
+.node.table .edit-table th:not(.row-number),.node.table .read-layout .edit-table th:not(.row-number){padding:4px 0}
+.node.table .edit-table th input{padding:10px 23px}
+.node.table .edit-table th>.table-grip{top:50%;transform:translateY(-50%);left:3px}
+.node.table .edit-table th>.col-remove{top:50%;transform:translateY(-50%);right:3px}
+.node.table .row-number .table-grip{position:static;display:block;padding:11px 0;font-size:11px;white-space:nowrap}
+.node.table .read-layout .row-number .table-grip{visibility:visible;cursor:default}
+.node.table .read-layout .grip-icon{display:none}
+.node.table .edit-table .col-remove{opacity:0}
+.node.table .live-layout .edit-table th:hover .col-remove,.node.table .live-layout .row-number:hover .col-remove{opacity:1}
+.node.table .add-cell-image{position:absolute;right:4px;bottom:4px;margin:0;padding:3px 5px;background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:4px;visibility:hidden}
+.node.table .live-layout td:hover>.add-cell-image,.node.table .live-layout td:focus-within>.add-cell-image{visibility:visible}
+.node .meta-heading{display:flex;align-items:center;justify-content:space-between}
+.node #inlineMetaClose{border:0;background:transparent;color:var(--ui-muted);padding:2px 6px;font-size:18px}
+#creationDock #textSizeTools{position:relative;top:auto;left:auto;right:auto;bottom:auto;transform:none;width:auto;max-width:none;min-width:0;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;display:block}
+#creationDock #textSizeTools[hidden]{display:none}
+#creationDock #textSizeTools>summary{background:transparent;border:0;padding:7px 9px;color:var(--ui-text);font-size:12px}
+#creationDock .text-size-popup{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);display:grid;gap:9px;min-width:240px;padding:14px;background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:8px;box-shadow:0 6px 20px #0004}
+
+.node .inner.editing>.edit-scroll{flex:1;min-height:0;height:auto}
+.node .live-layout .inline-toolbar>span{display:none}
+#creationDock #textSizeTools>summary:hover{background:var(--ui-hover);border-radius:4px}
