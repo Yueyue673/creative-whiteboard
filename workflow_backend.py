@@ -7,10 +7,19 @@ from app_paths import APP_ROOT, DATA_ROOT
 ROOT=DATA_ROOT
 HISTORY=ROOT/'历史记录'
 PROPOSALS=ROOT/'AI待审核'
+TASKS=ROOT/'AI任务'
 HLOCK=threading.RLock()
 
 def rawjson(value):return json.dumps(value,ensure_ascii=False,indent=2).encode('utf-8')
 def safe_id(value):return bool(re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',value))
+def content_digest(value):
+ def normalize(v):
+  if isinstance(v,dict):return {k:normalize(x) for k,x in v.items()}
+  if isinstance(v,list):return [normalize(x) for x in v]
+  if isinstance(v,float) and v.is_integer():return int(v)
+  return v
+ content={k:v for k,v in value.items() if k!='view'}
+ return hashlib.sha256(json.dumps(normalize(content),sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
 def snapshot(kind,key,raw,force=False):
  if not raw:return
  with HLOCK:
@@ -77,6 +86,26 @@ def search(q):
  return {'results':rows[:150],'total':len(rows),'note':'搜索白板、组合正文、备注与文件名；文本文件读取前256KB，音视频和PDF不做全文识别。'}
 
 def workflow_get(handler,p):
+ m=re.fullmatch(r'/api/ai/tasks/([a-zA-Z0-9_-]{1,100})/current',p)
+ if m:
+  try:
+   task=json.loads((TASKS/(m[1]+'.json')).read_bytes());source=ROOT/'内容'/(task['targetId']+'.json') if task['resource']=='board' else ROOT/'素材目录.json';raw=source.read_bytes()
+   handler.reply(200,{'baseETag':hashlib.sha256(raw).hexdigest(),'contentUnchanged':content_digest(json.loads(raw))==task.get('contentETag')})
+  except (OSError,ValueError,KeyError):handler.reply(404,{'error':'原任务或内容已不存在'})
+  return True
+ if p=='/api/ai/tasks':
+  rows=[]
+  for f in TASKS.glob('*.json'):
+   try:
+    d=json.loads(f.read_bytes());rows.append({'id':f.stem,'task':d['request']['task'],'resource':d['resource'],'targetId':d['targetId'],'createdAt':d.get('createdAt',0),'count':len(d['selectedIds'])})
+   except (OSError,ValueError,KeyError):continue
+  handler.reply(200,sorted(rows,key=lambda x:x['createdAt'],reverse=True));return True
+ m=re.fullmatch(r'/api/ai/tasks/([a-zA-Z0-9_-]{1,100})',p)
+ if m:
+  f=TASKS/(m[1]+'.json')
+  if not f.exists():handler.reply(404,{'error':'找不到这份 AI 任务，请重新创建'})
+  else:handler.reply(200,f.read_bytes())
+  return True
  if p=='/api/search':
   q=parse_qs(urlparse(handler.path).query).get('q',[''])[0].strip()[:200];handler.reply(200,search(q) if q else {'results':[],'total':0});return True
  m=re.fullmatch(r'/api/history/(boards|library)/([a-zA-Z0-9_-]{1,100})(?:/([0-9]+_[a-f0-9]+))?',p)
@@ -111,6 +140,45 @@ def workflow_get(handler,p):
  return False
 
 def workflow_put(handler,p):
+ m=re.fullmatch(r'/api/ai/tasks/([a-zA-Z0-9_-]{1,100})',p)
+ if m:
+  try:
+   length=int(handler.headers.get('Content-Length','0'))
+   if not 0<length<=16*1024*1024:raise ValueError('任务内容过大，请缩小选择范围')
+   value=json.loads(handler.rfile.read(length));request=value.get('request',{})
+   if value.get('format')!='creative-board-context' or value.get('version')!=1 or value.get('requestId')!=m[1] or request.get('id')!=m[1]:raise ValueError('任务格式不正确')
+   if value.get('resource') not in ('board','library'):raise ValueError('整理范围不正确')
+   if not isinstance(request.get('task'),str) or not request['task'].strip():raise ValueError('缺少整理要求')
+   for flag in ['keepWords','keepNotes','allowAdd','allowDelete']:
+    if type(request.get(flag)) is not bool:raise ValueError('任务规则格式不正确')
+   if value['resource']=='board':
+    if not safe_id(value.get('targetId','')):raise ValueError('白板编号不正确')
+    source=ROOT/'内容'/(value['targetId']+'.json')
+   else:source=ROOT/'素材目录.json'
+   raw=source.read_bytes();base=json.loads(raw)
+   if hashlib.sha256(raw).hexdigest()!=value.get('baseETag'):handler.reply(409,{'error':'内容刚刚有变化，请重新创建任务'});return True
+   if any(request.get(k)!=value.get(k) for k in ['resource','targetId','baseETag']):raise ValueError('任务与所选范围不一致')
+   nodes=base.get('nodes',[]) if value['resource']=='board' else base.get('assets',[])
+   selected=value.get('data',{}).get('nodes' if value['resource']=='board' else 'assets',[])
+   selected_ids=[n['id'] for n in selected];lookup={n['id']:n for n in nodes}
+   if not selected_ids or len(set(selected_ids))!=len(selected_ids) or any(i not in lookup for i in selected_ids):raise ValueError('选择内容不存在或重复')
+   if any(lookup[n['id']]!=n for n in selected):raise ValueError('内容已变化，请重新读取')
+   edges=[]
+   if value['resource']=='board':
+    edges=[e for e in base.get('edges',[]) if e['from'] in selected_ids and e['to'] in selected_ids]
+    if request.get('nodeIds')!=selected_ids:raise ValueError('所选内容与任务规则不一致')
+    value['data']={**base,'nodes':selected,'edges':edges}
+   else:value['data']={'assets':selected,'folders':base.get('folders',[])}
+   ids=selected_ids+[e['id'] for e in edges]
+   if set(request.get('ids',[]))!=set(ids) or set(value.get('selectedIds',[]))!=set(ids):raise ValueError('授权范围与选择内容不一致')
+   value['createdAt']=time.time();value['contentETag']=content_digest(base);value['files']=context_files(value['data'])
+   TASKS.mkdir(exist_ok=True);f=TASKS/(m[1]+'.json')
+   with HLOCK:
+    if f.exists():handler.reply(409,{'error':'任务已存在，请创建新任务'});return True
+    tmp=f.with_suffix('.tmp');tmp.write_bytes(rawjson(value));os.replace(tmp,f)
+   handler.reply(200,{**value,'localTaskPath':str(f)})
+  except Exception as e:handler.reply(400,{'error':str(e)})
+  return True
  m=re.fullmatch(r'/api/checkpoints/([a-zA-Z0-9_-]{1,100})',p)
  if m:
   f=ROOT/'内容'/(m[1]+'.json')
@@ -128,8 +196,74 @@ def workflow_put(handler,p):
    if m[2]:
     if not old:raise ValueError('提案不存在')
     d=json.loads(old);d['reviewStatus']=value.get('status','reviewed');d['acceptedChanges']=value.get('accepted',[]);d['reviewedAt']=time.time();value=d
-   elif value.get('format')!='creative-board-proposal' or value.get('version')!=1 or value.get('resource') not in ('board','library') or not isinstance(value.get('baseETag'),str) or not isinstance(value.get('changes'),list) or len(value['changes'])>1000:raise ValueError('提案格式无效')
+   else:
+    if value.get('format')!='creative-board-proposal' or value.get('version')!=1 or value.get('resource') not in ('board','library') or not isinstance(value.get('baseETag'),str) or not isinstance(value.get('changes'),list) or len(value['changes'])>1000:raise ValueError('提案格式无效')
+    validate_task_proposal(value)
    raw=rawjson(value);tmp=f.with_suffix('.tmp');tmp.write_bytes(raw);os.replace(tmp,f)
   handler.reply(200,{'saved':True},etag=hashlib.sha256(raw).hexdigest())
  except Exception as e:handler.reply(400,{'error':str(e)})
  return True
+
+def context_files(data):
+ ids=set()
+ def visit(obj):
+  if isinstance(obj,dict):
+   for k,v in obj.items():
+    if k in ('assetId','mediaId') and isinstance(v,str):ids.add(v)
+    elif isinstance(v,(dict,list)):visit(v)
+  elif isinstance(obj,list):
+   for v in obj:visit(v)
+ visit(data)
+ if 'assets' in data:ids.update(a['id'] for a in data['assets'] if a.get('path'))
+ try:catalog=json.loads((ROOT/'素材目录.json').read_bytes())
+ except (OSError,ValueError):return []
+ out=[]
+ for a in catalog.get('assets',[]):
+  if a['id'] not in ids or not a.get('path'):continue
+  item={k:a.get(k) for k in ['id','title','path','mime','notes','tags','size']};item['coverage']='文件引用；画面和声音未自动分析'
+  try:
+   p=Path(a['path']);st=p.stat();text=file_excerpt(str(p),st.st_mtime_ns,st.st_size)
+   if text:item.update(text=text[:12000],truncated=len(text)>12000 or st.st_size>262144,coverage='可读取的文字摘录，最多12000字符')
+  except OSError:item['coverage']='原文件暂时不可用'
+  out.append(item)
+ return out
+
+def validate_task_proposal(p):
+ request_id=p.get('requestId')
+ if not request_id:
+  for f in TASKS.glob('*.json'):
+   try:
+    task=json.loads(f.read_bytes())
+    if all(task.get(k)==p.get(k) for k in ['resource','targetId','baseETag']):raise ValueError('提案缺少原任务编号 requestId')
+   except (OSError,json.JSONDecodeError):continue
+  return  # Keep older, manually imported proposals readable.
+ if not safe_id(request_id):raise ValueError('任务编号无效')
+ f=TASKS/(request_id+'.json')
+ if not f.exists():raise ValueError('找不到原任务，请重新创建任务后再提交回复')
+ pack=json.loads(f.read_bytes());r=pack['request']
+ if any(p.get(k)!=pack.get(k) for k in ['resource','targetId','baseETag']):raise ValueError('提案与原任务不匹配')
+ ids=set(r['ids']);allowed_nodes=set(r.get('nodeIds',[]));new_nodes={c.get('targetId') for c in p['changes'] if c.get('op')=='add' and c.get('entity','node')=='node'}
+ objects=pack['data'].get('nodes',[])+pack['data'].get('edges',[])+pack['data'].get('assets',[]);old={n['id']:n for n in objects}
+ for c in p['changes']:
+  op=c.get('op');entity=c.get('entity','asset' if p['resource']=='library' else 'node');target=c.get('targetId')
+  if op not in ('add','update','delete') or entity not in ('node','edge','asset'):raise ValueError('修改方式无效')
+  if (p['resource']=='board' and entity=='asset') or (p['resource']=='library' and entity!='asset'):raise ValueError('修改对象超出任务范围')
+  if op=='add':
+   if not r['allowAdd']:raise ValueError('本次任务没有允许新增内容')
+   value=c.get('value',{})
+   if value.get('id')!=target or target in ids:raise ValueError('新增内容编号无效')
+   if entity=='edge' and any(value.get(k) not in allowed_nodes|new_nodes for k in ['from','to']):raise ValueError('连线超出了所选内容范围')
+   continue
+  if target not in ids:raise ValueError('提案修改了所选范围之外的内容')
+  if op=='delete':
+   if not r['allowDelete']:raise ValueError('本次任务没有允许删除内容')
+   if c.get('before')!=old[target]:raise ValueError('删除前内容不一致')
+   continue
+  after=c.get('after');before=c.get('before')
+  if not isinstance(after,dict) or not isinstance(before,dict):raise ValueError('修改字段格式错误')
+  allowed=['title','folder','notes','tags'] if entity=='asset' else ['label','from','to','fromSide','toSide','portsExplicit'] if entity=='edge' else ['title','body','userText','annotation','tags','color','x','y','w','h','columns','rows','cellImages','cellItems','images','url','fontSize','titleFontSize','columnWidths']
+  if r['keepWords'] and any(k in after for k in ['title','body','rows','columns','cellItems']):raise ValueError('本次任务要求保留原文')
+  if r['keepNotes'] and any(k in after for k in ['userText','annotation','notes','cellItems']):raise ValueError('本次任务要求保留个人补充和备注')
+  for k,v in after.items():
+   if k not in allowed or k not in before or old[target].get(k)!=before[k]:raise ValueError('修改字段或原值不正确：'+k)
+   if entity=='edge' and k in ('from','to') and v not in allowed_nodes:raise ValueError('连线超出了所选内容范围')

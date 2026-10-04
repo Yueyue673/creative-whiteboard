@@ -50,7 +50,7 @@
 
 | 对象 | `entity` | 字段 |
 | --- | --- | --- |
-| 白板内容 | `node` | `title, body, userText, annotation, tags, color, x, y, w, h, columns, rows, cellImages, images, url, fontSize, titleFontSize` |
+| 白板内容 | `node` | `title, body, userText, annotation, tags, color, x, y, w, h, columns, rows, columnWidths, cellImages, cellItems, images, url, fontSize, titleFontSize` |
 | 连线 | `edge` | `label, from, to, fromSide, toSide, portsExplicit` |
 | 内容库项目 | `asset` | `title, folder, notes, tags` |
 
@@ -62,4 +62,4 @@
 
 版本检查、前值比较与用户勾选是实际应用前的必要步骤。不要建议用户跳过这些步骤来解决提案过期。
 
-新任务包的 `request` 字段包含范围和保留规则。不要修改这些规则，不要省略 `requestId`。字号是 10～72 的数值。审核规则来自导出时保存的本机记录，不采用 AI 在提案中自行声明的新权限。
+新任务包的 `request` 字段包含范围和保留规则。不要修改这些规则，不要省略 `requestId`。字号是 10～72 的数值。审核规则来自本机 `AI任务/` 中保存的任务，不采用 AI 在提案中自行声明的新权限。文件的 `coverage` 和 `truncated` 字段说明资料是否附带摘录、是否被截断；音视频引用不代表画面和声音已被分析。

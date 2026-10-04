@@ -114,7 +114,7 @@ const {chromium} = require('playwright');
   const frame=p.frames().find(f=>f.url().includes('/index.html?'));
   await p.locator('#shellMore>summary').click();await frame.locator('#canvas').click({position:{x:200,y:60}});
   await p.waitForFunction(()=>!document.getElementById('shellMore').open);
-  await p.locator('#openBoards').click();await frame.locator('#manage').click();await frame.evaluate(()=>fit());
+  await p.locator('#openBoards').click();await p.waitForFunction(()=>window.whiteboardWorkspace.explorer());const shared=p.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');await shared.locator('#manage').click();await frame.evaluate(()=>fit());
   if(process.env.INTERFACE_SCREENSHOT)await p.screenshot({path:process.env.INTERFACE_SCREENSHOT});
   console.log('界面：结束编辑、表格键盘导航、文件夹选择与打开、菜单去重与关闭、来源查看、侧栏恢复、窄屏布局通过');
   assert.deepEqual(errors,[]);
