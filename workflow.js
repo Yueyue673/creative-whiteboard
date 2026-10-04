@@ -26,7 +26,7 @@ async function wfLocateOriginal(n){const a=assetById(n.libraryOrigin?.id||n.asse
 function wfOriginReview(nodeId){const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);if(!n||!a)return toast('找不到库中的原件');const original=wfOriginNode(n,a);showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">来自内容库 / '+esc(a.folder||'根目录')+'。白板上是独立副本；更新前会展示差异。</p><p>'+esc(original?'可以比较并选择更新方向。':'这项内容是原文件引用，或旧组合尚未能精确匹配到单块。可以定位原件或另存当前内容。')+'</p>',[['关闭',()=>$('dialog').close()],['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])])}
 function wfCompareOrigin(n,a,original,direction){const from=direction==='pull'?original:n,to=direction==='pull'?n:original;const changes=wfContentFields.filter(k=>!wfEqual(from[k],to[k])).map(field=>({field,before:clone(to[field]??null),after:clone(from[field]??null)}));const baseline=JSON.stringify(direction==='pull'?n:a),currentBoard=boardId;wfReview(direction==='pull'?'把库中更新用于这块内容':'更新库中原件',direction==='pull'?'只修改当前这块内容，保持它的位置、大小和连线。':'只更新库中的对应内容。其他白板的副本不会跟着改变。',changes,async picked=>{if(boardId!==currentBoard||JSON.stringify(direction==='pull'?board.nodes.find(x=>x.id===n.id):assetById(a.id))!==baseline)return toast('内容已变化，请重新比较'),false;if(direction==='pull'){undoPoint();for(const c of picked){if(c.after===null)delete n[c.field];else n[c.field]=clone(c.after)}render();change();toast('已应用库中更新 · Ctrl+Z 撤销')}else{const next=clone(assetIndex),target=next.assets.find(x=>x.id===a.id).bundle.nodes.find(x=>x.id===original.id);for(const c of picked){if(c.after===null)delete target[c.field];else target[c.field]=clone(c.after)}next.assets.find(x=>x.id===a.id).updated=Date.now();if(!await saveAssets(next))return false;toast('已更新库中原件 · 在内容库按 Ctrl+Z 可撤销')}})}
 refreshLibrarySource=async function(id){const a=assetById(id);if(!a?.source)return toast('这项内容没有原白板来源');if(!await persist())return;try{const source=await(await api('/api/boards/'+a.source.boardId)).json(),ids=new Set(a.source.nodeIds),nodes=source.nodes.filter(n=>ids.has(n.id));if(nodes.length!==ids.size)return toast('原白板有内容已删除，请重新收录需要的内容');const baseline=JSON.stringify(a),bundle={nodes,edges:source.edges.filter(e=>ids.has(e.from)&&ids.has(e.to))};wfReview('从来源白板更新组合','将替换库中的这份组合；其他白板上的副本不变。',[{field:'组合',before:a.bundle,after:bundle}],async()=>{if(JSON.stringify(assetById(id))!==baseline)return toast('库中版本已改变，请重新比较'),false;const next=clone(assetIndex),item=next.assets.find(x=>x.id===id);item.bundle=bundle;item.updated=Date.now();return saveAssets(next)})}catch(e){toast(e.message)}};
-function wfMountOrigins(){for(const el of $('nodes').children){const n=board.nodes.find(x=>x.id===el.dataset.id),id=n?.libraryOrigin?.id||n?.assetId,a=assetById(id);const existing=el.querySelector('.wf-origin');if(!a){existing?.remove();continue}if(existing){existing.textContent=(a.archived?'原件已移出库：':'来自：')+a.title;continue}const title=el.querySelector('#title,[data-preview-id=title]');if(!title)continue;const b=document.createElement('button');b.className='wf-origin inline-ui';b.textContent='来自：'+a.title;b.title='查看原件、比较更新，或另存当前内容';b.onclick=e=>{e.stopPropagation();wfOriginReview(n.id)};title.after(b)}}
+function wfMountOrigins(){for(const el of $('nodes').children){const n=board.nodes.find(x=>x.id===el.dataset.id),id=n?.libraryOrigin?.id||n?.assetId,a=assetById(id),meta=el.querySelector('#inlineMeta,[data-preview-id=inlineMeta]');let b=el.querySelector('.wf-origin');if(!a||!meta){b?.remove();continue}if(!b){b=document.createElement('button');b.className='wf-origin inline-ui';b.onclick=e=>{e.stopPropagation();wfOriginReview(n.id)}}b.textContent=(a.archived?'原件已移出库：':'库中原件：')+a.title;b.title='查看原件与版本';meta.querySelector('.meta-heading').after(b)}}
 const wfDrawNodes=drawNodes;drawNodes=function(){wfDrawNodes();wfMountOrigins()};
 const wfFileMenu=fileMenu;fileMenu=function(e,items){const n=board?.nodes.find(n=>n.id===e.target.closest?.('.node')?.dataset.id);if(n&&(n.libraryOrigin||n.assetId))items.push(['来源与版本…',()=>wfOriginReview(n.id)]);if(e.target.closest?.('#assetPane')&&assetSelected.size>1)items.push(['给选中内容添加标签…',wfBatchTags]);return wfFileMenu(e,items)};
 
@@ -85,7 +85,7 @@ wfAddMenu('AI 整理与审核…',wfAIInbox);
 const wfCollectDialog=askCollectSelection;askCollectSelection=function(){wfCollectDialog();const paragraph=$('dialogBody')?.querySelector('p');if(paragraph&&selected.size>1)paragraph.textContent+=' 组合会保留表格、图片和内部连线，下次可以整体复用，也可以只挑其中一块。'};
 collectDock.onclick=()=>askCollectSelection();
 
-function wfHelp(){showDialog('<h2>从积累内容到完成一张白板</h2><div class="wf-help"><h3>先放进来，不急着分类</h3><p>在内容库点“新建内容”写下想法，或者导入文件。文件夹可以逐层建立，稍后再多选整理也可以。</p><h3>白板用于编排，内容库用于积累</h3><p>从库拖到白板得到独立副本。你可以放心改编；卡片的“来自…”能带你回到原件，并比较是否需要更新。</p><p>在白板上选中便签、表格或一组内容，拖到库中的文件夹即可收录；也可以点“收进库”起名并选择位置。组合会保留内部连线，下次可整体使用，也可双击组合只取一块。</p><h3>找不到、改错了，都有入口</h3><p>Ctrl+K 搜索标题、正文、备注与文件名。内容库里的 F2 用来编辑，Delete 移入回收站，Ctrl+Z 撤销最近操作。“更多 → 恢复与历史记录”可找回旧内容，并能先另存，避免覆盖当前工作。</p><h3>AI 帮忙前，先确定范围</h3><p>在“更多 → AI 整理与审核”导出白板或库中所选项。让 AI 返回修改提案，再逐项勾选需要的改动。版本过期的提案会阻止应用，避免覆盖你后来写的东西。</p><h3>画布操作</h3><p>左键选择和摆放，右键拖动画布。HTML 内也支持右键拖动；Ctrl+滚轮以鼠标为中心缩放白板。网页自身大小用卡片顶部按钮调整。拉线时按 Esc 或松在空白处取消；单击线后按 Delete 删除，双击改说明。</p><p class="wf-explain">文件是对原媒体的引用，修改分类不会搬动硬盘上的文件。搜索不自动识别音视频或 PDF 全文；历史记录从这次更新开始保留。</p></div>',[['关闭',()=>$('dialog').close()]])}
+function wfHelp(){showDialog('<h2>从积累内容到完成一张白板</h2><div class="wf-help"><h3>先放进来，不急着分类</h3><p>在内容库点“新建内容”写下想法，或者导入文件。文件夹可以逐层建立，稍后再多选整理也可以。</p><h3>白板用于编排，内容库用于积累</h3><p>从库拖到白板得到独立副本。你可以放心改编；右键选择“来源与版本”，或在编辑时打开“说明”，即可找到库中原件并比较修改。</p><p>在白板上选中便签、表格或一组内容，拖到库中的文件夹即可收录；也可以点“保存到库”起名并选择位置。组合会保留内部连线，下次可整体使用，也可双击组合只取一块。</p><h3>找不到、改错了，都有入口</h3><p>Ctrl+K 搜索标题、正文、备注与文件名。内容库里的 F2 用来编辑，Delete 移入回收站，Ctrl+Z 撤销最近操作。“更多 → 恢复与历史记录”可找回旧内容，并能先另存，避免覆盖当前工作。</p><h3>AI 帮忙前，先确定范围</h3><p>在“更多 → AI 整理与审核”导出白板或库中所选项。让 AI 返回修改提案，再逐项勾选需要的改动。版本过期的提案会阻止应用，避免覆盖你后来写的东西。</p><h3>画布操作</h3><p>左键选择和摆放，右键拖动画布。HTML 内也支持右键拖动；Ctrl+滚轮以鼠标为中心缩放白板。网页自身大小用卡片顶部按钮调整。拉线时按 Esc 或松在空白处取消；单击线后按 Delete 删除，双击改说明。</p><p class="wf-explain">文件是对原媒体的引用，修改分类不会搬动硬盘上的文件。搜索不自动识别音视频或 PDF 全文；历史记录从这次更新开始保留。</p></div>',[['关闭',()=>$('dialog').close()]])}
 wfAddMenu('使用方法与快捷键…',wfHelp);
 // Reading position belongs to this browser, separately from authored board content.
 function sessionRead(key){try{return JSON.parse(localStorage.getItem('creative-reading:'+key)||'null')}catch{return null}}
@@ -207,4 +207,140 @@ wfHelp=function(){showDialog('<h2>自己整理，或请 AI 帮忙</h2><div class
 $('help').onclick=wfHelp;
 headerAction('workspaceGuide','使用帮助',wfHelp);
 if(board){applyTypography();syncTextTools();announce()}
+})();
+
+// Consistent navigation and contextual editing. All content stays in its original model.
+(() => {
+ const side = $('workspaceSidebar');
+ const tabIds = ['manage','assetsButton','toggleOutline'];
+ const panels = ['manager','assetPane','outline'];
+ const remember = () => {
+  try {localStorage.setItem('creative-sidebar-state', JSON.stringify({open:!side.hidden,tab:workspaceTab}))} catch {}
+ };
+ const originalToggle = toggleSidebar;
+ toggleSidebar = function(){originalToggle();remember()};
+ $('sidebarToggle').onclick = toggleSidebar;
+ const originalShow = showWorkspaceTab;
+ showWorkspaceTab = async function(panel){await originalShow(panel);remember()};
+ window.addEventListener('DOMContentLoaded', () => {
+  let saved;try {saved=JSON.parse(localStorage.getItem('creative-sidebar-state')||'null')} catch {}
+  if(!saved||!panels.includes(saved.tab))return;
+  workspaceTab=saved.tab;side.hidden=!saved.open;
+  for(const id of panels)$(id).hidden=id!==workspaceTab;
+  syncWorkspaceTabs();
+  if(saved.open)showWorkspaceTab(workspaceTab);
+ });
+ $('collectToLibrary').textContent='保存到库';
+ $('collectToLibrary').title='将选中的内容保存到内容库 · Ctrl+Shift+L';
+ for(const [id,label] of [['createFolder','新建文件夹'],['assetFolderNew','新建文件夹']]){
+  $(id).textContent='＋ 文件夹';$(id).title=label+' · Ctrl+Shift+N';$(id).setAttribute('aria-label',label);
+ }
+ // End an editing session when selecting another object or the empty canvas.
+ const originalDown=canvas.onpointerdown;
+ canvas.onpointerdown=function(e){
+  const leave=e.button===0&&editorId&&!e.target.closest('.live-layout,#creationDock,#canvasTools');
+  if(leave)editorId=null;
+  originalDown(e);
+  if(leave)drawNodes();
+ };
+ canvas.addEventListener('keydown',e=>{
+  const cell=e.target.closest('textarea[data-row][data-col]');
+  if(e.key!=='Tab'||e.ctrlKey||e.metaKey||e.altKey||!cell||!cell.closest('.live-layout'))return;
+  const fields=[...cell.closest('.edit-table').querySelectorAll('textarea[data-row][data-col]')];
+  const at=fields.indexOf(cell),next=fields[at+(e.shiftKey?-1:1)];
+  e.preventDefault();e.stopPropagation();
+  (next||(e.shiftKey?$('title'):$('inlineDone')))?.focus({preventScroll:true});
+  (next||cell).scrollIntoView({block:'nearest',inline:'nearest'});
+ });
+ // A folder click selects it; double-click or Enter opens it, like board folders.
+ const originalRenderAssets=renderAssets;
+ renderAssets=function(){
+  originalRenderAssets();
+  const folders=$('assetList').querySelectorAll('[data-asub]');
+  $('assetList').querySelectorAll('[data-asset]').forEach(row=>{
+   const click=row.onclick;
+   row.onclick=e=>{assetFolderPick=null;folders.forEach(f=>f.classList.remove('selected'));click(e)};
+  });
+  folders.forEach(row=>{
+   row.classList.toggle('selected',assetFolderPick===row.dataset.asub);
+   row.title=row.dataset.asub;
+   row.onclick=()=>{
+    assetFolderPick=row.dataset.asub;assetSelected.clear();
+    $('assetList').querySelectorAll('[data-asset], [data-asub]').forEach(el=>{
+     el.classList.toggle('selected',el===row);const check=el.querySelector('input[type=checkbox]');if(check)check.checked=false;
+    });
+    $('assetCount').textContent=(folders.length?folders.length+' 个文件夹 · ':'')+libraryMatches().length+' 项';
+   };
+   row.ondblclick=()=>{assetFolderPick=null;enterAssetFolder(row.dataset.asub)};
+   row.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();row.ondblclick()}};
+  });
+ };
+ side.addEventListener('keydown',e=>{
+  if(isTyping(e)||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey)return;
+  if(e.target.closest('.workspace-tabs')){
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+   const at=tabIds.indexOf(e.target.id);if(at<0)return;
+   const n=e.key==='Home'?0:e.key==='End'?2:(at+(e.key==='ArrowRight'?1:2))%3;
+   e.preventDefault();showWorkspaceTab(panels[n]);$(tabIds[n]).focus();return;
+  }
+  const list=e.target.closest('#assetPane')?$('assetList'):e.target.closest('#manager')?$('boardContents'):null;
+  if(!list||!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;
+  const rows=[...list.querySelectorAll('[data-entry-id],[data-asub],[data-asset]')];if(!rows.length)return;
+  let at=rows.indexOf(e.target.closest('[data-entry-id],[data-asub],[data-asset]'));
+  if(at<0)at=rows.findIndex(r=>r.classList.contains('selected'));
+  const n=e.key==='Home'?0:e.key==='End'?rows.length-1:Math.max(0,Math.min(rows.length-1,at+(e.key==='ArrowDown'?1:-1)));
+  e.preventDefault();rows[n].click();rows[n].focus({preventScroll:true});rows[n].scrollIntoView({block:'nearest'});
+ });
+ // Secondary sidebar options replace the duplicate collapse button.
+ const more=$('sidebarClose');more.textContent='⋯';more.title='侧栏选项';more.setAttribute('aria-label','侧栏选项');
+ more.onclick=e=>{
+  const panel=$(workspaceTab),r=more.getBoundingClientRect(),items=[];
+  if(workspaceTab!=='outline')items.push([panel.classList.contains('tree-open')?'收起文件夹树':'显示文件夹树',()=>panel.querySelector('.treeToggle').click()]);
+  items.push(['刷新',async()=>{if(workspaceTab==='assetPane')await loadAssets();else if(workspaceTab==='manager'){await loadFolders();await listBoards();renderFolders()}else renderOutline()}],['使用帮助',wfHelp],['收起侧栏  Ctrl+\\',toggleSidebar]);
+  fileMenu({target:more,clientX:r.left,clientY:r.bottom+4,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},items);
+ };
+ let returnFocus=null;
+ const originalClose=closeFileContext;
+ closeFileContext=function(){
+  const restore=!context.hidden&&context.contains(document.activeElement);
+  originalClose();if(restore&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
+ };
+ const originalMenu=fileMenu;
+ fileMenu=function(e,items){
+  const node=e.target.closest?.('.node[data-id]');
+  if(node&&!e.target.closest('[data-edge]')){
+   const id=node.dataset.id;
+   if(!selected.has(id)){selected=new Set([id]);refreshSelectionUI()}
+   items=[['编辑',()=>openEditor(id)],...items,['创建副本  Ctrl+D',duplicate],['删除  Delete',removeSelected]];
+   if(selected.size>1)items.push(['组成一组',groupSelection]);
+   if(e.target.closest('[data-cell]'))items=items.map(([label,fn])=>[label==='插入图片…'?'插入文件…':label,fn]);
+  }else if(e.target.closest?.('#canvas')&&!e.target.closest('#creationDock,#canvasTools,[data-edge]')){
+   const p=worldPoint(e.clientX,e.clientY);
+   items=[['新建便签  N',()=>addNote(p)],['新建表格  T',()=>{
+    $('addTable').click();const n=board.nodes.find(n=>n.id===editorId);
+    if(n){n.x=p.x;n.y=p.y;drawNodes();change();$('title')?.focus()}
+   }],...items];
+  }
+  returnFocus=e.target.closest?.('[data-entry-id],[data-asub],[data-asset],#sidebarClose')||canvas;
+  originalMenu(e,items);
+  const buttons=[...context.querySelectorAll('button')];
+  if(buttons.some(b=>b.textContent.startsWith('添加选中的 ')))buttons.filter(b=>b.textContent==='放到白板').forEach(b=>b.remove());
+  const seen=new Set();
+  for(const b of [...context.querySelectorAll('button')]){
+   const text=b.textContent;if(seen.has(text)){b.remove();continue}seen.add(text);
+   b.setAttribute('role','menuitem');
+   const match=text.match(/^(.*?)\s{2,}(.+)$/);
+   if(match){b.replaceChildren();const label=document.createElement('span'),shortcut=document.createElement('kbd');label.textContent=match[1];shortcut.textContent=match[2];b.append(label,shortcut)}
+  }
+  context.setAttribute('role','menu');
+  const r=context.getBoundingClientRect();context.style.left=Math.max(8,Math.min(e.clientX,innerWidth-r.width-8))+'px';context.style.top=Math.max(8,Math.min(e.clientY,innerHeight-r.height-8))+'px';
+  context.querySelector('button')?.focus({preventScroll:true});
+ };
+ context.addEventListener('keydown',e=>{
+  if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
+  const buttons=[...context.querySelectorAll('button')],at=buttons.indexOf(document.activeElement);
+  const n=e.key==='Home'?0:e.key==='End'?buttons.length-1:(at+(e.key==='ArrowDown'?1:buttons.length-1))%buttons.length;
+  e.preventDefault();e.stopPropagation();buttons[n]?.focus();
+ });
+ renderAssets();
 })();

@@ -70,3 +70,42 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node .inner.editing>.edit-scroll{flex:1;min-height:0;height:auto}
 .node .live-layout .inline-toolbar>span{display:none}
 #creationDock #textSizeTools>summary:hover{background:var(--ui-hover);border-radius:4px}
+
+/* Keep navigation and content visible; expose secondary tools only when needed. */
+#workspaceSidebar .manager-hint,#outline>p,#hint,#workspaceGuide,#canvasGuide,#workspaceSidebar .library-guide{display:none!important}
+#workspaceSidebar .library-bottom-actions{display:flex;align-items:center;gap:4px;padding:10px 0 0;margin-top:8px;border-top:1px solid var(--ui-line);flex-shrink:0;flex-wrap:nowrap}
+#workspaceSidebar .library-bottom-actions button{padding:7px 9px;min-height:32px;border:0;font-size:12px;white-space:nowrap;border-radius:4px}
+#workspaceSidebar #assetFolderRename,#workspaceSidebar #assetReload{display:none}
+#workspaceSidebar .workspace-tabs button{min-height:32px}
+#workspaceSidebar .workspace-tabs #sidebarClose{font-size:18px;line-height:1;min-height:32px}
+#workspaceSidebar .explorer-item,#workspaceSidebar .asset-row,#workspaceSidebar .asset-subfolder{border-radius:4px;padding:10px 9px;margin:2px 0}
+#workspaceSidebar .explorer-item b,#workspaceSidebar .asset-row>div b,#workspaceSidebar .asset-subfolder b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+#workspaceSidebar .asset-subfolder.selected{background:var(--ui-selected)!important;color:#fff;box-shadow:inset 2px 0 var(--ui-accent)}
+#workspaceSidebar .explorer-item:focus-visible,#workspaceSidebar .asset-row:focus-visible{outline:2px solid var(--ui-accent);outline-offset:-2px}
+#workspaceSidebar #assetCount,#workspaceSidebar #boardLocationHint{padding:7px 2px;font-size:11px;margin:0}
+#workspaceSidebar .asset-subfolder small{display:none}
+#canvas #canvasTools{top:14px;bottom:auto;right:14px;max-width:calc(100% - 28px);height:auto;box-shadow:none;padding:3px;z-index:11}
+#canvas #canvasTools button{min-height:29px}
+#canvas #creationDock{bottom:16px;max-width:calc(100% - 24px);width:max-content;flex-wrap:wrap;justify-content:center;gap:2px;padding:5px;box-shadow:0 3px 12px #0003}
+#canvas #creationDock button{padding:7px 10px;min-height:32px;border-radius:4px;white-space:nowrap}
+#canvas #creationDock #undo{border-left-color:var(--ui-line);margin-left:3px;padding:4px 8px}
+#canvas #creationDock #redo{padding:4px 8px}
+#creationDock #textSizeTools>summary{padding:7px 10px;min-height:32px;box-sizing:border-box}
+.node .live-layout #inlineImages{display:none}
+.node [data-file-link]{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding:7px 0;border:0;border-top:1px solid #8885;border-radius:0;background:transparent;font-size:12px;min-width:0}
+.node [data-file-link] small{margin:0;font-size:11px;white-space:nowrap}
+.node .wf-origin{display:block;width:100%;text-align:left;margin:10px 0;padding:8px 10px;font-size:12px;overflow-wrap:anywhere}
+.node:not(.active):not(.connector-target) .port,.node.resizable-note:not(.active) .resize{opacity:0;pointer-events:none}
+.node.active .port,.node.connector-target .port,.node.resizable-note.active .resize{opacity:1;pointer-events:auto}
+.node .cell-content .cell-item-actions{position:absolute;right:5px;top:5px;display:flex;gap:2px;margin:0;z-index:4;opacity:0;pointer-events:none}
+.node .live-layout .cell-content:hover .cell-item-actions,.node .live-layout .cell-content:focus-within .cell-item-actions{opacity:1;pointer-events:auto}
+.node .cell-content .cell-item-actions button{display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;font-size:17px;background:#b4ab79}
+.node .cell-file .cell-item-actions button{background:var(--ui-raised);color:var(--ui-text)}
+.node .live-layout .cell-content [data-cell-note-field=title]{padding-right:46px}
+#fileContext{max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;border-radius:6px;padding:4px;min-width:210px}
+#fileContext button{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:8px 10px;min-height:32px;border-radius:3px;line-height:1.4}
+#fileContext button:focus-visible{outline:0;background:var(--ui-selected)}
+#fileContext kbd{font:11px/1.4 inherit;font-family:inherit;color:var(--ui-muted);white-space:nowrap;background:none;border:0;padding:0}
+@media(max-width:600px){#canvas #creationDock button{padding-left:8px;padding-right:8px}#creationDock .text-size-popup{left:auto;right:0;transform:none;min-width:215px}}
+
+.node .playback-state[hidden]{display:none!important}

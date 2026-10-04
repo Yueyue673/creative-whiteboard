@@ -2,7 +2,7 @@
   "name": "creative-whiteboard",
   "private": true,
   "scripts": {
-    "test:browser": "node tests/browser-workflows.cjs && node tests/browser-tabs.cjs && node tests/browser-cells.cjs && node tests/browser-pan.cjs && node tests/browser-table-layout.cjs"
+    "test:browser": "node tests/browser-workflows.cjs && node tests/browser-tabs.cjs && node tests/browser-cells.cjs && node tests/browser-pan.cjs && node tests/browser-table-layout.cjs && node tests/browser-interface.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"
