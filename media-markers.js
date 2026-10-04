@@ -40,7 +40,7 @@
   s.add.onclick=()=>{const id=uid();s.selected=id;write(el,t=>t.markers.push({id,time:Math.round(el.currentTime*100)/100,title:'',note:''}));s.title.focus()};
   s.replay.onclick=()=>{const t=timeline(el),m=t?.markers.find(m=>m.id===t.startMarkerId);jump(el,m?.time||0,true)};
   const current=()=>timeline(el)?.markers.find(m=>m.id===s.selected);
-  for(const [field,key]of [[s.title,'title'],[s.note,'note']]){field.onfocus=()=>{if(!blocked)undoPoint()};field.oninput=()=>{if(blocked)return;const m=current();if(m){m[key]=field.value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'&&row)row.children[1].textContent=m.title||'未命名标记'}}}
+  for(const [field,key]of [[s.title,'title'],[s.note,'note']]){bindContentInput(field,()=>current()?.[key]||'',value=>{const m=current();if(m){m[key]=value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'&&row)row.children[1].textContent=m.title||'未命名标记'}});const input=field.oninput;field.oninput=()=>{if(!blocked&&current())input()}}
   s.time.oninput=()=>{s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true};
   s.time.onchange=()=>{const value=parseTime(s.time.value);if(!Number.isFinite(value)||value<0||value>el.duration){const message='请输入媒体时长以内的时间，例如 12.5 或 0:12.5。';s.time.setCustomValidity(message);s.time.setAttribute('aria-invalid','true');s.error.textContent=message;s.error.hidden=false;return}write(el,t=>{const m=t.markers.find(m=>m.id===s.selected);if(m)m.time=value})};
   s.start.onchange=()=>write(el,t=>t.startMarkerId=s.start.checked?s.selected:null);s.resume.onclick=()=>write(el,t=>t.startMarkerId=null);

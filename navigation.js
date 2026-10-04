@@ -39,9 +39,9 @@
  document.addEventListener('keydown',e=>{
   if(!board||isTyping(e)||$('dialog').open||document.querySelector('dialog[open]')||e.target.closest('#workspaceSidebar,header,#fileContext,#mediaPopover'))return;
   if(e.ctrlKey||e.metaKey||e.altKey)return;
-  if(e.shiftKey&&e.code==='Digit2'){e.preventDefault();e.stopImmediatePropagation();fitSelection();return}
-  if(['h','v'].includes(e.key.toLowerCase())){e.preventDefault();e.stopImmediatePropagation();hand=e.key.toLowerCase()==='h';canvas.classList.toggle('hand-tool',hand);return}
-  if(e.key.startsWith('Arrow')&&selected.size){e.preventDefault();e.stopImmediatePropagation();if(blocked)return;const ns=effectiveSelection(),step=e.shiftKey?read().bigNudge:read().nudge,delta={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];if(!delta)return;if(!e.repeat)undoPoint();for(const n of ns){n.x+=delta[0];n.y+=delta[1]}drawNodes();renderOutline();change()}
+  if(e.shiftKey&&e.code==='Digit2'){e.preventDefault();e.stopImmediatePropagation();cancelCanvasGesture();fitSelection();return}
+  if(['h','v'].includes(e.key.toLowerCase())){e.preventDefault();e.stopImmediatePropagation();cancelCanvasGesture();hand=e.key.toLowerCase()==='h';canvas.classList.toggle('hand-tool',hand);return}
+  if(e.key.startsWith('Arrow')&&selected.size){e.preventDefault();e.stopImmediatePropagation();if(blocked)return;cancelCanvasGesture();const ns=effectiveSelection(),step=e.shiftKey?read().bigNudge:read().nudge,delta={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];if(!delta)return;if(!e.repeat)undoPoint();for(const n of ns){n.x+=delta[0];n.y+=delta[1]}drawNodes();renderOutline();change()}
  },true);
  const menu=fileMenu;fileMenu=function(e,items){if(selected.size>1&&e.target.closest?.('.node'))items=[...items,['对齐与间距…',arrangement]];return menu(e,items)};
  $('zoomValue').title='缩放与视图';$('zoomValue').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();fileMenu({target:e.currentTarget,clientX:r.left,clientY:r.bottom,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},[['缩放到选中内容  Shift+2',fitSelection],['查看全部  Shift+1',fit],['100%',()=>zoom(1/view().z)],['设置缩放比例…',()=>{showDialog('<h2>白板缩放</h2><label>比例（%）<input id="boardZoomInput" type="number" min="15" max="3200" value="'+Math.round(view().z*100)+'"></label>',[['取消',()=>$('dialog').close()],['应用',()=>{const z=Number($('boardZoomInput').value);if(z>=15&&z<=3200){zoom(z/100/view().z);$('dialog').close()}}]])}],['操作设置…',()=>whiteboardAppearance.open()]])};
