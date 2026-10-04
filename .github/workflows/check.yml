@@ -26,6 +26,7 @@ jobs:
       - run: node --check pane.js
       - run: node --check cells.js
       - run: node --check experience.js
+      - run: node --check media-controls.js
       - run: node --check workspace-shell.js
       - run: node --check ai-workflow.js
       - run: node --check refinement.js

@@ -37,12 +37,12 @@ const {chromium} = require('playwright');
    assert(Math.abs(after.view.x-before.view.x-65)<2,label+' horizontal');assert(Math.abs(after.view.y-before.view.y-37)<2,label+' vertical');assert.deepEqual(after.nodes,before.nodes,label+' card positions');assert.deepEqual(after.selected,before.selected,label+' selection');assert(!after.gesture,label+' ended');assert(after.contextHidden,label+' no popup');
   }
   await setup('audio');await page.locator('audio').evaluate(el=>el.pause());
-  await pan('audio','音频控件');await pan('audio','音频中键','middle');
-  // Native play button and native seek bar must still work with the left button.
-  let box=await page.locator('audio').boundingBox();await page.mouse.click(box.x+20,box.y+box.height/2);await page.waitForFunction(()=>!document.querySelector('audio').paused);await page.locator('audio').evaluate(el=>el.pause());
-  box=await page.locator('audio').boundingBox();await page.mouse.click(box.x+box.width*.55,box.y+box.height/2);assert(await page.locator('audio').evaluate(el=>el.currentTime)>0,'Left-button seek still works');
+  await pan('.media-seek','音频控件');await pan('.media-seek','音频中键','middle');
+  // Custom controls preserve playback and seeking with the left button.
+  await page.locator('.media-play').click();await page.waitForFunction(()=>!document.querySelector('audio').paused);await page.locator('audio').evaluate(el=>el.pause());
+  let box=await page.locator('.media-seek').boundingBox();await page.mouse.click(box.x+box.width*.55,box.y+box.height/2);assert(await page.locator('audio').evaluate(el=>el.currentTime)>0,'Left-button seek still works');
   await setup('video');await pan('video','视频控件');
-  await setup('table');await pan('audio','表格音频');await page.evaluate(()=>openEditor('card'));await pan('audio','编辑中表格音频');
+  await setup('table');await pan('.media-seek','表格音频');await page.evaluate(()=>openEditor('card'));await pan('.media-seek','编辑中表格音频');
   await setup('json');await page.locator('.json-reader').waitFor();await pan('.json-tools button','JSON按钮');await pan('.inline-json-body','JSON正文');
   await setup('note');await page.evaluate(()=>{selected=new Set(['card']);openEditor('card')});await pan('#body','编辑正文');assert.equal(await page.locator('#body').inputValue(),'记录内容');
   assert.deepEqual(errors,[]);console.log('右键/中键：音频、视频、表格播放器、JSON与编辑正文拖动画布；左键播放和拖动进度通过');

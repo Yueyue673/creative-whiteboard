@@ -91,7 +91,7 @@ wfAddMenu('使用方法与快捷键…',wfHelp);
 // Reading position belongs to this browser, separately from authored board content.
 function sessionRead(key){try{return JSON.parse(localStorage.getItem('creative-reading:'+key)||'null')}catch{return null}}
 function sessionWrite(key,value){try{localStorage.setItem('creative-reading:'+key,JSON.stringify({...value,at:Date.now()}))}catch{}}
-function readerKey(el,kind,asset=''){const node=el.closest('.node');return kind+':'+(node?boardId+':'+node.dataset.id:'preview')+':'+asset}
+function readerKey(el,kind,asset=''){const node=el.closest('.node'),cell=el.closest('[data-cell-item]'),item=node&&cell?board?.nodes.find(n=>n.id===node.dataset.id)?.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem]:null;return kind+':'+(node?boardId+':'+node.dataset.id:'preview')+':'+asset+(cell?':cell:'+ (item?.id||[cell.dataset.cellR,cell.dataset.cellC,cell.dataset.cellItem].join(':')):'')}
 const continuityJSON=renderJSONReader;
 renderJSONReader=function(box,data){continuityJSON(box,data);if(!box.dataset.documentAsset&&!box.dataset.readerAsset)return;const asset=box.dataset.documentAsset||box.dataset.readerAsset,key=readerKey(box,'json',asset),saved=sessionRead(key),viewport=box.querySelector('.inline-json-body');let restoring=true;
  const capture=()=>{if(restoring||!box.isConnected)return;sessionWrite(key,{top:viewport.scrollTop,left:viewport.scrollLeft,mode:box.querySelector('[data-json-mode].chosen')?.dataset.jsonMode,zoom:Number(box.querySelector('.json-reader-content').style.zoom)||1,records:box.querySelectorAll('.json-readable-record').length,open:[...box.querySelectorAll('details[open]')].map(d=>jsonDetailPath(d,box))})};
