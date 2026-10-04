@@ -250,6 +250,13 @@ def workflow_put(handler,p):
    handler.reply(200,{**value,'localTaskPath':str(f)})
   except Exception as e:handler.reply(400,{'error':str(e)})
   return True
+ if p=='/api/checkpoints/library/catalog':
+  try:
+   f=ROOT/'素材目录.json'
+   raw=f.read_bytes() if f.exists() else rawjson({'version':1,'folders':[],'assets':[]})
+   snapshot('library','catalog',raw,True);handler.reply(200,{'saved':True})
+  except (OSError,ValueError) as e:handler.reply(400,{'error':str(e)})
+  return True
  m=re.fullmatch(r'/api/checkpoints/([a-zA-Z0-9_-]{1,100})',p)
  if m:
   f=ROOT/'内容'/(m[1]+'.json')

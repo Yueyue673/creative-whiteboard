@@ -26,6 +26,7 @@ jobs:
       - run: node --check pane.js
       - run: node --check cells.js
       - run: node --check experience.js
+      - run: node --check recovery.js
       - run: node --check explorer-navigation.js
       - run: node --check library-clipboard.js
       - run: node --check autosize.js

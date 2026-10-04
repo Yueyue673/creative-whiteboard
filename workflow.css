@@ -5,6 +5,7 @@
 @media(max-width:700px){.wf-diff-pair{grid-template-columns:1fr}.wf-dialog[open]{width:94vw}}
 
 .wf-help h3{font-size:15px;margin:20px 0 7px}.wf-help p{font-size:14px;line-height:1.85;margin:7px 0}.wf-history-row input[type=checkbox]{width:auto;flex:none}
+.recovery-toolbar{justify-content:space-between;gap:12px}.recovery-toolbar [role=tablist]{display:flex;gap:3px;padding:3px;border:1px solid var(--ui-line);border-radius:6px;background:var(--ui-field)}.recovery-toolbar [role=tab]{background:transparent;border:0;padding:8px 12px;color:var(--ui-muted)}.recovery-toolbar [role=tab][aria-selected=true]{background:var(--ui-selected);color:var(--ui-text)}.recovery-toolbar button:disabled{opacity:.55;cursor:wait}.wf-history-row b{overflow-wrap:anywhere}.wf-history-row small{margin-top:4px;line-height:1.6;overflow-wrap:anywhere}.wf-history-row button{flex:none}
 /* Navigation stays ahead of creation. */
 #workspaceSidebar{width:var(--sidebar-width,340px)!important;background:#f7f7f5;border-right:1px solid #deded9;zoom:var(--interface-scale,1)}
 header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}

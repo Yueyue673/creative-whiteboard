@@ -2,7 +2,7 @@
   "name": "creative-whiteboard",
   "private": true,
   "scripts": {
-    "test:browser": "node tests/browser-workflows.cjs && node tests/browser-tabs.cjs && node tests/browser-cells.cjs && node tests/browser-pan.cjs && node tests/browser-table-layout.cjs && node tests/browser-interface.cjs && node tests/browser-experience.cjs && node tests/browser-refinement.cjs && node tests/browser-smoothness.cjs && node tests/browser-direct-edit.cjs && node tests/browser-context-markers.cjs && node tests/browser-drag-continuity.cjs && node tests/browser-import-and-playback.cjs && node tests/browser-library-roundtrip.cjs && node tests/browser-edit-history.cjs && node tests/browser-auto-layout.cjs && node tests/browser-web-navigation.cjs && node tests/browser-library-clipboard.cjs && node tests/browser-explorer-navigation.cjs"
+    "test:browser": "node tests/browser-workflows.cjs && node tests/browser-tabs.cjs && node tests/browser-cells.cjs && node tests/browser-pan.cjs && node tests/browser-table-layout.cjs && node tests/browser-interface.cjs && node tests/browser-experience.cjs && node tests/browser-refinement.cjs && node tests/browser-smoothness.cjs && node tests/browser-direct-edit.cjs && node tests/browser-context-markers.cjs && node tests/browser-drag-continuity.cjs && node tests/browser-import-and-playback.cjs && node tests/browser-library-roundtrip.cjs && node tests/browser-edit-history.cjs && node tests/browser-auto-layout.cjs && node tests/browser-web-navigation.cjs && node tests/browser-library-clipboard.cjs && node tests/browser-explorer-navigation.cjs && node tests/browser-recovery.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

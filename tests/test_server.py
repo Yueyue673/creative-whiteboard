@@ -57,6 +57,9 @@ class ServerTest(unittest.TestCase):
         status, _, raw = self.request("/api/folders")
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(raw), {"folders": []})
+        self.assertEqual(self.request("/api/checkpoints/library/catalog", "PUT")[0], 200)
+        history = json.loads(self.request("/api/history/library/catalog")[2])
+        self.assertEqual(history[0]["count"], 0)
         for path in ["/", "/index.html", "/workspace.js", "/workflow.js", "/workspace.css", "/shell.js", "/shell.css", "/pane.js", "/cells.js", "/experience.js"]:
             self.assertEqual(self.request(path)[0], 200)
         self.assertEqual(self.request("/app_paths.py")[0], 404)
@@ -94,6 +97,25 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.request("/api/boards/example", "PUT", example, {"If-Match": "new"})[0], 200)
         self.assertEqual(self.request("/api/checkpoints/example", "PUT")[0], 200)
         self.assertTrue(json.loads(self.request("/api/history/boards/example")[2]))
+
+    def test_library_checkpoint_preserves_catalog_and_file_references(self):
+        # A manual library checkpoint must not checkpoint whichever board is active.
+        status, headers, raw = self.request("/api/assets")
+        self.assertEqual(status, 200)
+        catalog = json.loads(raw)
+        catalog["folders"] = ["empty", "nested/empty"]
+        catalog["trash"] = [{"id": "batch", "assetIds": [], "folders": ["deleted/empty"]}]
+        self.assertEqual(self.request("/api/assets", "PUT", catalog,
+                         {"If-Match": headers["ETag"]})[0], 200)
+        before = (Path(self.tmp.name) / "素材目录.json").read_bytes()
+        self.assertEqual(self.request("/api/checkpoints/library/catalog", "PUT")[0], 200)
+        rows = json.loads(self.request("/api/history/library/catalog")[2])
+        self.assertTrue(rows)
+        revision = json.loads(self.request("/api/history/library/catalog/" + rows[0]["id"])[2])
+        self.assertEqual(revision["value"], catalog)
+        self.assertEqual((Path(self.tmp.name) / "素材目录.json").read_bytes(), before)
+        self.assertEqual(self.request("/api/checkpoints/library/catalog", "PUT",
+                         headers={"Origin": "https://example.com"})[0], 403)
 
 if __name__ == "__main__":
     unittest.main()

@@ -140,6 +140,7 @@
   return showDialogBefore(...args);
  };
  $('dialog').addEventListener('close',()=>{
+  if($('dialog').open)return;
   const previous=modalReturn;modalReturn=null;if(!previous||$(previous.panel).hidden)return;
   const items=rows(previous.panel),row=items.find(el=>key(el)===previous.key)||items.find(el=>chosen(el,previous.panel));
   const sameLocation=previous.location===location(previous.panel);
