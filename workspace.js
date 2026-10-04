@@ -3,7 +3,7 @@
 function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]),...(a.bundle?.nodes||[]).map(n=>[n.title,n.body,n.userText,n.annotation,...(n.tags||[]),...(n.rows||[]).flat()].join(' '))].filter(Boolean).join(' ')}
 let assetIndex={assets:[],folders:[]},assetETag='new',assetFolder='',assetSelected=new Set(),assetLimit=80,pickTarget=null,tableDrag=null;
 const mediaURL=id=>'/api/media/'+encodeURIComponent(id);
-function assetById(id){return assetIndex.assets.find(a=>a.id===id)}
+function assetById(id){if(!id)return;return assetIndex.assets.find(a=>a.id===id)}
 function imagesAt(n,r,c){return r===undefined?(n.images||[]):(n.cellImages?.[r]?.[c]||[])}
 function imageURL(im){if(im.assetId)return mediaURL(im.assetId);if(/^data:image\/(png|jpeg|gif|webp);base64,/.test(im.data||''))return im.data;return ''}
 function imageGallery(images,editable=false,r,c){if(!images.length)return '';return '<div class="cell-images">'+images.map((im,i)=>'<figure><img draggable="false" src="'+esc(imageURL(im))+'" alt="'+esc(im.name||'图片')+'" loading="lazy">'+(editable?'<button type="button" data-remove-image="'+i+'" '+(r!==undefined?'data-r="'+r+'" data-c="'+c+'"':'')+' aria-label="移除图片">×</button>':'')+'</figure>').join('')+'</div>'}
@@ -94,7 +94,7 @@ for(const name of ['gesturestart','gesturechange','gestureend'])window.addEventL
 function mediaMarkup(n){const a=n.mediaId?assetById(n.mediaId):null;return a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></video>':a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></audio>':''}
 function growContentFields(root=document){
  const fields=[];
- root.querySelectorAll('.node textarea').forEach(el=>{el.classList.toggle('empty-field',!el.value.trim());const s=getComputedStyle(el),key=JSON.stringify([el.value,el.offsetWidth,s.fontSize,s.fontFamily,s.lineHeight,s.minHeight,s.paddingTop,s.paddingBottom,s.paddingLeft,s.paddingRight]);if(el._growthKey===key)return;el._growthKey=key;fields.push(el)});
+ root.querySelectorAll('.node textarea').forEach(el=>{const empty=!el.value.trim();if(el.classList.contains('empty-field')!==empty)el.classList.toggle('empty-field',empty);const s=getComputedStyle(el),key=JSON.stringify([el.value,el.offsetWidth,s.fontSize,s.fontFamily,s.lineHeight,s.minHeight,s.paddingTop,s.paddingBottom,s.paddingLeft,s.paddingRight]);if(el._growthKey===key)return;el._growthKey=key;fields.push(el)});
  // Read all changed fields after resetting them together, then write their measured heights.
  fields.forEach(el=>el.style.height='0px');const heights=fields.map(el=>Math.max(el.scrollHeight+2,el.matches('[data-row]')?40:28));fields.forEach((el,i)=>el.style.height=heights[i]+'px');
 }
@@ -210,7 +210,7 @@ function attachmentMarkup(n){const a=n.assetId?assetById(n.assetId):null;if(a&&!
 const compatibleImport=importFiles;importFiles=async function(files,p=center()){const list=[...files],documents=list.filter(f=>!(/^(image|audio|video)\//.test(f.type)||/\.(json|md|txt|csv|tsv)$/i.test(f.name)));if(documents.length){try{const assets=await uploadFiles(documents);await placeAssets(assets.map(a=>a.id),p)}catch(e){toast(e.message)}}const rest=list.filter(f=>!documents.includes(f));if(rest.length)await compatibleImport(rest,p)};
 $('files').removeAttribute('accept');
 document.addEventListener('error',e=>{const el=e.target;if(!el.matches?.('.node img,.node video,.node audio'))return;const holder=el.parentElement;if(holder.querySelector('.media-error'))return;const msg=document.createElement('p');msg.className='media-error';msg.textContent=el.tagName==='IMG'?'图片暂时无法显示，请检查原文件是否还在。':'此文件暂时无法在浏览器中播放，可使用“打开原文件”。';holder.append(msg)},true);
-const beforeMediaFit=fitContentLayouts;fitContentLayouts=function(){beforeMediaFit();if(!board)return;for(const n of board.nodes){const el=document.querySelector('.node[data-id="'+n.id+'"]');if(!el)continue;const gallery=el.querySelector('.edit-scroll>.cell-images');if(gallery)gallery.classList.toggle('single-image',gallery.children.length===1);const a=n.mediaId?assetById(n.mediaId):n.assetId?assetById(n.assetId):null;el.classList.toggle('audio-card',!!a?.mime?.startsWith('audio/'));el.classList.toggle('video-card',!!a?.mime?.startsWith('video/'));}};
+const beforeMediaFit=fitContentLayouts;fitContentLayouts=function(){beforeMediaFit();if(!board)return;const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el])),toggle=(el,name,on)=>{if(el.classList.contains(name)!==on)el.classList.toggle(name,on)};for(const n of board.nodes){const el=elements.get(n.id);if(!el)continue;const gallery=el.querySelector('.edit-scroll>.cell-images');if(gallery)toggle(gallery,'single-image',gallery.children.length===1);const a=n.mediaId?assetById(n.mediaId):n.assetId?assetById(n.assetId):null;toggle(el,'audio-card',!!a?.mime?.startsWith('audio/'));toggle(el,'video-card',!!a?.mime?.startsWith('video/'));}};
 
 // Content library accepts both files and reusable groups of board objects.
 const bundleMime='application/x-creative-bundle';
