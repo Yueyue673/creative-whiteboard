@@ -14,6 +14,7 @@
  const oldChange=change,oldPersist=persist;change=function(viewOnly=false){if(explorer)return;oldChange(viewOnly);report()};persist=async function(){if(explorer)return true;const result=oldPersist();report();try{return await result}finally{report()}};
  function pauseMedia(doc=document){doc.querySelectorAll('audio,video').forEach(m=>m.pause());for(const frame of doc.querySelectorAll('iframe'))try{if(frame.contentDocument)pauseMedia(frame.contentDocument)}catch{}}
  if(explorer){
+  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Tab'&&!e.isComposing&&!document.querySelector('dialog[open]')){e.preventDefault();e.stopImmediatePropagation();send('explorer-shortcut',{reverse:e.shiftKey})}},true);
   drawNodes=()=>{}; // This document presents lists, never a second hidden canvas.
   const show=showWorkspaceTab;showWorkspaceTab=async function(panel){await show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel})};
   toggleSidebar=()=>send('explorer-toggle');$('sidebarToggle').onclick=toggleSidebar;

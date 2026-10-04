@@ -94,3 +94,5 @@ button,summary,select{transition:none}
 .hand-tool .web-frame-host::after,.space-panning .web-frame-host::after{content:"";position:absolute;inset:0;background:transparent;z-index:4;cursor:grab;pointer-events:auto}.hand-tool.document-panning .web-frame-host::after,.space-panning.document-panning .web-frame-host::after{cursor:grabbing}
 
 .asset-row.cut-pending,[data-asub].cut-pending,[data-afolder].cut-pending{opacity:.45}
+
+#assetList[role=listbox]>[role=option]:focus-visible,#boardContents[role=listbox]>[role=option]:focus-visible{outline:1px solid var(--ui-accent);outline-offset:-2px}
