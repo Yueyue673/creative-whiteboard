@@ -88,32 +88,13 @@ const {chromium} = require('playwright');
   assert.equal(await p.evaluate(id=>board.nodes.find(n=>n.id==='table').cellItems[0][1][0].assetId,media.assetId),media.assetId);
   console.log('资料复用：入库与来源、音频紧凑尺寸、拖进表格、直接写说明、原文件重新定位，通过');
 
-  // Copy one scoped task, paste the reply directly and inspect before applying anything.
   await p.evaluate(()=>{selected=new Set(['note']);canvas.focus();refreshSelectionUI()});
-  await p.locator('#aiWorkspace').click();await p.locator('#aiTaskText').fill('只为这个观察补充标签。');
-  await p.locator('#aiCopyTask').click();await p.waitForFunction(()=>document.getElementById('aiReplyStatus').textContent.includes('任务已复制'));
-  const pack=JSON.parse(await p.evaluate(()=>navigator.clipboard.readText()));
-  assert.deepEqual(pack.data.nodes.map(n=>n.id),['note']);assert(pack.request.keepWords&&pack.request.keepNotes);
-  const proposal={format:'creative-board-proposal',version:1,requestId:pack.requestId,resource:pack.resource,targetId:pack.targetId,baseETag:pack.baseETag,title:'给观察补标签',changes:[{entity:'node',op:'update',targetId:'note',reason:'便于再次找到',before:{tags:[]},after:{tags:['侧光']}}]};
-  const reply='整理完成，提案如下。\n```json\n'+JSON.stringify(proposal)+'\n```\n请先检查。';
-  await p.locator('#aiReplyText').fill(reply);await p.locator('#aiReviewReply').click();
-  await p.waitForFunction(()=>!!document.querySelector('[data-wf-change]'));
-  assert.equal(await p.locator('[data-wf-change]:checked').count(),0);
-  assert.deepEqual(await p.evaluate(()=>board.nodes.find(n=>n.id==='note').tags),[]);
-  await p.keyboard.press('Escape');
-  const count=await p.evaluate(()=>board.nodes.length);
-  await p.evaluate(text=>navigator.clipboard.writeText(text),reply);await p.locator('#canvas').click({position:{x:15,y:25}});await p.keyboard.press('Control+v');
-  await p.waitForFunction(()=>!!document.querySelector('[data-wf-change]'));
-  assert.equal(await p.evaluate(()=>board.nodes.length),count,'A pasted proposal is not turned into a note');
-  await p.locator('[data-wf-change]').check();await p.getByRole('button',{name:'应用勾选项',exact:true}).click();
-  await p.waitForFunction(()=>!document.getElementById('dialog').open);
-  assert.deepEqual(await p.evaluate(()=>board.nodes.find(n=>n.id==='note').tags),['侧光']);
-  assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='note').body),'折痕会随角度改变。');
-  await p.evaluate(()=>{selected=new Set(['note']);refreshSelectionUI()});
-  await p.locator('#aiWorkspace').click();assert.equal(await p.locator('#aiTaskText').inputValue(),'只为这个观察补充标签。');
-  if(process.env.EXPERIENCE_SCREENSHOT_DIR){fs.mkdirSync(process.env.EXPERIENCE_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.EXPERIENCE_SCREENSHOT_DIR,'ai-review-entry.png')})}
-  await p.keyboard.press('Escape');
-  console.log('AI：复制所选任务、带代码框回复、直接粘贴审核、原文保留和草稿恢复，通过');
+  await p.locator('#aiWorkspace').click();await p.locator('#aiTaskText').fill('查找有关侧光的原始资料。');await p.locator('#aiVisuals').uncheck();await p.locator('#aiCopyTask').click();await p.waitForFunction(()=>document.getElementById('aiReplyStatus').textContent.includes('已复制研究任务'));
+  const pack=JSON.parse(await p.evaluate(()=>navigator.clipboard.readText()));assert.deepEqual(pack.data.nodes.map(n=>n.id),['note']);assert(pack.aiPolicy.readOnly&&!pack.request.allowAdd);
+  const reply=JSON.stringify({format:'creative-board-references',version:1,requestId:pack.requestId,sources:[{id:'light',title:'资料原题',url:'https://example.com/light',finding:'资料中的相关观察。'}]});
+  await p.locator('#aiHaveReply').click();await p.locator('#aiReplyText').fill(reply);await p.locator('#aiReviewReply').click();await p.locator('.ai-source-list').waitFor();assert.deepEqual(await p.evaluate(()=>board.nodes.find(n=>n.id==='note').tags),[]);await p.keyboard.press('Escape');
+  const count=await p.evaluate(()=>board.nodes.length);await p.evaluate(text=>navigator.clipboard.writeText(text),reply);await p.locator('#canvas').click({position:{x:15,y:25}});await p.keyboard.press('Control+v');await p.locator('.ai-source-list').waitFor();assert.equal(await p.evaluate(()=>board.nodes.length),count,'Research reply stays separate from authored notes');await p.keyboard.press('Escape');await p.evaluate(()=>{selected=new Set(['note']);refreshSelectionUI()});await p.locator('#aiWorkspace').click();assert.equal(await p.locator('#aiTaskText').inputValue(),'查找有关侧光的原始资料。');
+  if(process.env.EXPERIENCE_SCREENSHOT_DIR){fs.mkdirSync(process.env.EXPERIENCE_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.EXPERIENCE_SCREENSHOT_DIR,'ai-review-entry.png')})}await p.keyboard.press('Escape');console.log('AI：复制研究背景、资料回复、直接粘贴与创作分开、草稿恢复，通过');
 
   await p.evaluate(async id=>{const n=board.nodes.find(n=>n.id===id);n.h=230;editorId=null;render();change();await persist()},media.id);
   await p.reload();await p.waitForFunction(()=>board&&!loading);

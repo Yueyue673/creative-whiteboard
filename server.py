@@ -1,7 +1,7 @@
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse
-import json, hashlib, os, re, threading, uuid
+import json, hashlib, os, re, threading, uuid, math
 from app_paths import APP_ROOT, DATA_ROOT
 ROOT=DATA_ROOT
 DATA=ROOT/'内容'
@@ -10,6 +10,23 @@ PORT=int(os.environ.get('CREATIVE_BOARD_PORT','18746'))
 
 def encoded(obj): return json.dumps(obj,ensure_ascii=False,indent=2).encode('utf-8')
 def digest(raw): return hashlib.sha256(raw).hexdigest()
+def valid_media_timeline(node):
+ timeline=node.get('mediaTimeline',{})
+ if not isinstance(timeline,dict) or len(timeline)>100:raise ValueError('时间标记格式不正确')
+ for source,data in timeline.items():
+  if not isinstance(source,str) or len(source)>2000 or not isinstance(data,dict):raise ValueError('时间标记来源无效')
+  markers=data.get('markers',[])
+  if not isinstance(markers,list) or len(markers)>1000:raise ValueError('时间标记数量超出范围')
+  ids=set()
+  for marker in markers:
+   if not isinstance(marker,dict) or not isinstance(marker.get('id'),str) or marker['id'] in ids:raise ValueError('时间标记编号无效')
+   ids.add(marker['id']);time=marker.get('time')
+   if not isinstance(time,(int,float)) or not math.isfinite(time) or not 0<=time<=604800:raise ValueError('时间标记位置无效')
+   if not isinstance(marker.get('title',''),str) or len(marker.get('title',''))>200 or not isinstance(marker.get('note',''),str) or len(marker.get('note',''))>20000:raise ValueError('时间标记文字无效')
+  if data.get('startMarkerId') is not None and data['startMarkerId'] not in ids:raise ValueError('重播起点不存在')
+ for row in node.get('cellItems',[]):
+  for cell in row:
+   for item in cell:valid_media_timeline(item)
 def valid_board(b):
  if not isinstance(b,dict) or b.get('format')!='creative-board' or b.get('version')!=1: raise ValueError('白板格式不正确')
  if not isinstance(b.get('name'),str): raise ValueError('缺少名称')
@@ -19,6 +36,8 @@ def valid_board(b):
  for n in b['nodes']:
   if not isinstance(n,dict) or not isinstance(n.get('id'),str) or n['id'] in ids: raise ValueError('内容编号重复或无效')
   ids.add(n['id'])
+  valid_media_timeline(n)
+  if 'sizeMode' in n and n['sizeMode'] not in ('auto','manual'):raise ValueError('尺寸模式无效')
   if n.get('type') not in ['note','frame','image','table']: raise ValueError('内容类型无效')
   if n.get('type')=='table':
    if not isinstance(n.get('columns'),list) or not 1<=len(n['columns'])<=100 or any(not isinstance(c,str) for c in n['columns']): raise ValueError('表格列无效')
@@ -63,8 +82,10 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    f=DATA/(m[1]+'.json')
    if not f.exists():self.reply(404,{'error':'找不到这张白板'});return
    raw=f.read_bytes();self.reply(200,raw,etag=digest(raw));return
-  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js']:
+  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
+  if p=='/vendor/html2canvas.min.js':
+   self.reply(200,(APP_ROOT/'vendor/html2canvas.min.js').read_bytes(),'text/javascript; charset=utf-8');return
   if p=='/':
    self.reply(200,(APP_ROOT/'shell.html').read_bytes(),'text/html; charset=utf-8');return
   if p=='/index.html':

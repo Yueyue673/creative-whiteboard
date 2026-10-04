@@ -8,7 +8,7 @@
 
 ## 内容可以怎样摆放
 
-**先写下来，再决定顺序。** 双击空白处写便签，直接编辑内容，拖动四角调整大小。把相关内容放在一起，用连线说明它们的关系。需要按行列整理时，可以换用表格；单元格里也能放多张图片、便签和音视频。长文字输入时，编辑区域会跟着光标滚动。
+**先写下来，再决定顺序。** 双击空白处写便签，直接编辑内容，新便签默认随内容增高；拖动四角后保留你指定的大小。把相关内容放在一起，用连线说明它们的关系。需要按行列整理时，可以换用表格；单元格里也能放多张图片、便签和音视频。长文字输入时，编辑区域会跟着光标滚动。
 
 **资料放在想法旁边。** 图片、音视频、本地 HTML 和 JSON 可以放进白板查看。视频记住播放进度，支持的文档记住阅读位置，方便下次接着看。
 
@@ -55,15 +55,17 @@ Ctrl＋滚轮调整白板；HTML、JSON 的阅读比例由文档自己的比例�
 
 点击标签栏的“＋”打开其他白板，像浏览器一样切换。顶部的分栏图标可并排查看两张白板，拖动中间分隔线调整比例，双击恢复各半。标签可以拖动排序，也可以右键移到另一侧。左上角的侧栏图标打开全窗口共用的白板与内容库；从库中放入内容时，目标是刚刚操作的那一栏。跨标签 Ctrl＋C / Ctrl＋V 不需要额外点击画布。[查看标签与分栏操作](docs/usage.md#标签页与左右分栏)。
 
-## 保存与 AI 整理
+## 保存与 AI 参考
 
 白板和内容库默认保存在本机 `data/` 文件夹。可直接备份该文件夹；引用在其他位置的媒体也需要单独备份。[查看文件位置与配置](docs/usage.md#文件位置与配置)。
 
 快速保存保持安静；延迟、失败或文件冲突会明确提示。窄单元格内也能直接调整音视频进度，点击播放时间可以展开正常大小的控件。[查看播放与保存说明](docs/usage.md#资料阅读)。
 
-点击顶部“AI”，选择白板中的部分内容、整张白板或库中所选项，填写要求，复制任务给自己的助手。任务、选择范围和原文保留规则会保存在本机；文字资料附可读取的摘录，音视频只提供引用。把提案粘回来，对照修改前后并逐项确认；布局调整也有图形预览。应用前会检查范围、原值和版本，应用后可撤销。工具本身不调用模型，也不会自动上传资料。[查看人和 AI 的协作步骤](docs/ai-workflow.md)，或将 [AI 提案规则](docs/ai-proposals.md) 与导出的上下文一起交给 AI。
+点击顶部“AI”，选好背景，写下要查的问题，复制研究任务给自己的助手。AI 仅查资料和介绍已有参考体系，不生成创作文案、改写正文或改变设计。带原文链接的回复单独存为参考资料，由你核对、判断和使用。任务可包含位置关系、分组、表格、时间标记，以及真实的图片预览和布局快照。工具不调用模型，也不自动上传内容。[查看协作步骤](docs/ai-workflow.md) 与 [资料回复格式](docs/ai-proposals.md)。
 
-[查看 AI 整理界面](docs/ai-workflow.png) · [查看标签与分栏](docs/tabs.png)
+音视频可以添加带名称和备注的时间标记，点击标记直接跳转，也可指定下次重开与重播的起点。未指定时仍接着上次播放。标记属于当前内容块；复制的内容有独立标记，媒体文件继续共用原文件。
+
+白板支持 Shift＋2 放大选中内容、H/V 切换手形与选择工具、方向键微移、Shift 限制拖动方向和 Alt 拖出副本。选中多块内容，右键可对齐或调整间距。吸附、缩放速度与微移步长可在“外观 → 白板操作”调整。
 
 ## 使用前了解
 
@@ -78,4 +80,4 @@ Ctrl＋滚轮调整白板；HTML、JSON 的阅读比例由文档自己的比例�
 
 Creative Whiteboard is a local-first canvas for notes, media and tables. It runs with Python’s standard library and a browser. The interface and documentation are currently in Chinese.
 
-[MIT License](LICENSE) applies to the application and included examples. Imported media retains its original license.
+[MIT License](LICENSE) applies to the application and included examples. The bundled html2canvas 1.4.1 renderer is also [MIT licensed](vendor/html2canvas.LICENSE). Imported media retains its original license.
