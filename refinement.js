@@ -1,8 +1,6 @@
 // Reading, placement and table sizing use the same rules in every document.
 (() => {
  'use strict';
- const fieldMeasurements=new WeakMap();
- growContentFields=function(root=document){const changed=[];for(const field of root.querySelectorAll('.node textarea')){const style=getComputedStyle(field),signature=[field.value,field.offsetWidth,style.fontSize,style.lineHeight,style.paddingLeft,style.paddingRight].join('|');field.classList.toggle('empty-field',!field.value.trim());if(fieldMeasurements.get(field)===signature)continue;fieldMeasurements.set(field,signature);changed.push(field)}for(const field of changed)field.style.height='0px';const heights=changed.map(field=>Math.max(field.scrollHeight+2,field.matches('[data-row]')?40:28));changed.forEach((field,i)=>field.style.height=heights[i]+'px')};
  interfaceSettings=()=>whiteboardAppearance.open();
  canvas.addEventListener('click',e=>{const action=e.target.closest('.table-options button');if(action)action.closest('details').open=false});
  let immersion=null;

@@ -1,0 +1,57 @@
+const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),{spawn}=require('child_process'),assert=require('assert');
+const {chromium}=require('playwright');
+(async()=>{
+ const root=path.resolve(process.env.WHITEBOARD_TEST_ROOT||path.resolve(__dirname,'..')),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-drag-'));
+ const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p))})});
+ const base='http://127.0.0.1:'+port,proc=spawn(process.env.PYTHON||'python',[root+'/server.py'],{env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:tmp,PYTHONIOENCODING:'utf-8'},windowsHide:true});let browser,p;
+ try{
+  for(let i=0;i<100;i++){try{if((await fetch(base+'/api/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+  const wav=Buffer.alloc(44+320000);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(wav.length-44,40);
+  const asset=await(await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':'sound.wav'},body:wav})).json();
+  browser=await chromium.launch({executablePath:process.env.CHROME_PATH||undefined,headless:true});p=await browser.newPage({viewport:{width:1600,height:1050}});const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto(base+'/index.html');await p.waitForFunction(()=>board&&!loading&&window.whiteboardNavigation);await p.evaluate(()=>loadAssets());
+  await p.evaluate(asset=>{
+   const media={type:'note',title:'现场声音',body:'',assetId:asset.id,mediaId:asset.id,tags:[]};
+   board.nodes=[{id:'frame',type:'frame',title:'一组观察',body:'',x:50,y:50,w:870,h:700},
+    {...media,id:'sound',x:100,y:120,w:350,h:185},
+    {id:'note',type:'note',title:'画面观察',body:'由作者输入的内容。',x:500,y:120,w:300,h:170,tags:[]},
+    {id:'table',type:'table',title:'镜头记录',body:'',columns:['画面','声音'],rows:[['窗边的光线','']],cellItems:[[[],[{...media,id:'cell-sound'}]]],cellImages:[],x:100,y:370,w:720,h:270,tags:[]},
+    {id:'outside',type:'note',title:'另一组观察',body:'保持独立。',x:1100,y:120,w:280,h:180,tags:[]},
+    ...Array.from({length:800},(_,i)=>({id:'auto-'+i,type:'note',sizeMode:'auto',title:'观察 '+i,body:'由作者记录的一段观察。',x:2100+(i%25)*330,y:50+Math.floor(i/25)*160,w:300,h:120,tags:[]}))];
+   board.edges=[{id:'moving-edge',from:'sound',to:'outside',label:'记录'},...Array.from({length:200},(_,i)=>({id:'edge-'+i,from:'auto-'+(i*2),to:'auto-'+(i*2+1),label:i%2?'':'联系'}))];
+   board.view={x:0,y:0,z:1};selected.clear();editorId=null;render();whiteboardNavigation.write({snap:true,zoomSpeed:1,nudge:1,bigNudge:10,gap:32});
+  },asset);
+  await p.waitForFunction(()=>document.querySelector('[data-id=sound] audio')?.readyState>=1&&document.querySelector('[data-id=table] audio')?.readyState>=1);await p.waitForTimeout(250);
+  await p.evaluate(()=>{
+   window.originalPlayer=document.querySelector('[data-id=sound] audio');originalPlayer.currentTime=8;
+   window.originalCell=document.querySelector('[data-id=table] audio');originalCell.currentTime=3;
+   window.originalText=document.querySelector('[data-id=auto-400] [data-preview-id=body]');window.originalTextStyle=originalText.getAttribute('style');
+   window.originalEdge=document.querySelector('[data-edge=edge-100]');window.originalEdgePath=originalEdge.querySelector('path').getAttribute('d');
+   window.drawCount=0;window.measureCount=0;window.moveTimes=[];const d=drawNodes;drawNodes=function(...args){drawCount++;return d(...args)};
+   const growth=growContentFields;growContentFields=function(...args){measureCount++;return growth(...args)};
+   const move=canvas.onpointermove;canvas.onpointermove=function(e){const start=performance.now();move(e);if(gesture?.type==='move')moveTimes.push(performance.now()-start)};
+  });
+  const positions=()=>p.evaluate(()=>board.nodes.map(n=>({id:n.id,x:n.x,y:n.y,w:n.w,h:n.h})));
+  const moveMouse=async(x,y,options={})=>{const c=await p.evaluate(({x,y})=>{const r=canvas.getBoundingClientRect();return{x:r.left+view().x+x*view().z,y:r.top+view().y+y*view().z}},{x,y});await p.mouse.move(c.x,c.y,options)};
+  const before=await positions();await p.evaluate(()=>{selected=new Set(['frame']);refreshSelectionUI();canvas.focus()});
+  await p.keyboard.down('Control');await moveMouse(400,70);await p.mouse.down();await p.evaluate(()=>{drawCount=measureCount=0;moveTimes=[]});await moveMouse(470,110,{steps:24});
+  const during=await p.evaluate(()=>({drawCount,measureCount,times:moveTimes.slice(),samePlayer:originalPlayer===document.querySelector('[data-id=sound] audio'),sameCell:originalCell===document.querySelector('[data-id=table] audio'),sameText:originalText===document.querySelector('[data-id=auto-400] [data-preview-id=body]')&&originalTextStyle===originalText.getAttribute('style'),sameEdge:originalEdge===document.querySelector('[data-edge=edge-100]')&&originalEdgePath===originalEdge.querySelector('path').getAttribute('d')}));
+  await p.mouse.up();await p.keyboard.up('Control');
+  const after=await positions();for(const [i,n]of after.entries()){const inside=['frame','sound','note','table'].includes(n.id);assert.equal(n.x,before[i].x+(inside?70:0));assert.equal(n.y,before[i].y+(inside?40:0))}
+  assert(during.samePlayer&&during.sameCell&&during.sameText&&during.sameEdge,'Dragging keeps text, media and unrelated SVG elements mounted');
+  if(!process.env.WHITEBOARD_BENCHMARK_ONLY){assert.equal(during.drawCount,0,'Moving positions does not redraw all content');assert(during.measureCount<=2,'No per-move remeasurement of the board')}
+  assert.equal(await p.locator('[data-id=sound] audio').evaluate(el=>Math.round(el.currentTime)),8);assert.equal(await p.locator('[data-id=table] audio').evaluate(el=>Math.round(el.currentTime)),3);
+  const times=during.times.sort((a,b)=>a-b);console.log('805 块内容、201 条连线，分组连续拖动：中位数 '+times[Math.floor(times.length/2)].toFixed(1)+' ms，最大 '+Math.max(...times).toFixed(1)+' ms，完整绘制 '+during.drawCount+' 次，文字测量 '+during.measureCount+' 次');
+  assert(times[Math.floor(times.length/2)]<100,'Movement remains responsive');
+  if(process.env.WHITEBOARD_BENCHMARK_ONLY)return;
+  await p.evaluate(()=>undo());assert.deepEqual(await positions(),before,'One undo restores the entire group');await p.evaluate(()=>redo());assert.deepEqual(await positions(),after);
+  await p.evaluate(()=>{undo();selected=new Set(['note']);refreshSelectionUI();canvas.focus()});const cancelled=await p.evaluate(()=>({history:history.length,future:future.length,board:clone(board),revision:contentRevision}));
+  await p.keyboard.down('Control');await moveMouse(520,150);await p.mouse.down();await moveMouse(585,190,{steps:6});await p.keyboard.press('Escape');await p.mouse.up();await p.keyboard.up('Control');
+  assert.deepEqual(await p.evaluate(()=>board),cancelled.board,'Escape restores the position before dragging');assert.deepEqual(await p.evaluate(()=>({history:history.length,future:future.length,revision:contentRevision})),{history:cancelled.history,future:cancelled.future,revision:cancelled.revision});assert(await p.evaluate(()=>!gesture&&!document.body.classList.contains('canvas-gesture')));
+  await p.keyboard.down('Alt');await moveMouse(520,150);await p.mouse.down();await moveMouse(570,200,{steps:5});assert.equal(await p.evaluate(()=>board.nodes.length),806);await p.keyboard.press('Escape');await p.mouse.up();await p.keyboard.up('Alt');assert.deepEqual(await p.evaluate(()=>board),cancelled.board,'Cancelling Alt drag removes the unfinished copy');
+  await p.evaluate(()=>{selected=new Set(['frame']);refreshSelectionUI();canvas.focus()});await p.keyboard.down('Alt');await p.keyboard.down('Control');await moveMouse(400,70);await p.mouse.down();await p.evaluate(()=>{drawCount=0});await moveMouse(460,105,{steps:6});const copiesDuring=await p.evaluate(()=>drawCount);assert.equal(copiesDuring,1,'Alt-drag mounts new copies once');await p.mouse.up();await p.keyboard.up('Alt');await p.keyboard.up('Control');assert.equal(await p.evaluate(()=>board.nodes.length),809);assert.equal(await p.evaluate(()=>board.edges.length),201,'A link to an uncopied outside note is not duplicated');await p.evaluate(()=>undo());assert.deepEqual(await p.evaluate(()=>board),cancelled.board);
+  await p.evaluate(()=>{const n=board.nodes.find(n=>n.id==='note');n.sizeMode='auto';render()});await p.waitForTimeout(100);await p.evaluate(()=>{selected=new Set(['note']);refreshSelectionUI()});const autoBefore=await p.evaluate(()=>clone(board)),corner=await p.locator('[data-id=note] [data-resize-direction=se]').boundingBox();await p.mouse.move(corner.x+corner.width/2,corner.y+corner.height/2);await p.mouse.down();await p.mouse.move(corner.x+70,corner.y+50,{steps:5});assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='note').sizeMode),'manual');await p.keyboard.press('Escape');await p.mouse.up();assert.deepEqual(await p.evaluate(()=>board),autoBefore,'Cancelling resize restores automatic mode and dimensions');
+  await p.evaluate(()=>{selected.clear();refreshSelectionUI();canvas.focus()});await moveMouse(960,400);await p.mouse.down();await moveMouse(1200,700,{steps:3});await p.keyboard.press('Escape');await p.mouse.up();assert.equal(await p.evaluate(()=>selected.size),0,'Escape cancels a selection box');assert(await p.evaluate(()=>!gesture&&!document.body.classList.contains('canvas-gesture')));
+  await p.evaluate(()=>{edgeId='moving-edge';drawEdges()});assert(await p.locator('[data-edge=moving-edge]').evaluate(el=>el.classList.contains('selected')));await p.evaluate(()=>removeSelected());assert.equal(await p.locator('[data-edge=moving-edge]').count(),0);await p.evaluate(()=>undo());assert.equal(await p.locator('[data-edge=moving-edge]').count(),1,'Connector deletion and undo reconcile stable SVG');
+  assert.deepEqual(errors,[]);console.log('分组撤销重做、Esc 取消拖动/副本/尺寸/框选、保留播放位置、连线删除撤销，通过');
+ }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}
+})().catch(e=>{console.error(e);process.exitCode=1});
