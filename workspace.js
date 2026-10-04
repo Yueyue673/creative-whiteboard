@@ -404,3 +404,27 @@ const editConnectorLabel=openEdge;
 openEdge=function(id){if(!board?.edges.some(e=>e.id===id))return;edgeId=id;selected.clear();editorId=null;render();canvas.focus();toast('已选中连线 · Delete 删除 · 双击编辑说明')};
 canvas.addEventListener('dblclick',e=>{const edge=e.target.closest('[data-edge]');if(!edge)return;e.preventDefault();e.stopImmediatePropagation();editConnectorLabel(edge.dataset.edge)},true);
 canvas.addEventListener('contextmenu',e=>{const edge=e.target.closest('[data-edge]');if(!edge)return;if(contextDown&&Math.hypot(e.clientX-contextDown.x,e.clientY-contextDown.y)>5)return;edgeId=edge.dataset.edge;selected.clear();editorId=null;drawEdges();fileMenu(e,[['删除连线  Delete',()=>removeSelected()],['编辑说明',()=>editConnectorLabel(edge.dataset.edge)]])},true);
+
+// Native playback controls can suppress pointerdown entirely, but still emit moves.
+let boardHoverPoint=null;
+function beginControlPan(e,point){
+ document.dispatchEvent(new Event('creative-board-pan-start'));
+ closeFileContext();if(e.buttons&2||e.button===2)contextDown={x:point.x,y:point.y};
+ gesture={type:'pan',x:point.x,y:point.y,start:clone(view()),pointerId:e.pointerId};
+ e.preventDefault();canvas.tabIndex=-1;canvas.focus({preventScroll:true});
+ document.body.classList.add('canvas-gesture');getSelection()?.removeAllRanges();
+ canvas.setPointerCapture(e.pointerId);
+}
+canvas.addEventListener('pointerdown',e=>{
+ if(!board||![1,2].includes(e.button)||e.target.closest('#canvasTools,#creationDock,#textSizeTools'))return;
+ e.stopImmediatePropagation();beginControlPan(e,{x:e.clientX,y:e.clientY});
+},true);
+window.addEventListener('pointermove',e=>{
+ if(!board)return;
+ const onBoard=e.target.closest?.('#canvas'),buttons=e.buttons&6;
+ if(!buttons){if(onBoard)boardHoverPoint={x:e.clientX,y:e.clientY};return;}
+ if(!gesture&&!documentPan&&onBoard&&e.target.closest('.node audio,.node video')){
+  beginControlPan(e,boardHoverPoint||{x:e.clientX-e.movementX,y:e.clientY-e.movementY});
+  e.stopImmediatePropagation();canvas.onpointermove(e);
+ }
+},true);
