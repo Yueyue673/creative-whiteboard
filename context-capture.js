@@ -7,12 +7,12 @@
  function thumbnail(source){return timeout(new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{try{const z=Math.min(1,1024/im.naturalWidth,1024/im.naturalHeight),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.naturalWidth*z));c.height=Math.max(1,Math.round(im.naturalHeight*z));c.getContext('2d').drawImage(im,0,0,c.width,c.height);resolve(c.toDataURL('image/png'))}catch(err){reject(err)}};im.onerror=()=>reject(Error('图片无法读取'));im.src=source}),5000)}
  function imageSources(pack){
   const all=[],seen=new Map();
-  function add(source,nodeId,ownerId,path){if(!source)return;const existing=seen.get(source);if(existing){if(!existing.nodeIds.includes(nodeId))existing.nodeIds.push(nodeId);return}const item={source,nodeIds:[nodeId],ownerId,path};seen.set(source,item);all.push(item)}
-  function visit(value,nodeId,path=''){if(!value||typeof value!=='object')return;if(Array.isArray(value)){value.forEach((v,i)=>visit(v,nodeId,path+'['+i+']'));return}const ownerId=value.id||nodeId;
+  function add(source,nodeId,ownerId,path){if(!source)return;const position={nodeId,ownerId,path},existing=seen.get(source);if(existing){if(!existing.nodeIds.includes(nodeId))existing.nodeIds.push(nodeId);existing.locations.push(position);return}const item={source,nodeIds:[nodeId],ownerId,path,locations:[position]};seen.set(source,item);all.push(item)}
+  function visit(value,nodeId,path='',parentId=nodeId){if(!value||typeof value!=='object')return;if(Array.isArray(value)){value.forEach((v,i)=>visit(v,nodeId,path+'['+i+']',parentId));return}const ownerId=value.id||parentId;
    if(value.image)add(value.image,nodeId,ownerId,path+'.image');
    if(typeof value.data==='string'&&value.data.startsWith('data:image/'))add(value.data,nodeId,ownerId,path+'.data');
    const a=assetById(value.assetId||value.mediaId);if(a?.mime?.startsWith('image/'))add(mediaURL(a.id),nodeId,ownerId,path+'.assetId');
-   for(const [key,v]of Object.entries(value))if(v&&typeof v==='object')visit(v,nodeId,path+'.'+key);
+   for(const [key,v]of Object.entries(value))if(v&&typeof v==='object')visit(v,nodeId,path+'.'+key,ownerId);
   }
   for(const n of pack.data.nodes||[])visit(n,n.id);
   for(const a of pack.data.assets||[]){if(a.mime?.startsWith('image/'))add(mediaURL(a.id),a.id,a.id,'asset');if(a.bundle)visit(a.bundle,a.id,'bundle')}
@@ -40,7 +40,7 @@
   if($('aiVisuals')?.checked===false){pack.visualCoverage.push('未附图像；只提供文字、文件引用和结构化位置关系。');return}
   if(pack.resource==='board')for(const kind of ['viewport','overview']){try{pack.visualInput.push(await canvasSnapshot(pack,kind))}catch(err){pack.visualCoverage.push(kind+' 画面未采集：'+err.message)}}
   const sources=imageSources(pack);if(sources.length>64)pack.visualCoverage.push('图片较多，本次提供前 64 张预览，其余保留原文件引用。');
-  for(let i=0;i<Math.min(sources.length,64);i+=4)await Promise.all(sources.slice(i,i+4).map(async item=>{try{const source=item.source;if(!source.startsWith('data:image/')&&!new URL(source,location.href).href.startsWith(location.origin+'/'))throw Error('外部图片只提供地址');const data=await thumbnail(source);pack.visualInput.push({kind:'image',nodeIds:item.nodeIds,ownerId:item.ownerId,source:source.startsWith('data:')?item.path:source,data,coverage:'真实图片预览，最长边不超过 1024 像素；需要辨认小字时请读取原图。'})}catch(err){pack.visualCoverage.push('图片 '+item.ownerId+' 未采集：'+err.message)}}));
+  for(let i=0;i<Math.min(sources.length,64);i+=4)await Promise.all(sources.slice(i,i+4).map(async item=>{try{const source=item.source;if(!source.startsWith('data:image/')&&!new URL(source,location.href).href.startsWith(location.origin+'/'))throw Error('外部图片只提供地址');const data=await thumbnail(source);pack.visualInput.push({kind:'image',nodeIds:item.nodeIds,ownerId:item.ownerId,locations:item.locations,source:source.startsWith('data:')?item.path:source,data,coverage:'真实图片预览，最长边不超过 1024 像素；需要辨认小字时请读取原图。'})}catch(err){pack.visualCoverage.push('图片 '+item.ownerId+' 未采集：'+err.message)}}));
   if(pack.resource==='board')for(const video of document.querySelectorAll('#nodes video')){const nodeId=video.closest('.node')?.dataset.id;if(!pack.selectedIds.includes(nodeId)||pack.visualInput.length>=66)continue;try{if(video.readyState<2||!video.videoWidth)throw Error('当前帧尚未加载');const c=document.createElement('canvas'),z=Math.min(1,1024/video.videoWidth,1024/video.videoHeight);c.width=Math.round(video.videoWidth*z);c.height=Math.round(video.videoHeight*z);c.getContext('2d').drawImage(video,0,0,c.width,c.height);pack.visualInput.push({kind:'video-frame',nodeIds:[nodeId],source:video.getAttribute('src'),time:video.currentTime,data:c.toDataURL('image/png'),coverage:'当前已加载的视频静帧，不能代表整段视频。'})}catch(err){pack.visualCoverage.push('视频 '+nodeId+'：'+err.message)}}
   if(pack.resource==='board'&&document.querySelector('#nodes iframe'))pack.visualCoverage.push('嵌入 HTML 的实时画面未采集；提供本地路径与可读取的正文摘录。');
   pack.visualCoverage.push('布局图由页面元素渲染，部分 CSS 或动态内容可能与实际画面有差异；声音未自动转写。');

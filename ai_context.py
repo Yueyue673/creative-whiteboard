@@ -9,6 +9,18 @@ import struct
 import zipfile
 
 
+def table_attachments(node):
+    cells={}
+    for field in ('cellItems','cellImages'):
+        for ri,row in enumerate(node.get(field,[])):
+            for ci,items in enumerate(row):
+                if not items:continue
+                cell=cells.setdefault((ri,ci),{'row':ri,'column':ci,'columnTitle':node.get('columns',[])[ci] if ci<len(node.get('columns',[])) else None,'itemIds':[],'imageCount':0})
+                if field=='cellItems':cell['itemIds']=[item.get('id') for item in items]
+                else:cell['imageCount']=len(items)
+    return {'id':node['id'],'columns':node.get('columns',[]),'cells':[cells[key] for key in sorted(cells)]}
+
+
 def spatial_context(data):
     nodes = data.get('nodes', [])
     if not nodes:
@@ -21,11 +33,12 @@ def spatial_context(data):
     groups = []
     for r in rects:
         containers = [f['id'] for f in frames if f['id'] != r['id']
-                      and f['x'] <= r['center'][0] <= f['x']+f['w']
-                      and f['y'] <= r['center'][1] <= f['y']+f['h']]
+                      and f['x'] <= r['x'] < f['x']+f['w']
+                      and f['y'] <= r['y'] < f['y']+f['h']]
         r['containers'] = containers
+        r['groupId'] = containers[0] if containers and r['type']!='frame' else None
     for f in frames:
-        groups.append({'id': f['id'], 'members': [r['id'] for r in rects if f['id'] in r['containers']]})
+        groups.append({'id': f['id'], 'members': [r['id'] for r in rects if r['groupId']==f['id']]})
     candidates = set()
     for axis in ('x', 'y'):
         order = sorted(rects, key=lambda r:r[axis])
@@ -59,6 +72,9 @@ def spatial_context(data):
             'bounds':{'x':min(r['x'] for r in rects),'y':min(r['y'] for r in rects),
                       'right':max(r['x']+r['w'] for r in rects),'bottom':max(r['y']+r['h'] for r in rects)},
             'items':rects,'groups':groups,'relations':relations,
+            'groupRule':'与白板操作一致：卡片左上角在框内时归入最小分组框；分组框本身不归入另一框。',
+            'relationCoverage':'邻近、对齐、重叠从坐标附近的候选计算，并非所有可能关系的完整列表。',
+            'tables':[table_attachments(n) for n in nodes if n['type']=='table'],
             'interpretation':'包含、邻近、对齐和重叠是位置观察，不能直接当作因果或作者指定的阅读顺序。明确关系以连线、表格、原文和备注为准。'}
 
 
@@ -80,7 +96,8 @@ def save_visuals(pack, task_root, origin):
     allowed=context_ids(pack['data']);prepared=[];total=0
     for i,item in enumerate(entries):
         if not isinstance(item,dict) or item.get('kind') not in ('viewport','overview','image','video-frame'):raise ValueError('图像附件类型无效')
-        if not isinstance(item.get('nodeIds'),list) or not set(item['nodeIds'])<=allowed:raise ValueError('图像附件超出所选范围')
+        if not isinstance(item.get('nodeIds'),list) or not item['nodeIds'] or not set(item['nodeIds'])<=allowed:raise ValueError('图像附件超出所选范围')
+        if item.get('ownerId') is not None and item['ownerId'] not in allowed:raise ValueError('图像所属内容超出所选范围')
         encoded=item.get('data','')
         if not isinstance(encoded,str) or not encoded.startswith('data:image/png;base64,'):raise ValueError('图像附件必须为 PNG')
         try:raw=base64.b64decode(encoded.split(',',1)[1],validate=True)
@@ -90,7 +107,11 @@ def save_visuals(pack, task_root, origin):
         total+=len(raw)
         if not 0<width<=4096 or not 0<height<=4096 or len(raw)>3*1024*1024 or total>12*1024*1024:raise ValueError('图像附件过大，请缩小选择范围')
         name=f'{i:02d}_{item["kind"]}.png'
-        metadata={k:item[k] for k in ('kind','nodeIds','ownerId','source','time','coverage') if k in item}
+        locations=item.get('locations',[])
+        if not isinstance(locations,list) or len(locations)>5000:raise ValueError('图像关联位置过多')
+        for position in locations:
+            if not isinstance(position,dict) or position.get('nodeId') not in allowed or position.get('ownerId') not in allowed or not isinstance(position.get('path'),str) or len(position['path'])>2000:raise ValueError('图像关联位置超出所选范围')
+        metadata={k:item[k] for k in ('kind','nodeIds','ownerId','source','time','coverage','locations') if k in item}
         metadata.update(name=name,archivePath='images/'+name,width=width,height=height,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
         prepared.append((name,raw,metadata))
     folder=task_root/(pack['requestId']+'_files')

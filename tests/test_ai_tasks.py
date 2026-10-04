@@ -4,6 +4,7 @@ import io
 import zipfile
 import unittest
 import test_server
+import ai_context
 
 
 class AITaskTest(unittest.TestCase):
@@ -110,6 +111,17 @@ class AITaskTest(unittest.TestCase):
         self.assertEqual(status,200)
         timeline['/api/media/file']['startMarkerId']='missing'
         self.assertEqual(self.request('/api/boards/ai-markers','PUT',board,{'If-Match':headers['ETag']})[0],400)
+
+    def test_spatial_metadata_matches_operation_and_attachment_locations(self):
+        data=dict(nodes=[dict(id='frame',type='frame',x=0,y=0,w=300,h=200),dict(id='small',type='frame',x=20,y=20,w=100,h=100),dict(id='overhang',type='note',x=30,y=30,w=500,h=500),dict(id='table',type='table',x=150,y=30,w=300,h=200,columns=['画面'],rows=[['']],cellImages=[[[dict(data='image')]]],cellItems=[[[dict(id='inner')]]])])
+        spatial=ai_context.spatial_context(data)
+        self.assertEqual(next(r for r in spatial['items'] if r['id']=='overhang')['groupId'],'small')
+        self.assertEqual(next(g for g in spatial['groups'] if g['id']=='small')['members'],['overhang'])
+        self.assertIsNone(next(r for r in spatial['items'] if r['id']=='small')['groupId'])
+        cell=spatial['tables'][0]['cells'][0]
+        self.assertEqual(cell['itemIds'],['inner'])
+        self.assertEqual(cell['imageCount'],1)
+        self.assertEqual(cell['columnTitle'],'画面')
 
 if __name__ == '__main__':
     unittest.main()

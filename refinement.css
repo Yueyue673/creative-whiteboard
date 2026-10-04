@@ -90,3 +90,4 @@ button,summary,select{transition:none}
 #dialog:has(.ai-compose) #dialogBody,#dialog:has(.ai-source-list) #dialogBody{padding:22px 26px;overflow:auto;min-height:0;scrollbar-gutter:stable}
 #dialog:has(.ai-compose) #dialogActions,#dialog:has(.ai-source-list) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .ai-compose>p{line-height:1.75}.ai-compose>.wf-explain{margin-top:4px;margin-bottom:18px}.ai-compose .ai-context-details{margin:12px 0}.media-controls{position:relative}.media-controls .media-marker-tick{top:0!important}
+.hand-tool .web-frame-host::after,.space-panning .web-frame-host::after{content:"";position:absolute;inset:0;background:transparent;z-index:4;cursor:grab;pointer-events:auto}.hand-tool.document-panning .web-frame-host::after,.space-panning.document-panning .web-frame-host::after{cursor:grabbing}

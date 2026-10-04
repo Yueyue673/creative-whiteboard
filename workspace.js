@@ -92,7 +92,12 @@ window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0
 for(const name of ['gesturestart','gesturechange','gestureend'])window.addEventListener(name,e=>e.preventDefault(),{passive:false});
 
 function mediaMarkup(n){const a=n.mediaId?assetById(n.mediaId):null;return a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></video>':a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></audio>':''}
-function growContentFields(root=document){root.querySelectorAll('.node textarea').forEach(el=>{el.classList.toggle('empty-field',!el.value.trim());el.style.height='0px';el.style.height=Math.max(el.scrollHeight+2,el.matches('[data-row]')?40:28)+'px'})}
+function growContentFields(root=document){
+ const fields=[];
+ root.querySelectorAll('.node textarea').forEach(el=>{el.classList.toggle('empty-field',!el.value.trim());const s=getComputedStyle(el),key=JSON.stringify([el.value,el.offsetWidth,s.fontSize,s.fontFamily,s.lineHeight,s.minHeight,s.paddingTop,s.paddingBottom]);if(el._growthKey===key)return;el._growthKey=key;fields.push(el)});
+ // Read all changed fields after resetting them together, then write their measured heights.
+ fields.forEach(el=>el.style.height='0px');const heights=fields.map(el=>Math.max(el.scrollHeight+2,el.matches('[data-row]')?40:28));fields.forEach((el,i)=>el.style.height=heights[i]+'px');
+}
 const beforeUnifiedDraw=drawNodes;drawNodes=function(){beforeUnifiedDraw();growContentFields()};
 document.addEventListener('input',e=>{if(e.target.matches('.node textarea'))growContentFields(e.target.closest('.node'))});
 
