@@ -32,6 +32,24 @@ class AITaskTest(unittest.TestCase):
         self.assertEqual(json.loads(raw)['request'], pack['request'])
         self.assertEqual(self.request('/api/ai/tasks')[0], 200)
 
+    def test_library_context_excludes_other_folder_names(self):
+        _, headers, raw = self.request('/api/assets')
+        catalog = json.loads(raw)
+        note = dict(id='selected-note', type='note', title='作者的观察', body='保留原文', tags=[], x=0, y=0, w=300, h=200)
+        chosen = dict(id='selected-bundle', title='选中内容', path='', folder='观察/声音', mime='application/x-creative-bundle', bundle=dict(nodes=[note], edges=[]))
+        catalog['assets'].append(chosen)
+        catalog['folders'] = ['观察', '观察/声音', '未选中的私人项目']
+        status, headers, _ = self.request('/api/assets', 'PUT', catalog, {'If-Match':headers['ETag']})
+        self.assertEqual(status, 200)
+        request = dict(id='library-scope', resource='library', targetId='catalog', baseETag=headers['ETag'], ids=[chosen['id']], nodeIds=[], task='查资料', keepWords=True, keepNotes=True, allowAdd=False, allowDelete=False)
+        pack = dict(format='creative-board-context', version=1, resource='library', targetId='catalog', baseETag=headers['ETag'], requestId='library-scope', selectedIds=[chosen['id']], request=request, data=dict(assets=[chosen], folders=catalog['folders']))
+        status, _, raw = self.request('/api/ai/tasks/library-scope', 'PUT', pack)
+        self.assertEqual(status, 200, raw)
+        result = json.loads(raw)
+        self.assertEqual(result['data']['folders'], ['观察', '观察/声音'])
+        self.assertNotIn('未选中的私人项目', raw.decode())
+        self.assertEqual(result['data']['assets'][0]['bundle']['nodes'][0]['body'], '保留原文')
+
     def test_submission_rejects_changes_outside_rules(self):
         _, pack = self.make_task('ai-rules')
         proposal = dict(format='creative-board-proposal', version=1, resource='board', targetId='ai-rules', requestId=pack['requestId'], baseETag=pack['baseETag'], title='标签', changes=[dict(op='update',entity='node',targetId='one',before=dict(tags=[]),after=dict(tags=['观察']))])

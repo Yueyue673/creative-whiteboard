@@ -1,7 +1,7 @@
 // Reusable workflows: provenance, collection, search, recovery and reviewed changes.
 'use strict';
-const wfLabels={title:'标题',body:'正文',userText:'自己的补充',annotation:'备注',tags:'标签',folder:'文件夹',notes:'说明',color:'颜色',columns:'表格列名',rows:'表格文字',cellImages:'表格图片',images:'图片',x:'横向位置',y:'纵向位置',w:'宽度',h:'高度',url:'来源地址',archived:'移入回收站'};
-const wfContentFields=['title','body','userText','annotation','tags','color','columns','rows','cellImages','cellItems','images','url','image','assetId','mediaId'];
+const wfLabels={title:'标题',body:'正文',userText:'自己的补充',annotation:'备注',tags:'标签',folder:'文件夹',notes:'说明',color:'颜色',columns:'表格列名',rows:'表格文字',cellImages:'表格图片',cellItems:'单元格内容',images:'图片',mediaTimeline:'时间标记与重播起点',markers:'时间标记',startMarkerId:'重播起点编号',time:'时间（秒）',note:'标记备注',x:'横向位置',y:'纵向位置',w:'宽度',h:'高度',url:'来源地址',archived:'移入回收站'};
+const wfContentFields=['title','body','userText','annotation','tags','color','columns','rows','cellImages','cellItems','images','url','image','assetId','mediaId','mediaTimeline'];
 const wfCanonical=v=>Array.isArray(v)?v.map(wfCanonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,wfCanonical(v[k])])):v;
 const wfEqual=(a,b)=>JSON.stringify(wfCanonical(a))===JSON.stringify(wfCanonical(b));
 const wfText=v=>wfReadableValue(v);
@@ -150,7 +150,7 @@ async function pastePayload(text,files,anchor=pasteAnchor()){
  if(!board||anchor.boardId!==boardId)return toast('白板已切换，请在当前白板重新粘贴');
  if(files.length){await importFiles(files,worldPoint(anchor.x,anchor.y));return}
  if(!text)return;text=text.replace(/\r\n?/g,'\n');let value;try{value=JSON.parse(text)}catch{}
- let bundle;if(value?.format==='creative-board-fragment'){if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error('剪贴板内容不完整');bundle=normalize(value)}else if(text.includes('\t')){bundle={nodes:[{id:uid(),type:'table',title:'粘贴的表格',body:'',x:0,y:0,w:620,h:360,color:'#ffffff',...tableData(parseDelimited(text,'\t'),false)}],edges:[]}}else{bundle={nodes:[{id:uid(),type:'note',title:text.split('\n')[0].slice(0,50),body:text,x:0,y:0,w:300,h:250,color:colors[0],tags:[]}],edges:[]}}
+ let bundle;if(value?.format==='creative-board-fragment'){if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error('剪贴板内容不完整');bundle=normalize(value)}else if(text.includes('\t')){bundle={nodes:[{id:uid(),type:'table',title:'粘贴的表格',body:'',x:0,y:0,w:620,h:360,color:'#ffffff',...tableData(parseDelimited(text,'\t'),false)}],edges:[]}}else{bundle={nodes:[{id:uid(),type:'note',sizeMode:'auto',title:text.split('\n')[0].slice(0,50),body:text,x:0,y:0,w:300,h:120,color:colors[0],tags:[]}],edges:[]}}
  if(!bundle.nodes.length)return;const point=pasteLocation(bundle,anchor,text);editorId=null;insertBundle(bundle,point);canvas.tabIndex=-1;canvas.focus({preventScroll:true});toast('已粘贴 '+bundle.nodes.length+' 块内容 · Ctrl+Z 撤销');
 }
 

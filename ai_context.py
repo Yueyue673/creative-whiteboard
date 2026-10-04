@@ -9,6 +9,15 @@ import struct
 import zipfile
 
 
+def context_folders(assets):
+    folders = set()
+    for asset in assets:
+        parts = [part for part in asset.get('folder', '').split('/') if part]
+        for i in range(1, len(parts) + 1):
+            folders.add('/'.join(parts[:i]))
+    return sorted(folders)
+
+
 def table_attachments(node):
     cells={}
     for field in ('cellItems','cellImages'):

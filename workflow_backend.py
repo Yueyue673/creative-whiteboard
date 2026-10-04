@@ -4,7 +4,7 @@ from html.parser import HTMLParser
 from functools import lru_cache
 import json,hashlib,time,re,os,threading
 from app_paths import APP_ROOT, DATA_ROOT
-from ai_context import spatial_context, save_visuals, task_archive
+from ai_context import spatial_context, save_visuals, task_archive, context_folders
 ROOT=DATA_ROOT
 HISTORY=ROOT/'历史记录'
 PROPOSALS=ROOT/'AI待审核'
@@ -237,7 +237,7 @@ def workflow_put(handler,p):
     edges=[e for e in base.get('edges',[]) if e['from'] in selected_ids and e['to'] in selected_ids]
     if request.get('nodeIds')!=selected_ids:raise ValueError('所选内容与任务规则不一致')
     value['data']={**base,'nodes':selected,'edges':edges}
-   else:value['data']={'assets':selected,'folders':base.get('folders',[])}
+   else:value['data']={'assets':selected,'folders':context_folders(selected)}
    ids=selected_ids+[e['id'] for e in edges]
    if set(request.get('ids',[]))!=set(ids) or set(value.get('selectedIds',[]))!=set(ids):raise ValueError('授权范围与选择内容不一致')
    value['createdAt']=time.time();value['contentETag']=content_digest(base);value['files']=context_files(value['data']);value['spatial']=spatial_context(value['data'])
