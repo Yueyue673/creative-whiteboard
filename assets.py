@@ -34,7 +34,7 @@ class AssetMixin:
    raw=target.read_bytes();mime=kind(target)
    if target.suffix.lower() in ['.html','.htm']:
     bridge=b'''<script>(()=>{let scale=1;addEventListener('beforeunload',()=>parent.postMessage({type:'creative-document-leaving'},'*'));addEventListener('message',e=>{if(e.source===parent&&e.data?.type==='creative-document-probe')parent.postMessage({type:'creative-document-protected',nonce:e.data.nonce},'*')});function setZoom(z){scale=Math.max(.25,Math.min(5,Number(z)||1));document.documentElement.style.zoom=scale;parent.postMessage({type:'creative-document-zoom',scale},'*')}addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();e.stopImmediatePropagation();parent.postMessage({type:'creative-document-board-wheel',x:e.clientX,y:e.clientY,width:innerWidth,height:innerHeight,delta:e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?innerHeight:1)},'*')}},{capture:true,passive:false});addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();parent.postMessage({type:'creative-preview-close'},'*')}if((e.ctrlKey||e.metaKey)&&['+','=','-','0','Add','Subtract'].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();setZoom(e.key==='0'?1:scale*(e.key==='-'||e.key==='Subtract'?1/1.1:1.1))}},true);addEventListener('message',e=>{if(e.source===parent&&e.data?.type==='creative-set-document-zoom')setZoom(e.data.scale)});parent.postMessage({type:'creative-document-ready'},'*')})();</script>'''
-    bridge+=b'<script>'+ (APP_ROOT/'preview-pan.js').read_bytes()+b'</script>'
+    bridge=b'<script>'+ (APP_ROOT/'preview-pan.js').read_bytes()+b'</script>'+bridge
     head=re.search(br'<head(?:\s[^>]*)?>',raw,re.I)
     if head:raw=raw[:head.end()]+bridge+raw[head.end():]
     else:

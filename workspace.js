@@ -352,6 +352,7 @@ window.addEventListener('blur',finishDocumentPan);window.addEventListener('point
 
 // A wheel over an embedded page uses the same screen anchor as the board.
 window.addEventListener('message',e=>{if(e.data?.type!=='creative-document-board-wheel'||!board||$('dialog').open)return;const frame=[...document.querySelectorAll('.inline-document iframe')].find(f=>f.contentWindow===e.source);if(!frame||!frame._navigationCover?.hidden)return;const d=e.data;if(![d.x,d.y,d.width,d.height,d.delta].every(Number.isFinite)||d.width<=0||d.height<=0)return;const r=frame.getBoundingClientRect(),x=r.left+d.x*r.width/d.width,y=r.top+d.y*r.height/d.height;zoom(Math.exp(-Math.max(-200,Math.min(200,d.delta))*.004*(window.whiteboardNavigation?.read().zoomSpeed||1)),x,y)});
+window.addEventListener('message',e=>{if(e.data?.type!=='creative-document-active'||!board||loading||$('dialog').open)return;const frame=[...document.querySelectorAll('.inline-document iframe')].find(f=>f.contentWindow===e.source);if(frame&&document.activeElement===frame&&frame._navigationCover?.hidden&&frame.getBoundingClientRect().width)document.dispatchEvent(new Event('creative-document-active'))});
 
 // Create and maintain library contents without staging them on a board first.
 function libraryFolderOptions(value){return '<option value="">内容库根目录</option>'+allAssetFolders().map(f=>'<option value="'+esc(f)+'" '+(f===value?'selected':'')+'>'+esc(f)+'</option>').join('')}
