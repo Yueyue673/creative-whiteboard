@@ -49,22 +49,24 @@
    const result=await persistBefore();if(deleted)deletedNotice();return result;
   };
   change=function(...args){changeBefore(...args);if(deleted){clearTimeout(saveTimer);deletedNotice()}};
-  loadBoard=async function(id){
-   await loadBefore(id);
+  loadBoard=async function(id,options){
+   const loaded=await loadBefore(id,options);
    if(boardId===id&&!loading&&!blocked){deleted=null;changed()}
+   return loaded;
   };
   async function materialize(){
    freeze(true);
    try{
-    const value=clone(board),folders=(await request('/api/folders')).value.folders,id=uid();
+    await window.whiteboardImports?.idle();
+    const value=clone(board),revision=contentRevision,folders=(await request('/api/folders')).value.folders,id=uid();
     value.name+='（另存）';if(value.folder&&!folders.some(f=>f.id===value.folder))value.folder='';
     await request('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});
-    return {id,name:value.name,folder:value.folder||'',count:value.nodes.length};
+    return {id,name:value.name,folder:value.folder||'',count:value.nodes.length,revision};
    }finally{freeze(false)}
   }
   window.whiteboardBoardDocument={
    freeze,markDeleted,restored,materialize,
-   flush:async()=>{coordinated=true;try{await window.whiteboardImports?.idle();return await persistBefore()}finally{coordinated=false}},
+   flush:async()=>{coordinated=true;try{return window.whiteboardImports?await whiteboardImports.flush(persistBefore):await persistBefore()}finally{coordinated=false}},
    detach:()=>{clearTimeout(saveTimer);if(typeof captureReading==='function')captureReading()},
    state:()=>({boardId,dirty,contentDirty,savingContent,blocked,saveError,deleted:!!deleted,loading})
   };
@@ -175,7 +177,7 @@
     const copy=await doc.materialize();announce('created',{ids:[copy.id]});boards.push(copy);removeTabs([id]);openBoard(copy.id,tab.side);
     try{await refresh()}catch(e){toast('副本已保存，列表暂时未能刷新：'+e.message);return}
     toast('已另存当前内容，原件的删除或恢复状态保留');
-   }else{const copy=await whiteboardBoardDocument.materialize();announce('created',{ids:[copy.id]});await loadBoard(copy.id);toast('已另存当前内容')}
+   }else{const copy=await whiteboardBoardDocument.materialize();announce('created',{ids:[copy.id]});if(await loadBoard(copy.id,{discardCurrent:true,expectedRevision:copy.revision}))toast('已另存当前内容')}
   }
  };
  if(shell){const createBefore=createBoard;createBoard=async function(...args){const id=await createBefore(...args);announce('created',{ids:[id]});return id}}

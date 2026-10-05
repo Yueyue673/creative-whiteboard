@@ -43,12 +43,26 @@ function change(viewOnly=false){dirty=true;if(!viewOnly){contentDirty=true;conte
 function conflict(message){blocked=true;$('status').textContent='有修改尚未保存';$('notice').hidden=false;$('notice').innerHTML='<div>'+esc(message)+'</div><button id="conflictCopy">把当前内容另存一份</button><button id="conflictExport">下载当前内容备份</button><button id="conflictReload">放弃当前未保存修改，重新读取</button>';$('conflictCopy').onclick=saveCopy;$('conflictExport').onclick=exportJSON;$('conflictReload').onclick=()=>confirmReload()}
 async function persist(){if(savePromise){const ok=await savePromise;if(!ok)return false;if(dirty&&!blocked&&!loading)return persist();return !dirty}if(loading||blocked||!dirty||!board)return !dirty;clearTimeout(saveTimer);const raw=JSON.stringify(board),id=boardId,hasContent=contentDirty;dirty=false;contentDirty=false;savingContent=hasContent;savePromise=(async()=>{try{const r=await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':etag},body:raw});etag=r.headers.get('ETag');saveError='';const saved=JSON.parse(raw),item=boardList.find(b=>b.id===id);if(item){item.name=saved.name;item.folder=saved.folder||'';item.count=saved.nodes.length;renderFolders()}$('status').textContent='自动保存';return true}catch(e){dirty=true;contentDirty=contentDirty||hasContent;saveError=e.message;if(e.code===409)conflict(e.message);else{$('status').textContent='保存失败 · 请保留窗口';toast(e.message)}return false}finally{savePromise=null;savingContent=false}})();const ok=await savePromise;if(ok&&dirty)return persist();return ok}
 async function listBoards(){const list=await(await api('/api/boards')).json();boardList=list;$('boards').innerHTML=list.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');$('boards').value=boardId;if(typeof renderFolders==='function')renderFolders();return list}
-async function loadBoard(id){
+async function loadBoard(id,options={}){
  const generation=++loadGeneration,openingFocus=document.activeElement;if(typeof cancelCanvasGesture==='function')cancelCanvasGesture();
- loading=true;loadTargetId=id;loadError='';loadErrorCode=0;window.dispatchEvent(new Event('creative-board-loading'));
+ loadTargetId=id;loadError='';loadErrorCode=0;
  try{
-  if(savePromise&&!await savePromise)throw Error('当前修改尚未保存，仍保留在原白板中。请先处理保存提示。');
+  if(board&&!options.discardCurrent){
+   const saved=window.whiteboardImports?await whiteboardImports.flush():await persist();
+   if(!saved)throw Error('当前修改尚未保存，仍保留在原白板中。请先处理保存提示。');
+  }else{
+   for(;;){
+    await window.whiteboardImports?.idle();
+    if(savePromise&&!await savePromise)throw Error('当前修改尚未保存，仍保留在原白板中。请先处理保存提示。');
+    if(!window.whiteboardImports?.pendingCanvas()&&!savePromise)break;
+   }
+   if(Number.isInteger(options.expectedRevision)&&options.expectedRevision!==contentRevision){
+    loadTargetId=boardId;$('boards').value=boardId;
+    toast('副本已保存。期间新增的内容仍留在当前白板，未切换到副本。');return false;
+   }
+  }
   if(generation!==loadGeneration)return false;
+  loading=true;window.dispatchEvent(new Event('creative-board-loading'));
   const response=await api('/api/boards/'+id),value=await response.json();
   if(generation!==loadGeneration)return false;
   if(!value||!Array.isArray(value.nodes)||!Array.isArray(value.edges)||!value.view||typeof value.name!=='string')throw Error('这份白板文件的内容不完整，暂时无法读取。');
@@ -68,8 +82,17 @@ async function loadBoard(id){
 }
 async function switchBoard(id){if((dirty||savePromise)&&!await persist()){$('boards').value=boardId;toast('请先保存当前修改或处理文件冲突');return}try{await loadBoard(id)}catch(e){toast(e.message)}}
 async function newBoard(name){if((dirty||savePromise)&&!await persist())return toast('请先保存当前修改');const b={format:'creative-board',version:1,name,folder:folderSelected,nodes:[],edges:[],view:{x:80,y:80,z:1}};const id=uid();await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(b)});await loadBoard(id)}
-async function saveCopy(){const name=board.name+'（另存）',b={...clone(board),name};try{const id=uid();await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(b)});await loadBoard(id)}catch(e){toast(e.message)}}
-function confirmReload(){if(!dirty&&!blocked)return loadBoard(boardId).catch(e=>toast(e.message));showDialog('<h2>重新读取文件？</h2><p>当前未保存的修改会被放弃。你可以先导出备份。</p>',[['取消',()=>$('dialog').close()],['重新读取',()=>{$('dialog').close();loadBoard(boardId).catch(e=>toast(e.message))}]])}
+async function saveCopy(){
+ const name=board.name+'（另存）',b={...clone(board),name},revision=contentRevision;
+ try{
+  const id=uid();await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(b)});
+  if(contentRevision!==revision||window.whiteboardImports?.pendingCanvas()){
+   toast('副本已保存。期间新增的内容仍留在当前白板，未切换到副本。');await listBoards();return;
+  }
+  await loadBoard(id,{discardCurrent:true,expectedRevision:revision});
+ }catch(e){toast(e.message)}
+}
+function confirmReload(){if(!dirty&&!blocked)return loadBoard(boardId).catch(e=>toast(e.message));showDialog('<h2>重新读取文件？</h2><p>当前未保存的修改会被放弃。你可以先导出备份。</p>',[['取消',()=>$('dialog').close()],['重新读取',()=>{$('dialog').close();loadBoard(boardId,{discardCurrent:true}).catch(e=>toast(e.message))}]])}
 function worldPoint(x,y){const r=$('canvas').getBoundingClientRect();return{x:(x-r.left-view().x)/view().z,y:(y-r.top-view().y)/view().z}}
 function center(){const r=$('canvas').getBoundingClientRect();return worldPoint(r.left+r.width/2,r.top+r.height/2)}
 function groupOf(n){if(n.type==='frame')return null;return board.nodes.filter(f=>f.type==='frame'&&n.x>=f.x&&n.x<f.x+f.w&&n.y>=f.y&&n.y<f.y+f.h).sort((a,b)=>a.w*a.h-b.w*b.h)[0]}

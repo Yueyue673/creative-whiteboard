@@ -47,6 +47,108 @@ const {chromium} = require('playwright');
   const b = await fetch(base + '/api/boards/b').then(r => r.json());
   assert(a.nodes.some(n => n.body === '等待读取的原文。'));
   assert(!b.nodes.some(n => n.body === '等待读取的原文。'));
+  // An import started while a switch is waiting for a save still belongs to the old board.
+  await page.evaluate(() => switchBoard('a'));
+  let releaseLateSave;
+  const lateSaveGate = new Promise(resolve => releaseLateSave = resolve);
+  await page.route('**/api/boards/a', async route => {
+   if (route.request().method() === 'PUT') await lateSaveGate;
+   await route.continue();
+  });
+  await page.evaluate(() => {
+   board.nodes[0].body = '先保存的一次修改。'; change();
+   window.lateSave = persist(); window.switchAfterSave = switchBoard('b');
+  });
+  await page.waitForFunction(() => !!savePromise && !dirty);
+  await page.evaluate(() => {
+   const file = new File(['保存期间导入的记录。'], '保存期间的记录.txt', {type:'text/plain'});
+   file.text = () => new Promise(resolve => window.finishLateImport = resolve);
+   window.lateImport = importFiles([file], {x:300, y:240});
+  });
+  releaseLateSave(); await page.waitForTimeout(120);
+  assert.equal(await page.evaluate(() => boardId), 'a');
+  await page.evaluate(() => finishLateImport('保存期间导入的记录。'));
+  await page.evaluate(() => Promise.all([lateSave, lateImport, switchAfterSave]));
+  await page.unroute('**/api/boards/a');
+  assert.equal(await page.evaluate(() => boardId), 'b');
+  assert((await fetch(base + '/api/boards/a').then(r => r.json())).nodes.some(n => n.body === '保存期间导入的记录。'),
+   'A later import must be saved before committing the next document');
+  assert(!(await fetch(base + '/api/boards/b').then(r => r.json())).nodes.some(n => n.body === '保存期间导入的记录。'));
+  // If the final save fails, the later import and original document stay editable.
+  await page.evaluate(() => switchBoard('a'));
+  let releaseFirstSave, lateWrites = 0;
+  const firstSaveGate = new Promise(resolve => releaseFirstSave = resolve);
+  await page.route('**/api/boards/a', async route => {
+   if (route.request().method() !== 'PUT') return route.continue();
+   if (++lateWrites === 1) {await firstSaveGate; await route.continue();}
+   else await route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({error:'模拟最后一次保存失败'})});
+  });
+  await page.evaluate(() => {
+   board.nodes[0].body = '需要保留的当前修改。'; change();
+   window.firstSave = persist(); window.failedSwitch = switchBoard('b');
+  });
+  await page.waitForFunction(() => !!savePromise && !dirty);
+  await page.evaluate(() => {
+   const file = new File(['保存失败后保留的导入。'], '未丢失的记录.txt', {type:'text/plain'});
+   file.text = () => new Promise(resolve => window.finishFailedImport = resolve);
+   window.failedImport = importFiles([file], {x:480, y:260});
+  });
+  releaseFirstSave(); await page.waitForTimeout(120);
+  await page.evaluate(() => finishFailedImport('保存失败后保留的导入。'));
+  await page.evaluate(() => Promise.all([firstSave, failedImport, failedSwitch]));
+  assert.equal(await page.evaluate(() => boardId), 'a');
+  assert(await page.evaluate(() => dirty && board.nodes.some(n => n.body === '保存失败后保留的导入。')));
+  await page.unroute('**/api/boards/a'); assert(await page.evaluate(() => persist()));
+  await page.evaluate(() => switchBoard('b'));
+  // Saving a copy cannot replace newer original words with the older copied snapshot.
+  let releaseCopy, copyStarted = false;
+  const copyGate = new Promise(resolve => releaseCopy = resolve);
+  await page.route('**/api/boards/*', async route => {
+   if (route.request().method() === 'PUT' && route.request().headers()['if-match'] === 'new') {
+    copyStarted = true; await copyGate;
+   }
+   await route.continue();
+  });
+  await page.evaluate(() => {window.pendingCopy = saveCopy();});
+  for (let attempt = 0; attempt < 100 && !copyStarted; attempt++) await page.waitForTimeout(10);
+  assert(copyStarted);
+  await page.evaluate(() => {
+   const file = new File(['另存期间继续记录的原文。'], '另存期间的记录.txt', {type:'text/plain'});
+   file.text = () => new Promise(resolve => window.finishCopyImport = resolve);
+   window.copyImport = importFiles([file], {x:700, y:240});
+  });
+  releaseCopy(); await page.evaluate(() => pendingCopy);
+  assert.equal(await page.evaluate(() => boardId), 'b');
+  await page.evaluate(() => finishCopyImport('另存期间继续记录的原文。'));
+  await page.evaluate(() => copyImport); assert(await page.evaluate(() => persist()));
+  await page.unroute('**/api/boards/*');
+  assert((await fetch(base + '/api/boards/b').then(r => r.json())).nodes.some(n => n.body === '另存期间继续记录的原文。'));
+  // A copy waiting for an existing save must also preserve an import started during that wait.
+  let releaseCopySave;
+  const copySaveGate = new Promise(resolve => releaseCopySave = resolve);
+  await page.route('**/api/boards/b', async route => {
+   if (route.request().method() === 'PUT') await copySaveGate;
+   await route.continue();
+  });
+  await page.evaluate(() => {
+   board.nodes[0].body = '另存前尚未结束的保存。'; change();
+   window.saveBeforeCopy = persist(); window.copyDuringSave = saveCopy();
+  });
+  await page.waitForFunction(() => !!savePromise && loadTargetId !== boardId && !loading);
+  await page.evaluate(() => {
+   const file = new File(['另存等待期间的新增记录。'], '另存等待期间.txt', {type:'text/plain'});
+   file.text = () => new Promise(resolve => window.finishWaitingCopyImport = resolve);
+   window.waitingCopyImport = importFiles([file], {x:800, y:300});
+  });
+  releaseCopySave(); await page.waitForTimeout(120);
+  assert.equal(await page.evaluate(() => boardId), 'b');
+  await page.evaluate(() => finishWaitingCopyImport('另存等待期间的新增记录。'));
+  await page.evaluate(() => Promise.all([saveBeforeCopy, copyDuringSave, waitingCopyImport]));
+  assert.equal(await page.evaluate(() => boardId), 'b');
+  assert(await page.evaluate(() => board.nodes.some(n => n.body === '另存等待期间的新增记录。')));
+  assert.equal(await page.evaluate(() => loadError), '');
+  assert(await page.locator('#boardLoadState').isHidden(), 'Keeping newer original content is not a read failure');
+  await page.unroute('**/api/boards/b'); assert(await page.evaluate(() => persist()));
   // Switching tabs remains immediate; closing the original tab waits for upload and save.
   const wav = Buffer.alloc(44 + 1600);
   wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
@@ -76,6 +178,32 @@ const {chromium} = require('playwright');
   assert.equal(await windowPage.evaluate(() => current().boardId), 'b');
   assert((await fetch(base + '/api/boards/a').then(r => r.json())).nodes.some(node => node.title === '稍后的声音.wav'));
   assert(!(await fetch(base + '/api/boards/b').then(r => r.json())).nodes.some(node => node.title === '稍后的声音.wav'));
+  // Closing also waits for imports started after its first save has already begun.
+  await windowPage.evaluate(() => openBoard('a'));
+  await windowPage.waitForFunction(() => pane(current())?.state().boardId === 'a' && !pane(current()).state().loading);
+  const closingFrame = windowPage.frames().find(frame => frame.parentFrame() && new URL(frame.url()).searchParams.get('board') === 'a');
+  let releaseCloseSave;
+  const closeSaveGate = new Promise(resolve => releaseCloseSave = resolve);
+  await windowPage.route('**/api/boards/a', async route => {
+   if (route.request().method() === 'PUT') await closeSaveGate;
+   await route.continue();
+  });
+  await closingFrame.evaluate(() => {board.nodes[0].body = '关闭前的修改。'; change();});
+  await windowPage.evaluate(() => {window.lateClose = closeTab(current().id);});
+  await closingFrame.waitForFunction(() => !!savePromise && !dirty);
+  await closingFrame.evaluate(() => {
+   const file = new File(['关闭期间继续导入的原文。'], '关闭期间的记录.txt', {type:'text/plain'});
+   file.text = () => new Promise(resolve => window.finishCloseImport = resolve);
+   window.closeImport = importFiles([file], {x:900, y:240});
+  });
+  releaseCloseSave(); await windowPage.waitForTimeout(120);
+  assert(await windowPage.evaluate(() => model.tabs.some(tab => tab.boardId === 'a')));
+  await closingFrame.evaluate(() => finishCloseImport('关闭期间继续导入的原文。'));
+  await windowPage.evaluate(() => lateClose);
+  await windowPage.unroute('**/api/boards/a');
+  assert.equal(await windowPage.evaluate(() => model.tabs.length), 1);
+  assert.equal(await windowPage.evaluate(() => current().boardId), 'b');
+  assert((await fetch(base + '/api/boards/a').then(r => r.json())).nodes.some(n => n.body === '关闭期间继续导入的原文。'));
   // The cell chosen before upload follows row and column moves.
   await page.evaluate(() => switchBoard('a'));
   await page.evaluate(() => {
@@ -148,7 +276,7 @@ const {chromium} = require('playwright');
   assert(catalog.assets.some(asset => asset.title === 'upload-one.png'));
   assert(catalog.assets.some(asset => asset.title === 'upload-two.png'));
   assert.deepEqual(errors, []);
-  console.log('Import continuity: original document, background tabs, repeated close, moving/deleted cell targets, image preparation, multiple native files and unload protection passed');
+  console.log('Import continuity: original documents, late imports during saves and closing, failed final save, copy snapshots, moving/deleted cells, image preparation, multiple files and unload protection passed');
  } finally {
   if (browser) await browser.close();
   proc.kill(); await new Promise(resolve => proc.once('exit', resolve));

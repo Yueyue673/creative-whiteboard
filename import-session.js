@@ -4,11 +4,16 @@
  const explorer = new URLSearchParams(location.search).get('explorer') === '1';
  const tasks = new Map();
  let preparingPlacement = false;
+ const pendingCanvas = () => [...tasks.values()].some(task => task.kind === 'canvas');
  const announce = () => {
   window.dispatchEvent(new Event('creative-import-state'));
   if (explorer && parent !== window) parent.postMessage({type:'explorer-import-state'}, location.origin);
  };
  function run(action, kind = 'canvas') {
+  if (kind === 'canvas' && !explorer && (loading || !board)) {
+   notice('白板还在打开，内容尚未添加。请打开后再试。');
+   return Promise.resolve(false);
+  }
   const token = {}, entry = {kind, promise:null};
   let finish;
   entry.promise = new Promise(resolve => finish = resolve);
@@ -23,6 +28,13 @@
    const pending = [...tasks.values()].filter(task => task.kind === 'canvas');
    if (!pending.length) return;
    await Promise.all(pending.map(task => task.promise));
+  }
+ }
+ async function flush(operation = () => persist()) {
+  for (;;) {
+   await idle();
+   if (!await operation()) return false;
+   if (!pendingCanvas() && !dirty && !savePromise) return true;
   }
  }
  function notice(text) {
@@ -95,13 +107,13 @@
   }
   return attachAssetsBefore(ids, destination);
  };
- for (const name of ['switchBoard', 'newBoard', 'confirmReload', 'saveCopy', 'loadBoard']) {
+ for (const name of ['switchBoard', 'newBoard', 'confirmReload', 'saveCopy']) {
   const before = window[name];
   window[name] = async function(...args) {await idle(); return before(...args);};
  }
  if (window.whiteboardPane) {
   const flushBefore = whiteboardPane.flush;
-  whiteboardPane.flush = async function() {await idle(); return flushBefore();};
+  whiteboardPane.flush = () => flush(flushBefore);
  }
  window.addEventListener('beforeunload', event => {
   if (!tasks.size) return;
@@ -109,7 +121,8 @@
  });
  window.whiteboardImports = {
   idle,
+  flush,
   pending:() => tasks.size > 0,
-  pendingCanvas:() => [...tasks.values()].some(task => task.kind === 'canvas')
+  pendingCanvas
  };
 })();
