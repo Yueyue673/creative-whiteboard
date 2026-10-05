@@ -82,6 +82,59 @@ const {chromium}=require('playwright');
    await p.keyboard.press('Escape');await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),before,'Undo restores '+axis+','+mode);
   }
   console.log('分组排列：中途重叠不漏掉原文，撤销、重做及保存重开，通过');
+  // Repeated keydown events come from one held arrow. Hold the original
+  // membership until release, even when crossing a smaller unrelated group.
+  const keyboardGroup={nodes:[
+   {id:'fixed-group',type:'frame',title:'另一组',x:390,y:80,w:110,h:300},
+   {id:'moving-group',type:'frame',title:'移动这一组',x:500,y:80,w:600,h:400},
+   {id:'moving-note',type:'note',title:'原文',body:'原文跟随这一组。',x:520,y:140,w:200,h:120},
+   {id:'separate-note',type:'note',title:'单独一条',body:'这条没有随组移动。',x:80,y:650,w:250,h:120}
+  ],edges:[{id:'keyboard-link',from:'moving-note',to:'separate-note',label:'保留这条联系'}]};
+  for(const {key,axis,sign} of [{key:'ArrowLeft',axis:'x',sign:-1},{key:'ArrowRight',axis:'x',sign:1},{key:'ArrowUp',axis:'y',sign:-1},{key:'ArrowDown',axis:'y',sign:1}]){
+   await p.evaluate(({fixture,axis,sign})=>{
+    board.nodes=clone(fixture.nodes);board.edges=clone(fixture.edges);
+    if(sign===1)for(const n of board.nodes)n.x=1300-n.x-(n.type==='frame'?n.w:0);
+    if(axis==='y')for(const n of board.nodes){[n.x,n.y]=[n.y,n.x];[n.w,n.h]=[n.h,n.w]}
+    board.view={x:0,y:0,z:.7};selected=new Set(['moving-group']);editorId=null;render();canvas.focus();
+    whiteboardNavigation.write({...whiteboardNavigation.read(),nudge:25});
+   },{fixture:keyboardGroup,axis,sign});
+   const before=await p.evaluate(()=>clone(board)),historyBefore=await p.evaluate(()=>history.length);
+   await p.keyboard.down(key);await p.keyboard.down(key);await p.keyboard.up(key);
+   const after=await p.evaluate(()=>clone(board));
+   assert.equal(await p.evaluate(()=>history.length),historyBefore+1,'One held arrow records one undo');
+   for(const id of ['moving-group','moving-note']){
+    const original=before.nodes.find(n=>n.id===id),moved=after.nodes.find(n=>n.id===id);
+    assert.equal(moved[axis]-original[axis],sign*50,key+' keeps '+id+' moving on repeat');
+    assert.deepEqual({...moved,[axis]:original[axis]},original,'Keyboard movement changes only the position');
+   }
+   for(const id of ['fixed-group','separate-note'])assert.deepEqual(after.nodes.find(n=>n.id===id),before.nodes.find(n=>n.id===id));
+   assert.deepEqual(after.edges,before.edges);
+   await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),before,'One undo restores the complete '+key+' movement');
+   await p.keyboard.press('Control+Shift+z');assert.deepEqual(await p.evaluate(()=>board),after,'Redo preserves the complete '+key+' movement');
+  }
+  const keyboardSaved=await p.evaluate(()=>clone(board));await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);
+  assert.deepEqual(await p.evaluate(()=>board.nodes),keyboardSaved.nodes,'Saved keyboard movement reopens with its complete contents');
+  assert.deepEqual(await p.evaluate(()=>board.edges),keyboardSaved.edges);
+  await p.evaluate(fixture=>{
+   board.nodes=clone(fixture.nodes);board.edges=clone(fixture.edges);board.view={x:0,y:0,z:1};selected=new Set(['moving-group']);editorId=null;render();canvas.focus();
+   whiteboardNavigation.write({...whiteboardNavigation.read(),bigNudge:50});
+  },keyboardGroup);
+  const beforeLargerStep=await p.evaluate(()=>clone(board)),largerStepHistory=await p.evaluate(()=>history.length);
+  await p.keyboard.down('ArrowLeft');await p.keyboard.down('Shift');await p.keyboard.down('ArrowLeft');await p.keyboard.up('ArrowLeft');await p.keyboard.up('Shift');
+  const afterLargerStep=await p.evaluate(()=>clone(board));
+  for(const id of ['moving-group','moving-note'])assert.equal(afterLargerStep.nodes.find(n=>n.id===id).x-beforeLargerStep.nodes.find(n=>n.id===id).x,-75,'Shift changes the step without losing the original contents');
+  assert.equal(await p.evaluate(()=>history.length),largerStepHistory+1,'Changing the step still belongs to one held-arrow movement');
+  await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),beforeLargerStep,'One undo includes the larger step');
+  await p.evaluate(fixture=>{
+   board.nodes=clone(fixture.nodes);board.edges=clone(fixture.edges);board.view={x:0,y:0,z:1};selected=new Set(['moving-group']);editorId=null;render();canvas.focus();
+  },keyboardGroup);
+  await p.keyboard.down('ArrowLeft');const beforeSelectionChange=await p.evaluate(()=>clone(board));
+  await p.locator('#nodes>[data-id="separate-note"]').click({position:{x:30,y:25}});assert.deepEqual(await p.evaluate(()=>[...selected]),['separate-note']);
+  await p.keyboard.down('ArrowLeft');await p.keyboard.up('ArrowLeft');const afterSelectionChange=await p.evaluate(()=>clone(board));
+  for(const id of ['fixed-group','moving-group','moving-note'])assert.deepEqual(afterSelectionChange.nodes.find(n=>n.id===id),beforeSelectionChange.nodes.find(n=>n.id===id),'Changing selection ends the previous movement');
+  assert.equal(afterSelectionChange.nodes.find(n=>n.id==='separate-note').x,beforeSelectionChange.nodes.find(n=>n.id==='separate-note').x-25);
+  await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),beforeSelectionChange,'A changed selection starts its own undo');
+  console.log('按住方向键：四方向跨过其他分组不掉队，Shift 加大步长，选择变化不带动旧内容，单步撤销/重做及保存重开，通过');
   assert.deepEqual(errors,[]);console.log('时间标记、备注、重播起点与继续播放；表格副本独立；沉浸编辑；有范围的布局/图片/快照材料与下载；导航、对齐、操作偏好，通过');
  }catch(err){if(p&&process.env.CONTEXT_SCREENSHOT_DIR){fs.mkdirSync(process.env.CONTEXT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.CONTEXT_SCREENSHOT_DIR,'failure.png')})}throw err}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));assert(path.resolve(tmp).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(tmp,{recursive:true,force:true})}

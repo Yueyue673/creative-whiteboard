@@ -39,12 +39,26 @@
  window.addEventListener('keydown',e=>{if(e.code==='Space'&&!isTyping(e)&&!document.querySelector('dialog[open]'))canvas.classList.add('space-panning')},true);
  window.addEventListener('keyup',e=>{if(e.code==='Space')canvas.classList.remove('space-panning')},true);
  window.addEventListener('blur',()=>canvas.classList.remove('space-panning'));
+ let keyMove=null;
+ window.addEventListener('keyup',e=>{if(e.key===keyMove?.key)keyMove=null},true);
+ window.addEventListener('pointerdown',()=>keyMove=null,true);
+ window.addEventListener('blur',()=>keyMove=null);
+ function repeatedMoveSelection(e){
+  // A held arrow is one movement. Crossing another group must not change
+  // its original contents halfway through, or create a new undo per repeat.
+  if(!e.repeat||keyMove?.board!==board||keyMove.key!==e.key||keyMove.selection.size!==selected.size||[...selected].some(id=>!keyMove.selection.has(id))){
+   const ns=effectiveSelection();undoPoint();keyMove={board,key:e.key,selection:new Set(selected),ids:new Set(ns.map(n=>n.id))};return ns;
+  }
+  return board.nodes.filter(n=>keyMove.ids.has(n.id));
+ }
  document.addEventListener('keydown',e=>{
-  if(!board||isTyping(e)||$('dialog').open||document.querySelector('dialog[open]')||e.target.closest('#workspaceSidebar,header,#fileContext,#mediaPopover'))return;
-  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(!board||isTyping(e)||$('dialog').open||document.querySelector('dialog[open]')||e.target.closest('#workspaceSidebar,header,#fileContext,#mediaPopover')){keyMove=null;return}
+  if(e.ctrlKey||e.metaKey||e.altKey){keyMove=null;return}
+  if(!e.key.startsWith('Arrow')&&e.key!=='Shift')keyMove=null;
+  if(!selected.size)keyMove=null;
   if(e.shiftKey&&e.code==='Digit2'){e.preventDefault();e.stopImmediatePropagation();cancelCanvasGesture();fitSelection();return}
   if(['h','v'].includes(e.key.toLowerCase())){e.preventDefault();e.stopImmediatePropagation();cancelCanvasGesture();hand=e.key.toLowerCase()==='h';canvas.classList.toggle('hand-tool',hand);return}
-  if(e.key.startsWith('Arrow')&&selected.size){e.preventDefault();e.stopImmediatePropagation();if(blocked)return;cancelCanvasGesture();const ns=effectiveSelection(),step=e.shiftKey?read().bigNudge:read().nudge,delta={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];if(!delta)return;if(!e.repeat)undoPoint();for(const n of ns){n.x+=delta[0];n.y+=delta[1]}drawNodes();renderOutline();change()}
+  if(e.key.startsWith('Arrow')&&selected.size){e.preventDefault();e.stopImmediatePropagation();if(blocked){keyMove=null;return}cancelCanvasGesture();const step=e.shiftKey?read().bigNudge:read().nudge,delta={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[e.key];if(!delta)return;const ns=repeatedMoveSelection(e);for(const n of ns){n.x+=delta[0];n.y+=delta[1]}drawNodes();renderOutline();change()}
  },true);
  // Use the same key handlers after a protected HTML preview receives focus.
  const documentKeys=new Map([
