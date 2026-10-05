@@ -4,6 +4,14 @@
  const key='creative-navigation-v1',defaults={snap:true,zoomSpeed:1,nudge:1,bigNudge:10,gap:32};let hand=false;
  function read(){let p={};try{p=JSON.parse(localStorage.getItem(key)||'{}')}catch{}return{snap:p.snap!==false,zoomSpeed:Math.max(.3,Math.min(2,Number(p.zoomSpeed)||1)),nudge:Math.max(.1,Math.min(100,Number(p.nudge)||1)),bigNudge:Math.max(1,Math.min(500,Number(p.bigNudge)||10)),gap:Math.max(0,Math.min(500,Number.isFinite(Number(p.gap))?Number(p.gap):32))}}
  function write(p){localStorage.setItem(key,JSON.stringify({...defaults,...p}))}
+ // Native Tab navigation can scroll the hidden canvas container. Keep that
+ // visible movement in the board view so pointer coordinates and reopening agree.
+ canvas.addEventListener('focusin',e=>{
+  if(!board||loading||!e.target.closest?.('#nodes > .node'))return;
+  const dx=canvas.scrollLeft,dy=canvas.scrollTop;if(!dx&&!dy)return;
+  board.view={...view(),x:view().x-dx,y:view().y-dy};
+  canvas.scrollLeft=canvas.scrollTop=0;moveView();change(true);
+ });
  function effectiveSelection(){const ids=new Set(selected);for(const f of board.nodes.filter(n=>selected.has(n.id)&&n.type==='frame'))for(const n of board.nodes)if(groupOf(n)?.id===f.id)ids.add(n.id);return board.nodes.filter(n=>ids.has(n.id))}
  function fitSelection(){const ns=effectiveSelection();if(!ns.length)return;const x=Math.min(...ns.map(n=>n.x)),y=Math.min(...ns.map(n=>n.y)),w=Math.max(...ns.map(n=>n.x+n.w))-x,h=Math.max(...ns.map(n=>n.y+n.h))-y,r=canvas.getBoundingClientRect(),z=Math.max(.15,Math.min(4,(r.width-100)/w,(r.height-100)/h));board.view={x:(r.width-w*z)/2-x*z,y:(r.height-h*z)/2-y*z,z};moveView();change(true)}
  function arrange(axis,mode,gap=read().gap){

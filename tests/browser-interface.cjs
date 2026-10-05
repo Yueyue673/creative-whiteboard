@@ -98,6 +98,56 @@ const {chromium} = require('playwright');
   assert.equal(await p.locator('#immersiveSurface').getAttribute('data-id'),'m','Activation opens the focused card');
   await p.keyboard.press('Escape');
   await p.evaluate(state=>{board=state.board;selected=new Set(state.selected);editorId=null;render();canvas.focus({preventScroll:true})},beforeToolbarFocus);
+  // Native Tab scrolling to distant cards must become a saved canvas view,
+  // rather than a hidden DOM offset that breaks mouse-centred zoom and tools.
+  const beforeOffscreenFocus=await p.evaluate(()=>({board:clone(board),selected:[...selected]}));
+  for(const scenario of [{x:2400,y:100,z:1},{x:100,y:2200,z:.6},{x:2600,y:2400,z:.8}]){
+   await p.evaluate(async scenario=>{
+    const first=board.nodes.find(node=>node.id==='n'),next=board.nodes.find(node=>node.id==='m');
+    first.x=100;first.y=200;next.x=scenario.x;next.y=scenario.y;
+    board.view={x:50,y:80,z:scenario.z};selected=new Set(['n']);editorId=null;
+    canvas.scrollLeft=canvas.scrollTop=0;render();canvas.focus({preventScroll:true});change();await persist();
+   },scenario);
+   const beforeFocus=await p.evaluate(()=>({nodes:clone(board.nodes),undo:history.length,revision:contentRevision,view:clone(view())}));
+   await p.locator('#nodes [data-id=n] .block-actions button').last().focus();
+   await p.keyboard.press('Tab');
+   assert(await p.locator('#nodes [data-id=m] .block-read').evaluate(el=>el===document.activeElement));
+   const focused=await p.evaluate(()=>{
+    const r=document.activeElement.getBoundingClientRect(),c=canvas.getBoundingClientRect();
+    return {view:clone(view()),scroll:[canvas.scrollLeft,canvas.scrollTop],inside:r.left>=c.left&&r.right<=c.right&&r.top>=c.top&&r.bottom<=c.bottom,
+     tools:[$('canvasTools'),$('creationDock')].map(el=>{const r=el.getBoundingClientRect();return r.left>=c.left&&r.right<=c.right&&r.top>=c.top&&r.bottom<=c.bottom})};
+   });
+   assert.deepEqual(focused.scroll,[0,0],'Native focus scroll is represented by the board view: '+JSON.stringify(focused));
+   assert(focused.inside&&focused.tools.every(Boolean),'Focused controls and fixed canvas tools stay visible');
+   assert.notDeepEqual(focused.view,beforeFocus.view,'Distant keyboard focus updates the view');
+   assert.equal(focused.view.z,scenario.z,'Focus does not change zoom');
+   assert.deepEqual(await p.evaluate(()=>({nodes:board.nodes,undo:history.length,revision:contentRevision})),{nodes:beforeFocus.nodes,undo:beforeFocus.undo,revision:beforeFocus.revision});
+   assert.deepEqual(await p.evaluate(()=>[...selected]),['n'],'Distant focus does not replace the current selection');
+   const anchor=await p.evaluate(()=>{
+    const button=document.activeElement.getBoundingClientRect(),r=document.querySelector('#nodes [data-id=m]').getBoundingClientRect(),n=board.nodes.find(n=>n.id==='m');
+    const x=Math.round(button.left+button.width/2),y=Math.round(button.top+button.height/2);
+    return {x,y,actual:{x:n.x+(x-r.left)/view().z,y:n.y+(y-r.top)/view().z},mapped:worldPoint(x,y)};
+   });
+   assert(Math.abs(anchor.actual.x-anchor.mapped.x)<.2&&Math.abs(anchor.actual.y-anchor.mapped.y)<.2,'Visible content and pointer mapping agree after focus');
+   await p.mouse.move(anchor.x,anchor.y);await p.keyboard.down('Control');await p.mouse.wheel(0,-80);await p.keyboard.up('Control');
+   await p.waitForFunction(z=>view().z!==z,scenario.z);
+   const afterZoom=await p.evaluate(anchor=>{const r=document.querySelector('#nodes [data-id=m]').getBoundingClientRect(),n=board.nodes.find(n=>n.id==='m');return{x:n.x+(anchor.x-r.left)/view().z,y:n.y+(anchor.y-r.top)/view().z}},anchor);
+   assert(Math.abs(afterZoom.x-anchor.actual.x)<.2&&Math.abs(afterZoom.y-anchor.actual.y)<.2,'Ctrl+wheel keeps the actual visible point under the mouse: '+JSON.stringify({scenario,anchor,afterZoom,view:await p.evaluate(()=>clone(view()))}));
+   const saved=await p.evaluate(async()=>{await persist();return{id:boardId,nodes:clone(board.nodes),view:clone(view())}});
+   const file=await(await fetch(base+'/api/boards/'+saved.id)).json();assert.deepEqual(file.view,saved.view);
+   await p.reload();await p.waitForFunction(()=>board&&!loading);
+   assert.deepEqual(await p.evaluate(()=>({nodes:board.nodes,view:board.view,scroll:[canvas.scrollLeft,canvas.scrollTop]})),{nodes:saved.nodes,view:saved.view,scroll:[0,0]},'Reopening preserves the actual keyboard-navigated view and content');
+  }
+  await p.evaluate(async()=>{
+   const table=board.nodes.find(node=>node.id==='t');table.x=2200;table.y=1800;openEditor('t');
+   board.view={x:0,y:0,z:.8};canvas.scrollLeft=canvas.scrollTop=0;moveView();canvas.focus({preventScroll:true});change();await persist();
+  });
+  const beforeFieldFocus=await p.evaluate(()=>({nodes:clone(board.nodes),undo:history.length,revision:contentRevision}));
+  await p.locator('#nodes [data-id=t] textarea[data-row="0"][data-col="0"]').focus();await p.keyboard.press('Tab');
+  assert(await p.locator('#nodes [data-id=t] textarea[data-row="0"][data-col="1"]').evaluate(el=>el===document.activeElement));
+  assert.deepEqual(await p.evaluate(()=>[canvas.scrollLeft,canvas.scrollTop]),[0,0],'Distant table fields also keep the canvas coordinate system aligned');
+  assert.deepEqual(await p.evaluate(()=>({nodes:board.nodes,undo:history.length,revision:contentRevision})),beforeFieldFocus,'Focusing and navigating table fields does not edit content or add history');
+  await p.evaluate(async state=>{board=state.board;selected=new Set(state.selected);editorId=null;render();canvas.focus({preventScroll:true});change();await persist()},beforeOffscreenFocus);
   // Editing ends on a different card, and selecting it later does not reopen the editor.
   await p.locator('#nodes [data-id=n]').dblclick({position:{x:60,y:70}});
   await p.waitForFunction(()=>editorId==='n');
