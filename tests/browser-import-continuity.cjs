@@ -122,18 +122,73 @@ const {chromium} = require('playwright');
   await page.evaluate(() => copyImport); assert(await page.evaluate(() => persist()));
   await page.unroute('**/api/boards/*');
   assert((await fetch(base + '/api/boards/b').then(r => r.json())).nodes.some(n => n.body === '另存期间继续记录的原文。'));
+  // Import completion precedes the next automatic layout frame. That frame is a newer original revision.
+  let releaseSizingCopy;
+  const sizingCopyGate = new Promise(resolve => releaseSizingCopy = resolve);
+  const sizingText = Array.from({length:12}, (_, i) => '逐行保留的观察 ' + (i + 1)).join('\n');
+  await page.route('**/api/boards/*', async route => {
+   if (route.request().method() === 'PUT' && route.request().headers()['if-match'] === 'new') {
+    await sizingCopyGate;
+   }
+   await route.continue();
+  });
+  try {
+   const sizingCopyRequest = page.waitForRequest(request => request.method() === 'PUT' && request.headers()['if-match'] === 'new');
+   await page.evaluate(async text => {
+    await importFiles([new File([text], '自动尺寸的观察.txt', {type:'text/plain'})], {x:950,y:300});
+    window.copyDuringSizing = saveCopy();
+   }, sizingText);
+   const sizingRequest = await sizingCopyRequest;
+   const sizingSnapshot = {id:new URL(sizingRequest.url()).pathname.split('/').at(-1), board:sizingRequest.postDataJSON()};
+   const copiedNote = sizingSnapshot.board.nodes.find(node => node.title === '自动尺寸的观察');
+   assert.equal(copiedNote.h, 120, 'The copy captured the imported note before its automatic layout frame');
+   await page.waitForFunction(() => board.nodes.find(node => node.title === '自动尺寸的观察')?.h > 120);
+   releaseSizingCopy(); await page.evaluate(() => copyDuringSizing);
+   assert.equal(await page.evaluate(() => boardId), 'b', 'Late automatic layout keeps the newer original open');
+   assert(await page.evaluate(text => board.nodes.some(node => node.body === text && node.h > 120), sizingText));
+   assert.equal(await page.evaluate(() => loadError), '');
+   assert(await page.locator('#boardLoadState').isHidden());
+   assert(await page.evaluate(() => persist()));
+   const savedCopy = await fetch(base + '/api/boards/' + sizingSnapshot.id).then(response => response.json());
+   assert.equal(savedCopy.nodes.find(node => node.title === '自动尺寸的观察').body, sizingText);
+   assert.equal(savedCopy.nodes.find(node => node.title === '自动尺寸的观察').h, 120, 'The separately saved snapshot is retained');
+   const savedOriginal = await fetch(base + '/api/boards/b').then(response => response.json());
+   assert(savedOriginal.nodes.some(node => node.body === sizingText && node.h > 120));
+  } finally {
+   releaseSizingCopy();
+   await page.evaluate(() => window.copyDuringSizing);
+   await page.unroute('**/api/boards/*');
+  }
   // A copy waiting for an existing save must also preserve an import started during that wait.
+  // Finish actual note measurement first; otherwise saveCopy may correctly keep a newer layout before reaching this wait.
+  await page.evaluate(async () => {await document.fonts.ready; whiteboardSizing.invalidate();});
+  await page.waitForFunction(() => board.nodes.every(node => {
+   if (!whiteboardSizing.automatic(node)) return true;
+   const element = document.querySelector('.node[data-id="' + node.id + '"]');
+   const height = whiteboardSizing.measure(node, element);
+   return height !== null && Math.abs(node.h - height) < 2;
+  }));
+  assert(await page.evaluate(() => persist()));
   let releaseCopySave;
   const copySaveGate = new Promise(resolve => releaseCopySave = resolve);
   await page.route('**/api/boards/b', async route => {
    if (route.request().method() === 'PUT') await copySaveGate;
    await route.continue();
   });
+  const beforeCopySaveRequest = page.waitForRequest(request => request.method() === 'PUT' && new URL(request.url()).pathname === '/api/boards/b');
   await page.evaluate(() => {
    board.nodes[0].body = '另存前尚未结束的保存。'; change();
-   window.saveBeforeCopy = persist(); window.copyDuringSave = saveCopy();
+   window.saveBeforeCopy = persist(); window.copyDuringSaveSettled = false;
+   window.copyDuringSave = saveCopy().finally(() => window.copyDuringSaveSettled = true);
   });
-  await page.waitForFunction(() => !!savePromise && loadTargetId !== boardId && !loading);
+  await beforeCopySaveRequest;
+  await page.waitForFunction(() => !!savePromise && loadTargetId !== boardId && !loading).catch(async error => {
+   error.message += '\nCopy/save fixture state: ' + JSON.stringify(await page.evaluate(() => ({
+    boardId, loadTargetId, loading, contentRevision, saving:!!savePromise, dirty,
+    pendingImport:whiteboardImports.pendingCanvas(), copySettled:copyDuringSaveSettled, loadError
+   })));
+   throw error;
+  });
   await page.evaluate(() => {
    const file = new File(['另存等待期间的新增记录。'], '另存等待期间.txt', {type:'text/plain'});
    file.text = () => new Promise(resolve => window.finishWaitingCopyImport = resolve);
@@ -275,7 +330,7 @@ const {chromium} = require('playwright');
   assert(catalog.assets.some(asset => asset.title === 'upload-one.png'));
   assert(catalog.assets.some(asset => asset.title === 'upload-two.png'));
   assert.deepEqual(errors, []);
-  console.log('Import continuity: original documents, late imports during saves and closing, failed final save, copy snapshots, moving/deleted cells, image preparation, multiple files and unload protection passed');
+  console.log('Import continuity: original documents, late imports during saves and closing, failed final save, copy snapshots through automatic layout, moving/deleted cells, image preparation, multiple files and unload protection passed');
  } finally {
   if (browser) await browser.close();
   proc.kill(); await new Promise(resolve => proc.once('exit', resolve));
