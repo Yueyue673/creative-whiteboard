@@ -32,6 +32,56 @@ const {chromium}=require('playwright');
   const html=await(await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':'navigation.html'},body:'<!doctype html><h1>Reading</h1><button onclick="this.textContent=String(Number(this.textContent)+1)">0</button><p>Document navigation</p>'})).json();await p.evaluate(async id=>{await loadAssets();board.nodes=[{id:'web',type:'note',assetId:id,x:120,y:80,w:640,h:580,title:'网页',body:'',tags:[]}];board.edges=[];board.view={x:0,y:0,z:1};selected.clear();editorId=null;render();canvas.focus()},html.id);await p.waitForFunction(()=>document.querySelector('.web-navigation-cover')?.hidden===true);const frame=await p.locator('.web-frame-host iframe').contentFrame();await frame.locator('h1').waitFor();const start=await p.evaluate(()=>({...view()}));await p.keyboard.press('h');let web=await p.locator('.web-frame-host').boundingBox();await p.mouse.move(web.x+web.width*.6,web.y+web.height*.5);await p.mouse.down();await p.mouse.move(web.x+web.width*.6+50,web.y+web.height*.5+30,{steps:5});await p.mouse.up();assert(Math.abs(await p.evaluate(()=>view().x)-start.x-50)<2);assert(Math.abs(await p.evaluate(()=>view().y)-start.y-30)<2);await p.mouse.dblclick(web.x+web.width*.6+50,web.y+web.height*.5+30);assert.equal(await p.evaluate(()=>editorId),null,'Hand tool does not enter editing');await p.keyboard.press('v');await frame.locator('button').click();assert.equal(await frame.locator('button').textContent(),'1','Returning to selection restores real document interaction');await p.evaluate(()=>canvas.focus());const next=await p.evaluate(()=>({...view()}));await p.keyboard.down('Space');web=await p.locator('.web-frame-host').boundingBox();await p.mouse.move(web.x+web.width*.5,web.y+web.height*.6);await p.mouse.down();await p.mouse.move(web.x+web.width*.5+45,web.y+web.height*.6+25,{steps:5});await p.mouse.up();await p.keyboard.up('Space');assert(Math.abs(await p.evaluate(()=>view().x)-next.x-45)<2);assert(Math.abs(await p.evaluate(()=>view().y)-next.y-25)<2);assert.equal(await p.evaluate(()=>canvas.classList.contains('space-panning')),false);console.log('嵌入网页：手形与空格左键拖动、手形双击不误编辑、返回选择后网页控件可用，通过');
   await p.evaluate(()=>{board.nodes=[];board.edges=[];board.view={x:0,y:0,z:1};render();addNote({x:450,y:180},{title:'观察',body:'一句观察。'})});await p.waitForFunction(()=>board.nodes[0].h<=200);const noteId=await p.evaluate(()=>board.nodes[0].id),small=await p.evaluate(()=>board.nodes[0].h);assert.equal(await p.evaluate(()=>board.nodes[0].sizeMode),'auto');await p.locator('#body').fill('这是一段由作者输入的观察。'.repeat(70));await p.waitForFunction(h=>board.nodes[0].h>h+200,small);const tall=await p.evaluate(()=>board.nodes[0].h);await p.locator('#body').fill('短一些。');await p.waitForFunction(h=>board.nodes[0].h<h-150,tall);await p.evaluate(id=>whiteboardSizing.setMode(id,'manual'),noteId);const fixed=await p.evaluate(()=>board.nodes[0].h);await p.locator('#body').fill('固定尺寸之后，长内容在卡片内滚动。'.repeat(80));await p.waitForTimeout(100);assert.equal(await p.evaluate(()=>board.nodes[0].h),fixed);await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.equal(await p.evaluate(()=>board.nodes[0].h),fixed);assert.equal(await p.evaluate(()=>board.nodes[0].sizeMode),'manual');await p.evaluate(id=>whiteboardSizing.setMode(id,'auto'),noteId);await p.waitForFunction(h=>board.nodes[0].h>h+200,fixed);await p.evaluate(()=>{board.view={x:0,y:0,z:.7};moveView();selected=new Set([board.nodes[0].id]);refreshSelectionUI()});const resize=await p.locator('#nodes [data-resize-direction=se]').boundingBox();assert(resize);await p.mouse.move(resize.x+resize.width/2,resize.y+resize.height/2);await p.mouse.down();await p.mouse.move(resize.x+80,resize.y+40,{steps:4});await p.mouse.up();assert.equal(await p.evaluate(()=>board.nodes[0].sizeMode),'manual');const manualSize=await p.evaluate(()=>({w:board.nodes[0].w,h:board.nodes[0].h}));await p.locator('#nodes .node').click({position:{x:30,y:30}});await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.deepEqual(await p.evaluate(()=>({w:board.nodes[0].w,h:board.nodes[0].h})),manualSize);console.log('新便签默认增高/缩短、固定尺寸、重新开启自动适应、手动拖拽后固定、保存重开，通过');
   await p.evaluate(()=>{board.nodes=Array.from({length:800},(_,i)=>({id:'auto-'+i,type:'note',sizeMode:'auto',x:(i%25)*330,y:Math.floor(i/25)*170,w:300,h:120,title:'观察 '+i,body:'由作者输入的观察。',tags:[]}));board.edges=[];selected.clear();editorId=null;board.view={x:0,y:0,z:.7};render()});await p.waitForTimeout(150);const timing=await p.evaluate(async()=>{const el=document.querySelector('[data-id=auto-20]'),height=el.offsetHeight,field=el.querySelector('[data-preview-id=body]'),style=field.getAttribute('style'),start=performance.now();selected=new Set(['auto-1']);refreshSelectionUI();drawNodes();await new Promise(r=>requestAnimationFrame(r));return {elapsed:performance.now()-start,preserved:el===document.querySelector('[data-id=auto-20]'),heightSame:height===el.offsetHeight,styleSame:style===field.getAttribute('style')}});assert(timing.preserved&&timing.heightSame&&timing.styleSame,'Selecting a card does not rewrite or resize unchanged text fields');assert(timing.elapsed<2500,'800 adaptive cards keep selection responsive');console.log('800 块自动尺寸便签：选择保留尺寸与原文字段，耗时 '+Math.round(timing.elapsed)+' ms');
+  // Spacing moves groups one after another. Their original contents must not
+  // get reassigned when an intermediate position temporarily overlaps a group.
+  await p.evaluate(()=>{
+   board.nodes=[
+    {id:'first-group',type:'frame',title:'第一组',x:50,y:80,w:600,h:200},
+    {id:'second-group',type:'frame',title:'第二组',x:655,y:80,w:900,h:200},
+    {id:'third-group',type:'frame',title:'第三组',x:1560,y:80,w:300,h:800},
+    {id:'first-content',type:'note',title:'第一条原文',body:'保留第一组的内容。',x:130,y:150,w:200,h:120},
+    {id:'second-content',type:'note',title:'第二条原文',body:'保留第二组的内容。',x:735,y:150,w:200,h:120},
+    {id:'third-content',type:'note',title:'第三条原文',body:'保留第三组的内容。',x:1570,y:150,w:200,h:120}
+   ];board.edges=[{id:'group-link',from:'second-content',to:'third-content',label:'保留原来的联系'}];
+   board.view={x:0,y:0,z:.5};selected=new Set(['first-group','second-group','third-group']);editorId=null;render();canvas.focus();
+  });
+  const groupedBefore=await p.evaluate(()=>clone(board));
+  await p.locator('[data-id="first-group"] h3').click({button:'right'});
+  await p.getByRole('menuitem',{name:'对齐与间距…',exact:true}).click();
+  await p.locator('#arrangeGap').fill('32');await p.getByRole('button',{name:'排成一行',exact:true}).click();
+  const groupedAfter=await p.evaluate(()=>clone(board));
+  for(const [groupId,contentId] of [['first-group','first-content'],['second-group','second-content'],['third-group','third-content']]){
+   const groupBefore=groupedBefore.nodes.find(n=>n.id===groupId),groupAfter=groupedAfter.nodes.find(n=>n.id===groupId);
+   const contentBefore=groupedBefore.nodes.find(n=>n.id===contentId),contentAfter=groupedAfter.nodes.find(n=>n.id===contentId);
+   assert.equal(contentAfter.x-contentBefore.x,groupAfter.x-groupBefore.x,'Spacing preserves contents of '+groupId+' through intermediate overlaps');
+   assert.equal(contentAfter.y-contentBefore.y,groupAfter.y-groupBefore.y);
+   assert.equal(contentAfter.body,contentBefore.body);
+  }
+  assert.deepEqual(groupedAfter.edges,groupedBefore.edges,'Arrangement preserves authored connections');
+  await p.keyboard.press('Escape');await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),groupedBefore,'One undo restores all group contents');
+  await p.keyboard.press('Control+Shift+z');assert.deepEqual(await p.evaluate(()=>board),groupedAfter,'Redo keeps the complete group arrangement');
+  await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.deepEqual(await p.evaluate(()=>board.nodes),groupedAfter.nodes,'Saved group contents reopen in their arranged positions');
+  for(const {axis,mode} of [{axis:'x',mode:'center'},{axis:'y',mode:'spacing'}]){
+   await p.evaluate(({initial,axis})=>{
+    board=clone(initial);if(axis==='y')for(const n of board.nodes){[n.x,n.y]=[n.y,n.x];[n.w,n.h]=[n.h,n.w]}
+    selected=new Set(['first-group','second-group','third-group']);editorId=null;render();canvas.focus();
+   },{initial:groupedBefore,axis});
+   const before=await p.evaluate(()=>clone(board));
+   await p.locator('[data-id="first-group"] h3').click({button:'right'});
+   await p.getByRole('menuitem',{name:'对齐与间距…',exact:true}).click();
+   await p.locator('#arrangeGap').fill('32');await p.locator('[data-align="'+axis+','+mode+'"]').click();
+   const after=await p.evaluate(()=>clone(board));
+   for(const [groupId,contentId] of [['first-group','first-content'],['second-group','second-content'],['third-group','third-content']]){
+    const groupBefore=before.nodes.find(n=>n.id===groupId),groupAfter=after.nodes.find(n=>n.id===groupId);
+    const contentBefore=before.nodes.find(n=>n.id===contentId),contentAfter=after.nodes.find(n=>n.id===contentId);
+    assert.equal(contentAfter.x-contentBefore.x,groupAfter.x-groupBefore.x,axis+','+mode+' preserves horizontal position within '+groupId);
+    assert.equal(contentAfter.y-contentBefore.y,groupAfter.y-groupBefore.y,axis+','+mode+' preserves vertical position within '+groupId);
+    assert.deepEqual({...contentAfter,x:contentBefore.x,y:contentBefore.y},contentBefore,'Arrangement changes only the content position');
+   }
+   assert.deepEqual(after.edges,before.edges);
+   await p.keyboard.press('Escape');await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),before,'Undo restores '+axis+','+mode);
+  }
+  console.log('分组排列：中途重叠不漏掉原文，撤销、重做及保存重开，通过');
   assert.deepEqual(errors,[]);console.log('时间标记、备注、重播起点与继续播放；表格副本独立；沉浸编辑；有范围的布局/图片/快照材料与下载；导航、对齐、操作偏好，通过');
  }catch(err){if(p&&process.env.CONTEXT_SCREENSHOT_DIR){fs.mkdirSync(process.env.CONTEXT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.CONTEXT_SCREENSHOT_DIR,'failure.png')})}throw err}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));assert(path.resolve(tmp).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(tmp,{recursive:true,force:true})}

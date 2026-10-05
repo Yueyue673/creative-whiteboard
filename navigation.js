@@ -8,11 +8,14 @@
  function fitSelection(){const ns=effectiveSelection();if(!ns.length)return;const x=Math.min(...ns.map(n=>n.x)),y=Math.min(...ns.map(n=>n.y)),w=Math.max(...ns.map(n=>n.x+n.w))-x,h=Math.max(...ns.map(n=>n.y+n.h))-y,r=canvas.getBoundingClientRect(),z=Math.max(.15,Math.min(4,(r.width-100)/w,(r.height-100)/h));board.view={x:(r.width-w*z)/2-x*z,y:(r.height-h*z)/2-y*z,z};moveView();change(true)}
  function arrange(axis,mode,gap=read().gap){
   if(blocked)return toast('请先处理保存冲突');const ns=board.nodes.filter(n=>selected.has(n.id));if(ns.length<2)return;undoPoint();const size=axis==='x'?'w':'h';
-  if(mode==='spacing'){ns.sort((a,b)=>a[axis]-b[axis]);let position=ns[0][axis];for(const n of ns){const delta=position-n[axis];moveGroup(n,axis,delta);position+=n[size]+gap}}
-  else{const low=Math.min(...ns.map(n=>n[axis])),high=Math.max(...ns.map(n=>n[axis]+n[size]));for(const n of ns){const value=mode==='start'?low:mode==='end'?high-n[size]:(low+high-n[size])/2;moveGroup(n,axis,value-n[axis])}}
+  // Keep each group's original contents throughout this one arrangement.
+  // An intermediate overlap must not make a later group lose its contents.
+  const members=new Map(ns.filter(n=>n.type==='frame').map(n=>[n.id,board.nodes.filter(item=>!selected.has(item.id)&&groupOf(item)?.id===n.id)]));
+  if(mode==='spacing'){ns.sort((a,b)=>a[axis]-b[axis]);let position=ns[0][axis];for(const n of ns){const delta=position-n[axis];moveGroup(n,axis,delta,members.get(n.id)||[]);position+=n[size]+gap}}
+  else{const low=Math.min(...ns.map(n=>n[axis])),high=Math.max(...ns.map(n=>n[axis]+n[size]));for(const n of ns){const value=mode==='start'?low:mode==='end'?high-n[size]:(low+high-n[size])/2;moveGroup(n,axis,value-n[axis],members.get(n.id)||[])}}
   drawNodes();renderOutline();change();
  }
- function moveGroup(n,axis,delta){const children=n.type==='frame'?board.nodes.filter(item=>!selected.has(item.id)&&groupOf(item)?.id===n.id):[];n[axis]+=delta;for(const item of children)item[axis]+=delta}
+ function moveGroup(n,axis,delta,children){n[axis]+=delta;for(const item of children)item[axis]+=delta}
  function arrangement(){
   showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div><span>水平</span><button data-align="x,start">左边对齐</button><button data-align="x,center">居中对齐</button><button data-align="x,end">右边对齐</button></div><div><span>垂直</span><button data-align="y,start">顶部对齐</button><button data-align="y,center">居中对齐</button><button data-align="y,end">底部对齐</button></div><label>内容之间的间距<input id="arrangeGap" type="number" min="0" max="500" value="'+read().gap+'"></label><div><button data-align="x,spacing">排成一行</button><button data-align="y,spacing">排成一列</button></div></div>',[['返回白板',()=>$('dialog').close()]]);
   $('dialogBody').querySelectorAll('[data-align]').forEach(b=>b.onclick=()=>{const [axis,mode]=b.dataset.align.split(','),gap=Math.max(0,Math.min(500,Number($('arrangeGap').value)||0));write({...read(),gap});arrange(axis,mode,gap)});
