@@ -171,7 +171,7 @@ def workflow_get(handler,p):
   rows=[]
   for f in (ROOT/'回收站').glob('*.json'):
    try:
-    d=json.loads(f.read_bytes());rows.append({'id':f.stem,'savedAt':f.stat().st_mtime,'names':[b['name'] for b in d['boards'].values()],'folders':[x['name'] for x in d['folders']]})
+    d=json.loads(f.read_bytes());rows.append({'id':f.stem,'savedAt':f.stat().st_mtime,'ids':list(d['boards']),'names':[b['name'] for b in d['boards'].values()],'folders':[x['name'] for x in d['folders']]})
    except Exception:continue
   handler.reply(200,sorted(rows,key=lambda x:x['savedAt'],reverse=True));return True
  if p=='/api/proposals':

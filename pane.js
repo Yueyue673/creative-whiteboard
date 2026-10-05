@@ -24,7 +24,13 @@
   const captureAssets=renderAssets;renderAssets=function(){captureAssets();queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder}))};
   const saveCatalog=saveAssets;saveAssets=async function(next){const ok=await saveCatalog(next);if(ok)send('explorer-catalog');return ok};
   $('assetList').addEventListener('click',()=>queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder})));
-  window.whiteboardExplorer={show:showWorkspaceTab,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{if(!snapshot)return;board=clone(snapshot.board);boardId=snapshot.boardId;selected=new Set(snapshot.selected);if(workspaceTab==='outline')renderOutline()},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
+  window.whiteboardExplorer={show:showWorkspaceTab,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline()},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
+  whiteboardExplorer.command=async function(name,extra={}){
+   if(name==='ai'){
+    await loadAssets();assetSelected=new Set(extra.libraryIds||[]);await whiteboardAI.compose();
+    if(extra.scope==='library'&&$('aiTaskScope')){$('aiTaskScope').value='library';$('aiTaskScope').dispatchEvent(new Event('change'))}
+   }else if(name==='help')wfHelp();else if(name==='search')wfOpenSearch();else if(name==='recovery')await wfRecovery(boardId?'board':'library');
+  };
   askCollectSelection=()=>send('explorer-command',{command:'collect'});
   const oldNew=newBoard;newBoard=async name=>{if(board){send('explorer-create',{name,folder:folderSelected});return}return oldNew(name)};
   let modal=false;new MutationObserver(()=>{const next=!!document.querySelector('dialog[open]');if(next!==modal){modal=next;send('explorer-dialog',{open:modal})}}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});

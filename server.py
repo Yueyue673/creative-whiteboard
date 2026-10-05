@@ -82,7 +82,7 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    f=DATA/(m[1]+'.json')
    if not f.exists():self.reply(404,{'error':'找不到这张白板'});return
    raw=f.read_bytes();self.reply(200,raw,etag=digest(raw));return
-  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/explorer-navigation.js','/recovery.js']:
+  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/explorer-navigation.js','/recovery.js','/board-lifecycle.js']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
   if p=='/vendor/html2canvas.min.js':
    self.reply(200,(APP_ROOT/'vendor/html2canvas.min.js').read_bytes(),'text/javascript; charset=utf-8');return
@@ -118,7 +118,7 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
     if ids:
      folders['folders']=[x for x in folders['folders'] if x['id'] not in ids]
      tmp=catalog.with_suffix('.tmp');tmp.write_bytes(encoded(folders));os.replace(tmp,catalog)
-   self.reply(200,{'ticket':ticket,'ids':list(snapshot['boards'])})
+   self.reply(200,{'ticket':ticket,'ids':list(snapshot['boards']),'folderIds':[f['id'] for f in snapshot['folders']]})
   except Exception as e:self.reply(400,{'error':str(e)})
  def restore_trash(self,ticket):
   with LOCK:
@@ -132,7 +132,7 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
     if b.get('folder') not in known:b['folder']=''
     (DATA/(i+'.json')).write_bytes(encoded(b))
    tmp=catalog.with_suffix('.tmp');tmp.write_bytes(encoded(folders));os.replace(tmp,catalog);f.unlink()
-  self.reply(200,{'restored':True})
+  self.reply(200,{'restored':True,'ids':list(snapshot['boards']),'boards':[{'id':i,'name':b['name'],'folder':b.get('folder',''),'count':len(b['nodes'])} for i,b in snapshot['boards'].items()]})
  def do_PUT(self):
   if not self.allowed() or self.headers.get('Origin') not in [None,f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}']:
    self.reply(403,{'error':'仅限本机页面写入'});return

@@ -73,7 +73,12 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status, 200)
         ticket = json.loads(raw)["ticket"]
         self.assertEqual(self.request("/api/boards/test")[0], 404)
-        self.assertEqual(self.request("/api/trash/" + ticket, "PUT")[0], 200)
+        trash = json.loads(self.request("/api/trash")[2])
+        self.assertEqual(next(t for t in trash if t["id"] == ticket)["ids"], ["test"])
+        status, _, raw = self.request("/api/trash/" + ticket, "PUT")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["ids"], ["test"])
+        self.assertEqual(json.loads(raw)["boards"], [{"id": "test", "name": "test", "folder": "", "count": 0}])
         self.assertEqual(json.loads(self.request("/api/boards/test")[2]), board)
 
     def test_origin_and_host_checks(self):
