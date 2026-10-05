@@ -262,25 +262,7 @@ def workflow_put(handler,p):
   f=ROOT/'内容'/(m[1]+'.json')
   if not f.exists():handler.reply(404,{'error':'白板不存在'});return True
   snapshot('boards',m[1],f.read_bytes(),True);handler.reply(200,{'saved':True});return True
- m=re.fullmatch(r'/api/proposals/([a-zA-Z0-9_-]{1,100})(/status)?',p)
- if not m:return False
- try:
-  length=int(handler.headers.get('Content-Length','0'))
-  if not 0<length<4*1024*1024:raise ValueError('提案不能超过4MB')
-  value=json.loads(handler.rfile.read(length));PROPOSALS.mkdir(exist_ok=True);f=PROPOSALS/(m[1]+'.json')
-  with HLOCK:
-   old=f.read_bytes() if f.exists() else None;tag=hashlib.sha256(old).hexdigest() if old else 'new'
-   if handler.headers.get('If-Match')!=tag:handler.reply(409,{'error':'提案已改变，请重新读取'});return True
-   if m[2]:
-    if not old:raise ValueError('提案不存在')
-    d=json.loads(old);d['reviewStatus']=value.get('status','reviewed');d['acceptedChanges']=value.get('accepted',[]);d['reviewedAt']=time.time();value=d
-   else:
-    if value.get('format')!='creative-board-proposal' or value.get('version')!=1 or value.get('resource') not in ('board','library') or not isinstance(value.get('baseETag'),str) or not isinstance(value.get('changes'),list) or len(value['changes'])>1000:raise ValueError('提案格式无效')
-    validate_task_proposal(value)
-   raw=rawjson(value);tmp=f.with_suffix('.tmp');tmp.write_bytes(raw);os.replace(tmp,f)
-  handler.reply(200,{'saved':True},etag=hashlib.sha256(raw).hexdigest())
- except Exception as e:handler.reply(400,{'error':str(e)})
- return True
+ return False
 
 def context_files(data):
  ids=set()
@@ -305,43 +287,3 @@ def context_files(data):
   except OSError:item['coverage']='原文件暂时不可用'
   out.append(item)
  return out
-
-def validate_task_proposal(p):
- request_id=p.get('requestId')
- if not request_id:
-  for f in TASKS.glob('*.json'):
-   try:
-    task=json.loads(f.read_bytes())
-    if all(task.get(k)==p.get(k) for k in ['resource','targetId','baseETag']):raise ValueError('提案缺少原任务编号 requestId')
-   except (OSError,json.JSONDecodeError):continue
-  return  # Keep older, manually imported proposals readable.
- if not safe_id(request_id):raise ValueError('任务编号无效')
- f=TASKS/(request_id+'.json')
- if not f.exists():raise ValueError('找不到原任务，请重新创建任务后再提交回复')
- pack=json.loads(f.read_bytes());r=pack['request']
- if any(p.get(k)!=pack.get(k) for k in ['resource','targetId','baseETag']):raise ValueError('提案与原任务不匹配')
- ids=set(r['ids']);allowed_nodes=set(r.get('nodeIds',[]));new_nodes={c.get('targetId') for c in p['changes'] if c.get('op')=='add' and c.get('entity','node')=='node'}
- objects=pack['data'].get('nodes',[])+pack['data'].get('edges',[])+pack['data'].get('assets',[]);old={n['id']:n for n in objects}
- for c in p['changes']:
-  op=c.get('op');entity=c.get('entity','asset' if p['resource']=='library' else 'node');target=c.get('targetId')
-  if op not in ('add','update','delete') or entity not in ('node','edge','asset'):raise ValueError('修改方式无效')
-  if (p['resource']=='board' and entity=='asset') or (p['resource']=='library' and entity!='asset'):raise ValueError('修改对象超出任务范围')
-  if op=='add':
-   if not r['allowAdd']:raise ValueError('本次任务没有允许新增内容')
-   value=c.get('value',{})
-   if value.get('id')!=target or target in ids:raise ValueError('新增内容编号无效')
-   if entity=='edge' and any(value.get(k) not in allowed_nodes|new_nodes for k in ['from','to']):raise ValueError('连线超出了所选内容范围')
-   continue
-  if target not in ids:raise ValueError('提案修改了所选范围之外的内容')
-  if op=='delete':
-   if not r['allowDelete']:raise ValueError('本次任务没有允许删除内容')
-   if c.get('before')!=old[target]:raise ValueError('删除前内容不一致')
-   continue
-  after=c.get('after');before=c.get('before')
-  if not isinstance(after,dict) or not isinstance(before,dict):raise ValueError('修改字段格式错误')
-  allowed=['title','folder','notes','tags'] if entity=='asset' else ['label','from','to','fromSide','toSide','portsExplicit'] if entity=='edge' else ['title','body','userText','annotation','tags','color','x','y','w','h','columns','rows','cellImages','cellItems','images','url','fontSize','titleFontSize','columnWidths','mediaTimeline']
-  if r['keepWords'] and any(k in after for k in ['title','body','rows','columns','cellItems']):raise ValueError('本次任务要求保留原文')
-  if r['keepNotes'] and any(k in after for k in ['userText','annotation','notes','cellItems','mediaTimeline']):raise ValueError('本次任务要求保留个人补充和备注')
-  for k,v in after.items():
-   if k not in allowed or k not in before or old[target].get(k)!=before[k]:raise ValueError('修改字段或原值不正确：'+k)
-   if entity=='edge' and k in ('from','to') and v not in allowed_nodes:raise ValueError('连线超出了所选内容范围')

@@ -76,6 +76,32 @@ class AITaskTest(unittest.TestCase):
         self.assertEqual(self.request('/api/boards/ai-navigation','PUT',board,{'If-Match':state['baseETag']})[0],200)
         self.assertFalse(json.loads(self.request('/api/ai/tasks/ai-navigation/current')[2])['contentUnchanged'])
 
+    def test_legacy_proposal_records_are_read_only(self):
+        _, pack = self.make_task('legacy-readonly')
+        proposal = dict(format='creative-board-proposal', version=1, resource='board',
+                        targetId=pack['targetId'], baseETag=pack['baseETag'], title='旧记录',
+                        changes=[dict(op='update', entity='node', targetId='one',
+                                      before=dict(body='我的原文'), after=dict(body='旧的改写'))])
+        folder = Path(self.tmp.name) / 'AI待审核'
+        folder.mkdir(exist_ok=True)
+        path = folder / 'legacy.json'
+        original = json.dumps(proposal, ensure_ascii=False).encode('utf-8')
+        path.write_bytes(original)
+        board_before = self.request('/api/boards/legacy-readonly')[2]
+        library_before = self.request('/api/assets')[2]
+        status, headers, raw = self.request('/api/proposals/legacy')
+        self.assertEqual(status, 200)
+        self.assertEqual(raw, original)
+        self.assertEqual(self.request('/api/proposals/legacy', 'PUT', proposal,
+                                      {'If-Match':headers['ETag']})[0], 400)
+        self.assertEqual(self.request('/api/proposals/legacy/status', 'PUT',
+                                      dict(status='applied', accepted=[0]),
+                                      {'If-Match':headers['ETag']})[0], 400)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(self.request('/api/proposals/legacy')[2], original)
+        self.assertEqual(self.request('/api/boards/legacy-readonly')[2], board_before)
+        self.assertEqual(self.request('/api/assets')[2], library_before)
+
     def test_forged_selection_is_rejected(self):
         _, pack = self.make_task('ai-forged')
         pack['requestId']=pack['request']['id']='forged'

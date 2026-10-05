@@ -132,10 +132,10 @@
    ['选择文件…',()=>importClick()],['引用本地文件…',()=>referenceDialog()]
   ]);
  };
- // Direct task/reply exchange keeps the existing scope, version and approval checks.
+ // Recognize legacy proposals so pasting them cannot become creative content.
  function parseProposal(raw){
-  let text=raw.trim();if(!text.startsWith('{')){const fences=[...text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi)];if(fences.length===1)text=fences[0][1];else if(fences.length>1)throw Error('回复中有多段代码，请只粘贴要审核的那份提案。')}
-  const proposal=JSON.parse(text);if(proposal.format!=='creative-board-proposal')throw Error('请粘贴 AI 返回的修改提案，而不是原始资料或任务包。');return proposal;
+  let text=raw.trim();if(!text.startsWith('{')){const fences=[...text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi)];if(fences.length===1)text=fences[0][1];else if(fences.length>1)throw Error('这段文字包含多份记录。')}
+  const proposal=JSON.parse(text);if(proposal.format!=='creative-board-proposal')throw Error('这不是旧提案记录。');return proposal;
  }
  const basePaste=pastePayload;
  pastePayload=async function(text,files,anchor){
