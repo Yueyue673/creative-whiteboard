@@ -142,6 +142,8 @@ class ServerTest(unittest.TestCase):
         catalog["trash"] = [{"id": "batch", "assetIds": [], "folders": ["deleted/empty"]}]
         self.assertEqual(self.request("/api/assets", "PUT", catalog,
                          {"If-Match": headers["ETag"]})[0], 200)
+        catalog = json.loads(self.request("/api/assets")[2])
+        self.assertEqual(set(catalog["folderIds"]), {"empty", "nested", "nested/empty"})
         before = (Path(self.tmp.name) / "素材目录.json").read_bytes()
         self.assertEqual(self.request("/api/checkpoints/library/catalog", "PUT")[0], 200)
         rows = json.loads(self.request("/api/history/library/catalog")[2])

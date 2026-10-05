@@ -2,6 +2,7 @@ from pathlib import Path
 from urllib.parse import urlparse,unquote,quote
 import json,hashlib,mimetypes,os,re,threading,uuid
 from workflow_backend import snapshot
+from library_folders import read_catalog, with_folder_ids, validate_folder_ids, capture_destination, resolve_destination, import_result
 from app_paths import APP_ROOT, DATA_ROOT
 ROOT=DATA_ROOT
 INDEX=ROOT/'素材目录.json'
@@ -10,6 +11,7 @@ LOCK=threading.Lock()
 def data():
  return json.loads(INDEX.read_text(encoding='utf-8')) if INDEX.exists() else {'version':1,'folders':[],'assets':[]}
 def save(d):
+ normalized=with_folder_ids(d,data());d.clear();d.update(normalized)
  if INDEX.exists():snapshot('library','catalog',INDEX.read_bytes())
  raw=json.dumps(d,ensure_ascii=False,indent=2).encode('utf-8');tmp=INDEX.with_suffix('.tmp');tmp.write_bytes(raw);os.replace(tmp,INDEX);return hashlib.sha256(raw).hexdigest()
 def kind(path):return mimetypes.guess_type(str(path))[0] or 'application/octet-stream'
@@ -17,7 +19,7 @@ class AssetMixin:
  def asset_get(self,p):
   if p=='/api/assets':
    raw=INDEX.read_bytes() if INDEX.exists() else json.dumps(data(),ensure_ascii=False).encode('utf-8')
-   self.reply(200,raw,etag=hashlib.sha256(raw).hexdigest() if INDEX.exists() else 'new');return True
+   self.reply(200,read_catalog(json.loads(raw)),etag=hashlib.sha256(raw).hexdigest() if INDEX.exists() else 'new');return True
   preview=re.fullmatch(r'/api/preview/([a-zA-Z0-9_-]+)(?:/(.*))?',p)
   if preview:
    item=next((a for a in data()['assets'] if a['id']==preview[1]),None)
@@ -84,11 +86,12 @@ class AssetMixin:
     if not isinstance(a,dict) or not re.fullmatch(r'[a-zA-Z0-9_-]+',a.get('id','')) or a['id'] in ids or not all(isinstance(a.get(k),str) for k in ['title','path','folder']):raise ValueError('素材信息无效')
     ids.add(a['id'])
    if any(not isinstance(f,str) for f in d['folders']):raise ValueError('文件夹格式无效')
+   validate_folder_ids(d)
    with LOCK:
     etag=hashlib.sha256(INDEX.read_bytes()).hexdigest() if INDEX.exists() else 'new'
     if self.headers.get('If-Match')!=etag:self.reply(409,{'error':'素材目录已被修改，请刷新素材库后再操作'});return True
     etag=save(d)
-   self.reply(200,{'saved':True},etag=etag)
+   self.reply(200,{'saved':True,'folderIds':d['folderIds']},etag=etag)
   except Exception as e:self.reply(400,{'error':str(e)})
   return True
  def asset_reference(self):
@@ -99,6 +102,7 @@ class AssetMixin:
    if not isinstance(paths,list) or not 1<=len(paths)<=40 or any(not isinstance(p,str) for p in paths):raise ValueError('请填写文件完整路径，每行一个')
    if not isinstance(folder,str) or len(folder)>1000:raise ValueError('存放位置无效')
    if replace and (not isinstance(replace,str) or len(paths)!=1):raise ValueError('重新定位时只填写一个路径')
+   with LOCK:target=capture_destination(data(),folder,request.get('folderId'))
    files=[]
    for p in paths:
     f=Path(p).expanduser()
@@ -107,7 +111,8 @@ class AssetMixin:
     if not f.is_file():raise ValueError('找不到文件：'+p)
     files.append(f)
    with LOCK:
-    d=data();result=[]
+    d=data();result=[];missing=False
+    if not replace:folder,missing=resolve_destination(d,target)
     if replace:
      item=next((a for a in d['assets'] if a['id']==replace),None)
      if not item or item.get('mime')=='application/x-creative-bundle':raise ValueError('这项内容不是可重新定位的文件')
@@ -121,7 +126,7 @@ class AssetMixin:
       d['assets'].append(item);result.append(item)
      if folder and folder not in d['folders']:d['folders'].append(folder)
     save(d)
-   self.reply(200,{'assets':result})
+   self.reply(200,{'assets':[import_result(item,d,missing) for item in result]})
   except Exception as e:self.reply(400,{'error':str(e)})
   return True
  def do_POST(self):
@@ -134,6 +139,7 @@ class AssetMixin:
    if not 0<length<=256*1024*1024:raise ValueError('直接上传最多256MB；更大的素材请使用“导入 → 引用本地文件”')
    name=Path(unquote(self.headers.get('X-File-Name','文件'))).name
    folder=unquote(self.headers.get('X-Folder',''))
+   with LOCK:target=capture_destination(data(),folder,self.headers.get('X-Folder-Id'))
    ident=uuid.uuid4().hex;ext=Path(name).suffix[:20];FILES.mkdir(exist_ok=True);f=FILES/(ident+ext)
    content_hash=hashlib.sha256()
    with f.open('wb') as stream:
@@ -144,7 +150,7 @@ class AssetMixin:
      stream.write(chunk);content_hash.update(chunk);remaining-=len(chunk)
    item={'id':ident,'title':name,'path':str(f),'folder':folder,'mime':kind(f),'notes':'','tags':[],'size':length,'contentHash':content_hash.hexdigest(),'contentMtime':f.stat().st_mtime_ns}
    with LOCK:
-    d=data();match=None
+    d=data();folder,missing=resolve_destination(d,target);item['folder']=folder;match=None
     for a in d['assets']:
      if a.get('contentHash')!=item['contentHash'] or a.get('size')!=length:continue
      old=Path(a['path'])
@@ -152,12 +158,12 @@ class AssetMixin:
     if match:
      f.unlink()
      same=next((a for a in d['assets'] if not a.get('archived') and a.get('path')==match['path'] and a.get('title')==name and a.get('folder')==folder),None)
-     if same:self.reply(200,same);return
+     if same:self.reply(200,import_result(same,d,missing));return
      item['path']=match['path'];item['contentMtime']=match['contentMtime']
     d['assets'].append(item)
     if folder and folder not in d['folders']:d['folders'].append(folder)
     save(d)
-   self.reply(200,item)
+   self.reply(200,import_result(item,d,missing))
   except Exception as e:
    if f and f.exists():f.unlink()
    self.reply(400,{'error':str(e)})

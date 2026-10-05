@@ -119,10 +119,11 @@
   showDialog('<h2>'+(replaceId?'重新定位原文件':'引用本地文件')+'</h2><p class="wf-explain">'+(replaceId?'此文件在所有白板上的引用会一起更新。你的文字、尺寸和连线保留。':'保留文件原位置，不复制。可以从文件资源管理器复制路径后粘贴在这里。')+'</p><label>文件路径<textarea id="referencePaths" rows="3" placeholder="每行一个完整路径">'+esc(initialPaths)+'</textarea></label>'+(replaceId?'':'<label>存放位置<select id="referenceFolder">'+libraryFolderOptions(folder)+'</select></label>')+'<p id="referenceError" role="status"></p>',[['取消',()=>$('dialog').close()],[replaceId?'更新位置':'添加',async()=>{
    try{
     const paths=$('referencePaths').value.split(/\r?\n/).map(p=>p.trim().replace(/^"(.*)"$/,'$1')).filter(Boolean);
-    const response=await api('/api/assets/reference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paths,folder:replaceId?'':$('referenceFolder').value,replaceId})});
+    const destination=replaceId?'':$('referenceFolder').value,target=libraryFolderTarget(destination);
+    const response=await api('/api/assets/reference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paths,folder:destination,folderId:target.id,replaceId})});
     const result=await response.json();await loadAssets();$('dialog').close();
     if(replaceId){imageRatios.delete(replaceId);drawNodes();toast('已更新文件位置，内容和连线保留')}
-    else await placeAssets(result.assets.map(a=>a.id));
+    else{await placeAssets(result.assets.map(a=>a.id));if(result.assets.some(a=>a.destinationMissing))toast('原文件夹已删除，文件引用保留在内容库根目录，可以重新放置。')}
    }catch(err){$('referenceError').textContent=err.message}
   }]]);
  }

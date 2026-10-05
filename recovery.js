@@ -25,7 +25,7 @@
    const next=clone(assetIndex),removed=next.assets.filter(a=>!a.archived&&(folder?prefix(a.folder||'',folder):ids.has(a.id)));
    const folders=folder?allAssetFolders().filter(path=>prefix(path,folder)):[];
    if(!removed.length&&!folders.length)return toast('这项内容已移走，请重新选择');
-   const ticket={id:uid(),kind:folder?'folder':'items',title:folder?folder.split('/').at(-1):removed[0].title,folder:folder||location,folders,assetIds:removed.map(a=>a.id),savedAt:Date.now()/1000};
+   const ticket={id:uid(),kind:folder?'folder':'items',title:folder?folder.split('/').at(-1):removed[0].title,folder:folder||location,folders,folderIds:Object.fromEntries(folders.map(path=>[path,next.folderIds?.[path]])),assetIds:removed.map(a=>a.id),savedAt:Date.now()/1000};
    for(const item of removed){item.archived=true;item.archiveBatch=ticket.id;item.archivedAt=ticket.savedAt}
    next.folders=next.folders.filter(path=>!folders.includes(path));
    next.trash=[...batches(next),ticket];
@@ -64,6 +64,7 @@
   if(!ticket&&!removed.length){toast('这项内容已经恢复或移走');return loadTab('trash')}
   removed.forEach(unarchive);
   addFolders(next,[...(ticket?.folders||[]),...removed.map(a=>a.folder)]);
+  for(const [path,id] of Object.entries(ticket?.folderIds||{}))if(id&&!next.folderIds?.[path])next.folderIds={...next.folderIds,[path]:id};
   if(ticket)next.trash=batches(next).filter(t=>t.id!==ticket.id);
   if(await saveAssets(next)){
    toast(ticket?.kind==='folder'?'已恢复文件夹和其中的内容':'已恢复到内容库');
