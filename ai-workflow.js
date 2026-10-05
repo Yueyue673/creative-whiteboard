@@ -108,7 +108,7 @@
    let pack;
    await whiteboardClipboardCoordinator.write(null,'',{
     prepare:async()=>{pack=await whiteboardAI.makePack();return JSON.stringify(pack,null,2)},
-    success:()=>report('已复制研究任务。在线 AI 请同时上传材料包里的图片。'),
+    success:()=>{window.whiteboardLibraryClipboard?.cancel({silent:true});report('已复制研究任务。在线 AI 请同时上传材料包里的图片。')},
     error:error=>{
      if(!pack){report(error?.message||'材料准备失败，请重试。');return}
      wfDownloadJSON('研究任务.json',pack);report('剪贴板不可用，已下载研究任务。');

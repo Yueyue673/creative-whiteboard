@@ -242,6 +242,47 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
     await b.evaluate(() => $('dialog').close());
     console.log('Shell clipboard: research download fallback, preparation failure and retry');
 
+    // Replacing a library cut with a successful research copy must remove the
+    // cut highlight. A failed clipboard write and file fallback keep it intact.
+    if(await page.locator('#globalExplorer').isHidden())await page.locator('#openBoards').click();
+    await explorer.evaluate(async()=>{await showWorkspaceTab('assetPane');await loadAssets();enterAssetFolder('来源');});
+    await explorer.locator('[data-asset=source]').click({button:'right'});
+    await explorer.locator('#fileContext button').filter({hasText:/^剪切/}).click();
+    await explorer.waitForFunction(()=>!!localStorage.getItem('creative-library-cut-v1'));
+    await explorer.waitForFunction(()=>document.querySelector('[data-asset=source]').classList.contains('cut-pending'));
+    const cutBeforeResearch=await explorer.evaluate(()=>localStorage.getItem('creative-library-cut-v1'));
+    const cutClipboard=await page.evaluate(()=>navigator.clipboard.readText());
+    const catalogBeforeResearch=await fetch(base+'/api/assets').then(response=>response.json());
+    await page.locator('#openBoards').click();
+    await page.getByRole('tab',{name:'终点',exact:true}).click();
+    await b.evaluate(()=>{selected.clear();whiteboardAI.compose();
+      const handler=$('aiCopyTask').onclick;
+      $('aiCopyTask').onclick=event=>window.researchCopyDone=handler(event);
+    });
+    await b.locator('#aiVisuals').uncheck();
+    await b.locator('#aiTaskText').fill('查找已有审美体系的正式来源。');
+    await page.evaluate(()=>{navigator.clipboard.writeText=()=>Promise.reject(Error('Clipboard unavailable'));});
+    const cutFallback=page.waitForEvent('download');
+    await b.locator('#aiCopyTask').click();await cutFallback;
+    await b.evaluate(()=>researchCopyDone);
+    assert.equal(await b.evaluate(()=>localStorage.getItem('creative-library-cut-v1')),cutBeforeResearch,
+      'File fallback does not cancel an existing cut that remains in the clipboard');
+    assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),cutClipboard);
+    await page.evaluate(()=>{navigator.clipboard.writeText=holdWrite;});
+    await b.locator('#aiCopyTask').click();await b.evaluate(()=>researchCopyDone);
+    assert.equal(JSON.parse(await page.evaluate(()=>navigator.clipboard.readText())).request.task,
+      '查找已有审美体系的正式来源。');
+    assert.equal(await b.evaluate(()=>localStorage.getItem('creative-library-cut-v1')),null,
+      'Successful research copying cancels the superseded library cut');
+    await explorer.waitForFunction(()=>!document.querySelector('[data-asset=source]').classList.contains('cut-pending'));
+    const canceledMove=await b.evaluate(text=>whiteboardLibraryClipboard.paste(text,[],'').then(()=>'',error=>error.message),cutClipboard);
+    assert(canceledMove.includes('剪切已完成或取消'),'An obsolete cut payload cannot move originals after it is superseded');
+    assert.deepEqual(await fetch(base+'/api/assets').then(response=>response.json()),catalogBeforeResearch,
+      'Canceling a superseded cut changes no catalog content or file placement');
+    assert((await b.locator('#aiReplyStatus').innerText()).includes('已复制研究任务'));
+    await b.evaluate(()=>$('dialog').close());
+    console.log('Shell clipboard: research copying clears superseded cut highlights across frames; failed writes preserve cuts and originals');
+
     // An older shell may stay open while a newly opened tab loads the updated
     // research module. It must not copy empty text through the older API.
     const beforeLegacyCopy=await page.evaluate(()=>navigator.clipboard.readText());
