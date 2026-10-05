@@ -24,3 +24,22 @@
 addEventListener('message',e=>{if(e.source!==parent||e.data?.type!=='creative-reading-restore'||restored)return;const saved=e.data.state||{};const apply=()=>{if(saved.path&&(location.pathname+location.search+location.hash)!==saved.path){restored=true;snapshot();return}scrollTo(saved.x||0,saved.y||0);for(const item of saved.elements||[]){const el=item.id?document.getElementById(item.id):document.querySelectorAll('*')[item.index];if(el){el.scrollLeft=item.x||0;el.scrollTop=item.y||0}}};const finishRestore=()=>{apply();setTimeout(()=>{apply();restored=true;snapshot()},30)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',finishRestore,{once:true});else finishRestore()});addEventListener('scroll',()=>{clearTimeout(timer);timer=setTimeout(snapshot,120)},true);addEventListener('pagehide',snapshot);addEventListener('beforeunload',snapshot);document.addEventListener('visibilitychange',()=>{if(document.hidden)snapshot()});parent.postMessage({type:'creative-reading-ready'},'*');})();
 
 (()=>{let last=0;addEventListener('pointermove',e=>{if(performance.now()-last<40)return;last=performance.now();parent.postMessage({type:'creative-pointer-position',x:e.clientX,y:e.clientY,width:innerWidth,height:innerHeight},'*')},{passive:true})})();
+
+// Opaque previews cannot bubble native clipboard events to the app. Notify
+// only that a trusted selection was copied; never send its text or formatting.
+(()=>{
+ let nonce=null;
+ addEventListener('message',e=>{if(e.source===parent&&e.data?.type==='creative-document-probe')nonce=e.data.nonce});
+ function copied(e){
+  if(!e.isTrusted||!nonce)return;
+  const field=document.activeElement;
+  if(field?.matches('input,textarea')){
+   if(field.type==='password'||!Number.isInteger(field.selectionStart)||field.selectionStart===field.selectionEnd)return;
+  }else{
+   const selection=getSelection();
+   if(!selection||selection.isCollapsed||!selection.toString())return;
+  }
+  parent.postMessage({type:'creative-document-copy',nonce,operation:e.type},'*');
+ }
+ addEventListener('copy',copied,true);addEventListener('cut',copied,true);
+})();

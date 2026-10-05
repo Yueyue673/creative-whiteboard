@@ -413,6 +413,16 @@ const setupBeforeNavigationGuard=setupWebDocumentControls;setupWebDocumentContro
 window.addEventListener('message',e=>{if(!['creative-document-leaving','creative-document-protected','creative-document-ready'].includes(e.data?.type))return;const frame=[...document.querySelectorAll('.inline-document iframe,#htmlDocument')].find(f=>f.contentWindow===e.source);if(!frame)return;setupWebDocumentControls();const cover=frame._navigationCover;if(e.data.type==='creative-document-leaving'){frame.inert=true;frame.blur();cover.hidden=false;cover.querySelector('p').textContent='正在跳转…';frame._zoomNonce=null;frame._zoomProof=null;frame._navigationLoaded=false;return}if(e.data.type==='creative-document-ready'){frame.contentWindow.postMessage({type:'creative-document-probe',nonce:frame._zoomNonce},'*');return}if(frame._zoomNonce&&e.data.nonce===frame._zoomNonce){frame._zoomProof=e.data.nonce;if(frame._navigationLoaded){frame.inert=false;cover.hidden=true;clearTimeout(frame._navigationTimer)}}});
 
 // Screen coordinates keep dragging steady even while the iframe moves with the board.
+// A preview may cancel an unfinished research copy, never write clipboard data.
+window.addEventListener('message',e=>{
+ const data=e.data;if(data?.type!=='creative-document-copy'||e.origin!=='null')return;
+ if(!['copy','cut'].includes(data.operation)||Object.keys(data).some(key=>!['type','nonce','operation'].includes(key)))return;
+ const frame=[...document.querySelectorAll('.inline-document iframe,#htmlDocument')].find(f=>f.contentWindow===e.source);
+ if(!frame||document.activeElement!==frame||frame.inert||!frame._navigationCover?.hidden||!frame._zoomNonce||data.nonce!==frame._zoomNonce||frame._zoomProof!==data.nonce)return;
+ window.whiteboardClipboardCoordinator?.markNativeCopy?.();
+ window.whiteboardLibraryClipboard?.cancel({silent:true});
+});
+
 let documentPan=null;
 function finishDocumentPan(){if(!documentPan)return;const changed=documentPan.changed;documentPan=null;canvas.classList.remove('document-panning');if(changed)change(true)}
 window.addEventListener('message',e=>{if(e.data?.type!=='creative-document-pan')return;const frame=[...document.querySelectorAll('.inline-document iframe')].find(f=>f.contentWindow===e.source);if(!frame||!board||$('dialog').open)return;const d=e.data;if(d.phase==='end'){if(documentPan?.frame===frame){const g=documentPan;if(d.finalPosition&&g.boardId===boardId&&Number.isFinite(d.x)&&Number.isFinite(d.y)){board.view.x=g.start.x+d.x-g.x;board.view.y=g.start.y+d.y-g.y;g.changed=true;moveView()}finishDocumentPan()}return}if(!Number.isFinite(d.x)||!Number.isFinite(d.y))return;if(d.phase==='start'){finishDocumentPan();closeFileContext();documentPan={frame,boardId,x:d.x,y:d.y,start:{x:view().x,y:view().y},changed:false};canvas.classList.add('document-panning')}else if(d.phase==='move'&&documentPan?.frame===frame){const g=documentPan;if(g.boardId!==boardId){finishDocumentPan();return}board.view.x=g.start.x+d.x-g.x;board.view.y=g.start.y+d.y-g.y;g.changed=true;moveView()}});

@@ -304,7 +304,12 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
 
     // Independent app windows share the OS clipboard. Returning to a window
     // with an older unfinished preparation must not replace a newer copy.
-    for(const copyKind of ['text','canvas','library','cut','menu']){
+    const htmlUpload=await fetch(base+'/api/assets/upload',{method:'POST',
+      headers:{'X-File-Name':'clipboard-reference.html'},
+      body:'<!doctype html><html><body><p id="htmlCopy" tabindex="0">在网页里选中的原始资料。</p><textarea id="htmlCut">在网页里剪切的原始资料。</textarea></body></html>'});
+    assert(htmlUpload.ok);
+    const htmlAsset=await htmlUpload.json();
+    for(const copyKind of ['text','canvas','library','cut','menu','html','html-cut','html-inline']){
       await b.evaluate(()=>{selected.clear();whiteboardAI.compose();
         const handler=$('aiCopyTask').onclick;
         $('aiCopyTask').onclick=event=>window.researchCopyDone=handler(event);
@@ -333,6 +338,70 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
             $('independentCopy').focus();$('independentCopy').select();
           });
           await separate.keyboard.press('Control+c');
+        }else if(copyKind.startsWith('html')){
+          let selector='#htmlDocument';
+          if(copyKind==='html-inline'){
+            selector='.inline-document iframe';
+            await separatePane.evaluate(async id=>{
+              await loadAssets();board.nodes.push({id:'copy-web',type:'note',assetId:id,x:25,y:50,w:650,h:550,title:'网页资料',body:'',tags:[]});
+              board.view={x:0,y:0,z:1};selected.clear();render();
+            },htmlAsset.id);
+          }else await separatePane.evaluate(async id=>{await loadAssets();await previewAsset(id)},htmlAsset.id);
+          await separatePane.waitForFunction(selector=>document.querySelector(selector)?._navigationCover?.hidden===true,selector);
+          assert.equal(await separatePane.locator(selector).getAttribute('sandbox'),'allow-scripts');
+          const htmlFrame=separatePane.locator(selector).contentFrame();
+          await htmlFrame.locator('#htmlCopy').click();
+          await htmlFrame.locator('#htmlCopy').evaluate(element=>{
+            const range=document.createRange();range.selectNodeContents(element);
+            getSelection().removeAllRanges();getSelection().addRange(range);
+          });
+          const orderBeforeCopy=await separate.evaluate(()=>localStorage.getItem('creative-clipboard-order-v1'));
+          if(copyKind==='html'){
+            const clipboardBeforeCopy=await separate.evaluate(()=>navigator.clipboard.readText());
+            const nonce=await separatePane.locator(selector).evaluate(frame=>frame._zoomNonce);
+            // A FIFO barrier proves rejection without relying on a sleep.
+            await separatePane.evaluate(()=>addEventListener('message',event=>{
+              if(event.data?.type==='clipboard-test-barrier')event.source.postMessage({type:'clipboard-test-ack'},'*');
+            }));
+            const rejected=async(data,synthetic=false)=>{
+              await htmlFrame.locator('#htmlCopy').evaluate((element,{data,synthetic})=>new Promise(resolve=>{
+                const ack=event=>{if(event.data?.type==='clipboard-test-ack'){removeEventListener('message',ack);resolve()}};
+                addEventListener('message',ack);
+                if(synthetic)element.dispatchEvent(new ClipboardEvent('copy',{bubbles:true}));
+                else parent.postMessage(data,'*');
+                parent.postMessage({type:'clipboard-test-barrier'},'*');
+              }),{data,synthetic});
+              assert.equal(await separate.evaluate(()=>localStorage.getItem('creative-clipboard-order-v1')),orderBeforeCopy);
+              assert.equal(await separate.evaluate(()=>navigator.clipboard.readText()),clipboardBeforeCopy);
+            };
+            await rejected(null,true);
+            await rejected({type:'creative-document-copy',nonce:'obsolete-proof',operation:'copy'});
+            await rejected({type:'creative-document-copy',nonce,operation:'paste'});
+            await rejected({type:'creative-document-copy',nonce,operation:'copy',text:'Never write this preview payload.'});
+            await separatePane.locator('#dialog .web-zoom-value').focus();
+            assert.equal(await separatePane.locator(selector).evaluate(frame=>document.activeElement===frame),false,
+              'Background-message check actually moves focus out of the preview');
+            await rejected({type:'creative-document-copy',nonce,operation:'copy'});
+            await htmlFrame.locator('#htmlCopy').evaluate((element,url)=>location.href=url,
+              base+'/api/preview/'+htmlAsset.id+'?reading=next');
+            await separatePane.waitForFunction(({selector,nonce})=>{
+              const frame=document.querySelector(selector);
+              return frame?._navigationCover?.hidden===true&&frame._zoomNonce!==nonce;
+            },{selector,nonce});
+            await htmlFrame.locator('#htmlCopy').click();
+            await rejected({type:'creative-document-copy',nonce,operation:'copy'});
+            await htmlFrame.locator('#htmlCopy').evaluate(element=>{
+              const range=document.createRange();range.selectNodeContents(element);
+              getSelection().removeAllRanges();getSelection().addRange(range);
+            });
+          }
+          if(copyKind==='html-cut'){
+            await htmlFrame.locator('#htmlCut').click();
+            await htmlFrame.locator('#htmlCut').evaluate(element=>element.select());
+          }
+          await separate.keyboard.press(copyKind==='html-cut'?'Control+x':'Control+c');
+          await separate.waitForFunction(before=>localStorage.getItem('creative-clipboard-order-v1')!==before,orderBeforeCopy);
+          if(copyKind==='html-cut')assert.equal(await htmlFrame.locator('#htmlCut').inputValue(),'','Native HTML cut still edits the original field');
         }else if(copyKind==='canvas'){
           await separatePane.evaluate(()=>{selected=new Set([board.nodes[0].id]);refreshSelectionUI();canvas.focus();});
           await separate.keyboard.press('Control+c');
@@ -348,7 +417,8 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
           }else await separate.keyboard.press(copyKind==='cut'?'Control+x':'Control+c');
         }
         const newestClipboard=await separate.evaluate(()=>navigator.clipboard.readText());
-        if(copyKind==='text')assert.equal(newestClipboard,'在另一个窗口复制的文字。');
+        if(copyKind.startsWith('html'))assert.equal(newestClipboard.trimEnd(),copyKind==='html-cut'?'在网页里剪切的原始资料。':'在网页里选中的原始资料。');
+        else if(copyKind==='text')assert.equal(newestClipboard,'在另一个窗口复制的文字。');
         else{
           const copied=JSON.parse(newestClipboard);
           assert.equal(copied.nodes[0].body,copyKind==='canvas'?'这段原文来自白板。':'这段原文来自内容库。');
@@ -374,7 +444,7 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
         await separate.close();await page.bringToFront();
       }
     }
-    console.log('Shell clipboard: independent text, canvas, library copy/cut and menu copies supersede older research preparation; no clipboard data in order markers');
+    console.log('Shell clipboard: independent text, canvas, library/menu and sandboxed HTML copies/cuts supersede older research preparation; no clipboard data in messages or order markers');
 
     // Clipboard work belongs to the shell even if its source tab goes away.
     await page.evaluate(() => {window.finishClipboardWrite = null;});
