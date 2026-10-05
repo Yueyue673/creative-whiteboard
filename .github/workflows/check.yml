@@ -26,6 +26,7 @@ jobs:
       - run: node --check pane.js
       - run: node --check cells.js
       - run: node --check experience.js
+      - run: node --check clipboard-coordinator.js
       - run: node --check library-editing.js
       - run: node --check library-folders.js
       - run: node --check import-session.js

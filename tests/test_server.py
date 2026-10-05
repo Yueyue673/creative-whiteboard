@@ -60,7 +60,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.request("/api/checkpoints/library/catalog", "PUT")[0], 200)
         history = json.loads(self.request("/api/history/library/catalog")[2])
         self.assertEqual(history[0]["count"], 0)
-        for path in ["/", "/index.html", "/workspace.js", "/workflow.js", "/workspace.css", "/shell.js", "/shell.css", "/pane.js", "/cells.js", "/experience.js"]:
+        for path in ["/", "/index.html", "/workspace.js", "/workflow.js", "/workspace.css", "/shell.js", "/shell.css", "/pane.js", "/cells.js", "/experience.js", "/clipboard-coordinator.js"]:
             self.assertEqual(self.request(path)[0], 200)
         self.assertEqual(self.request("/app_paths.py")[0], 404)
 
