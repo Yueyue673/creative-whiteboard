@@ -302,6 +302,80 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
     }
     console.log('Shell clipboard: an older open shell retains its clipboard and explains how to enable the updated copy tool');
 
+    // Independent app windows share the OS clipboard. Returning to a window
+    // with an older unfinished preparation must not replace a newer copy.
+    for(const copyKind of ['text','canvas','library','cut','menu']){
+      await b.evaluate(()=>{selected.clear();whiteboardAI.compose();
+        const handler=$('aiCopyTask').onclick;
+        $('aiCopyTask').onclick=event=>window.researchCopyDone=handler(event);
+        window.independentCaptureWaiting=false;
+        window.finishIndependentCapture=null;
+        const capture=whiteboardContext.capture;
+        whiteboardContext.capture=async(...args)=>{
+          window.independentCaptureWaiting=true;
+          await new Promise(resolve=>window.finishIndependentCapture=resolve);
+          return capture(...args);
+        };
+        window.restoreIndependentCapture=()=>{whiteboardContext.capture=capture;};
+      });
+      await b.locator('#aiVisuals').uncheck();
+      await b.locator('#aiTaskText').fill('查找原作者的正式说明。'+copyKind);
+      await b.locator('#aiCopyTask').click();
+      await b.waitForFunction(()=>!!window.independentCaptureWaiting);
+      const separate=await context.newPage();
+      try{
+        await separate.goto(base+'/?board=b');
+        await separate.waitForFunction(()=>pane(current())?.state().boardId==='b');
+        const separatePane=separate.frames().find(frame=>frame.parentFrame()&&new URL(frame.url()).searchParams.get('board')==='b'&&new URL(frame.url()).searchParams.get('explorer')!=='1');
+        if(copyKind==='text'){
+          await separatePane.evaluate(()=>{
+            showDialog('<h2>自己的输入</h2><textarea id="independentCopy">在另一个窗口复制的文字。</textarea>',[['关闭',()=>$('dialog').close()]]);
+            $('independentCopy').focus();$('independentCopy').select();
+          });
+          await separate.keyboard.press('Control+c');
+        }else if(copyKind==='canvas'){
+          await separatePane.evaluate(()=>{selected=new Set([board.nodes[0].id]);refreshSelectionUI();canvas.focus();});
+          await separate.keyboard.press('Control+c');
+        }else{
+          if(await separate.locator('#globalExplorer').isHidden())await separate.locator('#openBoards').click();
+          await separate.waitForFunction(()=>!!whiteboardWorkspace.explorer());
+          const otherExplorer=separate.frames().find(frame=>new URL(frame.url()).searchParams.get('explorer')==='1');
+          await otherExplorer.evaluate(async()=>{await showWorkspaceTab('assetPane');await loadAssets();enterAssetFolder('来源');});
+          await otherExplorer.locator('[data-asset=source]').click({button:copyKind==='menu'?'right':'left'});
+          if(copyKind==='menu'){
+            await otherExplorer.locator('#fileContext button').filter({hasText:/^复制/}).click();
+            await otherExplorer.evaluate(()=>whiteboardClipboardCoordinator.ready());
+          }else await separate.keyboard.press(copyKind==='cut'?'Control+x':'Control+c');
+        }
+        const newestClipboard=await separate.evaluate(()=>navigator.clipboard.readText());
+        if(copyKind==='text')assert.equal(newestClipboard,'在另一个窗口复制的文字。');
+        else{
+          const copied=JSON.parse(newestClipboard);
+          assert.equal(copied.nodes[0].body,copyKind==='canvas'?'这段原文来自白板。':'这段原文来自内容库。');
+          if(copyKind!=='canvas'){
+            assert.equal(copied.library.entries[0].id,'source');
+            assert.equal(copied.library.operation,copyKind==='cut'?'cut':'copy');
+          }
+        }
+        assert.match(await separate.evaluate(()=>localStorage.getItem('creative-clipboard-order-v1')),/^[a-f0-9-]{36}$/,
+          'Window coordination stores a random order marker, not clipboard contents');
+        await page.bringToFront();
+        await b.evaluate(()=>finishIndependentCapture());
+        await b.waitForFunction(()=>$('aiReplyStatus').textContent.startsWith('已准备')||$('aiReplyStatus').textContent.startsWith('已复制'));
+        await b.evaluate(()=>researchCopyDone);
+        assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),newestClipboard,
+          'An older research preparation cannot replace a newer '+copyKind+' copy from another app window');
+        assert(!((await b.locator('#aiReplyStatus').innerText()).includes('已复制研究任务')));
+        if(copyKind==='cut')assert(await separate.evaluate(()=>!!localStorage.getItem('creative-library-cut-v1')),
+          'An obsolete research completion must not cancel the newer cut');
+        console.log('Shell clipboard: independent-window '+copyKind+' copy preserved');
+      }finally{
+        await b.evaluate(()=>{finishIndependentCapture();restoreIndependentCapture();$('dialog').close();});
+        await separate.close();await page.bringToFront();
+      }
+    }
+    console.log('Shell clipboard: independent text, canvas, library copy/cut and menu copies supersede older research preparation; no clipboard data in order markers');
+
     // Clipboard work belongs to the shell even if its source tab goes away.
     await page.evaluate(() => {window.finishClipboardWrite = null;});
     await page.getByRole('tab', {name: '起点', exact: true}).click();

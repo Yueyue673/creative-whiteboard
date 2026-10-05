@@ -23,12 +23,12 @@
  }
  const pendingPayload=(text,files)=>clipboard.payload(text,files);
  const ready=()=>clipboard.ready();
- function nativePayload(raw){clearCut();if(clipboard.pending)queueWrite(JSON.parse(raw),false)}
+ function nativePayload(raw){clearCut();if(clipboard.pending)queueWrite(JSON.parse(raw),false);else clipboard.markNativeCopy?.()}
  function nativeText(e){
   if(clipboard.nativeText(e))clearCut();
  }
  const canvasPasteBefore=pastePayload;pastePayload=async function(text,files=[],anchor=pasteAnchor()){const payload=await pendingPayload(text,files);if(payload)return canvasPasteBefore(payload.text,payload.files,anchor)};
- function writeEvent(e,cut){const pack=prepare(cut);e.preventDefault();e.stopImmediatePropagation();if(!pack)return;try{e.clipboardData.setData('text/plain',JSON.stringify(pack));if(clipboard.pending)queueWrite(pack,false);remember(pack)}catch{toast('无法写入剪贴板，请使用 Ctrl+C')}}
+ function writeEvent(e,cut){const pack=prepare(cut);e.preventDefault();e.stopImmediatePropagation();if(!pack)return;try{e.clipboardData.setData('text/plain',JSON.stringify(pack));if(clipboard.pending)queueWrite(pack,false);else clipboard.markNativeCopy?.();remember(pack)}catch{toast('无法写入剪贴板，请使用 Ctrl+C')}}
  function write(cut){const pack=prepare(cut);return pack?queueWrite(pack):Promise.resolve(false)}
  function uniqueName(name,used){if(!used.has(name)){used.add(name);return name}let i=1,candidate;do{candidate=name+' 副本'+(i>1?' '+i:'');i++}while(used.has(candidate));used.add(candidate);return candidate}
  function parentOf(folder){return folder.includes('/')?folder.slice(0,folder.lastIndexOf('/')):''}
