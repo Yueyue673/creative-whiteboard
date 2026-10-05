@@ -4,10 +4,7 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
 (async () => {
   const root = process.env.CREATIVE_BOARD_TEST_ROOT || path.resolve(__dirname, '..');
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-preview-continuity-'));
-  const port = await new Promise(resolve => {
-    const socket = net.createServer();
-    socket.listen(0, '127.0.0.1', () => {const port = socket.address().port; socket.close(() => resolve(port));});
-  });
+  const port=await require('./browser-port.cjs')();
   const base = 'http://127.0.0.1:' + port;
   const server = spawn(process.env.PYTHON || 'python', [path.join(root, 'server.py')], {
     windowsHide: true,
@@ -35,6 +32,27 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
     await page.evaluate(async () => {await loadAssets();});
     const settleClose = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const caseName = process.env.CREATIVE_PREVIEW_CASE;
+
+    if (!caseName || caseName === 'web-loading') {
+      let arrive, release;
+      const arrived = new Promise(resolve => arrive = resolve), gate = new Promise(resolve => release = resolve);
+      const handler = async route => {arrive(); await gate; await route.fulfill({status: 200, contentType: 'image/png',
+        body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64')});};
+      await page.route('**/slow-preview-image.png', handler);
+      const loading = await upload('loading.html', '<!doctype html><html><body><button id="loadCount" onclick="this.textContent=String(Number(this.textContent)+1)">0</button><img src="' + base + '/slow-preview-image.png"></body></html>');
+      await page.evaluate(async id => {await loadAssets(); await previewAsset(id);}, loading.id); await arrived;
+      const frame = page.locator('#htmlDocument').contentFrame(); await frame.locator('#loadCount').waitFor();
+      await page.waitForFunction(() => document.querySelector('#htmlDocument')?.dataset.zoomReady === 'true');
+      try {
+        assert(await page.locator('#htmlDocument').evaluate(frame => frame.inert && !frame._navigationCover.hidden),
+          'A preview remains covered until its load-time protection probe completes, rather than losing a first click at load');
+        await page.waitForFunction(() => document.querySelector('#htmlDocument')._navigationCover.textContent.includes('网页还在载入'));
+      } finally {release();}
+      await page.waitForFunction(() => document.querySelector('#htmlDocument')?._navigationCover.hidden === true);
+      await frame.locator('#loadCount').click(); assert.equal(await frame.locator('#loadCount').textContent(), '1');
+      await page.unroute('**/slow-preview-image.png', handler); await page.evaluate(() => $('dialog').close()); await settleClose();
+      console.log('Preview continuity: loading documents do not expose controls before the final protection probe');
+    }
 
     if (!caseName || caseName === 'html') {
       await page.evaluate(id => previewAsset(id), first.id);
@@ -204,6 +222,102 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
       await approve.click(); await page.waitForFunction(() => !$('dialog').open);
       assert.equal(await page.evaluate(() => reviewAttempts), 3);
       console.log('Preview continuity: failed or rejected updates preserve field choices and allow retry');
+    }
+    // Delay an actual submitted catalog write, rather than only its preparation.
+    if (!caseName || caseName === 'recovery-copy') {
+      await page.evaluate(async () => {
+        const next = clone(assetIndex);
+        next.assets.push({id: 'past-observation', title: 'Earlier observation', path: '', mime: bundleMime, folder: '',
+          bundle: {nodes: [{id: 'past-note', type: 'note', title: 'Earlier observation', body: 'Original manual observation.',
+            x: 0, y: 0, w: 320, h: 180}], edges: []}});
+        await saveAssets(next);
+        await api('/api/checkpoints/library/catalog', {method: 'PUT'});
+        await wfRecovery('library');
+      });
+      await page.locator('[data-revision]').first().click();
+      await page.locator('#wfRevisionItems input[value="past-observation"]').check();
+      let release, arrive;
+      const gate = new Promise(resolve => release = resolve), arrived = new Promise(resolve => arrive = resolve);
+      const handler = async route => {
+        if (route.request().method() === 'PUT') {arrive(); await gate;}
+        await route.continue();
+      };
+      await page.route('**/api/assets', handler);
+      await page.getByRole('button', {name: '另存勾选内容', exact: true}).click(); await arrived;
+      await page.evaluate(() => {$('dialog').close(); showDialog('<h2>New manual editor</h2><textarea id="afterRecovery"></textarea>',
+        [['关闭', () => $('dialog').close()]]);});
+      await page.locator('#afterRecovery').fill('Keep this later manual input.');
+      release();
+      await page.waitForFunction(() => assetIndex.assets.some(a => a.id !== 'past-observation' && a.title.startsWith('Earlier observation')));
+      await page.waitForFunction(() => !document.querySelector('[data-recovery-action]:disabled')); await settleClose();
+      assert(await page.locator('#dialog').evaluate(dialog => dialog.open), 'A finished historical copy must not close a newer editor');
+      assert.equal(await page.locator('#afterRecovery').inputValue(), 'Keep this later manual input.');
+      assert.equal(await page.evaluate(() => assetById('past-observation').bundle.nodes[0].body), 'Original manual observation.');
+      await page.unroute('**/api/assets', handler); await page.evaluate(() => $('dialog').close()); await settleClose();
+      console.log('Preview continuity: a submitted historical copy preserves later editing and the original content');
+    }
+
+    if (!caseName || caseName === 'recovery-board') {
+      const originalId = await page.evaluate(async () => {
+        board.nodes = [{id: 'history-note', type: 'note', title: 'Earlier note', body: 'Earlier manual text.',
+          x: 0, y: 0, w: 320, h: 180}];
+        render(); change(); await persist(); await api('/api/checkpoints/' + boardId, {method: 'PUT'});
+        board.nodes[0].body = 'Current manual text.'; render(); change(); await persist();
+        await wfRecovery('board'); return boardId;
+      });
+      await page.locator('[data-revision]').first().click();
+      let release, arrive, finished;
+      const gate = new Promise(resolve => release = resolve), arrived = new Promise(resolve => arrive = resolve);
+      const complete = new Promise(resolve => finished = resolve);
+      const handler = async route => {
+        if (route.request().method() === 'PUT' && route.request().headers()['if-match'] === 'new') {
+          arrive(); await gate;
+          const response = await route.fetch(); await route.fulfill({response}); finished();
+        } else await route.continue();
+      };
+      await page.route('**/api/boards/*', handler);
+      await page.getByRole('button', {name: '整份记录另存为白板', exact: true}).click(); await arrived;
+      await page.evaluate(() => {$('dialog').close(); showDialog('<h2>Keep editing</h2><textarea id="afterBoardRecovery"></textarea>',
+        [['关闭', () => $('dialog').close()]]);});
+      await page.locator('#afterBoardRecovery').fill('This editor belongs to the next action.'); release(); await complete;
+      // Wait until the application has received the copy, without assuming it
+      // should navigate away from the current board to acknowledge completion.
+      await page.waitForFunction(() => $('toast').textContent.includes('已另存恢复版本')); await settleClose();
+      assert(await page.locator('#dialog').evaluate(dialog => dialog.open), 'An old board-copy completion must not close a new editor');
+      assert.equal(await page.locator('#afterBoardRecovery').inputValue(), 'This editor belongs to the next action.');
+      assert.equal(await page.evaluate(() => boardId), originalId, 'Dismissed recovery must not change the current board');
+      assert.equal(await page.evaluate(() => board.nodes[0].body), 'Current manual text.');
+      const boards = await fetch(base + '/api/boards').then(r => r.json());
+      const restored = boards.find(item => item.id !== originalId && item.name.includes('恢复'));
+      assert(restored, 'The already submitted copy is still saved');
+      assert.equal((await fetch(base + '/api/boards/' + restored.id).then(r => r.json())).nodes[0].body, 'Earlier manual text.');
+      await page.unroute('**/api/boards/*', handler); await page.evaluate(() => $('dialog').close()); await settleClose();
+      console.log('Preview continuity: a submitted board copy preserves later editing, current board and saved historical version');
+
+      // Failed submission leaves this same view usable. Retry and same-turn
+      // repeated clicks create exactly one version, without disabling Return.
+      await page.evaluate(() => wfRecovery('board')); await page.locator('[data-revision]').first().click();
+      let attempts = 0;
+      const retryHandler = async route => {
+        if (route.request().method() === 'PUT' && route.request().headers()['if-match'] === 'new') {
+          attempts++;
+          if (attempts === 1) await route.fulfill({status: 503, contentType: 'application/json', body: JSON.stringify({error: 'Test save failure'})});
+          else await route.continue();
+        } else await route.continue();
+      };
+      await page.route('**/api/boards/*', retryHandler);
+      const copy = page.getByRole('button', {name: '整份记录另存为白板', exact: true}); await copy.click();
+      await page.waitForFunction(() => $('toast').textContent === 'Test save failure');
+      assert(await page.locator('#dialog').evaluate(dialog => dialog.open));
+      await copy.waitFor(); await page.waitForFunction(() => ![...$('dialogActions').querySelectorAll('button')].find(b => b.textContent === '整份记录另存为白板').disabled);
+      assert(await page.getByRole('button', {name: '返回', exact: true}).isEnabled());
+      await page.evaluate(() => {const button = [...$('dialogActions').querySelectorAll('button')].find(b => b.textContent === '整份记录另存为白板'); button.click(); button.click();});
+      await page.waitForFunction(id => boardId !== id && !loading && !$('dialog').open, originalId);
+      assert.equal(attempts, 2, 'A failed submission plus a double-click retry produces only one successful copy');
+      assert.equal(await page.evaluate(() => board.nodes[0].body), 'Earlier manual text.');
+      assert.equal((await fetch(base + '/api/boards/' + originalId).then(r => r.json())).nodes[0].body, 'Current manual text.');
+      await page.unroute('**/api/boards/*', retryHandler);
+      console.log('Preview continuity: board-copy failure allows retry, repeated clicks create one copy and ordinary completion opens it');
     }
     assert.deepEqual(errors, []);
   } finally {

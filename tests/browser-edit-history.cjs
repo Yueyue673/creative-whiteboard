@@ -5,13 +5,7 @@ const {chromium} = require('playwright');
 (async () => {
   const root = path.resolve(__dirname, '..');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-edit-history-'));
-  const port = await new Promise(resolve => {
-    const socket = net.createServer();
-    socket.listen(0, '127.0.0.1', () => {
-      const port = socket.address().port;
-      socket.close(() => resolve(port));
-    });
-  });
+  const port=await require('./browser-port.cjs')();
   const base = 'http://127.0.0.1:' + port;
   const proc = spawn(process.env.PYTHON || 'python', [root + '/server.py'], {
     env: {...process.env, CREATIVE_BOARD_PORT: String(port), CREATIVE_BOARD_DATA_DIR: tmp, PYTHONIOENCODING: 'utf-8'},

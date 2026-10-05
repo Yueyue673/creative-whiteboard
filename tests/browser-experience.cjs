@@ -6,9 +6,7 @@ const {chromium} = require('playwright');
 (async () => {
  const root = path.resolve(__dirname, '..');
  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-experience-'));
- const port = await new Promise(resolve => {
-  const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p))});
- });
+ const port=await require('./browser-port.cjs')();
  const base='http://127.0.0.1:'+port;
  const proc=spawn(process.env.PYTHON||'python',[root+'/server.py'],{
   env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:tmp,PYTHONIOENCODING:'utf-8'},windowsHide:true

@@ -4,10 +4,7 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
 (async () => {
   const root = process.env.CREATIVE_BOARD_TEST_ROOT || path.resolve(__dirname, '..');
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-shell-clipboard-'));
-  const port = await new Promise(resolve => {
-    const socket = net.createServer();
-    socket.listen(0, '127.0.0.1', () => {const port = socket.address().port; socket.close(() => resolve(port));});
-  });
+  const port=await require('./browser-port.cjs')();
   const base = 'http://127.0.0.1:' + port;
   const server = spawn(process.env.PYTHON || 'python', [path.join(root, 'server.py')], {
     windowsHide: true,

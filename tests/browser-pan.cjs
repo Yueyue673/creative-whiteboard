@@ -4,7 +4,7 @@ const assert = require('assert');
 const {chromium} = require('playwright');
 (async()=>{
  const root=process.env.CREATIVE_BOARD_TEST_ROOT||path.resolve(__dirname,'..'), tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-pan-'));
- const port=await new Promise(resolve=>{const server=net.createServer();server.listen(0,'127.0.0.1',()=>{const port=server.address().port;server.close(()=>resolve(port))})});
+ const port=await require('./browser-port.cjs')();
  const base='http://127.0.0.1:'+port;
  const proc=spawn(process.env.PYTHON||'python',[root+'/server.py'],{env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:tmp,PYTHONIOENCODING:'utf-8'},windowsHide:true});
  let browser;

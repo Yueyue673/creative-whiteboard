@@ -143,7 +143,10 @@
    original.id=uid();original.title=(original.title||'未命名内容')+' · 恢复副本';original.updated=Date.now();
    next.assets.push(original);addFolders(next,[original.folder]);
   }
-  if(await saveAssets(next)){dialog.close();toast('已另存所选旧内容，当前版本保留')}
+  if(await saveAssets(next)){
+   if(active(token))dialog.close();
+   toast('已另存所选旧内容，当前版本保留');
+  }
  }
  async function recoverLibraryReview(token,ids,value){
   if(!ids.size)return toast('先勾选内容');
@@ -174,23 +177,27 @@
   restoreAction(actions[1],()=>recoverLibraryCopy(token,ids,value));
   restoreAction(actions[2],()=>recoverLibraryReview(token,ids,value));
  }
- function boardRevision(key,revision){
+ function boardRevision(key,revision,token){
   const value=revision.value;
   recoveryDialog('<h2>'+esc(value.name)+' · '+wfDate(revision.savedAt)+'</h2><p class="wf-explain">把勾选内容添加回当前白板，或者把整份记录另存为白板。现在的内容不会被覆盖。</p><div class="wf-list">'+value.nodes.map(n=>'<label class="wf-history-row"><input type="checkbox" data-recover-node="'+esc(n.id)+'"><div><b>'+esc(n.title||'未命名内容')+'</b><small>'+esc((n.body||n.userText||'').slice(0,160))+'</small></div></label>').join('')+'</div>',[['返回',()=>wfSafe(()=>wfRecovery('board'))],['添加勾选内容',()=>{
    if(boardId!==key)return toast('当前白板已切换，请重新打开历史记录');
    const ids=new Set([...$('dialogBody').querySelectorAll('[data-recover-node]:checked')].map(e=>e.dataset.recoverNode));
    if(!ids.size)return toast('先勾选内容');
    const bundle=subsetBundle({bundle:{nodes:value.nodes,edges:value.edges}},ids);dialog.close();insertBundle(bundle);toast('已取回所选内容 · Ctrl+Z 撤销');
-  }],['整份记录另存为白板',()=>wfSafe(async()=>{
+  }],['整份记录另存为白板',()=>{}]]);
+  const actions=$('dialogActions').querySelectorAll('button');
+  restoreAction(actions[2],async()=>{
+   if(!active(token))return;
    const id=uid(),restored=clone(value);restored.name=value.name+' · 恢复 '+new Date(revision.savedAt*1000).toLocaleDateString('zh-CN');
    if(!folderData.folders.some(f=>f.id===restored.folder))restored.folder='';
    await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(restored)});
-   dialog.close();await loadBoard(id);toast('已另存恢复版本，原白板保留');
-  })]]);
+   if(active(token)&&boardId===key){dialog.close();await loadBoard(id)}
+   toast('已另存恢复版本，原白板保留');
+  });
  }
  wfOpenRevision=async function(kind,key,row){
   const token=++epoch,revision=await(await api('/api/history/'+kind+'/'+key+'/'+row.id)).json();
   if(!active(token))return;
-  if(kind==='library')libraryRevision(token,revision);else boardRevision(key,revision);
+  if(kind==='library')libraryRevision(token,revision);else boardRevision(key,revision,token);
  };
 })();
