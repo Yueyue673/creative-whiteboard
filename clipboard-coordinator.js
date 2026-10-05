@@ -9,21 +9,32 @@
  } catch {}
  let pending=null;
  const nativeEvents=new WeakSet();
- function write(pack,text=JSON.stringify(pack),{success,error,formats}={}){
+ function write(pack,text=JSON.stringify(pack),{success,error,formats,prepare}={}){
   const previous=pending,request={pack,text,cancelled:false,promise:null};pending=request;
+  const interrupted=new Promise(resolve=>request.supersede=resolve);
+  previous?.supersede();
+  // Reserve the copy at the user's click, before slow material preparation.
+  // Observe preparation failures immediately even while an earlier write waits.
+  const prepared=prepare?Promise.resolve().then(prepare).then(text=>({ok:true,text}),cause=>({ok:false,cause})):null;
   request.promise=(async()=>{
    try{
     if(previous)await previous.promise;
     if(pending!==request||request.cancelled)return false;
+    if(prepared){
+     const result=await Promise.race([prepared,interrupted]);
+     if(pending!==request||request.cancelled)return false;
+     if(!result.ok)throw result.cause;
+     request.text=result.text;
+    }
     const data=formats?await formats:null;
     if(pending!==request||request.cancelled)return false;
     if(data&&data['text/html']&&navigator.clipboard.write&&window.ClipboardItem){
      request.text=data['text/plain'];
      await navigator.clipboard.write([new ClipboardItem(Object.fromEntries(Object.entries(data).map(([type,value])=>[type,new Blob([value],{type})])))]);
-    }else await navigator.clipboard.writeText(text);
+    }else await navigator.clipboard.writeText(request.text);
     if(pending!==request||request.cancelled)return false;
     success?.();return true;
-   }catch{if(pending===request&&!request.cancelled)error?.();return false}
+   }catch(cause){if(pending===request&&!request.cancelled)error?.(cause);return false}
    finally{if(pending===request)pending=null}
   })();return request.promise;
  }
@@ -70,7 +81,7 @@
   }
   return true;
  }
- window.whiteboardClipboardCoordinator={write,payload,ready,nativeText,get pending(){return pending}};
+ window.whiteboardClipboardCoordinator={write,payload,ready,nativeText,preparesText:true,get pending(){return pending}};
  window.addEventListener('copy',nativeText,true);
  window.addEventListener('cut',nativeText,true);
 })();

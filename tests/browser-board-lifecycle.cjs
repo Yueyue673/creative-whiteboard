@@ -22,7 +22,52 @@ const {chromium}=require('playwright');
   // A nested folder can archive both panes and empty subfolders, then restore their places.
   const folderResponse=await fetch(base+'/api/folders'),folderTag=folderResponse.headers.get('ETag');await fetch(base+'/api/folders',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':folderTag},body:JSON.stringify({folders:[{id:'parent',name:'资料整理',parent:''},{id:'child',name:'观察',parent:'parent'},{id:'empty',name:'空目录',parent:'child'}]})});await put('folder-one','左侧原文。','parent');await put('folder-two','右侧原文。','child');await p.evaluate(async()=>{boards=await api('/api/boards');openBoard('folder-one','left');openBoard('folder-two','right')});await p.waitForFunction(()=>['folder-one','folder-two'].every(id=>{const t=model.tabs.find(t=>t.boardId===id);return t&&pane(t)?.state().boardId===id&&!pane(t).state().loading}));const children=p.frames().filter(f=>f.parentFrame()&&['folder-one','folder-two'].includes(new URL(f.url()).searchParams.get('board')));for(const f of children)await f.evaluate(()=>{board.nodes[0].body+='刚写的新观察。';change();clearTimeout(saveTimer)});await explorer.evaluate(async()=>{await loadFolders();await listBoards();enterBoardFolder('')});await explorer.locator('[data-entry-id=parent]').click();await p.keyboard.press('Delete');await p.waitForFunction(()=>!model.tabs.some(t=>['folder-one','folder-two'].includes(t.boardId)));const folderTicket=(await fetch(base+'/api/trash').then(r=>r.json())).find(t=>t.ids.includes('folder-one'));const folderArchive=JSON.parse(fs.readFileSync(path.join(tmp,'回收站',folderTicket.id+'.json'),'utf8'));assert.equal(folderArchive.boards['folder-one'].nodes[0].body,'左侧原文。刚写的新观察。');assert.equal(folderArchive.boards['folder-two'].nodes[0].body,'右侧原文。刚写的新观察。');assert(folderArchive.folders.some(f=>f.id==='empty'));assert.equal(await p.evaluate(()=>model.side),'left');await explorer.waitForFunction(()=>!explorerBusy);await p.waitForFunction(()=>!document.body.inert);await explorer.locator('#boardContents').focus();await p.keyboard.press('Control+z');await p.waitForFunction(()=>model.tabs.some(t=>t.boardId==='folder-two')&&pane(current())?.state().boardId==='folder-two');assert.equal(await p.evaluate(()=>model.tabs.find(t=>t.boardId==='folder-one').side),'left');assert.equal(await p.evaluate(()=>model.tabs.find(t=>t.boardId==='folder-two').side),'right');assert.equal(await p.evaluate(()=>model.side),'right');assert.equal((await fetch(base+'/api/folders').then(r=>r.json())).folders.length,3);
   // A committed delete stays successful even if refreshing the list then fails.
-  await put('after-ack','成功删除的原文。');await p.evaluate(async()=>{boards=await api('/api/boards');openBoard('after-ack','left')});await p.waitForFunction(()=>pane(current())?.state().boardId==='after-ack'&&!pane(current()).state().loading);await explorer.evaluate(async()=>{await listBoards();enterBoardFolder('')});let failList=false;await p.route('**/api/boards/after-ack',async route=>{if(route.request().method()==='DELETE'){const response=await route.fetch();failList=true;await route.fulfill({response})}else await route.continue()});await p.route('**/api/boards',route=>failList?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟列表刷新失败'})}):route.continue());await explorer.locator('[data-entry-id=after-ack]').click();await p.keyboard.press('Delete');await p.waitForFunction(()=>!model.tabs.some(t=>t.boardId==='after-ack'));assert.equal((await fetch(base+'/api/boards/after-ack')).status,404);await p.waitForFunction(()=>!document.body.inert);await p.unroute('**/api/boards/after-ack');await p.unroute('**/api/boards');await explorer.waitForFunction(()=>!explorerBusy);await p.waitForFunction(()=>!document.body.inert);await explorer.locator('#boardContents').focus();await p.keyboard.press('Control+z');await p.waitForFunction(()=>model.tabs.some(t=>t.boardId==='after-ack'));
+  await put('after-ack','成功删除的原文。');
+  await p.evaluate(async()=>{boards=await api('/api/boards');openBoard('after-ack','left')});
+  await p.waitForFunction(()=>pane(current())?.state().boardId==='after-ack'&&!pane(current()).state().loading);
+  await explorer.evaluate(async()=>{await listBoards();enterBoardFolder('')});
+  let failList=false,arriveFailedList,releaseFailedList,finishFailedList,failedRefreshes=0;
+  const failedListArrived=new Promise(resolve=>arriveFailedList=resolve);
+  const failedListGate=new Promise(resolve=>releaseFailedList=resolve);
+  const failedListFinished=new Promise(resolve=>finishFailedList=resolve);
+  const deleteAfterAck=async route=>{
+   if(route.request().method()==='DELETE'){
+    const response=await route.fetch();failList=true;await route.fulfill({response});
+   }else await route.continue();
+  };
+  const failBoardList=async route=>{
+   if(!failList)return route.continue();
+   const inExplorer=route.request().frame()===explorer;
+   try{
+    if(inExplorer){arriveFailedList();await failedListGate}
+    await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟列表刷新失败'})});
+    if(inExplorer)failedRefreshes++;
+   }finally{if(inExplorer)finishFailedList()}
+  };
+  await p.route('**/api/boards/after-ack',deleteAfterAck);
+  await p.route('**/api/boards',failBoardList);
+  try{
+   await explorer.locator('[data-entry-id=after-ack]').click();await p.keyboard.press('Delete');
+   await p.waitForFunction(()=>!model.tabs.some(t=>t.boardId==='after-ack'));
+   assert.equal((await fetch(base+'/api/boards/after-ack')).status,404);
+   await p.waitForFunction(()=>!document.body.inert);
+   await Promise.race([failedListArrived,new Promise((_,reject)=>setTimeout(()=>reject(Error('Explorer refresh request did not arrive after committed deletion')),5000))]);
+   assert.equal(await explorer.evaluate(()=>explorerBusy),true,'The submitted refresh remains pending while its response is held');
+   releaseFailedList();await failedListFinished;
+   await explorer.waitForFunction(()=>!explorerBusy);
+   assert.equal(failedRefreshes,1,'Deliver the failed explorer refresh before removing the test route');
+   assert.equal(await p.evaluate(()=>document.body.inert),false);
+  }catch(error){
+   console.error('Committed-delete diagnostics:',await explorer.evaluate(()=>({busy:explorerBusy,undo:explorerUndo,entry:boardEntry,toast:$('toast').textContent})),{failedRefreshes});
+   throw error;
+  }finally{
+   releaseFailedList();
+   // Do not remove a route while the fixture is still delivering its response.
+   if(failedRefreshes)await failedListFinished;
+   await p.unroute('**/api/boards/after-ack',deleteAfterAck);await p.unroute('**/api/boards',failBoardList);
+  }
+  await explorer.locator('#boardContents').focus();await p.keyboard.press('Control+z');
+  await p.waitForFunction(()=>model.tabs.some(t=>t.boardId==='after-ack'));
   // Deleting the last board leaves an empty workspace, not an unrequested new board.
   await p.waitForFunction(()=>model.tabs.every(t=>!frames.has(t.id)||pane(t)?.state().boardId===t.boardId&&!pane(t).state().loading));for(const b of await fetch(base+'/api/boards').then(r=>r.json()))await p.evaluate(id=>whiteboardBoardLifecycle.remove({id,type:'board'}),b.id);await p.waitForFunction(()=>model.tabs.length===0);assert.deepEqual(await fetch(base+'/api/boards').then(r=>r.json()),[]);await explorer.waitForFunction(()=>boardId===''&&board.nodes.length===0);await p.reload();await p.waitForFunction(()=>window.whiteboardBoardLifecycle);assert.equal(await p.evaluate(()=>model.tabs.length),0);assert.deepEqual(await fetch(base+'/api/boards').then(r=>r.json()),[]);
   // The direct, single-document window shares the same delete/restore protections.

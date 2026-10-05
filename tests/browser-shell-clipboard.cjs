@@ -147,6 +147,120 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
     }
     console.log('Shell clipboard: document copy/cut, read-only selections and rich formatting; no extra read permission required');
 
+    // Preparing a research task can take time. A later native copy still owns
+    // the clipboard, even if the earlier task has not been ready to write yet.
+    await b.evaluate(() => {selected.clear(); whiteboardAI.compose();
+      const handler = $('aiCopyTask').onclick;
+      $('aiCopyTask').onclick = event => window.researchCopyDone = handler(event);
+    });
+    await b.locator('#aiVisuals').uncheck();
+    const newerQuestion = '查找已有的正式研究来源。';
+    await b.locator('#aiTaskText').fill(newerQuestion);
+    let releaseResearchSave, researchSaveArrived, researchSaveFinished;
+    const researchGate = new Promise(resolve => releaseResearchSave = resolve);
+    const researchStarted = new Promise(resolve => researchSaveArrived = resolve);
+    const researchFinished = new Promise(resolve => researchSaveFinished = resolve);
+    const holdResearchSave = async route => {
+      if (route.request().method() !== 'PUT') return route.continue();
+      researchSaveArrived();
+      try {await researchGate; await route.continue();} finally {researchSaveFinished();}
+    };
+    await page.route('**/api/ai/tasks/*', holdResearchSave);
+    try {
+      await b.locator('#aiCopyTask').click();
+      await researchStarted;
+      await b.locator('#aiTaskText').selectText();
+      await page.keyboard.press('Control+c');
+      await b.waitForFunction(() => whiteboardClipboardCoordinator.pending === null, null, {timeout:3000});
+      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), newerQuestion,
+        'A later native copy need not wait for the older task to finish preparing');
+      releaseResearchSave();
+      await b.evaluate(() => researchCopyDone);
+      await b.waitForFunction(() => $('aiReplyStatus').textContent.startsWith('已准备'));
+      await b.evaluate(() => whiteboardClipboardCoordinator.ready());
+      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), newerQuestion,
+        'Research preparation must not overwrite text copied afterwards');
+      assert(!((await b.locator('#aiReplyStatus').innerText()).includes('已复制研究任务')),
+        'An obsolete copy must not report that it replaced the clipboard');
+    } finally {
+      releaseResearchSave(); await researchFinished;
+      await page.unroute('**/api/ai/tasks/*', holdResearchSave);
+    }
+    const researchTasks = await fetch(base + '/api/ai/tasks').then(response => response.json());
+    assert(researchTasks.length > 0, 'Preparing a superseded copy still preserves its local research material');
+    await b.evaluate(() => $('dialog').close());
+    console.log('Shell clipboard: later native text supersedes an earlier research preparation');
+
+    // Conversely, a newer research copy must finish after an older menu write.
+    await holdLibraryCopy();
+    await b.evaluate(() => {selected.clear(); whiteboardAI.compose();
+      const handler = $('aiCopyTask').onclick;
+      $('aiCopyTask').onclick = event => window.researchCopyDone = handler(event);
+    });
+    await b.locator('#aiVisuals').uncheck();
+    await b.locator('#aiTaskText').fill('查找已有视觉体系的原作者资料。');
+    await b.locator('#aiCopyTask').click();
+    await b.waitForFunction(() => $('aiReplyStatus').textContent.startsWith('已准备'));
+    await page.evaluate(() => finishClipboardWrite());
+    await b.evaluate(() => researchCopyDone);
+    const researchCopy = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+    assert.equal(researchCopy.request.task, '查找已有视觉体系的原作者资料。');
+    assert.equal(researchCopy.aiPolicy.readOnly, true);
+    assert.equal(researchCopy.request.allowAdd, false);
+    assert(!Object.hasOwn(researchCopy, 'proposalRules'));
+    assert((await b.locator('#aiReplyStatus').innerText()).includes('已复制研究任务'));
+    console.log('Shell clipboard: a newer research copy follows an older held menu write');
+
+    // Unavailable clipboard falls back to a valid local file; failed material
+    // preparation does not download an incomplete task or report copy success.
+    await page.evaluate(() => {navigator.clipboard.writeText = () => Promise.reject(Error('Clipboard unavailable'));});
+    const downloadArrived = page.waitForEvent('download');
+    await b.locator('#aiCopyTask').click();
+    const download = await downloadArrived;
+    await b.evaluate(() => researchCopyDone);
+    assert.equal(download.suggestedFilename(), '研究任务.json');
+    assert.equal(JSON.parse(fs.readFileSync(await download.path(), 'utf8')).requestId, researchCopy.requestId);
+    assert((await b.locator('#aiReplyStatus').innerText()).includes('已下载研究任务'));
+    await page.evaluate(() => {navigator.clipboard.writeText = holdWrite;});
+    let unexpectedDownloads = 0;
+    page.on('download', () => unexpectedDownloads++);
+    await b.locator('#aiTaskText').fill('材料保存失败之后再查找正式资料。');
+    const failResearchSave = route => route.request().method() === 'PUT'
+      ? route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({error:'材料暂时无法保存'})})
+      : route.continue();
+    await page.route('**/api/ai/tasks/*', failResearchSave);
+    await b.locator('#aiCopyTask').click();
+    await b.evaluate(() => researchCopyDone);
+    assert((await b.locator('#aiReplyStatus').innerText()).includes('材料暂时无法保存'));
+    assert.equal(unexpectedDownloads, 0, 'Preparation failure cannot download an incomplete research task');
+    assert.equal(JSON.parse(await page.evaluate(() => navigator.clipboard.readText())).requestId, researchCopy.requestId);
+    await page.unroute('**/api/ai/tasks/*', failResearchSave);
+    await b.locator('#aiCopyTask').click();
+    await b.evaluate(() => researchCopyDone);
+    assert.equal(JSON.parse(await page.evaluate(() => navigator.clipboard.readText())).request.task,
+      '材料保存失败之后再查找正式资料。', 'A failed preparation leaves copying usable for retry');
+    await b.evaluate(() => $('dialog').close());
+    console.log('Shell clipboard: research download fallback, preparation failure and retry');
+
+    // An older shell may stay open while a newly opened tab loads the updated
+    // research module. It must not copy empty text through the older API.
+    const beforeLegacyCopy=await page.evaluate(()=>navigator.clipboard.readText());
+    await page.evaluate(()=>{whiteboardClipboardCoordinator.preparesText=false;});
+    try{
+      await b.evaluate(()=>{selected.clear();whiteboardAI.compose();
+        const handler=$('aiCopyTask').onclick;
+        $('aiCopyTask').onclick=event=>window.researchCopyDone=handler(event);
+      });
+      await b.locator('#aiTaskText').fill('查找正式来源。');
+      await b.locator('#aiCopyTask').click();await b.evaluate(()=>researchCopyDone);
+      assert((await b.locator('#aiReplyStatus').innerText()).includes('重新打开应用'));
+      assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),beforeLegacyCopy);
+    }finally{
+      await page.evaluate(()=>{whiteboardClipboardCoordinator.preparesText=true;});
+      await b.evaluate(()=>$('dialog').close());
+    }
+    console.log('Shell clipboard: an older open shell retains its clipboard and explains how to enable the updated copy tool');
+
     // Clipboard work belongs to the shell even if its source tab goes away.
     await page.evaluate(() => {window.finishClipboardWrite = null;});
     await page.getByRole('tab', {name: '起点', exact: true}).click();
@@ -162,6 +276,39 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
     assert.equal(JSON.parse(await page.evaluate(() => navigator.clipboard.readText())).nodes[0].body, '这段原文来自白板。');
     assert((await fetch(base + '/api/boards/a')).ok, 'Closing a source tab preserves its saved board');
     console.log('Shell clipboard: closing the source tab does not abandon pending copy/paste');
+
+    // An unfinished preparation belongs to its source tab. Closing that tab
+    // cannot leave later copies waiting for a promise in a removed document.
+    await open('起点');
+    const reopened = page.frames().find(frame => new URL(frame.url()).searchParams.get('board') === 'a');
+    await reopened.evaluate(() => {
+      selected.clear(); whiteboardAI.compose();
+      whiteboardContext.capture = async () => {
+        window.captureWaiting = true;
+        await new Promise(resolve => window.releaseAbandonedCapture = resolve);
+      };
+    });
+    await reopened.locator('#aiVisuals').uncheck();
+    await reopened.locator('#aiTaskText').fill('查找已有的内容组织体系来源。');
+    await reopened.locator('#aiCopyTask').click();
+    await reopened.waitForFunction(() => !!window.captureWaiting);
+    await page.getByRole('button', {name:'关闭标签：起点', exact:true}).click();
+    await page.waitForFunction(() => !model.tabs.some(tab => tab.boardId === 'a'));
+    await page.getByRole('tab', {name:'终点', exact:true}).click();
+    await b.evaluate(() => {
+      showDialog('<h2>自己的输入</h2><textarea id="afterClosedResearch">关闭任务后复制的文字。</textarea>',
+        [['关闭', () => $('dialog').close()]]);
+      $('afterClosedResearch').focus(); $('afterClosedResearch').select();
+    });
+    await page.keyboard.press('Control+c');
+    await b.waitForFunction(() => whiteboardClipboardCoordinator.pending === null, null, {timeout:3000});
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '关闭任务后复制的文字。');
+    await b.evaluate(() => {$('dialog').close(); canvas.focus();});
+    const afterAbandonedPreparation = await b.evaluate(() => board.nodes.length);
+    await page.keyboard.press('Control+v');
+    await b.waitForFunction(count => board.nodes.length === count + 1, afterAbandonedPreparation);
+    assert.equal(await b.evaluate(() => board.nodes.at(-1).body), '关闭任务后复制的文字。');
+    console.log('Shell clipboard: closing an unfinished research tab does not block later native copy and paste');
     assert.deepEqual(errors, []);
   } finally {
     if (browser) await browser.close();

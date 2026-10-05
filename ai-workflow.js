@@ -101,7 +101,20 @@
   $('dialogBody').querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{$('aiTaskText').value=b.dataset.task;remember()});
   $('aiPrepareContext').onclick=()=>taskAction(async()=>{const b=$('aiPrepareContext');b.disabled=true;try{await whiteboardAI.makePack()}finally{if(b.isConnected)b.disabled=false}});
   $('aiHaveReply').onclick=()=>{$('aiReplyArea').hidden=false;$('aiReplyText').focus()};
-  $('aiCopyTask').onclick=()=>taskAction(async()=>{const pack=await whiteboardAI.makePack();try{await navigator.clipboard.writeText(JSON.stringify(pack,null,2));status('已复制研究任务。在线 AI 请同时上传材料包里的图片。')}catch{wfDownloadJSON('研究任务.json',pack);status('剪贴板不可用，已下载研究任务。')}});
+  $('aiCopyTask').onclick=()=>taskAction(async()=>{
+   const form=$('aiTaskText'),question=form.value;
+   const report=text=>{if(form===$('aiTaskText')&&form.isConnected&&$('dialog').open&&form.value===question)status(text)};
+   if(!whiteboardClipboardCoordinator.preparesText){report('复制工具已更新，请重新打开应用。也可以先下载材料。');return}
+   let pack;
+   await whiteboardClipboardCoordinator.write(null,'',{
+    prepare:async()=>{pack=await whiteboardAI.makePack();return JSON.stringify(pack,null,2)},
+    success:()=>report('已复制研究任务。在线 AI 请同时上传材料包里的图片。'),
+    error:error=>{
+     if(!pack){report(error?.message||'材料准备失败，请重试。');return}
+     wfDownloadJSON('研究任务.json',pack);report('剪贴板不可用，已下载研究任务。');
+    }
+   });
+  });
   $('aiReadClipboard').onclick=async()=>{try{$('aiReplyText').value=await navigator.clipboard.readText()}catch{status('请按 Ctrl＋V 粘贴。')}};
   $('aiReviewReply').onclick=()=>wfSafe(()=>receive($('aiReplyText').value));
  }
