@@ -3,7 +3,7 @@ const {spawn} = require('child_process');
 const assert = require('assert');
 const {chromium} = require('playwright');
 (async()=>{
- const root=path.resolve(__dirname,'..'), tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-pan-'));
+ const root=process.env.CREATIVE_BOARD_TEST_ROOT||path.resolve(__dirname,'..'), tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-pan-'));
  const port=await new Promise(resolve=>{const server=net.createServer();server.listen(0,'127.0.0.1',()=>{const port=server.address().port;server.close(()=>resolve(port))})});
  const base='http://127.0.0.1:'+port;
  const proc=spawn(process.env.PYTHON||'python',[root+'/server.py'],{env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:tmp,PYTHONIOENCODING:'utf-8'},windowsHide:true});
@@ -28,23 +28,38 @@ const {chromium} = require('playwright');
    if(kind==='json'){item.assetId=json.id;item.body=''}
    board.nodes=[item];board.edges=[];board.view={x:0,y:0,z:1};editorId=null;selected.clear();render();
   },{kind,audio,video,json});await page.waitForTimeout(100)}
-  async function pan(selector,label,button='right'){
+  async function pan(selector,label,button='right',earlyMenu=false){
    const target=page.locator(selector).first();await target.waitFor({state:'visible'});
    const box=await target.boundingBox(), x=box.x+box.width*.6,y=box.y+box.height*.5;
    const before=await page.evaluate(()=>({view:{...view()},nodes:board.nodes.map(n=>({id:n.id,x:n.x,y:n.y})),selected:[...selected]}));
-   await page.mouse.move(x,y);await page.mouse.down({button});await page.mouse.move(x+65,y+37,{steps:8});await page.mouse.up({button});
+   await page.mouse.move(x,y);await page.mouse.down({button});
+   if(earlyMenu)await page.evaluate(({x,y})=>canvas.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:x,clientY:y})),{x,y});
+   await page.mouse.move(x+65,y+37,{steps:8});await page.mouse.up({button});
    const after=await page.evaluate(()=>({view:{...view()},nodes:board.nodes.map(n=>({id:n.id,x:n.x,y:n.y})),selected:[...selected],gesture:gesture?.type,contextHidden:document.getElementById('fileContext').hidden}));
    assert(Math.abs(after.view.x-before.view.x-65)<2,label+' horizontal');assert(Math.abs(after.view.y-before.view.y-37)<2,label+' vertical');assert.deepEqual(after.nodes,before.nodes,label+' card positions');assert.deepEqual(after.selected,before.selected,label+' selection');assert(!after.gesture,label+' ended');assert(after.contextHidden,label+' no popup');
   }
   await setup('audio');await page.locator('audio').evaluate(el=>el.pause());
   await pan('.media-seek','音频控件');await pan('.media-seek','音频中键','middle');
+  await pan('.media-seek','右键菜单先于拖动发出','right',true);
   // Custom controls preserve playback and seeking with the left button.
   await page.locator('.media-play').click();await page.waitForFunction(()=>!document.querySelector('audio').paused);await page.locator('audio').evaluate(el=>el.pause());
   let box=await page.locator('.media-seek').boundingBox();await page.mouse.click(box.x+box.width*.55,box.y+box.height/2);assert(await page.locator('audio').evaluate(el=>el.currentTime)>0,'Left-button seek still works');
   await setup('video');await pan('video','视频控件');
   await setup('table');await pan('.media-seek','表格音频');await page.evaluate(()=>openEditor('card'));await pan('.media-seek','编辑中表格音频');
   await setup('json');await page.locator('.json-reader').waitFor();await pan('.json-tools button','JSON按钮');await pan('.inline-json-body','JSON正文');
-  await setup('note');await page.evaluate(()=>{selected=new Set(['card']);openEditor('card')});await pan('#body','编辑正文');assert.equal(await page.locator('#body').inputValue(),'记录内容');
+  await setup('note');
+  const plain=await page.locator('.node .inner').boundingBox(),point={x:plain.x+20,y:plain.y+20};
+  await page.mouse.move(point.x,point.y);await page.mouse.down({button:'right'});
+  await page.evaluate(({x,y})=>canvas.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:x,clientY:y})),point);
+  assert(await page.locator('#fileContext').isHidden(),'An early context menu waits until a stationary right click is released');
+  await page.mouse.up({button:'right'});await page.locator('#fileContext').waitFor({state:'visible'});
+  assert((await page.locator('#fileContext').innerText()).includes('展开编辑'),'A stationary early right click retains the original content menu');
+  await page.keyboard.press('Escape');
+  await page.mouse.move(point.x,point.y);await page.mouse.down({button:'right'});
+  await page.evaluate(({x,y})=>canvas.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2,buttons:2,clientX:x,clientY:y})),point);
+  await page.keyboard.press('Escape');await page.mouse.up({button:'right'});
+  assert(await page.locator('#fileContext').isHidden(),'Cancelling the gesture never opens a delayed menu on release');
+  await page.evaluate(()=>{selected=new Set(['card']);openEditor('card')});await pan('#body','编辑正文');assert.equal(await page.locator('#body').inputValue(),'记录内容');
   assert.deepEqual(errors,[]);console.log('右键/中键：音频、视频、表格播放器、JSON与编辑正文拖动画布；左键播放和拖动进度通过');
  }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});

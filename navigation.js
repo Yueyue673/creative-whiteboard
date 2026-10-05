@@ -60,5 +60,45 @@
  const menu=fileMenu;fileMenu=function(e,items){if(selected.size>1&&e.target.closest?.('.node'))items=[...items,['对齐与间距…',arrangement]];return menu(e,items)};
  $('zoomValue').title='缩放与视图';$('zoomValue').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();fileMenu({target:e.currentTarget,clientX:r.left,clientY:r.bottom,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},[['缩放到选中内容  Shift+2',fitSelection],['查看全部  Shift+1',fit],['100%',()=>zoom(1/view().z)],['设置缩放比例…',()=>{showDialog('<h2>白板缩放</h2><label>比例（%）<input id="boardZoomInput" type="number" min="15" max="3200" value="'+Math.round(view().z*100)+'"></label>',[['取消',()=>$('dialog').close()],['应用',()=>{const z=Number($('boardZoomInput').value);if(z>=15&&z<=3200){zoom(z/100/view().z);$('dialog').close()}}]])}],['操作设置…',()=>whiteboardAppearance.open()]])};
  const settings=whiteboardAppearance.open;whiteboardAppearance.open=function(){settings();const d=$('appearanceDialog'),section=document.createElement('section');section.className='navigation-settings';section.innerHTML='<h3>白板操作</h3><label class="navigation-check"><input id="navSnap" type="checkbox">拖动时显示对齐参考线并吸附</label><label>缩放速度<input id="navZoom" type="range" min="30" max="200" step="10"><output></output></label><div><label>方向键移动<input id="navNudge" type="number" min="0.1" max="100" step="0.1"></label><label>Shift＋方向键<input id="navBigNudge" type="number" min="1" max="500"></label></div><p>右键或空格＋拖动移动画布；Ctrl＋滚轮缩放；H 切到手形工具，V 切回选择。Shift＋拖动限制方向，Alt＋拖动创建副本。拖动时按 Ctrl 可临时关闭吸附。</p>';d.querySelector('footer').before(section);const p=read();section.querySelector('#navSnap').checked=p.snap;section.querySelector('#navZoom').value=p.zoomSpeed*100;section.querySelector('#navZoom').nextElementSibling.textContent=p.zoomSpeed+'×';section.querySelector('#navNudge').value=p.nudge;section.querySelector('#navBigNudge').value=p.bigNudge;section.addEventListener('input',()=>{const value={...read(),snap:section.querySelector('#navSnap').checked,zoomSpeed:Number(section.querySelector('#navZoom').value)/100,nudge:Number(section.querySelector('#navNudge').value)||1,bigNudge:Number(section.querySelector('#navBigNudge').value)||10};write(value);section.querySelector('#navZoom').nextElementSibling.textContent=value.zoomSpeed+'×'});const reset=d.querySelector('#appearanceReset').onclick;d.querySelector('#appearanceReset').onclick=()=>{reset();write(defaults);section.querySelector('#navSnap').checked=true;section.querySelector('#navZoom').value=100;section.querySelector('#navZoom').nextElementSibling.textContent='1×';section.querySelector('#navNudge').value=1;section.querySelector('#navBigNudge').value=10}};
+ // Browsers may issue contextmenu on right-button down or up. Defer an early
+ // menu until release, retaining its original target despite pointer capture.
+ let rightClick=null,replayingContext=false;
+ const clearRightClick=()=>{rightClick=null;contextDown=null};
+ const cancelRightClick=()=>{if(rightClick&&!rightClick.ended){rightClick.cancelled=true;contextDown=null}else clearRightClick()};
+ const cancelBeforeRightMenu=cancelCanvasGesture;
+ cancelCanvasGesture=function(){cancelRightClick();return cancelBeforeRightMenu()};
+ const endBeforeRightMenu=endGesture;
+ endGesture=function(e,cancel=false){if(cancel&&gesture)cancelRightClick();return endBeforeRightMenu(e,cancel)};
+ window.addEventListener('pointerdown',e=>{
+  clearRightClick();
+  if(e.button!==2||!board||$('dialog').open||!e.target.closest?.('#canvas')||e.target.closest('#canvasTools,#creationDock,#textSizeTools'))return;
+  rightClick={id:e.pointerId,x:e.clientX,y:e.clientY,target:e.target,moved:false,ended:false,early:null};
+ },true);
+ window.addEventListener('pointermove',e=>{const state=rightClick;if(state&&!state.ended&&e.pointerId===state.id)state.moved||=Math.hypot(e.clientX-state.x,e.clientY-state.y)>5},true);
+ window.addEventListener('contextmenu',e=>{
+  const state=rightClick;if(replayingContext||!state||!e.target.closest?.('#canvas'))return;
+  if(state.cancelled){e.preventDefault();e.stopImmediatePropagation();if(state.ended)clearRightClick();return}
+  if(!state.ended){
+   e.preventDefault();e.stopImmediatePropagation();
+   state.early={bubbles:true,cancelable:true,button:2,buttons:0,clientX:e.clientX,clientY:e.clientY,ctrlKey:e.ctrlKey,shiftKey:e.shiftKey,altKey:e.altKey,metaKey:e.metaKey};return;
+  }
+  if(state.moved||state.early){e.preventDefault();e.stopImmediatePropagation()}
+  clearRightClick();
+ },true);
+ window.addEventListener('pointerup',e=>{
+  const state=rightClick;if(!state||e.pointerId!==state.id||e.button!==2)return;
+  state.moved||=Math.hypot(e.clientX-state.x,e.clientY-state.y)>5;state.ended=true;
+  if(!state.early||state.moved||state.cancelled)return;
+  queueMicrotask(()=>{
+   if(rightClick!==state)return;
+   const target=state.target.isConnected?state.target:document.elementFromPoint(state.x,state.y);
+   if(!target?.closest?.('#canvas'))return;
+   replayingContext=true;
+   try{target.dispatchEvent(new MouseEvent('contextmenu',state.early))}finally{replayingContext=false;contextDown=null}
+  });
+ },true);
+ window.addEventListener('pointercancel',cancelRightClick,true);
+ window.addEventListener('keydown',e=>{if(e.key==='Escape')cancelRightClick();else if(!rightClick||rightClick.ended)clearRightClick()},true);
+ window.addEventListener('blur',cancelRightClick);
  window.whiteboardNavigation={read,write,fitSelection,arrange};
 })();
