@@ -26,6 +26,7 @@ jobs:
       - run: node --check pane.js
       - run: node --check cells.js
       - run: node --check experience.js
+      - run: node --check document-loading.js
       - run: node --check library-transfer.js
       - run: node --check board-lifecycle.js
       - run: node --check recovery.js

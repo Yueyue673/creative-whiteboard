@@ -22,7 +22,14 @@ window.addEventListener('keydown',function(e){
 'use strict';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),clone=x=>JSON.parse(JSON.stringify(x)),uid=()=>crypto.randomUUID(),colors=['#fff0aa','#cde8fb','#dbecc7','#f8d2c9','#ded3f2','#ffffff'];
 let folderData={folders:[]},folderETag='new',folderSelected='',boardList=[];
-let board=null,boardId='',etag='new',selected=new Set(),edgeId=null,history=[],future=[],dirty=false,blocked=false,loading=false,saveTimer,savePromise=null,gesture=null,space=false,editorId=null,contentDirty=false,savingContent=false,saveError='',contentRevision=0;
+let board=null,boardId='',etag='new',selected=new Set(),edgeId=null,history=[],future=[],dirty=false,blocked=false,loading=false,loadGeneration=0,loadTargetId='',loadError='',loadErrorCode=0,saveTimer,savePromise=null,gesture=null,space=false,editorId=null,contentDirty=false,savingContent=false,saveError='',contentRevision=0;
+function guardUnreadyBoard(event){
+ if(!loading&&board)return;
+ if(event.target?.closest?.('#workspaceSidebar,#dialog,#boardLoadState,header'))return;
+ if(event.type==='keydown'&&(event.ctrlKey||event.metaKey)&&['Tab','k','K','\\'].includes(event.key))return;
+ if(event.type==='keydown'||event.target?.closest?.('#canvas,#editor')){event.preventDefault();event.stopImmediatePropagation();if(event.type==='drop'||event.type==='paste')toast('白板还没有打开，内容尚未添加。')}
+}
+for(const type of ['keydown','paste','drop','pointerdown','dblclick','wheel'])document.addEventListener(type,guardUnreadyBoard,{capture:true,passive:false});
 const view=()=>board.view;
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').hidden=true,3500)}
 function showDialog(body,actions){$('dialogBody').innerHTML=body;$('dialogActions').replaceChildren();for(const [text,fn] of actions){const b=document.createElement('button');b.textContent=text;b.onclick=fn;$('dialogActions').append(b)}$('dialog').showModal()}
@@ -34,11 +41,33 @@ function bindContentInput(field,readValue,writeValue,parse=value=>value){let ses
 function updateButtons(){$('undo').disabled=!history.length;$('redo').disabled=!future.length}
 function change(viewOnly=false){dirty=true;if(!viewOnly){contentDirty=true;contentRevision++}clearTimeout(saveTimer);$('status').textContent=blocked?'尚未保存 · 文件有冲突':'自动保存';saveTimer=setTimeout(persist,viewOnly?700:400)}
 function conflict(message){blocked=true;$('status').textContent='有修改尚未保存';$('notice').hidden=false;$('notice').innerHTML='<div>'+esc(message)+'</div><button id="conflictCopy">把当前内容另存一份</button><button id="conflictExport">下载当前内容备份</button><button id="conflictReload">放弃当前未保存修改，重新读取</button>';$('conflictCopy').onclick=saveCopy;$('conflictExport').onclick=exportJSON;$('conflictReload').onclick=()=>confirmReload()}
-async function persist(){if(loading||blocked||!dirty||!board)return !dirty;if(savePromise){await savePromise;if(dirty&&!blocked)return persist();return !dirty}clearTimeout(saveTimer);const raw=JSON.stringify(board),id=boardId,hasContent=contentDirty;dirty=false;contentDirty=false;savingContent=hasContent;savePromise=(async()=>{try{const r=await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':etag},body:raw});etag=r.headers.get('ETag');saveError='';const saved=JSON.parse(raw),item=boardList.find(b=>b.id===id);if(item){item.name=saved.name;item.folder=saved.folder||'';item.count=saved.nodes.length;renderFolders()}$('status').textContent='自动保存';return true}catch(e){dirty=true;contentDirty=contentDirty||hasContent;saveError=e.message;if(e.code===409)conflict(e.message);else{$('status').textContent='保存失败 · 请保留窗口';toast(e.message)}return false}finally{savePromise=null;savingContent=false}})();const ok=await savePromise;if(ok&&dirty)return persist();return ok}
+async function persist(){if(savePromise){const ok=await savePromise;if(!ok)return false;if(dirty&&!blocked&&!loading)return persist();return !dirty}if(loading||blocked||!dirty||!board)return !dirty;clearTimeout(saveTimer);const raw=JSON.stringify(board),id=boardId,hasContent=contentDirty;dirty=false;contentDirty=false;savingContent=hasContent;savePromise=(async()=>{try{const r=await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':etag},body:raw});etag=r.headers.get('ETag');saveError='';const saved=JSON.parse(raw),item=boardList.find(b=>b.id===id);if(item){item.name=saved.name;item.folder=saved.folder||'';item.count=saved.nodes.length;renderFolders()}$('status').textContent='自动保存';return true}catch(e){dirty=true;contentDirty=contentDirty||hasContent;saveError=e.message;if(e.code===409)conflict(e.message);else{$('status').textContent='保存失败 · 请保留窗口';toast(e.message)}return false}finally{savePromise=null;savingContent=false}})();const ok=await savePromise;if(ok&&dirty)return persist();return ok}
 async function listBoards(){const list=await(await api('/api/boards')).json();boardList=list;$('boards').innerHTML=list.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');$('boards').value=boardId;if(typeof renderFolders==='function')renderFolders();return list}
-async function loadBoard(id){const openingFocus=document.activeElement;loading=true;try{const r=await api('/api/boards/'+id),b=await r.json();board=b;boardId=id;etag=r.headers.get('ETag');dirty=blocked=contentDirty=savingContent=false;saveError='';contentRevision++;selected.clear();edgeId=null;history=[];future=[];editorId=null;$('editor').hidden=true;$('notice').hidden=true;localStorage.setItem('creative-board-last',id);sessionStorage.setItem('creative-board-window',id);if(new URLSearchParams(location.search).has('board')){const u=new URL(location.href);u.searchParams.set('board',id);window.history.replaceState(null,'',u)}try{await listBoards()}catch(e){toast("白板已打开，列表暂时未能刷新："+e.message)}render();$('status').textContent='已保存到本机';if(!$('dialog').open&&(document.activeElement===openingFocus||!isTyping({target:document.activeElement}))){canvas.tabIndex=-1;canvas.focus({preventScroll:true})}}finally{loading=false}}
-async function switchBoard(id){if(dirty&&!await persist()){$('boards').value=boardId;toast('请先保存当前修改或处理文件冲突');return}try{await loadBoard(id)}catch(e){toast(e.message)}}
-async function newBoard(name){if(dirty&&!await persist())return toast('请先保存当前修改');const b={format:'creative-board',version:1,name,folder:folderSelected,nodes:[],edges:[],view:{x:80,y:80,z:1}};const id=uid();await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(b)});await loadBoard(id)}
+async function loadBoard(id){
+ const generation=++loadGeneration,openingFocus=document.activeElement;if(typeof cancelCanvasGesture==='function')cancelCanvasGesture();
+ loading=true;loadTargetId=id;loadError='';loadErrorCode=0;window.dispatchEvent(new Event('creative-board-loading'));
+ try{
+  if(savePromise&&!await savePromise)throw Error('当前修改尚未保存，仍保留在原白板中。请先处理保存提示。');
+  if(generation!==loadGeneration)return false;
+  const response=await api('/api/boards/'+id),value=await response.json();
+  if(generation!==loadGeneration)return false;
+  if(!value||!Array.isArray(value.nodes)||!Array.isArray(value.edges)||!value.view||typeof value.name!=='string')throw Error('这份白板文件的内容不完整，暂时无法读取。');
+  board=value;boardId=id;etag=response.headers.get('ETag');dirty=blocked=contentDirty=savingContent=false;saveError='';contentRevision++;
+  selected.clear();edgeId=null;history=[];future=[];editorId=null;$('editor').hidden=true;$('notice').hidden=true;
+  localStorage.setItem('creative-board-last',id);sessionStorage.setItem('creative-board-window',id);
+  if(new URLSearchParams(location.search).has('board')){const url=new URL(location.href);url.searchParams.set('board',id);window.history.replaceState(null,'',url)}
+  render();$('status').textContent='已保存到本机';
+  listBoards().catch(error=>{if(generation===loadGeneration)toast('白板已打开，列表暂时未能刷新：'+error.message)});
+  if(!$('dialog').open&&(document.activeElement===openingFocus||!isTyping({target:document.activeElement}))){canvas.tabIndex=-1;canvas.focus({preventScroll:true})}
+  return true;
+ }catch(error){
+  if(generation!==loadGeneration)return false;
+  loadError=error instanceof SyntaxError?'这份白板文件的格式有问题，暂时无法读取。':error.message||'读取没有完成，请重试。';loadErrorCode=error.code||0;
+  $('boards').value=boardId;$('status').textContent='无法打开 · 可重试';throw error;
+ }finally{if(generation===loadGeneration){loading=false;window.dispatchEvent(new Event('creative-board-loading'))}}
+}
+async function switchBoard(id){if((dirty||savePromise)&&!await persist()){$('boards').value=boardId;toast('请先保存当前修改或处理文件冲突');return}try{await loadBoard(id)}catch(e){toast(e.message)}}
+async function newBoard(name){if((dirty||savePromise)&&!await persist())return toast('请先保存当前修改');const b={format:'creative-board',version:1,name,folder:folderSelected,nodes:[],edges:[],view:{x:80,y:80,z:1}};const id=uid();await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(b)});await loadBoard(id)}
 async function saveCopy(){const name=board.name+'（另存）',b={...clone(board),name};try{const id=uid();await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(b)});await loadBoard(id)}catch(e){toast(e.message)}}
 function confirmReload(){if(!dirty&&!blocked)return loadBoard(boardId).catch(e=>toast(e.message));showDialog('<h2>重新读取文件？</h2><p>当前未保存的修改会被放弃。你可以先导出备份。</p>',[['取消',()=>$('dialog').close()],['重新读取',()=>{$('dialog').close();loadBoard(boardId).catch(e=>toast(e.message))}]])}
 function worldPoint(x,y){const r=$('canvas').getBoundingClientRect();return{x:(x-r.left-view().x)/view().z,y:(y-r.top-view().y)/view().z}}
@@ -129,5 +158,25 @@ $('createFolder').onclick=()=>askName(folderSelected?'新建子文件夹':'新�
 $('folderNewBoard').onclick=()=>askName('在'+(folderPath(folderSelected)||'根目录')+'新建白板','未命名白板',name=>newBoard(name).catch(e=>toast(e.message)));
 loadFolders().catch(e=>console.warn(e.message));
 
-window.addEventListener('DOMContentLoaded',async()=>{try{const list=await listBoards(),last=new URLSearchParams(location.search).get('board')||sessionStorage.getItem('creative-board-window')||localStorage.getItem('creative-board-last');if(new URLSearchParams(location.search).get('explorer')==='1'){if(!board){board={format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=''}await showWorkspaceTab(workspaceTab)}else if(list.length)await loadBoard(list.some(x=>x.id===last)?last:list[0].id);else await newBoard('我的白板')}catch(e){$('status').textContent='无法打开';toast(e.message)}});
-</script><script src="/workspace.js"></script><link rel="stylesheet" href="/workspace.css"><script src="/workflow.js"></script><link rel="stylesheet" href="/workflow.css"><script src="/cells.js"></script><link rel="stylesheet" href="/theme.css"><script src="/theme.js"></script><script src="/appearance.js"></script><link rel="stylesheet" href="/refinement.css"><script src="/experience.js"></script><script src="/refinement.js"></script><script src="/context-capture.js"></script><script src="/ai-workflow.js"></script><script src="/media-controls.js"></script><script src="/media-markers.js"></script><script src="/navigation.js"></script><script src="/autosize.js"></script><script src="/library-clipboard.js"></script><script src="/explorer-navigation.js"></script><script src="/recovery.js"></script><script src="/pane.js"></script><script src="/board-lifecycle.js"></script></html>
+async function openInitialBoard(){
+ const params=new URLSearchParams(location.search),requested=params.get('board'),generation=loadGeneration;
+ if(params.get('explorer')==='1'){
+  if(!board){board={format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=''}
+  try{await listBoards()}catch(error){toast('白板列表暂时未能读取：'+error.message)}
+  try{await showWorkspaceTab(workspaceTab)}catch(error){toast(error.message)}return;
+ }
+ loading=true;loadTargetId=requested||'';loadError='';loadErrorCode=0;window.dispatchEvent(new Event('creative-board-loading'));
+ try{
+  let list=[];try{list=await listBoards()}catch(error){if(!requested)throw error}
+  if(generation!==loadGeneration)return;
+  const last=requested||sessionStorage.getItem('creative-board-window')||localStorage.getItem('creative-board-last');
+  if(requested)await loadBoard(requested);
+  else if(list.length)await loadBoard(list.some(item=>item.id===last)?last:list[0].id);
+  else await newBoard('我的白板');
+ }catch(error){
+  if(!loadError&&generation===loadGeneration){loadError=error.message||'读取没有完成，请重试。';loadErrorCode=error.code||0;loading=false;window.dispatchEvent(new Event('creative-board-loading'))}
+  $('status').textContent='无法打开 · 可重试';toast(error.message);
+ }
+}
+window.addEventListener('DOMContentLoaded',()=>openInitialBoard());
+</script><script src="/workspace.js"></script><link rel="stylesheet" href="/workspace.css"><script src="/workflow.js"></script><link rel="stylesheet" href="/workflow.css"><script src="/cells.js"></script><link rel="stylesheet" href="/theme.css"><script src="/theme.js"></script><script src="/appearance.js"></script><link rel="stylesheet" href="/refinement.css"><script src="/experience.js"></script><script src="/refinement.js"></script><script src="/context-capture.js"></script><script src="/ai-workflow.js"></script><script src="/media-controls.js"></script><script src="/media-markers.js"></script><script src="/navigation.js"></script><script src="/autosize.js"></script><script src="/library-clipboard.js"></script><script src="/explorer-navigation.js"></script><script src="/recovery.js"></script><script src="/document-loading.js"></script><script src="/pane.js"></script><script src="/board-lifecycle.js"></script></html>

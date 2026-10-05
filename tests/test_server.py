@@ -103,6 +103,16 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.request("/api/checkpoints/example", "PUT")[0], 200)
         self.assertTrue(json.loads(self.request("/api/history/boards/example")[2]))
 
+    def test_damaged_board_reads_leave_original_file_untouched(self):
+        target = Path(self.tmp.name) / "内容" / "damaged.json"
+        for raw in [b'{"broken":', json.dumps({"format": "creative-board", "version": 1,
+                    "name": "damaged", "nodes": [None], "edges": []}).encode()]:
+            target.write_bytes(raw)
+            status, _, message = self.request("/api/boards/damaged")
+            self.assertEqual(status, 400)
+            self.assertIn("原文件仍保留", json.loads(message)["error"])
+            self.assertEqual(target.read_bytes(), raw)
+
     def test_library_checkpoint_preserves_catalog_and_file_references(self):
         # A manual library checkpoint must not checkpoint whichever board is active.
         status, headers, raw = self.request("/api/assets")
