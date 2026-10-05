@@ -137,26 +137,6 @@
   let text=raw.trim();if(!text.startsWith('{')){const fences=[...text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi)];if(fences.length===1)text=fences[0][1];else if(fences.length>1)throw Error('回复中有多段代码，请只粘贴要审核的那份提案。')}
   const proposal=JSON.parse(text);if(proposal.format!=='creative-board-proposal')throw Error('请粘贴 AI 返回的修改提案，而不是原始资料或任务包。');return proposal;
  }
- function composeAI(){
-  const key='creative-ai-draft-'+boardId;let draft={};try{draft=JSON.parse(sessionStorage.getItem(key)||'{}')}catch{}
-  showDialog('<h2>AI 整理</h2><div class="ai-compose"><label>整理哪些内容<select id="aiTaskScope"><option value="selected">选中的内容（'+selectionBundle().nodes.length+' 块）</option><option value="board">当前整张白板</option><option value="library">库中选中的内容（'+assetSelected.size+' 项）</option></select></label><label>希望怎么整理<textarea id="aiTaskText" rows="3" placeholder="写下你的要求。默认保留原文与备注。">'+esc(draft.text||'')+'</textarea></label><div class="task-presets"><button data-task="只补充便于查找的标签，不改原文。">补充标签</button><button data-task="整理所选内容的位置和间距，让阅读顺序清楚，不改原文。">整理布局</button><button data-task="检查所选内容中重复或关系相近的部分，用标签标注，不删除，不改原文。">检查重复</button></div><details class="ai-options"><summary>保留与修改范围</summary><div class="task-options"><label><input type="checkbox" id="aiKeepWords" checked>保留标题和正文</label><label><input type="checkbox" id="aiKeepNotes" checked>保留补充和备注</label><label><input type="checkbox" id="aiAllowAdd">允许新增</label><label><input type="checkbox" id="aiAllowDelete">允许删除</label></div><p id="aiTaskScopeHint" class="wf-explain"></p></details><div class="ai-task-controls"><button id="aiCopyTask">复制任务给 AI</button><button id="aiHaveReply">粘贴 AI 回复</button></div><section id="aiReplyArea" hidden><label>AI 的修改提案<textarea id="aiReplyText" rows="4" placeholder="粘贴回复中的 JSON；带代码框也可以。"></textarea></label><p id="aiReplyStatus" role="status"></p><button id="aiReadClipboard">从剪贴板读取</button><button id="aiReviewReply">查看修改</button></section><p class="ai-connection-note">使用你自己的 AI。复制任务交给它，回复粘回这里，确认后才会修改内容。</p></div>',[
-   ['关闭',()=>$('dialog').close()],['已有提案',()=>wfSafe(wfAIInbox)],['下载任务包',()=>wfSafe(async()=>wfDownloadJSON('AI整理任务.json',await whiteboardAI.makePack()))]
-  ]);
-  const scope=$('aiTaskScope');scope.querySelector('[value=selected]').disabled=!selected.size;scope.querySelector('[value=library]').disabled=!assetSelected.size;
-  scope.value=selected.size?'selected':assetSelected.size?'library':'board';
-  const remember=()=>{try{sessionStorage.setItem(key,JSON.stringify({text:$('aiTaskText').value}))}catch{}};
-  $('aiTaskText').oninput=remember;
-  const hint=()=>{$('aiTaskScopeHint').textContent=scope.value==='board'?'包括整张白板的正文、备注和文件引用。':'只提供所选内容及其内部连线。'};scope.onchange=hint;hint();
-  $('dialogBody').querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{$('aiTaskText').value=b.dataset.task;remember()});
-  const reveal=()=>{$('aiReplyArea').hidden=false;$('aiReplyText').focus();$('aiReplyText').scrollIntoView({block:'nearest'})};
-  $('aiHaveReply').onclick=reveal;
-  $('aiCopyTask').onclick=()=>wfSafe(async()=>{
-   const pack=await whiteboardAI.makePack();await navigator.clipboard.writeText(JSON.stringify(pack,null,2));remember();reveal();$('aiReplyStatus').textContent='任务已复制。把它交给 AI，回复粘在这里。';
-  });
-  $('aiReadClipboard').onclick=async()=>{try{$('aiReplyText').value=await navigator.clipboard.readText()}catch{$('aiReplyStatus').textContent='请直接按 Ctrl+V 粘贴回复。'}};
-  $('aiReviewReply').onclick=async()=>{try{const proposal=parseProposal($('aiReplyText').value);await wfImportProposal(proposal)}catch(err){if($('aiReplyStatus'))$('aiReplyStatus').textContent=err.message;else toast(err.message)}};
- }
- $('aiWorkspace').onclick=()=>wfSafe(composeAI);
  const basePaste=pastePayload;
  pastePayload=async function(text,files,anchor){
   if(!files.length&&text){let proposal;try{proposal=parseProposal(text)}catch{}
@@ -164,7 +144,7 @@
   }return basePaste(text,files,anchor);
  };
  wfHelp=function(){showDialog('<h2>使用白板</h2><div class="experience-help"><h3>写下来，放在一起</h3><p>双击空白处写便签，双击内容编辑。右键拖动画布，Ctrl＋滚轮缩放。新便签默认随内容增高；拖动四角后固定为你的尺寸，右键可恢复自动适应。从选中内容边缘的圆点拉出连线。长内容可点击“展开编辑”，在大空间直接修改，返回后保留白板位置。</p><h3>放进表格，或者继续复用</h3><p>选中内容后，按住内容旁的“拖出副本”，拖到表格单元格、库中文件夹或另一张白板。也可以按 Ctrl＋C / V 复制粘贴。原内容保留，复制的内容可以独立修改；媒体文件仍共用原文件。表格列宽可拖动列名右侧的边界调整。</p><h3>白板和内容库</h3><p>左上角的侧栏图标打开白板、内容库和本页内容。整个窗口共用这一处；没有白板时也能整理内容库，不会另建空白板。分栏时，内容会放进你刚操作的那一栏；还没有白板时，会先让你选择。取消后保留原来的勾选。更多菜单里的“外观”可以调整主题、界面大小和侧栏宽度。</p><h3>在侧栏里连续整理</h3><p>方向键选择，Enter 打开，F2 编辑，Alt＋上方向键返回上一层。Shift＋方向键连续选择内容，Ctrl＋方向键只移动焦点，空格切换是否选中。Ctrl＋C / X / V 在内容库复制、剪切和粘贴，Ctrl＋Z 撤销，Ctrl＋Shift＋Z 重做。进入文件夹、刷新和关闭预览后，焦点会留在列表。</p><h3>看资料时顺手记录</h3><p>文件内容按 Enter 打开查看，按 F2 编辑说明。Ctrl＋C / V 复制粘贴，Delete 删除内容块，Ctrl＋Z 撤销。删除白板里的内容不会删除硬盘上的原文件。</p><h3>请 AI 帮忙</h3><p>点击顶部 AI，写下要查的问题，提供所选背景。AI 仅查资料或介绍已有参考体系，不能创作文案或修改白板。带来源的回复单独存为参考资料，由你核对原文并决定如何使用。图片可附真实预览，音频不自动转写。</p><h3>导入期间也能切换标签</h3><p>读取或上传文件时，可以继续使用其他白板。内容会放到原先选定的白板；关闭原标签时先等导入完成并保存。表格行列移动后，附件跟随原单元格；原位置已删除时，文件保留在内容库供你重新放置。</p><h3>打开失败时</h3><p>画布会说明原因，可以直接重试或选择其他白板。内容库仍可使用。切换前先等当前修改保存；保存失败时留在原白板。读取另一张失败时，当前内容仍保留，可以继续使用。</p><h3>下次接着做</h3><p>内容自动保存，标签、分栏、播放器进度和支持的文档阅读位置会恢复。更多菜单中的“恢复与历史”可查看旧记录。回收站能一起恢复删掉的文件夹和内容，包括空目录。删除白板前会先保存修改；另一窗口的未保存草稿会保留，并提示另存。旧内容可以另存为副本，再与当前版本对照。</p></div>',[['关闭',()=>$('dialog').close()]])};
- $('help').onclick=wfHelp;whiteboardAI.compose=composeAI;
- window.whiteboardExperience={fileFrame,fitBlock,referenceDialog,composeAI,parseProposal};
+ $('help').onclick=wfHelp;
+ window.whiteboardExperience={fileFrame,fitBlock,referenceDialog,composeAI:()=>whiteboardAI.compose(),parseProposal};
  if(board)mountBlocks();
 })();

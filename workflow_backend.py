@@ -4,17 +4,13 @@ from html.parser import HTMLParser
 from functools import lru_cache
 import json,hashlib,time,re,os,threading
 from app_paths import APP_ROOT, DATA_ROOT
-from ai_context import spatial_context, save_visuals, task_archive, context_folders
+from ai_context import spatial_context, save_visuals, task_archive, context_folders, research_task, AI_POLICY
 ROOT=DATA_ROOT
 HISTORY=ROOT/'历史记录'
 PROPOSALS=ROOT/'AI待审核'
 TASKS=ROOT/'AI任务'
 REFERENCES=ROOT/'参考资料'
 HLOCK=threading.RLock()
-
-AI_POLICY={'mode':'research-reference-only','readOnly':True,
- 'allowed':['查找有来源的资料','介绍已有审美和内容组织体系'],
- 'forbidden':['生成或改写创作文字','提供本作品的具体创作或设计方案','修改原内容、布局、标签、连线或文件']}
 
 def validate_references(value):
  if not isinstance(value,dict) or set(value)-{'format','version','requestId','sources'}:raise ValueError('资料回复只能包含任务编号与来源，不能包含创作内容或修改提案')
@@ -155,7 +151,9 @@ def workflow_get(handler,p):
  if m:
   f=TASKS/(m[1]+'.json')
   if not f.exists():handler.reply(404,{'error':'找不到这份 AI 任务，请重新创建'})
-  else:handler.reply(200,f.read_bytes())
+  else:
+   try:handler.reply(200,research_task(json.loads(f.read_bytes())))
+   except (OSError,ValueError,TypeError):handler.reply(400,{'error':'这份研究任务无法读取，请重新准备材料'})
   return True
  if p=='/api/search':
   q=parse_qs(urlparse(handler.path).query).get('q',[''])[0].strip()[:200];handler.reply(200,search(q) if q else {'results':[],'total':0});return True
@@ -211,15 +209,15 @@ def workflow_put(handler,p):
   try:
    length=int(handler.headers.get('Content-Length','0'))
    if not 0<length<=16*1024*1024:raise ValueError('任务内容过大，请缩小选择范围')
-   value=json.loads(handler.rfile.read(length));request=value.get('request',{})
+   value=json.loads(handler.rfile.read(length))
+   if not isinstance(value,dict) or not isinstance(value.get('request'),dict):raise ValueError('研究任务格式不正确')
+   request=value['request']
    if value.get('format')!='creative-board-context' or value.get('version')!=1 or value.get('requestId')!=m[1] or request.get('id')!=m[1]:raise ValueError('任务格式不正确')
    if value.get('resource') not in ('board','library'):raise ValueError('整理范围不正确')
    if not isinstance(request.get('task'),str) or not request['task'].strip():raise ValueError('缺少整理要求')
    for flag in ['keepWords','keepNotes','allowAdd','allowDelete']:
     if type(request.get(flag)) is not bool:raise ValueError('任务规则格式不正确')
-   request.update(keepWords=True,keepNotes=True,allowAdd=False,allowDelete=False,mode=AI_POLICY['mode'])
-   value['aiPolicy']=AI_POLICY
-   value.pop('proposalRules',None)
+   value=research_task(value);request=value['request']
    if value['resource']=='board':
     if not safe_id(value.get('targetId','')):raise ValueError('白板编号不正确')
     source=ROOT/'内容'/(value['targetId']+'.json')

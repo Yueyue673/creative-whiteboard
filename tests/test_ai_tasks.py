@@ -1,6 +1,7 @@
 import json
 import base64
 import io
+from pathlib import Path
 import zipfile
 import unittest
 import test_server
@@ -115,9 +116,39 @@ class AITaskTest(unittest.TestCase):
         with zipfile.ZipFile(io.BytesIO(archive)) as z:
             self.assertEqual(z.read(image['archivePath']),png)
             self.assertEqual(json.loads(z.read('task.json'))['requestId'],'ai-images')
+            instructions = z.read('说明.txt').decode('utf-8')
+            self.assertIn('只查资料', instructions)
+            self.assertIn('creative-board-references', instructions)
+            self.assertNotIn('返回修改提案', instructions)
         pack['requestId']=pack['request']['id']='ai-images-outside'
         pack['visualInput'][0]['nodeIds']=['other']
         self.assertEqual(self.request('/api/ai/tasks/ai-images-outside','PUT',pack)[0],400)
+
+    def test_legacy_task_reads_and_downloads_apply_research_only_rules(self):
+        _, pack = self.make_task('legacy-research')
+        pack['request'].update(keepWords=False, keepNotes=False, allowAdd=True, allowDelete=True)
+        pack['proposalRules'] = {'format': 'creative-board-proposal'}
+        pack['referenceRules'] = {'instructions': ['旧版要求修改内容']}
+        pack.pop('aiPolicy', None)
+        path = Path(self.tmp.name) / 'AI任务' / 'legacy-research.json'
+        path.write_text(json.dumps(pack, ensure_ascii=False), encoding='utf-8')
+        original = path.read_bytes()
+        board_original = self.request('/api/boards/legacy-research')[2]
+        status, _, raw = self.request('/api/ai/tasks/legacy-research')
+        self.assertEqual(status, 200)
+        current = json.loads(raw)
+        self.assertTrue(current['aiPolicy']['readOnly'])
+        self.assertFalse(current['request']['allowAdd'])
+        self.assertTrue(current['request']['keepWords'])
+        self.assertNotIn('proposalRules', current)
+        self.assertEqual(current['referenceRules']['format'], 'creative-board-references')
+        status, _, archive = self.request('/api/ai/tasks/legacy-research/bundle')
+        self.assertEqual(status, 200)
+        with zipfile.ZipFile(io.BytesIO(archive)) as files:
+            self.assertEqual(json.loads(files.read('task.json')), current)
+            self.assertIn('只查资料', files.read('说明.txt').decode('utf-8'))
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(self.request('/api/boards/legacy-research')[2], board_original)
 
     def test_media_marker_validation_and_preservation_rules(self):
         board,pack=self.make_task('ai-markers')
