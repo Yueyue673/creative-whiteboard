@@ -16,7 +16,7 @@
   showDialog('<div class="immersive-heading"><span>展开编辑</span><div><button id="immersiveDetails">补充与来源</button><button id="immersiveReturn">返回白板 <small>Esc</small></button></div></div><article class="reading-sheet node immersive-surface" id="immersiveSurface"></article>',[]);
   const dialog=$('dialog');dialog.classList.add('reading-dialog','immersive-dialog');immersion={id,surface:$('immersiveSurface'),originalScroll};immersion.surface.dataset.id=id;const session=immersion;
   $('immersiveReturn').onclick=()=>dialog.close();$('immersiveDetails').onclick=()=>{$('inlineMeta').open=!$('inlineMeta').open;growContentFields()};expandEditor();
-  dialog.addEventListener('close',()=>finishImmersion(session),{once:true});
+  onDialogDismiss(()=>finishImmersion(session));
  }
  const originalFit=whiteboardExperience.fitBlock;
  whiteboardExperience.fitBlock=function(id){const el=canvasBlock(id),n=board.nodes.find(n=>n.id===id),area=el?.querySelector('.edit-scroll'),gallery=area?.querySelector(':scope>.single-image'),img=gallery?.querySelector('img');if(!n||!img?.naturalWidth)return originalFit(id);const style=getComputedStyle(area),width=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),other=[...area.children].filter(c=>c!==gallery&&getComputedStyle(c).display!=='none').reduce((sum,c)=>{const s=getComputedStyle(c);return sum+c.offsetHeight+parseFloat(s.marginTop||0)+parseFloat(s.marginBottom||0)},0);undoPoint();n.h=Math.ceil(Math.max(120,Math.min(5000,width*img.naturalHeight/img.naturalWidth+other+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+10)));drawNodes();change()};

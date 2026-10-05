@@ -32,7 +32,14 @@ function guardUnreadyBoard(event){
 for(const type of ['keydown','paste','drop','pointerdown','dblclick','wheel'])document.addEventListener(type,guardUnreadyBoard,{capture:true,passive:false});
 const view=()=>board.view;
 function toast(s){$('toast').textContent=s;$('toast').hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').hidden=true,3500)}
-function showDialog(body,actions){$('dialogBody').innerHTML=body;$('dialogActions').replaceChildren();for(const [text,fn] of actions){const b=document.createElement('button');b.textContent=text;b.onclick=fn;$('dialogActions').append(b)}$('dialog').showModal()}
+// Native close events are queued; finish the current content before the dialog is reused.
+let dialogSession=null;
+function finishDialogSession(){const session=dialogSession;if(!session)return;dialogSession=null;for(const cleanup of session.cleanups)cleanup();$('dialog').classList.remove('document-dialog','wf-dialog','reading-dialog','immersive-dialog')}
+function onDialogDismiss(cleanup){if(dialogSession)dialogSession.cleanups.push(cleanup)}
+const closeBeforeDialogSessions=$('dialog').close;
+$('dialog').close=function(...args){const session=dialogSession,result=closeBeforeDialogSessions.apply(this,args);if(!this.open&&dialogSession===session)finishDialogSession();return result};
+$('dialog').addEventListener('close',()=>{if(!$('dialog').open)finishDialogSession()});
+function showDialog(body,actions){finishDialogSession();$('dialogBody').innerHTML=body;$('dialogActions').replaceChildren();dialogSession={cleanups:[]};for(const [text,fn] of actions){const b=document.createElement('button');b.textContent=text;b.onclick=fn;$('dialogActions').append(b)}$('dialog').showModal()}
 function askName(title,value,done){showDialog('<h2>'+esc(title)+'</h2><input id="nameInput" aria-label="名称" value="'+esc(value)+'">',[['取消',()=>$('dialog').close()],['确定',()=>{const name=$('nameInput').value.trim();if(!name)return;$('dialog').close();done(name)}]]);$('nameInput').focus();$('nameInput').select()}
 async function api(path,options={}){const r=await fetch(path,options);if(!r.ok){const d=await r.json().catch(()=>({error:'连接失败'}));const e=Error(d.error);e.code=r.status;throw e}return r}
 function undoPoint(){if(typeof tableAxisIds==='function')for(const n of board.nodes)if(n.type==='table')tableAxisIds(n);history.push(clone(board));if(history.length>70)history.shift();future=[];updateButtons()}
