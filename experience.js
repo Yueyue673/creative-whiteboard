@@ -114,7 +114,12 @@
   if(selected.size!==1)return;const id=[...selected][0];
   if(e.key==='F2'||e.key==='Enter'&&!editorId){e.preventDefault();e.stopImmediatePropagation();e.key==='F2'?openEditor(id):openBlock(id)}
  },true);
- $('dialog').addEventListener('close',()=>{if(!editorId)canvas.focus({preventScroll:true})});
+ $('dialog').addEventListener('close',()=>{
+  if($('dialog').open||editorId)return;
+  const active=document.activeElement;
+  // A later close event must not take focus from a list row or a new field.
+  if(!active||active===document.body||active===$('dialog')||$('dialog').contains(active))canvas.focus({preventScroll:true});
+ });
  async function referenceDialog({replaceId=null,initialPaths='',folder=assetFolder}={}){
   showDialog('<h2>'+(replaceId?'重新定位原文件':'引用本地文件')+'</h2><p class="wf-explain">'+(replaceId?'此文件在所有白板上的引用会一起更新。你的文字、尺寸和连线保留。':'保留文件原位置，不复制。可以从文件资源管理器复制路径后粘贴在这里。')+'</p><label>文件路径<textarea id="referencePaths" rows="3" placeholder="每行一个完整路径">'+esc(initialPaths)+'</textarea></label>'+(replaceId?'':'<label>存放位置<select id="referenceFolder">'+libraryFolderOptions(folder)+'</select></label>')+'<p id="referenceError" role="status"></p>',[['取消',()=>$('dialog').close()],[replaceId?'更新位置':'添加',async()=>{
    try{

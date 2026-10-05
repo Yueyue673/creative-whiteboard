@@ -140,14 +140,20 @@
   if(!$('dialog').open){const panel=document.activeElement?.closest('#assetPane,#manager')?.id;modalReturn=panel?{panel,key:key(document.activeElement.closest(selector)),location:location(panel),scroll:rememberScroll(panel)}:null}
   return showDialogBefore(...args);
  };
- $('dialog').addEventListener('close',()=>{
+ function restoreModalFocus(){
   if($('dialog').open)return;
   const previous=modalReturn;modalReturn=null;if(!previous||$(previous.panel).hidden)return;
   const items=rows(previous.panel),row=items.find(el=>key(el)===previous.key)||items.find(el=>chosen(el,previous.panel));
   const sameLocation=previous.location===location(previous.panel);
   if(row)focus(row,!sameLocation||!previous.key);else list(previous.panel).focus({preventScroll:true});
   if(sameLocation&&previous.key)restoreScroll(previous.scroll);
- });
+ }
+ // Native close restores browser focus immediately, but its close event is
+ // queued. Restore our replaced rows in the same turn so that the later event
+ // cannot undo a user's next arrow key, edit, or navigation.
+ const dialog=$('dialog'),closeBefore=dialog.close;
+ dialog.close=function(...args){const result=closeBefore.apply(this,args);if(this===dialog)restoreModalFocus();return result};
+ dialog.addEventListener('close',restoreModalFocus);
  window.whiteboardExplorerNavigation={handle};
  for(const panel of Object.keys(panels)){sync(panel);list(panel)._navigationLocation=location(panel)}
 })();
