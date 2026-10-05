@@ -3,7 +3,7 @@
 (() => {
  'use strict';
  const cutKey='creative-library-cut-v1';
- let busy=false,pendingRefresh=false;
+ let busy=false,pendingRefresh=false,pendingWrite=null;
  const inside=(path,parent)=>path===parent||path.startsWith(parent+'/');
  function cutState(){try{return JSON.parse(localStorage.getItem(cutKey)||'null')}catch{return null}}
  function clearCut(){try{localStorage.removeItem(cutKey)}catch{}paintCut()}
@@ -14,8 +14,21 @@
  function flatten(entries){const nodes=[],edges=[];let x=0;for(const a of entries){const b=itemBundle(a),ids=new Map(b.nodes.map(n=>[n.id,uid()]));for(const n of b.nodes){const old=n.id;n.id=ids.get(old);n.x=(Number(n.x)||0)+x;n.libraryOrigin={id:a.id,name:a.title,nodeId:old};nodes.push(n)}for(const edge of b.edges||[])if(ids.has(edge.from)&&ids.has(edge.to))edges.push({...edge,id:uid(),from:ids.get(edge.from),to:ids.get(edge.to)});x+=400}return {nodes,edges}}
  function prepare(cut){const s=selection();if(!s.entries.length&&!s.folder)return null;return {format:'creative-board-fragment',version:1,...flatten(s.entries),library:{version:1,origin:location.origin,operation:cut?'cut':'copy',token:uid(),...s}}}
  function remember(pack){clearCut();if(pack.library.operation==='cut'){try{localStorage.setItem(cutKey,JSON.stringify({token:pack.library.token,ids:pack.library.entries.map(a=>a.id),folder:pack.library.folder}))}catch{toast('当前浏览器不能记录剪切，请改用复制');return}paintCut()}toast(pack.library.operation==='cut'?'已剪切，选择存放位置后粘贴':'已复制，可粘贴到内容库或白板')}
- function writeEvent(e,cut){const pack=prepare(cut);e.preventDefault();e.stopImmediatePropagation();if(!pack)return;try{e.clipboardData.setData('text/plain',JSON.stringify(pack));remember(pack)}catch{toast('无法写入剪贴板，请使用 Ctrl+C')}}
- async function write(cut){const pack=prepare(cut);if(!pack)return;try{await navigator.clipboard.writeText(JSON.stringify(pack));remember(pack)}catch{toast('请选中内容后使用 Ctrl+'+(cut?'X':'C'))}}
+ function queueWrite(pack,rememberOnSuccess=true){
+  const previous=pendingWrite,request={pack,cancelled:false,promise:null};pendingWrite=request;
+  request.promise=(async()=>{
+   try{
+    if(previous)await previous.promise;
+    if(pendingWrite!==request||request.cancelled&&rememberOnSuccess)return false;
+    await navigator.clipboard.writeText(JSON.stringify(pack));
+    if(pendingWrite!==request||request.cancelled)return false;
+    if(rememberOnSuccess)remember(pack);return true;
+   }catch{if(pendingWrite===request&&!request.cancelled)toast('请选中内容后使用 Ctrl+'+(pack.library.operation==='cut'?'X':'C'));return false}
+   finally{if(pendingWrite===request)pendingWrite=null}
+  })();return request.promise;
+ }
+ function writeEvent(e,cut){const pack=prepare(cut);e.preventDefault();e.stopImmediatePropagation();if(!pack)return;try{e.clipboardData.setData('text/plain',JSON.stringify(pack));if(pendingWrite)queueWrite(pack,false);remember(pack)}catch{toast('无法写入剪贴板，请使用 Ctrl+C')}}
+ function write(cut){const pack=prepare(cut);return pack?queueWrite(pack):Promise.resolve(false)}
  function uniqueName(name,used){if(!used.has(name)){used.add(name);return name}let i=1,candidate;do{candidate=name+' 副本'+(i>1?' '+i:'');i++}while(used.has(candidate));used.add(candidate);return candidate}
  function parentOf(folder){return folder.includes('/')?folder.slice(0,folder.lastIndexOf('/')):''}
  function join(parent,name){return parent?parent+'/'+name:name}
@@ -30,10 +43,10 @@
  }
  function decode(text){try{return JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''))}catch{return null}}
  async function storeFragment(bundle,destination){if(!bundle.nodes?.length)return;if(bundle.nodes.length>5000||(bundle.edges||[]).length>10000)throw Error('内容超过单组上限，请分批收录');checkDestination(destination);const next=clone(assetIndex),id=uid(),title=bundle.nodes[0].title||'未命名内容',names=new Set(next.assets.filter(a=>!a.archived&&a.folder===destination).map(a=>a.title));next.assets.push({id,title:uniqueName(title,names),path:'',mime:bundleMime,size:0,tags:[],notes:'',folder:destination,bundle:clone(bundle),updated:Date.now()});if(await saveAssets(next)){selectResult([id],destination);toast('已收进内容库 · Ctrl+Z 撤销')}}
- async function paste(text,files=[],destination=assetFolder){if(busy)return toast('上一批内容还在粘贴，请稍候');busy=true;try{const parsed=decode(text);if(parsed?.format==='creative-board-references'||parsed?.format==='creative-board-proposal')return await pastePayload(text,[],pasteAnchor());await loadAssets();checkDestination(destination);if(files.length){const target=libraryFolderTarget(destination),startedAt=assetFolder;const added=await uploadFiles(files,destination);selectLibraryImports(added,target,startedAt);return}if(parsed?.format==='creative-board-fragment'){if(parsed.library)return await pasteLibrary(parsed.library,destination);return await storeFragment(normalize(parsed),destination)}if(!text)return;await storeFragment({nodes:[{id:uid(),type:'note',title:text.split(/\r?\n/)[0].slice(0,60),body:text,userText:'',annotation:'',tags:[],color:'#fff2a8',x:0,y:0,w:340,h:120,sizeMode:'auto'}],edges:[]},destination)}finally{busy=false}}
- async function pasteFromMenu(destination){let text,files=[];try{text=await navigator.clipboard.readText();if(!text)for(const item of await navigator.clipboard.read())for(const type of item.types)if(type.startsWith('image/')){const blob=await item.getType(type);files.push(new File([blob],'粘贴图片.'+(type.split('/')[1]||'png'),{type}))}}catch{return toast('请在内容库中按 Ctrl+V 粘贴')}if(text||files.length)await paste(text,files,destination)}
+ async function paste(text,files=[],destination=assetFolder){if(busy)return toast('上一批内容还在粘贴，请稍候');busy=true;try{const writing=pendingWrite;if(writing){if(!await writing.promise)return;text=JSON.stringify(writing.pack);files=[]}const parsed=decode(text);if(parsed?.format==='creative-board-references'||parsed?.format==='creative-board-proposal')return await pastePayload(text,[],pasteAnchor());await loadAssets();checkDestination(destination);if(files.length){const target=libraryFolderTarget(destination),startedAt=assetFolder;const added=await uploadFiles(files,destination);selectLibraryImports(added,target,startedAt);return}if(parsed?.format==='creative-board-fragment'){if(parsed.library)return await pasteLibrary(parsed.library,destination);return await storeFragment(normalize(parsed),destination)}if(!text)return;await storeFragment({nodes:[{id:uid(),type:'note',title:text.split(/\r?\n/)[0].slice(0,60),body:text,userText:'',annotation:'',tags:[],color:'#fff2a8',x:0,y:0,w:340,h:120,sizeMode:'auto'}],edges:[]},destination)}finally{busy=false}}
+ async function pasteFromMenu(destination){const writing=pendingWrite;if(writing&&!await writing.promise)return;let text,files=[];try{text=await navigator.clipboard.readText();if(!text)for(const item of await navigator.clipboard.read())for(const type of item.types)if(type.startsWith('image/')){const blob=await item.getType(type);files.push(new File([blob],'粘贴图片.'+(type.split('/')[1]||'png'),{type}))}}catch{return toast('请在内容库中按 Ctrl+V 粘贴')}if(text||files.length)await paste(text,files,destination)}
  const menuBefore=fileMenu;fileMenu=function(e,items){if(e.target.closest?.('#assetPane')&&!e.target.closest('input,textarea,[contenteditable=true]')){const f=e.target.closest('[data-asub],[data-afolder]'),destination=f?(f.dataset.asub??f.dataset.afolder):assetFolder;items=[...(assetFolderPick||assetSelected.size?[['复制  Ctrl+C',()=>write(false)],['剪切  Ctrl+X',()=>write(true)]]:[]),['粘贴  Ctrl+V',()=>pasteFromMenu(destination)],...items]}return menuBefore(e,items)};
- function cancel(){if(!cutState())return false;clearCut();toast('已取消剪切，原件保留');return true}
+ function cancel(){const writing=pendingWrite?.pack.library.operation==='cut'?pendingWrite:null;if(writing)writing.cancelled=true;if(!cutState()&&!writing)return false;clearCut();toast('已取消剪切，原件保留');return true}
  async function refreshPending(){if(!pendingRefresh||busy||editorId||$('dialog').open)return;pendingRefresh=false;try{await loadAssets();assetSelected=new Set([...assetSelected].filter(id=>assetById(id)&&!assetById(id).archived));if(assetFolder&&!allAssetFolders().includes(assetFolder))enterAssetFolder('');renderAssets()}catch{pendingRefresh=true}}
  window.addEventListener('storage',e=>{if(e.key===cutKey){paintCut();if(e.oldValue&&!e.newValue){pendingRefresh=true;refreshPending()}}});
  $('dialog').addEventListener('close',()=>refreshPending());
