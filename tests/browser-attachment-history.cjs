@@ -3,7 +3,7 @@ const {spawn} = require('child_process'), assert = require('assert');
 const {chromium} = require('playwright');
 
 (async () => {
- const root = path.resolve(__dirname, '..');
+ const root = process.env.CREATIVE_BOARD_TEST_ROOT || path.resolve(__dirname, '..');
  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'whiteboard-attachment-history-'));
  const port = await new Promise(resolve => {
   const socket = net.createServer();
@@ -59,12 +59,19 @@ const {chromium} = require('playwright');
   });
   assert.equal(await page.evaluate(() => board.nodes.find(n => n.id === 'table').cellItems[0][0][0]?.title), 'undo-cell.wav');
   // Identical empty cells must stay distinct through reorder, undo and redo.
+  const movingAxes = await page.evaluate(() => {const table = board.nodes.find(n => n.id === 'table'); return {row:table.rowIds[1], column:table.columnIds[1]};});
   await heldAttachment('moving-cell.wav', 'audio/wav', wav, {nodeId:'table', r:1, c:1}, () => {
    moveTable(board.nodes.find(n => n.id === 'table'), 'row', 1, 0);
    moveTable(board.nodes.find(n => n.id === 'table'), 'column', 1, 0);
    undo(); redo();
   });
-  assert.equal(await page.evaluate(() => board.nodes.find(n => n.id === 'table').cellItems[0][0][0]?.title), 'moving-cell.wav');
+  const movedCell = await page.evaluate(() => {const table = board.nodes.find(n => n.id === 'table'); return {
+   row:table.rowIds[0], column:table.columnIds[0], title:table.cellItems[0][0][0]?.title,
+   attachments:table.cellItems.map(row => row.map(items => items.map(item => item.title))),
+   imported:assetIndex.assets.some(item => item.title === 'moving-cell.wav'), toast:document.getElementById('toast').textContent
+  };});
+  assert.equal(movedCell.title, 'moving-cell.wav', JSON.stringify({expectedAxes:movingAxes, actual:movedCell}));
+  assert.equal(movedCell.row, movingAxes.row); assert.equal(movedCell.column, movingAxes.column);
   assert.equal(await page.evaluate(() => board.nodes.find(n => n.id === 'table').cellItems[1][1][0]?.title), 'undo-cell.wav');
   // A newly added empty row at the same index is a different destination.
   await heldAttachment('removed-row.wav', 'audio/wav', wav, {nodeId:'table', r:1, c:0}, () => {
