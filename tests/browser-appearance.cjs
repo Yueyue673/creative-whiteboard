@@ -22,17 +22,17 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
         x: 50, y: 90, w: 380, h: 240, color: '#fff0aa'}]; render();
       await showWorkspaceTab('assetPane');
     });
-    async function contrast(selector, backgroundSelector, foregroundProperty = 'color') {
-      return page.locator(selector).first().evaluate((element, {backgroundSelector, foregroundProperty}) => {
+    async function contrast(selector, backgroundSelector, foregroundProperty = 'color', pseudo = null) {
+      return page.locator(selector).first().evaluate((element, {backgroundSelector, foregroundProperty, pseudo}) => {
         const rgb = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
         const luminance = value => rgb(value).map(c => {c /= 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;})
           .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
         let background = backgroundSelector ? document.querySelector(backgroundSelector) : element;
         while (background && getComputedStyle(background).backgroundColor === 'rgba(0, 0, 0, 0)') background = background.parentElement;
-        const color = getComputedStyle(element)[foregroundProperty], fill = getComputedStyle(background).backgroundColor;
+        const color = getComputedStyle(element, pseudo)[foregroundProperty], fill = getComputedStyle(background).backgroundColor;
         const a = luminance(color), b = luminance(fill);
         return {ratio: (Math.max(a, b) + .05) / (Math.min(a, b) + .05), color, fill};
-      }, {backgroundSelector, foregroundProperty});
+      }, {backgroundSelector, foregroundProperty, pseudo});
     }
     const panels = ['#ffffff', '#090b0e', '#777777', '#aeb7b4', '#d4c4aa', '#315b70', '#537f62'];
     for (const panel of panels) {
@@ -91,6 +91,40 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
         await page.evaluate(preset => whiteboardAppearance.palettes[preset].accent, preset), 'Existing preset selection colours remain unchanged');
     }
     assert.equal(await page.evaluate(() => JSON.stringify(board)), authoredBeforeSelection, 'Changing appearance and selection cannot alter authored content or geometry');
+    // A selected note can also sit in front of authored content, rather than
+    // the plain canvas. Preserve the accent without losing its boundary there.
+    for (const behind of ['#ed5945', '#ffffff', '#000000', '#777777']) {
+      await page.evaluate(behind => {
+        whiteboardAppearance.apply({preset:'resolve', custom:{accent:behind}, note:'#fff0aa'});
+        board.nodes = [
+          {id:'behind-note', type:'note', title:'背景记录', body:'保留原来的颜色。', x:40,y:80,w:660,h:380,color:behind},
+          {id:'front-note', type:'note', title:'正在选择', body:'保留这张内容。', x:180,y:150,w:300,h:200,color:'#fff0aa'}
+        ]; board.edges=[]; board.view={x:0,y:0,z:1}; selected=new Set(['front-note']); editorId=null;
+        $('nodes').replaceChildren(); render();
+      }, behind);
+      const overlappingContent = await page.evaluate(() => JSON.stringify(board));
+      const edgeStyle=await page.locator('[data-id="front-note"]').evaluate(el=>{
+        const style=getComputedStyle(el,'::before');return {content:style.content,border:style.borderTopStyle,width:parseFloat(style.borderTopWidth),events:style.pointerEvents};
+      });
+      assert.equal(edgeStyle.content, '""', 'A contrasting edge accompanies the selection, without changing the accent');
+      assert.equal(edgeStyle.border, 'solid'); assert(edgeStyle.width>=1); assert.equal(edgeStyle.events,'none',
+        'The selection edge cannot catch drags or block connection and resize handles');
+      const halo = await contrast('[data-id="front-note"]', '[data-id="behind-note"]', 'borderTopColor', '::before');
+      const outline = await contrast('[data-id="front-note"]', '[data-id="behind-note"]', 'outlineColor');
+      assert(Math.max(halo.ratio, outline.ratio) >= 3, 'The selection boundary remains visible over authored content: ' + JSON.stringify({behind,halo,outline}));
+      const selectedSize=await page.locator('[data-id="front-note"]').boundingBox();
+      for (const zoom of [.5,2]) {
+        await page.evaluate(zoom=>{board.view.z=zoom;moveView()},zoom);
+        const zoomed=await page.locator('[data-id="front-note"]').boundingBox();
+        assert(Math.abs(zoomed.width-selectedSize.width*zoom)<1&&Math.abs(zoomed.height-selectedSize.height*zoom)<1,
+          'The selection indication does not change content size or its scaling');
+      }
+      await page.evaluate(()=>{board.view.z=1;moveView();selected.clear();refreshSelectionUI()});
+      assert.equal(await page.locator('[data-id="front-note"]').evaluate(el=>getComputedStyle(el,'::before').content), 'none',
+        'Unselected authored content has no added selection decoration');
+      assert.equal(await page.evaluate(()=>JSON.stringify(board)), overlappingContent, 'Selection and zoom return preserve authored content and geometry');
+      assert.equal(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--ui-accent')), behind);
+    }
     await page.evaluate(() => {whiteboardAppearance.apply({preset: 'paper', custom: {panel: '#0b0e13', canvas: '#ffffff'}, note: '#fff0aa'}, true);
       showDialog('<h2>资料阅读</h2><div id="themeJSON"></div>', [['关闭', () => $('dialog').close()]]);
       renderJSONReader($('themeJSON'), {value: {说明: '保持资料可读'}, raw: '{"说明":"保持资料可读"}'});});
@@ -110,7 +144,7 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
       await page.screenshot({path: path.join(process.env.APPEARANCE_SCREENSHOT_DIR, 'custom-light.png')});
     }
     assert.deepEqual(errors, []);
-    console.log('Appearance: readable custom light/dark/neutral/coloured panels, independent canvas, selection, JSON, saved preferences and unchanged note colours passed');
+    console.log('Appearance: readable custom panels and canvas, selection over authored content, JSON, saved preferences and unchanged note colours/geometry passed');
   } finally {
     if (browser) await browser.close();
     if (server.exitCode === null && server.signalCode === null) {server.kill(); await new Promise(resolve => server.once('exit', resolve));}
