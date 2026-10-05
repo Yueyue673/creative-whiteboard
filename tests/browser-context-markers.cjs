@@ -135,6 +135,49 @@ const {chromium}=require('playwright');
   assert.equal(afterSelectionChange.nodes.find(n=>n.id==='separate-note').x,beforeSelectionChange.nodes.find(n=>n.id==='separate-note').x-25);
   await p.keyboard.press('Control+z');assert.deepEqual(await p.evaluate(()=>board),beforeSelectionChange,'A changed selection starts its own undo');
   console.log('按住方向键：四方向跨过其他分组不掉队，Shift 加大步长，选择变化不带动旧内容，单步撤销/重做及保存重开，通过');
+  // A saved marker is still editable while the source is waiting or missing.
+  // Its time cannot be validated until metadata supplies a finite duration.
+  for(const missing of [false,true]){
+   const bytes=Buffer.from(wav);bytes[44]=missing?2:1;
+   const source=await(await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':missing?'missing-markers.wav':'pending-markers.wav'},body:bytes})).json();
+   let releaseMedia;const mediaGate=new Promise(r=>releaseMedia=r),pattern='**/api/media/'+source.id,inFlight=new Set();
+   await p.route(pattern,async route=>{const operation=(async()=>{if(missing)return route.fulfill({status:404,contentType:'text/plain',body:'Unavailable'});await mediaGate;await route.continue()})();inFlight.add(operation);try{await operation}finally{inFlight.delete(operation)}});
+   try{
+    const mediaRequest=p.waitForRequest(r=>new URL(r.url()).pathname==='/api/media/'+source.id);
+    await p.evaluate(async id=>{
+     await loadAssets();board.nodes=[{id:'pending-sound',type:'note',title:'声音观察',body:'',assetId:id,mediaId:id,mediaTimeline:{['/api/media/'+id]:{markers:[{id:'kept-marker',time:2,title:'原标记',note:'保留原来的观察。'}],startMarkerId:null}},x:80,y:100,w:400,h:240,tags:[]}];
+     board.edges=[];board.view={x:0,y:0,z:1};selected.clear();editorId=null;render();canvas.focus();
+    },source.id);await mediaRequest;
+    if(missing)await p.waitForFunction(()=>document.querySelector('audio')?.error);
+    assert.equal(await p.locator('audio').evaluate(el=>Number.isFinite(el.duration)),false);
+    await p.locator('.media-marker-toggle').click();const beforeInvalid=await p.evaluate(()=>history.length);
+    await p.locator('.media-marker-time').fill('200');await p.locator('.media-marker-time').press('Tab');
+    assert.equal(await p.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time),2,'Unknown duration preserves the original marker time');
+    assert.equal(await p.evaluate(()=>history.length),beforeInvalid,'Rejected marker time adds no undo');
+    assert.equal(await p.locator('.media-marker-time').inputValue(),'200','Keep the entered draft visible with its error');
+    assert.equal(await p.locator('.media-marker-time').getAttribute('aria-invalid'),'true');assert(await p.locator('.media-marker-error').isVisible());
+    assert((await p.locator('.media-marker-error').textContent()).includes('这次时间修改未保存'));
+    await p.locator('.media-marker-title').fill('作者自己调整的名称');await p.locator('.media-marker-note').fill('等声音恢复后，再确认这一段。');
+    await p.evaluate(()=>persist());releaseMedia();await Promise.all([...inFlight]);await p.unroute(pattern);
+    // Reopening is also a real recovery route for an unavailable source.
+    if(missing){await p.reload();await p.waitForFunction(()=>board&&!loading);await p.waitForFunction(()=>document.querySelector('audio')?.duration===8);await p.locator('.media-marker-toggle').click()}
+    else await p.waitForFunction(()=>document.querySelector('audio')?.duration===8);
+    const recovered=await p.evaluate(()=>clone(Object.values(board.nodes[0].mediaTimeline)[0].markers[0]));
+    assert.deepEqual(recovered,{id:'kept-marker',time:2,title:'作者自己调整的名称',note:'等声音恢复后，再确认这一段。'},'Names and remarks remain editable while time is unavailable');
+    const beforeRangeError=await p.evaluate(()=>history.length);
+    await p.locator('.media-marker-time').fill('201');await p.locator('.media-marker-time').press('Tab');
+    assert.equal(await p.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time),2);assert.equal(await p.evaluate(()=>history.length),beforeRangeError);
+    assert((await p.locator('.media-marker-error').textContent()).includes('媒体时长以内'));
+    await p.locator('.media-marker-time').fill('0:03.25');await p.locator('.media-marker-time').press('Tab');
+    assert.equal(await p.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time),3.25);
+    assert.equal(await p.locator('.media-marker-time').getAttribute('aria-invalid'),'false');assert(await p.locator('.media-marker-error').isHidden());
+    assert.equal(await p.evaluate(()=>history.length),beforeRangeError+1,'Only the valid time change adds an undo');
+    await p.locator('.media-marker-row').click();assert(Math.abs(await p.locator('audio').evaluate(el=>el.currentTime)-3.25)<.1,'Recovered marker jumps to its actual time');
+    await p.keyboard.press('Escape');await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);
+    assert.deepEqual(await p.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0]),{...recovered,time:3.25},'Only the confirmed valid marker time is saved and reopened');
+   }finally{releaseMedia();await Promise.allSettled([...inFlight]);await p.unroute(pattern)}
+  }
+  console.log('时间标记：加载等待/文件暂不可用时不保存未核对的时间，名称备注可编辑，恢复后时长校验、小数秒跳转与保存重开，通过');
   assert.deepEqual(errors,[]);console.log('时间标记、备注、重播起点与继续播放；表格副本独立；沉浸编辑；有范围的布局/图片/快照材料与下载；导航、对齐、操作偏好，通过');
  }catch(err){if(p&&process.env.CONTEXT_SCREENSHOT_DIR){fs.mkdirSync(process.env.CONTEXT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.CONTEXT_SCREENSHOT_DIR,'failure.png')})}throw err}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));assert(path.resolve(tmp).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(tmp,{recursive:true,force:true})}

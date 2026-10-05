@@ -42,7 +42,13 @@
   const current=()=>timeline(el)?.markers.find(m=>m.id===s.selected);
   for(const [field,key]of [[s.title,'title'],[s.note,'note']]){bindContentInput(field,()=>current()?.[key]||'',value=>{const m=current();if(m){m[key]=value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'&&row)row.children[1].textContent=m.title||'未命名标记'}});const input=field.oninput;field.oninput=()=>{if(!blocked&&current())input()}}
   s.time.oninput=()=>{s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true};
-  s.time.onchange=()=>{const value=parseTime(s.time.value);if(!Number.isFinite(value)||value<0||value>el.duration){const message='请输入媒体时长以内的时间，例如 12.5 或 0:12.5。';s.time.setCustomValidity(message);s.time.setAttribute('aria-invalid','true');s.error.textContent=message;s.error.hidden=false;return}write(el,t=>{const m=t.markers.find(m=>m.id===s.selected);if(m)m.time=value})};
+  s.time.onchange=()=>{
+   const value=parseTime(s.time.value),ready=Number.isFinite(el.duration)&&el.duration>0;let message='';
+   if(!ready)message=el.error?'未能读取媒体时长，这次时间修改未保存。请检查原文件后重试。':'还没读取到媒体时长，这次时间修改未保存。请等加载完成后重新调整。';
+   else if(!Number.isFinite(value)||value<0||value>el.duration)message='请输入媒体时长以内的时间，例如 12.5 或 0:12.5。';
+   if(message){s.time.setCustomValidity(message);s.time.setAttribute('aria-invalid','true');s.error.textContent=message;s.error.hidden=false;return}
+   write(el,t=>{const m=t.markers.find(m=>m.id===s.selected);if(m)m.time=value});
+  };
   s.start.onchange=()=>write(el,t=>t.startMarkerId=s.start.checked?s.selected:null);s.resume.onclick=()=>write(el,t=>t.startMarkerId=null);
   section.querySelector('.media-remove-marker').onclick=()=>write(el,t=>{t.markers=t.markers.filter(m=>m.id!==s.selected);if(t.startMarkerId===s.selected)t.startMarkerId=null;s.selected=t.markers[0]?.id||null});
   renderPanel(s);update(el);const r=popup.getBoundingClientRect();popup.style.top=Math.max(12,Math.min(r.top,innerHeight-r.height-12))+'px';
