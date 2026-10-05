@@ -110,7 +110,7 @@
   });
  },true);
  window.addEventListener('keydown',e=>{
-  if($('dialog').open||isTyping(e)||e.target.closest('#workspaceSidebar,#fileContext,header')||e.ctrlKey||e.metaKey||e.altKey)return;
+  if($('dialog').open||isTyping(e)||isKeyboardControl(e)||e.target.closest('#workspaceSidebar,#fileContext,header')||e.ctrlKey||e.metaKey||e.altKey)return;
   if(selected.size!==1)return;const id=[...selected][0];
   if(e.key==='F2'||e.key==='Enter'&&!editorId){e.preventDefault();e.stopImmediatePropagation();e.key==='F2'?openEditor(id):openBlock(id)}
  },true);

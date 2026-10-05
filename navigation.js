@@ -36,7 +36,7 @@
  const end=endGesture;endGesture=function(...args){clearGuides();return end(...args)};
  canvas.addEventListener('pointerdown',e=>{if(e.button!==0||(!space&&!hand)||!board||e.target.closest('#canvasTools,#creationDock,#textSizeTools')||$('dialog').open)return;e.stopImmediatePropagation();beginControlPan(e,{x:e.clientX,y:e.clientY})},true);
  canvas.addEventListener('dblclick',e=>{if(hand||space){e.preventDefault();e.stopImmediatePropagation()}},true);
- window.addEventListener('keydown',e=>{if(e.code==='Space'&&!isTyping(e)&&!document.querySelector('dialog[open]'))canvas.classList.add('space-panning')},true);
+ window.addEventListener('keydown',e=>{if(e.code==='Space'&&!isTyping(e)&&!isKeyboardControl(e)&&!document.querySelector('dialog[open]'))canvas.classList.add('space-panning')},true);
  window.addEventListener('keyup',e=>{if(e.code==='Space')canvas.classList.remove('space-panning')},true);
  window.addEventListener('blur',()=>canvas.classList.remove('space-panning'));
  let keyMove=null;
@@ -52,7 +52,7 @@
   return board.nodes.filter(n=>keyMove.ids.has(n.id));
  }
  document.addEventListener('keydown',e=>{
-  if(!board||isTyping(e)||$('dialog').open||document.querySelector('dialog[open]')||e.target.closest('#workspaceSidebar,header,#fileContext,#mediaPopover')){keyMove=null;return}
+  if(!board||isTyping(e)||isKeyboardControl(e)||$('dialog').open||document.querySelector('dialog[open]')||e.target.closest('#workspaceSidebar,header,#fileContext,#mediaPopover')){keyMove=null;return}
   if(e.ctrlKey||e.metaKey||e.altKey){keyMove=null;return}
   if(!e.key.startsWith('Arrow')&&e.key!=='Shift')keyMove=null;
   if(!selected.size)keyMove=null;

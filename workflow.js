@@ -189,7 +189,7 @@ function setNoteSize(key,value){const nodes=textNodes();if(!nodes.length)return;
 $('noteTitleSize').onchange=e=>setNoteSize('titleFontSize',e.target.value);$('noteBodySize').onchange=e=>setNoteSize('fontSize',e.target.value);
 $('resetNoteSize').onclick=()=>{if(!textNodes().length)return;undoPoint();for(const n of textNodes())for(const key of sizeKeys)delete n[key];applyTypography();syncTextTools();change()};
 document.addEventListener('pointerdown',e=>{if(bar.open&&!bar.contains(e.target))bar.open=false},true);bar.addEventListener('keydown',e=>{if(e.key==='Escape'&&bar.open){e.preventDefault();e.stopPropagation();bar.open=false;bar.querySelector('summary').focus()}});
-bar.addEventListener('pointerdown',e=>e.stopPropagation());bar.addEventListener('dblclick',e=>e.stopPropagation());bar.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur();canvas.focus({preventScroll:true})}});
+bar.addEventListener('pointerdown',e=>e.stopPropagation());bar.addEventListener('dblclick',e=>e.stopPropagation());bar.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input')){e.preventDefault();e.target.blur();canvas.focus({preventScroll:true})}});
 const prevDraw=drawNodes;drawNodes=function(){prevDraw();applyTypography();syncTextTools()};
 const prevSelection=refreshSelectionUI;refreshSelectionUI=function(){prevSelection();syncTextTools()};
 
