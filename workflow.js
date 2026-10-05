@@ -9,7 +9,21 @@ function wfReadableValue(v){if(v===undefined||v===null)return '（未设置）';
 const wfSafe=action=>Promise.resolve().then(action).catch(e=>toast(e.message));
 function wfDiffHTML(changes){return changes.map((c,i)=>'<section class="wf-diff"><label><input type="checkbox" data-wf-change="'+i+'" checked> '+esc(c.label||wfLabels[c.field]||c.field||'内容')+'</label><div class="wf-diff-pair"><div><small>当前</small><pre>'+esc(wfText(c.before))+'</pre></div><div><small>修改后</small><pre>'+esc(wfText(c.after))+'</pre></div></div></section>').join('')}
 function wfSelectedChanges(changes){return [...$('dialogBody').querySelectorAll('[data-wf-change]:checked')].map(el=>changes[Number(el.dataset.wfChange)])}
-function wfReview(title,description,changes,apply){showDialog('<h2>'+esc(title)+'</h2><p class="wf-explain">'+esc(description)+'</p><div class="wf-diffs">'+(changes.length?wfDiffHTML(changes):'<p>没有需要更新的内容。</p>')+'</div>',[['取消',()=>$('dialog').close()],['应用勾选的修改',()=>wfSafe(async()=>{const picked=wfSelectedChanges(changes);if(!picked.length)return toast('先勾选需要的修改');if(await apply(picked)!==false)$('dialog').close()})]]);$('dialog').classList.add('wf-dialog');}
+function wfReview(title,description,changes,apply){
+ let owner,applyButton,cancelButton,busy=false;
+ const current=()=>owner?.isConnected&&$('dialog').open;
+ const approve=()=>wfSafe(async()=>{
+  if(busy||!current())return;
+  const picked=wfSelectedChanges(changes);if(!picked.length)return toast('先勾选需要的修改');
+  const fields=[...$('dialogBody').querySelectorAll('[data-wf-change]')].map(input=>({input,disabled:input.disabled}));
+  for(const {input} of fields)input.disabled=true;
+  busy=true;applyButton.disabled=true;applyButton.setAttribute('aria-busy','true');cancelButton.textContent='关闭';
+  try{if(await apply(picked)!==false&&current())$('dialog').close()}
+  finally{busy=false;if(current()){for(const {input,disabled} of fields)input.disabled=disabled;applyButton.disabled=false;applyButton.removeAttribute('aria-busy');cancelButton.textContent='取消'}}
+ });
+ showDialog('<h2>'+esc(title)+'</h2><p class="wf-explain">'+esc(description)+'</p><div class="wf-diffs">'+(changes.length?wfDiffHTML(changes):'<p>没有需要更新的内容。</p>')+'</div>',[['取消',()=>$('dialog').close()],['应用勾选的修改',approve]]);
+ owner=$('dialogBody').firstElementChild;[cancelButton,applyButton]=$('dialogActions').querySelectorAll('button');$('dialog').classList.add('wf-dialog');
+}
 function wfAddMenu(label,action){const button=document.createElement('button');button.textContent=label;button.onclick=()=>{$('menu').open=false;wfSafe(action)};$('menu').querySelector('div').append(button);return button}
 
 // Collection moves and updates are reversible without overwriting unrelated edits.
