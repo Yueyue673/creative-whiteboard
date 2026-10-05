@@ -53,6 +53,44 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
           'Interface customisation must not recolour authored notes');
       }
     }
+    // The content outline sits outside the note, against the canvas. An accent
+    // identical to that surface must still show which content is selected.
+    await page.evaluate(() => {
+      board.nodes.push({id: 'linked-note', type: 'note', title: '另一张记录', body: '保留这段原文。',
+        x: 540, y: 90, w: 250, h: 180, color: '#dcebc7'});
+      board.edges = [{id: 'visible-link', from: 'own-note', to: 'linked-note', label: '自己的联系'}]; render();
+    });
+    const authoredBeforeSelection = await page.evaluate(() => JSON.stringify(board));
+    for (const canvas of ['#ffffff', '#26272c', '#777777', '#d4c4aa', '#315b70']) {
+      await page.evaluate(canvas => {
+        whiteboardAppearance.apply({preset: 'resolve', custom: {canvas, accent: canvas}, note: '#fff0aa'});
+        edgeId = null; selected = new Set(['own-note']); refreshSelectionUI(); drawEdges();
+      }, canvas);
+      if (process.env.APPEARANCE_SCREENSHOT_DIR && canvas === '#ffffff') {
+        fs.mkdirSync(process.env.APPEARANCE_SCREENSHOT_DIR, {recursive: true});
+        await page.screenshot({path: path.join(process.env.APPEARANCE_SCREENSHOT_DIR, 'canvas-selection.png')});
+      }
+      const selectedOutline = await contrast('[data-id="own-note"]', '#canvas', 'outlineColor');
+      assert(selectedOutline.ratio >= 3, 'Selected content remains visible when accent matches canvas: ' + JSON.stringify(selectedOutline));
+      const linkLabel = await contrast('.connector text', '#canvas', 'fill');
+      assert(linkLabel.ratio >= 4.5, 'Connection descriptions remain readable on a custom canvas: ' + JSON.stringify(linkLabel));
+      assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--ui-accent')), canvas,
+        'Keep the chosen accent; derive a legible canvas indication separately');
+      assert.equal(await page.locator('[data-id="own-note"]').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 240, 170)');
+      assert((await contrast('#selection', '#canvas', 'borderColor')).ratio >= 3, 'The box-selection boundary is visible too');
+      await page.evaluate(() => {edgeId = 'visible-link'; drawEdges();});
+      assert((await contrast('.connector.selected .connector-line', '#canvas', 'stroke')).ratio >= 3,
+        'The selected connection also stays visible against the canvas');
+      await page.evaluate(() => document.querySelector('[data-id="own-note"] .port').classList.add('connector-snap'));
+      assert((await contrast('.connector-snap', '#canvas', 'borderColor')).ratio >= 3, 'The active connection endpoint stays visible');
+      await page.evaluate(() => document.querySelector('.connector-snap').classList.remove('connector-snap'));
+    }
+    for (const preset of ['resolve', 'paper', 'slate']) {
+      await page.evaluate(preset => whiteboardAppearance.apply({preset, custom: {}, note: '#fff0aa'}), preset);
+      assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--ui-canvas-focus')),
+        await page.evaluate(preset => whiteboardAppearance.palettes[preset].accent, preset), 'Existing preset selection colours remain unchanged');
+    }
+    assert.equal(await page.evaluate(() => JSON.stringify(board)), authoredBeforeSelection, 'Changing appearance and selection cannot alter authored content or geometry');
     await page.evaluate(() => {whiteboardAppearance.apply({preset: 'paper', custom: {panel: '#0b0e13', canvas: '#ffffff'}, note: '#fff0aa'}, true);
       showDialog('<h2>资料阅读</h2><div id="themeJSON"></div>', [['关闭', () => $('dialog').close()]]);
       renderJSONReader($('themeJSON'), {value: {说明: '保持资料可读'}, raw: '{"说明":"保持资料可读"}'});});

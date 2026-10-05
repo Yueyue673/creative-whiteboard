@@ -34,6 +34,7 @@
   palette.text=readable(palette.text,surfaces,4.5,ink);palette.muted=readable(palette.muted,surfaces,4.5,ink);
   palette.link=readable(tone==='light'?'#345e8b':'#95bddc',surfaces,4.5,ink);
   palette.focus=readable(palette.accent,surfaces,3,ink);
+  palette['canvas-focus']=readable(palette.accent,[palette.canvas],3);
   palette['canvas-text']=readable(palette.text,[palette.canvas],4.5);
   palette['canvas-muted']=readable(palette.muted,[palette.canvas],4.5);
   return {preset,palette,tone};
