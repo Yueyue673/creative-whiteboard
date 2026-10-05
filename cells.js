@@ -1,5 +1,18 @@
 // Cell attachments are independent content copies; media files remain shared references.
-function cellItemGrid(n){n.cellItems??=[];while(n.cellItems.length<n.rows.length)n.cellItems.push([]);n.cellItems.length=n.rows.length;for(const row of n.cellItems){while(row.length<n.columns.length)row.push([]);row.length=n.columns.length}return n.cellItems}
+// Row and column identities survive document snapshots without relying on cell text.
+function tableAxisIds(n){
+ for(const [key,length] of [['rowIds',n.rows.length],['columnIds',n.columns.length]]){
+  if(!Array.isArray(n[key]))n[key]=[];
+  n[key].length=length;const seen=new Set();
+  for(let i=0;i<length;i++){
+   const id=n[key][i];
+   if(typeof id!=='string'||!id||id.length>100||seen.has(id))n[key][i]=uid();
+   seen.add(n[key][i]);
+  }
+ }
+ return n;
+}
+function cellItemGrid(n){tableAxisIds(n);n.cellItems??=[];while(n.cellItems.length<n.rows.length)n.cellItems.push([]);n.cellItems.length=n.rows.length;for(const row of n.cellItems){while(row.length<n.columns.length)row.push([]);row.length=n.columns.length}return n.cellItems}
 function cellContentMarkup(n,r,c){return '<div class="cell-contents">'+(n.cellItems?.[r]?.[c]||[]).map((item,i)=>{const a=assetById(item.mediaId||item.assetId),media=a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></audio>':a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></video>':'';const field=(key,label)=>'<textarea data-cell-note-field="'+key+'" aria-label="'+label+'">'+esc(item[key]||'')+'</textarea>';return '<section class="cell-content inline-ui'+(a?' cell-file':'')+'" data-cell-item="'+i+'" data-cell-r="'+r+'" data-cell-c="'+c+'">'+field('title','单元格内容标题')+media+imageGallery(item.images||[])+(item.image?imageGallery([{data:item.image}]):'')+(item.type==='table'?'<p>内含表格 · '+(item.rows?.length||0)+' 行；取出到白板后编辑</p>':field('body','单元格内容正文'))+(item.userText?field('userText','单元格内容补充'):'')+(item.annotation?field('annotation','单元格内容备注'):'')+(a&&!media&&!a.mime?.startsWith('image/')?'<a class="inline-ui" href="'+mediaURL(a.id)+'" target="_blank" rel="noopener">打开文件</a>':'')+'<div class="cell-item-actions"><button data-cell-extract="'+i+'" title="取出副本到白板" aria-label="取出副本到白板">↗</button><button data-cell-remove="'+i+'" title="移除单元格里的内容" aria-label="移除单元格里的内容">×</button></div></section>'}).join('')+'</div>'}
 (()=>{
 function tableAt(target){const n=board?.nodes.find(n=>n.id===target.nodeId);return n?.type==='table'&&Number.isInteger(target.r)&&Number.isInteger(target.c)&&n.rows[target.r]?.[target.c]!==undefined?n:null}

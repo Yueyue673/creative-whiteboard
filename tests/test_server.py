@@ -103,6 +103,26 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.request("/api/checkpoints/example", "PUT")[0], 200)
         self.assertTrue(json.loads(self.request("/api/history/boards/example")[2]))
 
+    def test_table_axis_identity_validation_preserves_saved_content(self):
+        board = {"format": "creative-board", "version": 1, "name": "table", "nodes": [{
+            "id": "table", "type": "table", "title": "原文", "body": "", "x": 0, "y": 0, "w": 600, "h": 300,
+            "columns": ["画面", "声音"], "rows": [["作者的记录", ""]],
+            "rowIds": ["row-a"], "columnIds": ["col-a", "col-b"]}], "edges": []}
+        status, headers, _ = self.request("/api/boards/table-axes", "PUT", board, {"If-Match": "new"})
+        self.assertEqual(status, 200)
+        raw = (Path(self.tmp.name) / "内容" / "table-axes.json").read_bytes()
+        for key, bad in [("rowIds", []), ("columnIds", ["same", "same"]), ("rowIds", [None]),
+                         ("columnIds", ["", "other"]), ("rowIds", ["x" * 101])]:
+            invalid = json.loads(json.dumps(board))
+            invalid["nodes"][0][key] = bad
+            self.assertEqual(self.request("/api/boards/table-axes", "PUT", invalid, {"If-Match": headers["ETag"]})[0], 400)
+            self.assertEqual((Path(self.tmp.name) / "内容" / "table-axes.json").read_bytes(), raw)
+        self.assertEqual(json.loads(self.request("/api/boards/table-axes")[2]), board)
+        legacy = json.loads(json.dumps(board))
+        del legacy["nodes"][0]["rowIds"]
+        del legacy["nodes"][0]["columnIds"]
+        self.assertEqual(self.request("/api/boards/legacy-table", "PUT", legacy, {"If-Match": "new"})[0], 200)
+
     def test_damaged_board_reads_leave_original_file_untouched(self):
         target = Path(self.tmp.name) / "内容" / "damaged.json"
         for raw in [b'{"broken":', json.dumps({"format": "creative-board", "version": 1,

@@ -42,6 +42,10 @@ def valid_board(b):
   if n.get('type')=='table':
    if not isinstance(n.get('columns'),list) or not 1<=len(n['columns'])<=100 or any(not isinstance(c,str) for c in n['columns']): raise ValueError('表格列无效')
    if not isinstance(n.get('rows'),list) or len(n['rows'])>5000 or any(not isinstance(r,list) or len(r)!=len(n['columns']) or any(not isinstance(c,str) for c in r) for r in n['rows']): raise ValueError('表格行无效')
+   for key,axis in [('rowIds','rows'),('columnIds','columns')]:
+    if key in n:
+     values=n[key]
+     if not isinstance(values,list) or len(values)!=len(n[axis]) or any(not isinstance(v,str) or not 0<len(v)<=100 for v in values) or len(set(values))!=len(values):raise ValueError('表格行列编号无效')
   for k in ['x','y','w','h']:
    if not isinstance(n.get(k),(int,float)) or not -1000000<n[k]<1000000: raise ValueError('位置数据无效')
   for k in ['title','body','userText','annotation','url']:

@@ -46,21 +46,20 @@
   const node = board?.nodes.find(node => node.id === target.nodeId);
   let cell = null;
   if (node?.type === 'table' && Number.isInteger(target.r) && Number.isInteger(target.c)) {
-   cell = cellItemGrid(node)[target.r]?.[target.c];
+   tableAxisIds(node);
+   cell = {rowId:node.rowIds[target.r], columnId:node.columnIds[target.c]};
   }
-  return {...target, _importDestination:{boardId, node, cell}};
+  return {...target, _importDestination:{boardId, nodeId:node?.id, cell}};
  }
  function resolveAttachment(target) {
   const saved = target._importDestination;
   if (!saved) return target;
   const node = board?.nodes.find(node => node.id === target.nodeId);
-  if (saved.boardId !== boardId || node !== saved.node || !node) return null;
+  if (saved.boardId !== boardId || node?.id !== saved.nodeId || !node) return null;
   if (saved.cell) {
-   for (let row = 0; row < node.cellItems.length; row++) {
-    const column = node.cellItems[row].indexOf(saved.cell);
-    if (column !== -1) return {...target, r:row, c:column};
-   }
-   return null;
+   if (node.type !== 'table' || !saved.cell.rowId || !saved.cell.columnId) return null;
+   const r = node.rowIds?.indexOf(saved.cell.rowId) ?? -1, c = node.columnIds?.indexOf(saved.cell.columnId) ?? -1;
+   return r >= 0 && c >= 0 && node.rows[r]?.[c] !== undefined ? {...target, r, c} : null;
   }
   return target;
  }
