@@ -71,6 +71,33 @@ const {chromium} = require('playwright');
   await p.evaluate(()=>canvas.focus());await p.keyboard.press('Enter');
   assert.equal(await p.evaluate(()=>editorId),'n','Enter on the canvas still opens selected content');
   await p.locator('#inlineDone').click();
+  // Tab can reveal a different card's controls without selecting or editing that card.
+  const beforeToolbarFocus=await p.evaluate(()=>({board:clone(board),selected:[...selected]}));
+  await p.evaluate(()=>{
+   const first=board.nodes.find(node=>node.id==='n'),next=board.nodes.find(node=>node.id==='m');
+   first.x=70;first.y=300;next.x=400;next.y=0;board.view={x:0,y:0,z:.6};
+   selected=new Set(['n']);editorId=null;render();canvas.focus({preventScroll:true});
+  });
+  const focusContent=await p.evaluate(()=>({nodes:clone(board.nodes),undo:history.length,revision:contentRevision}));
+  await p.locator('#nodes [data-id=n] .block-actions button').last().focus();
+  await p.keyboard.press('Tab');
+  assert(await p.locator('#nodes [data-id=m] .block-read').evaluate(el=>el===document.activeElement));
+  for(const z of [.6,.4,1.6]){
+   await p.evaluate(z=>{board.view.z=z;moveView()},z);
+   const control=await p.evaluate(()=>{
+    const r=document.activeElement.getBoundingClientRect(),c=canvas.getBoundingClientRect();
+    return {w:r.width,h:r.height,inside:r.top>=c.top&&r.bottom<=c.bottom&&r.left>=c.left&&r.right<=c.right,scrollTop:canvas.scrollTop,scrollLeft:canvas.scrollLeft};
+   });
+   assert(Math.abs(control.w-25)<.2&&Math.abs(control.h-25)<.2,'Focused controls keep screen size at '+z+': '+JSON.stringify(control));
+   assert(control.inside,'Focused controls stay inside the canvas near its top edge: '+JSON.stringify(control));
+   assert.equal(control.scrollTop,0);assert.equal(control.scrollLeft,0);
+   assert.deepEqual(await p.evaluate(()=>({nodes:board.nodes,undo:history.length,revision:contentRevision})),focusContent,'Focus and zoom do not change authored fields, geometry or editing history');
+   assert.deepEqual(await p.evaluate(()=>[...selected]),['n'],'Tab focus preserves the existing selection');
+  }
+  await p.keyboard.press('Enter');
+  assert.equal(await p.locator('#immersiveSurface').getAttribute('data-id'),'m','Activation opens the focused card');
+  await p.keyboard.press('Escape');
+  await p.evaluate(state=>{board=state.board;selected=new Set(state.selected);editorId=null;render();canvas.focus({preventScroll:true})},beforeToolbarFocus);
   // Editing ends on a different card, and selecting it later does not reopen the editor.
   await p.locator('#nodes [data-id=n]').dblclick({position:{x:60,y:70}});
   await p.waitForFunction(()=>editorId==='n');
