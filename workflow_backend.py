@@ -4,7 +4,7 @@ from html.parser import HTMLParser
 from functools import lru_cache
 import json,hashlib,time,re,os,threading
 from app_paths import APP_ROOT, DATA_ROOT
-from ai_context import spatial_context, save_visuals, task_archive, context_folders, research_task, AI_POLICY
+from ai_context import spatial_context, save_visuals, task_archive, context_folders, research_task, research_material, visual_bytes, VisualUnavailable, AI_POLICY
 ROOT=DATA_ROOT
 HISTORY=ROOT/'历史记录'
 PROPOSALS=ROOT/'AI待审核'
@@ -127,11 +127,13 @@ def workflow_get(handler,p):
  if m:
   try:
    pack=json.loads((TASKS/(m[1]+'.json')).read_bytes())
-   if m[2]=='bundle':handler.reply(200,task_archive(pack,TASKS),'application/zip')
+   if m[2]=='bundle':handler.reply(200,task_archive(pack,TASKS,'http://'+handler.headers['Host']),'application/zip')
    else:
-    if not any(image['name']==m[3] for image in pack.get('visuals',{}).get('images',[])):raise FileNotFoundError()
-    handler.reply(200,(TASKS/(m[1]+'_files')/m[3]).read_bytes(),'image/png')
-  except (OSError,ValueError,KeyError):handler.reply(404,{'error':'任务附件不存在'})
+    image=next((image for image in pack.get('visuals',{}).get('images',[]) if image.get('name')==m[3]),None)
+    if not image:raise FileNotFoundError()
+    handler.reply(200,visual_bytes(pack,TASKS,image),'image/png')
+  except VisualUnavailable as error:handler.reply(409,{'error':str(error)+'，请重新准备材料'})
+  except (OSError,ValueError,KeyError,TypeError,AttributeError):handler.reply(404,{'error':'任务附件不存在'})
   return True
  m=re.fullmatch(r'/api/ai/tasks/([a-zA-Z0-9_-]{1,100})/current',p)
  if m:
@@ -152,7 +154,7 @@ def workflow_get(handler,p):
   f=TASKS/(m[1]+'.json')
   if not f.exists():handler.reply(404,{'error':'找不到这份 AI 任务，请重新创建'})
   else:
-   try:handler.reply(200,research_task(json.loads(f.read_bytes())))
+   try:handler.reply(200,research_material(json.loads(f.read_bytes()),TASKS,'http://'+handler.headers['Host'])[0])
    except (OSError,ValueError,TypeError):handler.reply(400,{'error':'这份研究任务无法读取，请重新准备材料'})
   return True
  if p=='/api/search':

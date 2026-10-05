@@ -18,6 +18,23 @@
   try{const now=state();return now.form===expected.form&&now.signature===expected.signature}catch{return false}
  }
  function check(job){if(job.cancelled||!current(job))throw changedError()}
+ async function reusePrepared(expected){
+  const cached=prepared;
+  if(!cached||!current(cached))return null;
+  let pack;
+  try{pack=await(await api('/api/ai/tasks/'+encodeURIComponent(cached.pack.requestId))).json()}
+  catch(error){
+   if(!current(expected))throw changedError();
+   if(error.code===400||error.code===404){if(prepared===cached)prepared=null;return null}
+   throw error;
+  }
+  if(!current(expected))throw changedError();
+  if(prepared!==cached)return null;
+  if(pack.visuals?.unavailableImages?.length){
+   prepared=null;status('部分图片附件已无法读取，正在重新准备材料…');return null;
+  }
+  cached.pack=pack;whiteboardContext.show(pack);return pack;
+ }
  function invalidate(){
   if(preparing&&!current(preparing))preparing.cancelled=true;
   if(!prepared||current(prepared))return;
@@ -42,14 +59,14 @@
   invalidate();
   const expected=state();
   if(expected.form!==entered.form||expected.scope!==entered.scope||expected.task!==entered.task||expected.visuals!==entered.visuals||expected.source!==entered.source)throw changedError();
-  if(prepared&&current(prepared)){whiteboardContext.show(prepared.pack);return prepared.pack}
+  const reused=await reusePrepared(expected);if(reused)return reused;
   if(preparing){
    const previous=preparing;
    if(!previous.cancelled&&previous.form===expected.form&&previous.signature===expected.signature)return previous.promise;
    previous.cancelled=true;status('正在按新的问题与背景重新准备…');await previous.promise.catch(()=>{});
    if(!current(expected))throw changedError();
    // Another waiting action may already have begun this same preparation.
-   if(prepared&&current(prepared)){whiteboardContext.show(prepared.pack);return prepared.pack}
+   const reused=await reusePrepared(expected);if(reused)return reused;
    if(preparing)return whiteboardAI.makePack();
   }
   const job={...expected,cancelled:false,promise:null};preparing=job;
@@ -71,6 +88,10 @@
  const changeBefore=change;change=function(...args){changeBefore(...args);invalidate()};
  window.addEventListener('creative-board-loading',invalidate);
  window.addEventListener('creative-research-context',invalidate);
+ window.addEventListener('creative-research-attachment-error',event=>{
+  if(prepared?.pack.requestId!==event.detail?.requestId)return;
+  prepared=null;status('有图片未能加载，请重新准备材料后再提供给 AI。');
+ });
  async function receive(text){const value=JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));if(value.format!=='creative-board-references')throw Error('这里只接收带来源的资料回复，不能导入修改提案或创作文案。');const id=uid();await api('/api/ai/references/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});await showReference(id)}
  async function showReference(id){const r=await(await api('/api/ai/references/'+encodeURIComponent(id))).json();showDialog('<h2>参考资料</h2><p class="wf-explain">资料单独保存，不会进入创作。以下信息由外部 AI 提供，打开原文后再判断是否采用。</p><div class="ai-source-list">'+r.sources.map(s=>'<article><a href="'+esc(s.url)+'" target="_blank" rel="noopener noreferrer">'+esc(s.title)+'</a><small>'+esc([s.author,s.published].filter(Boolean).join(' · '))+'</small><p>'+esc(s.finding)+'</p>'+(s.limitations?'<p class="ai-source-limits">'+esc(s.limitations)+'</p>':'')+'</article>').join('')+'</div>',[['返回资料列表',()=>wfSafe(inbox)],['关闭',()=>$('dialog').close()]])}
  async function inbox(){const rows=await(await api('/api/ai/references')).json();showDialog('<h2>参考资料</h2><p>查到的资料与创作分开保存，由你决定如何使用。</p><div class="wf-list">'+(rows.map(r=>'<div class="wf-history-row"><div><b>'+esc(r.task)+'</b><small>'+r.count+' 个来源</small></div><button data-reference="'+esc(r.id)+'">查看</button></div>').join('')||'<p class="wf-empty">还没有保存的参考资料。</p>')+'</div>',[['返回 AI',open],['关闭',()=>$('dialog').close()]]);$('dialogBody').querySelectorAll('[data-reference]').forEach(b=>b.onclick=()=>wfSafe(()=>showReference(b.dataset.reference)))}

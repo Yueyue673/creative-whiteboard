@@ -150,6 +150,84 @@ class AITaskTest(unittest.TestCase):
         self.assertEqual(path.read_bytes(), original)
         self.assertEqual(self.request('/api/boards/legacy-research')[2], board_original)
 
+    def test_missing_or_modified_visuals_are_not_claimed_as_available(self):
+        _, pack = self.make_task('visual-integrity-base')
+        pack['requestId'] = pack['request']['id'] = 'visual-integrity'
+        png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aY/0AAAAASUVORK5CYII=')
+        pack['visualInput'] = [dict(kind='image', nodeIds=['one'], ownerId='one',
+             data='data:image/png;base64,' + base64.b64encode(png).decode()) for _ in range(4)]
+        status, _, raw = self.request('/api/ai/tasks/visual-integrity', 'PUT', pack)
+        self.assertEqual(status, 200, raw)
+        original = json.loads(raw)
+        task_file = Path(self.tmp.name) / 'AI任务' / 'visual-integrity.json'
+        task_raw = task_file.read_bytes()
+        board_raw = self.request('/api/boards/visual-integrity-base')[2]
+        images = original['visuals']['images']
+        Path(images[0]['localPath']).unlink()
+        Path(images[1]['localPath']).write_bytes(png + b'changed')
+        modified = bytearray(png)
+        modified[40] ^= 1
+        Path(images[2]['localPath']).write_bytes(modified)
+        status, _, raw = self.request('/api/ai/tasks/visual-integrity')
+        self.assertEqual(status, 200)
+        current = json.loads(raw)
+        self.assertEqual(current['visuals']['images'], [images[3]])
+        self.assertEqual(len(current['visuals']['unavailableImages']), 3)
+        self.assertTrue(all('reason' in item and 'localPath' not in item and 'url' not in item
+                            for item in current['visuals']['unavailableImages']))
+        self.assertTrue(any('未包含' in note for note in current['visuals']['coverage']))
+        for image in images[:3]:
+            self.assertNotEqual(self.request('/api/ai/tasks/visual-integrity/files/' + image['name'])[0], 200)
+        self.assertEqual(self.request('/api/ai/tasks/visual-integrity/files/' + images[3]['name'])[2], png)
+        status, _, raw = self.request('/api/ai/tasks/visual-integrity/bundle')
+        self.assertEqual(status, 200)
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            self.assertEqual(json.loads(archive.read('task.json')), current)
+            self.assertEqual([name for name in archive.namelist() if name.startswith('images/')], [images[3]['archivePath']])
+            self.assertEqual(archive.read(images[3]['archivePath']), png)
+            self.assertIn('附件未包含', archive.read('附件未包含.txt').decode('utf-8'))
+            self.assertIn('附件未包含', archive.read('说明.txt').decode('utf-8'))
+        for image in images:
+            Path(image['localPath']).write_bytes(png)
+        status, _, raw = self.request('/api/ai/tasks/visual-integrity')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)['visuals']['images'], images)
+        self.assertNotIn('unavailableImages', json.loads(raw)['visuals'])
+        self.assertEqual(task_file.read_bytes(), task_raw)
+        self.assertEqual(self.request('/api/boards/visual-integrity-base')[2], board_raw)
+
+    def test_legacy_visual_links_use_actual_attachment_locations(self):
+        _, pack = self.make_task('visual-links-base')
+        pack['requestId'] = pack['request']['id'] = 'visual-links'
+        png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aY/0AAAAASUVORK5CYII=')
+        pack['visualInput'] = [dict(kind='image', nodeIds=['one'],
+            data='data:image/png;base64,' + base64.b64encode(png).decode())]
+        status, _, raw = self.request('/api/ai/tasks/visual-links', 'PUT', pack)
+        self.assertEqual(status, 200)
+        stored = json.loads(raw)
+        image = stored['visuals']['images'][0]
+        actual_path = image['localPath']
+        image.update(url='http://127.0.0.1:1/obsolete.png', localPath='obsolete/image.png', archivePath='obsolete.png')
+        del image['sha256']
+        del image['bytes']
+        task_path = Path(self.tmp.name) / 'AI任务' / 'visual-links.json'
+        task_path.write_text(json.dumps(stored, ensure_ascii=False), encoding='utf-8')
+        original_raw = task_path.read_bytes()
+        status, _, raw = self.request('/api/ai/tasks/visual-links')
+        self.assertEqual(status, 200)
+        current = json.loads(raw)
+        current_image = current['visuals']['images'][0]
+        self.assertEqual(current_image['localPath'], actual_path)
+        self.assertEqual(current_image['url'], self.base + '/api/ai/tasks/visual-links/files/' + image['name'])
+        self.assertEqual(current_image['archivePath'], 'images/' + image['name'])
+        self.assertEqual(self.request('/api/ai/tasks/visual-links/files/' + image['name'])[2], png)
+        status, _, raw = self.request('/api/ai/tasks/visual-links/bundle')
+        self.assertEqual(status, 200)
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            self.assertEqual(json.loads(archive.read('task.json')), current)
+            self.assertEqual(archive.read(current_image['archivePath']), png)
+        self.assertEqual(task_path.read_bytes(), original_raw)
+
     def test_media_marker_validation_and_preservation_rules(self):
         board,pack=self.make_task('ai-markers')
         timeline={'/api/media/file':{'markers':[{'id':'mark','time':2.5,'title':'观察','note':'保留现场声音'}],'startMarkerId':'mark'}}

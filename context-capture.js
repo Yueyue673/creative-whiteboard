@@ -47,7 +47,34 @@
   pack.visualCoverage.push('布局图由页面元素渲染，部分 CSS 或动态内容可能与实际画面有差异；声音未自动转写。');
   let bytes=0;pack.visualInput=pack.visualInput.filter(item=>{const size=Math.floor(item.data.split(',')[1].length*3/4);if(size>3*1024*1024||bytes+size>12*1024*1024){pack.visualCoverage.push('图像 '+(item.ownerId||item.kind)+' 超过附件容量，本次保留文字与原文件引用。');return false}bytes+=size;return true});
  }
- function show(pack){const images=pack.visuals?.images||[],host=$('aiContextPreview');if(!host)return;host.replaceChildren();const title=document.createElement('p');title.textContent='已准备 '+(pack.data.nodes?.length||pack.data.assets?.length||0)+' 块内容、'+images.length+' 张图像附件。位置、分组、表格和时间标记备注也包含在任务里。';host.append(title);for(const im of images){const figure=document.createElement('figure'),img=document.createElement('img'),label=document.createElement('figcaption');img.src=im.url;img.alt=im.kind==='overview'?'整体布局':im.kind==='viewport'?'当前画面':'内容图片';label.textContent=im.kind==='overview'?'整体布局':im.kind==='viewport'?'当前画面':im.kind==='video-frame'?'视频静帧 · '+im.time.toFixed(2)+' 秒':'图片 · '+(im.ownerId||im.nodeIds.join('、'));figure.append(img,label);host.append(figure)}const note=document.createElement('p');note.textContent='本地助手可以读取任务中的图片路径；在线 AI 需要同时上传图片。只粘贴 JSON，它还看不到图片。';host.append(note);for(const text of pack.visuals?.coverage||[]){const p=document.createElement('small');p.textContent=text;host.append(p)}}
- function downloadPack(pack){const a=document.createElement('a');a.href='/api/ai/tasks/'+pack.requestId+'/bundle';a.download='AI整理材料_'+pack.requestId+'.zip';a.click()}
+ function show(pack){
+  const images=pack.visuals?.images||[],host=$('aiContextPreview');if(!host)return;
+  host.replaceChildren();const title=document.createElement('p');let failures=0;
+  const titles=new Map([...(pack.data.nodes||[]),...(pack.data.assets||[])].map(item=>[item.id,item.title||'未命名内容']));
+  const describe=()=>{title.textContent='已准备 '+(pack.data.nodes?.length||pack.data.assets?.length||0)+' 块内容、'+images.length+' 张图像附件。'+(failures?'其中 '+failures+' 张图片未能加载，请重新准备材料。':'位置、分组、表格和时间标记备注也包含在任务里。')};
+  describe();host.append(title);
+  for(const im of images){
+   const figure=document.createElement('figure'),img=document.createElement('img'),label=document.createElement('figcaption');
+   img.alt=im.kind==='overview'?'整体布局':im.kind==='viewport'?'当前画面':'内容图片';
+   const names=[...new Set((im.nodeIds||[]).map(id=>titles.get(id)).filter(Boolean))],source=names.slice(0,2).join('、')+(names.length>2?' 等 '+names.length+' 处':''),description=source?' · '+source:'';
+   label.textContent=im.kind==='overview'?'整体布局':im.kind==='viewport'?'当前画面':im.kind==='video-frame'?'视频静帧'+description+' · '+Number(im.time||0).toFixed(2)+' 秒':'图片'+description;
+   if(names.length)label.title=names.join('、');
+   img.onerror=()=>{
+    if(!figure.isConnected||!host.contains(figure))return;
+    const message=document.createElement('p');message.textContent='这张图片未能加载，请重新准备材料。';img.replaceWith(message);
+    failures++;describe();window.dispatchEvent(new CustomEvent('creative-research-attachment-error',{detail:{requestId:pack.requestId}}));
+   };
+   img.src=im.url;figure.append(img,label);host.append(figure);
+  }
+  const note=document.createElement('p');note.textContent='本地助手可以读取任务中的图片路径；在线 AI 需要同时上传图片。只粘贴 JSON，它还看不到图片。';host.append(note);
+  for(const text of pack.visuals?.coverage||[]){const p=document.createElement('small');p.textContent=text;host.append(p)}
+ }
+ async function downloadPack(pack){
+  const response=await api('/api/ai/tasks/'+encodeURIComponent(pack.requestId)+'/bundle');
+  if(!response.headers.get('Content-Type')?.startsWith('application/zip'))throw Error('材料包未能下载，请重新准备材料。');
+  const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');
+  a.href=url;a.download='研究材料_'+pack.requestId+'.zip';document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+ }
  window.whiteboardContext={capture,show,download:downloadPack,imageSources};
 })();

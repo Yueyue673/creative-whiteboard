@@ -6,6 +6,7 @@ import io
 import json
 import math
 from pathlib import Path
+import re
 import struct
 import zipfile
 
@@ -42,6 +43,82 @@ def research_task(pack):
     value['referenceRules'] = copy.deepcopy(REFERENCE_RULES)
     value.pop('proposalRules', None)
     return value
+
+
+class VisualUnavailable(ValueError):
+    """A recorded visual must not be mistaken for an available attachment."""
+
+
+def visual_bytes(pack, task_root, image):
+    ident = pack.get('requestId')
+    name = image.get('name') if isinstance(image, dict) else None
+    if not isinstance(ident, str) or not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}', ident):
+        raise VisualUnavailable('任务编号无效')
+    if not isinstance(name, str) or not re.fullmatch(r'[0-9]{2}_(?:viewport|overview|image|video-frame)\.png', name):
+        raise VisualUnavailable('附件名称无效')
+    folder = (task_root / (ident + '_files')).resolve()
+    path = folder / name
+    try:
+        if not folder.is_relative_to(task_root.resolve()) or not path.resolve().is_relative_to(folder):
+            raise VisualUnavailable('附件位置已改变')
+        if not 24 <= path.stat().st_size <= 3 * 1024 * 1024:
+            raise VisualUnavailable('附件大小已改变或格式不正确')
+        with path.open('rb') as file:
+            raw = file.read(3 * 1024 * 1024 + 1)
+    except FileNotFoundError:
+        raise VisualUnavailable('附件已不存在')
+    except OSError:
+        raise VisualUnavailable('附件无法读取')
+    if not 24 <= len(raw) <= 3 * 1024 * 1024 or raw[:8] != b'\x89PNG\r\n\x1a\n':
+        raise VisualUnavailable('附件格式不正确')
+    width, height = struct.unpack('>II', raw[16:24])
+    if not 0 < width <= 4096 or not 0 < height <= 4096:
+        raise VisualUnavailable('附件尺寸不正确')
+    for key, actual in [('width', width), ('height', height), ('bytes', len(raw)),
+                        ('sha256', hashlib.sha256(raw).hexdigest())]:
+        if key in image and image[key] != actual:
+            raise VisualUnavailable('附件内容已改变')
+    return raw
+
+
+def research_material(pack, task_root, origin=None):
+    """Read current attachment bytes without changing the task or authored data."""
+    value = research_task(pack)
+    visuals = value.setdefault('visuals', {'images': [], 'coverage': []})
+    if not isinstance(visuals, dict) or not isinstance(visuals.get('images', []), list):
+        raise ValueError('研究任务的附件记录无法读取')
+    entries = visuals.get('images', [])
+    coverage = visuals.get('coverage', [])
+    if len(entries) > 66 or not isinstance(coverage, list) or any(not isinstance(item, str) for item in coverage):
+        raise ValueError('研究任务的附件记录无法读取')
+    available, unavailable, files = [], [], {}
+    for image in entries:
+        if not isinstance(image, dict):
+            raise ValueError('研究任务的附件记录无法读取')
+        try:
+            if image.get('name') in files:
+                raise VisualUnavailable('附件记录重复')
+            raw = visual_bytes(value, task_root, image)
+        except VisualUnavailable as error:
+            missing = {key: image[key] for key in ('name', 'kind', 'nodeIds', 'ownerId') if key in image}
+            missing['reason'] = str(error)
+            unavailable.append(missing)
+            message = '附件未包含：' + str(image.get('name', '未命名图像')) + '（' + str(error) + '）。请重新准备材料。'
+            if message not in coverage:
+                coverage.append(message)
+        else:
+            image['archivePath'] = 'images/' + image['name']
+            image['localPath'] = str((task_root / (value['requestId'] + '_files') / image['name']).resolve())
+            if origin:
+                image['url'] = origin + '/api/ai/tasks/' + value['requestId'] + '/files/' + image['name']
+            available.append(image)
+            files[image['name']] = raw
+    visuals.update(images=available, coverage=coverage)
+    if unavailable:
+        visuals['unavailableImages'] = unavailable
+    else:
+        visuals.pop('unavailableImages', None)
+    return value, files
 
 
 def context_folders(assets):
@@ -169,8 +246,8 @@ def save_visuals(pack, task_root, origin):
                      'note':'图像是提供给支持看图的 AI 的附件。只复制 JSON 不等于 AI 已看到这些图；本地助手可读取 localPath，在线 AI 需一并上传附件。音频未转写，视频只提供已采集的静帧。'}
 
 
-def task_archive(pack, task_root):
-    pack = research_task(pack)
+def task_archive(pack, task_root, origin=None):
+    pack, images = research_material(pack, task_root, origin)
     memory=io.BytesIO()
     with zipfile.ZipFile(memory,'w',zipfile.ZIP_DEFLATED) as archive:
         archive.writestr('task.json',json.dumps(pack,ensure_ascii=False,indent=2))
@@ -180,11 +257,12 @@ def task_archive(pack, task_root):
                         '按 referenceRules 返回 creative-board-references；每条信息要有可核对的原文链接。\n'
                         '资料回复单独保存，是否采用与怎样创作都由用户决定。\n'
                         '位置关系是排版线索，不一定是叙事或因果关系。\n'
-                        '音频没有自动转写；视频静帧不是整段视频。')
-        folder=task_root/(pack['requestId']+'_files')
-        for image in pack.get('visuals',{}).get('images',[]):
-            name=image['name']
-            if Path(name).name!=name:continue
-            path=folder/name
-            if path.is_file():archive.write(path,'images/'+name)
+                        '音频没有自动转写；视频静帧不是整段视频。' +
+                        ('\n\n有附件未包含，请查看“附件未包含.txt”和 task.json 的 visuals.coverage；不要假定 AI 已看到这些图片。'
+                         if pack['visuals'].get('unavailableImages') else ''))
+        for name, raw in images.items():
+            archive.writestr('images/' + name, raw)
+        if pack['visuals'].get('unavailableImages'):
+            archive.writestr('附件未包含.txt', '\n'.join('附件未包含：' + item.get('name', '未命名图像') + '（' + item['reason'] + '）'
+                            for item in pack['visuals']['unavailableImages']) + '\n请重新准备材料；这些图像没有提供给 AI。')
     return memory.getvalue()
