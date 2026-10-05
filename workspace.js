@@ -39,8 +39,40 @@ mountTableEditor=function(n){imageGrid(n);cellItemGrid(n);$('inlineTable').inner
  $('tableAddRow').onclick=()=>{if(n.rows.length>=5000)return;undoPoint();n.rows.push(n.columns.map(()=>''));rebuild()};$('tableAddColumn').onclick=()=>{if(n.columns.length>=100)return;undoPoint();n.columns.push('列 '+(n.columns.length+1));if(n.columnWidths)n.columnWidths.push(160);n.rows.forEach(r=>r.push(''));rebuild()};$('tableCSV').onclick=()=>{toast('CSV只包含单元格文字；便签、音视频和图片请用白板JSON保存');exportCSV(n)};$('tableFirstHeader').disabled=!n.rows.length;$('tableFirstHeader').onclick=()=>{if(imagesAt(n,0,0).length||n.cellImages[0]?.some(a=>a.length)||n.cellItems[0]?.some(a=>a.length))return toast('首行含附件，请先移出再设为列名');undoPoint();n.columns=n.rows.shift();n.rowIds.shift();n.cellImages.shift();n.cellItems.shift();rebuild()};
  $('inlineTable').querySelectorAll('[data-remove-col]').forEach(b=>b.onclick=()=>{if(n.columns.length===1)return toast('至少保留一列');const i=+b.dataset.removeCol;confirmTableDelete('删除这一列及其中的内容？',()=>{undoPoint();n.columns.splice(i,1);n.columnIds.splice(i,1);n.columnWidths?.splice(i,1);n.rows.forEach(r=>r.splice(i,1));n.cellImages.forEach(r=>r.splice(i,1));n.cellItems.forEach(r=>r.splice(i,1));rebuild()})});$('inlineTable').querySelectorAll('[data-remove-row]').forEach(b=>b.onclick=()=>{const i=+b.dataset.removeRow;confirmTableDelete('删除这一行及其中的内容？',()=>{undoPoint();n.rows.splice(i,1);n.rowIds.splice(i,1);n.cellImages.splice(i,1);n.cellItems.splice(i,1);rebuild()})});bindImageRemoval(n);
 };
-async function loadAssets(){const r=await api('/api/assets'),next=await r.json();syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;assetETag=r.headers.get('ETag');renderAssets()}
-async function saveAssets(next){try{prepareLibraryFolderIds(next);const r=await api('/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':assetETag},body:JSON.stringify(next)});const result=await r.json();next.folderIds=result.folderIds;syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;assetETag=r.headers.get('ETag');renderAssets();return true}catch(e){toast(e.message);return false}}
+let assetReadSequence=0,assetWriteSequence=0,assetReadPending=null;
+const assetWritesPending=new Set();
+function loadAssets(){
+ const sequence=++assetReadSequence;
+ const task=(async()=>{
+  while(true){
+   await Promise.all([...assetWritesPending]);
+   if(sequence!==assetReadSequence){await assetReadPending;return false}
+   const writeSequence=assetWriteSequence;
+   let r,next,error;
+   try{r=await api('/api/assets');next=await r.json()}catch(e){error=e}
+   // Superseded callers wait for the latest refresh, including its failures.
+   if(sequence!==assetReadSequence){await assetReadPending;return false}
+   // A save that overlapped the request invalidates both its data and its ETag.
+   if(writeSequence!==assetWriteSequence||assetWritesPending.size)continue;
+   if(error)throw error;
+   syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;
+   assetETag=r.headers.get('ETag');renderAssets();return true;
+  }
+ })();
+ assetReadPending=task;return task;
+}
+async function saveAssets(next){
+ let finish;const pending=new Promise(resolve=>finish=resolve),expected=assetETag;
+ assetWritesPending.add(pending);assetWriteSequence++;
+ try{
+  prepareLibraryFolderIds(next);
+  const r=await api('/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':expected},body:JSON.stringify(next)});
+  const result=await r.json();next.folderIds=result.folderIds;
+  syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;
+  assetETag=r.headers.get('ETag');renderAssets();return true;
+ }catch(e){toast(e.message);return false}
+ finally{assetWritesPending.delete(pending);finish()}
+}
 function allAssetFolders(){const set=new Set(assetIndex.folders);for(const path of [...set,...assetIndex.assets.filter(a=>!a.archived).map(a=>a.folder)]){let parts=path.split('/');while(parts.length){set.add(parts.join('/'));parts.pop()}}return [...set].filter(Boolean).sort((a,b)=>a.localeCompare(b,'zh-CN'))}
 function renderAssets(){if(!$('assetList'))return;const select=$('assetFolder');select.innerHTML='<option value="">全部素材</option>'+allAssetFolders().map(f=>'<option value="'+esc(f)+'">'+esc(f)+'</option>').join('');select.value=assetFolder;const q=$('assetSearch').value.toLowerCase();const list=assetIndex.assets.filter(a=>(!assetFolder||a.folder===assetFolder||a.folder.startsWith(assetFolder+'/'))&&wfLibraryText(a).toLowerCase().includes(q));$('assetCount').textContent=list.length+' 项 · 选中 '+assetSelected.size+' 项';$('assetList').innerHTML=list.slice(0,assetLimit).map(a=>'<div class="asset-row '+(assetSelected.has(a.id)?'selected':'')+'" draggable="true" data-asset="'+a.id+'"><input type="checkbox" aria-label="选择 '+esc(a.title)+'" '+(assetSelected.has(a.id)?'checked':'')+'>'+(a.mime?.startsWith('image/')?'<img loading="lazy" src="'+mediaURL(a.id)+'" alt="">':'<span class="asset-icon">'+(a.mime?.startsWith('video/')?'▶':a.mime?.startsWith('audio/')?'♪':'▤')+'</span>')+'<div><b>'+esc(a.title)+'</b><small>'+esc(a.folder)+'</small></div><button data-asset-preview="'+a.id+'" title="预览">↗</button></div>').join('')+(list.length>assetLimit?'<button id="assetMore">显示更多</button>':'');
  $('assetList').querySelectorAll('[data-asset]').forEach(el=>{el.onclick=e=>{if(e.target.closest('button'))return;const id=el.dataset.asset;if(e.ctrlKey||e.shiftKey||e.target.type==='checkbox'){assetSelected.has(id)?assetSelected.delete(id):assetSelected.add(id)}else assetSelected=new Set([id]);renderAssets()};el.ondblclick=()=>previewAsset(el.dataset.asset);el.ondragstart=e=>{if(!assetSelected.has(el.dataset.asset))assetSelected=new Set([el.dataset.asset]);e.dataTransfer.setData('application/x-creative-assets',JSON.stringify([...assetSelected]));e.dataTransfer.effectAllowed='copy'}});$('assetList').querySelectorAll('[data-asset-preview]').forEach(b=>b.onclick=()=>previewAsset(b.dataset.assetPreview));if($('assetMore'))$('assetMore').onclick=()=>{assetLimit+=80;renderAssets()};
@@ -261,7 +293,7 @@ function updateMediaState(el,message){const area=el.parentElement;let status=are
 function bindMediaState(el){if(el.dataset.stateBound)return;el.dataset.stateBound='true';const ready=()=>updateMediaState(el,Number.isFinite(el.duration)?'时长 '+Math.floor(el.duration/60)+':'+String(Math.floor(el.duration%60)).padStart(2,'0')+' · 点击播放':'已就绪 · 点击播放');el.addEventListener('loadstart',()=>updateMediaState(el,'正在读取媒体信息…'));el.addEventListener('loadedmetadata',ready);el.addEventListener('waiting',()=>updateMediaState(el,'正在缓冲…'));el.addEventListener('playing',()=>updateMediaState(el,'正在播放'));el.addEventListener('pause',ready);el.addEventListener('stalled',()=>updateMediaState(el,'读取较慢，可以稍候或打开原文件'));el.addEventListener('error',()=>updateMediaState(el,'无法播放：文件不可用或浏览器不支持该编码'));if(el.error)updateMediaState(el,'无法播放，可打开原文件');else if(el.readyState>=1)ready();else updateMediaState(el,'正在读取媒体信息…')}
 function canvasMediaKey(el){const node=el.closest('.node'),cell=el.closest('[data-cell-item]'),peers=[...(cell||node).querySelectorAll('video,audio')];return JSON.stringify([node.dataset.id,cell?.dataset.cellR,cell?.dataset.cellC,cell?.dataset.cellItem,peers.indexOf(el),el.getAttribute('src')])}
 const beforePreviewDraw=drawNodes;drawNodes=function(){const media=new Map();document.querySelectorAll('.node video,.node audio').forEach(el=>media.set(canvasMediaKey(el),el));beforePreviewDraw();document.querySelectorAll('.node video,.node audio').forEach(el=>{const old=media.get(canvasMediaKey(el));if(old&&old!==el){el.replaceWith(old);el=old}bindMediaState(el);if(el.readyState>=1)updateMediaState(el,el.paused?'已就绪 · 点击播放':'正在播放')});fillTextPreviews()};
-const loadAssetsBeforePreview=loadAssets;loadAssets=async function(){filePreviews.clear();await loadAssetsBeforePreview();if(board&&!loading)drawNodes()};
+const loadAssetsBeforePreview=loadAssets;loadAssets=async function(){const applied=await loadAssetsBeforePreview();if(applied){filePreviews.clear();if(board&&!loading)drawNodes()}return applied};
 
 const renderLibraryWithNotes=renderAssets;renderAssets=function(){renderLibraryWithNotes();$('assetList').querySelectorAll('[data-asset]').forEach(row=>{const a=assetById(row.dataset.asset);if(!a?.notes)return;const note=document.createElement('p');note.className='library-note';note.textContent=a.notes;note.title=a.notes;row.querySelector('div')?.append(note)})};
 // A batch is prepared completely, remapped once per item, and committed once.
