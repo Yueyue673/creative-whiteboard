@@ -399,18 +399,66 @@ clarifyLocation('boardCrumbs','我的白板');clarifyLocation('assetBreadcrumbs'
 
 // Web documents have their own scale; their wheel events must never zoom the app.
 function setWebDocumentZoom(frame,scale){frame.contentWindow?.postMessage({type:'creative-document-pan-enabled',enabled:!!frame.closest('.node')},'*');frame.contentWindow?.postMessage({type:'creative-set-document-zoom',scale},'*')}
+function enableWebDocumentControls(frame,enabled){(frame.closest('.web-frame-host')||frame).previousElementSibling?.querySelectorAll('button').forEach(button=>button.disabled=!enabled)}
 function setupWebDocumentControls(){document.querySelectorAll('.inline-document iframe,#htmlDocument').forEach(frame=>{if(frame.dataset.zoomControls)return;frame.dataset.zoomControls='true';const bar=document.createElement('div');bar.className='web-zoom-controls inline-ui';const label=document.createElement('span');label.textContent='网页';const minus=document.createElement('button'),reset=document.createElement('button'),plus=document.createElement('button');minus.textContent='−';plus.textContent='＋';reset.textContent='100%';reset.className='web-zoom-value';minus.title='缩小网页';plus.title='放大网页';reset.title='恢复网页至100%';bar.title='滚轮滚动网页；Ctrl + 滚轮缩放白板；右侧按钮调整网页大小';for(const b of [minus,reset,plus])b.disabled=true;bar.append(label,minus,reset,plus);(frame.closest('.web-frame-host')||frame).before(bar);minus.onclick=()=>setWebDocumentZoom(frame,(Number(frame.dataset.webZoom)||1)/1.15);plus.onclick=()=>setWebDocumentZoom(frame,(Number(frame.dataset.webZoom)||1)*1.15);reset.onclick=()=>setWebDocumentZoom(frame,1);const n=board?.nodes.find(n=>n.id===frame.closest('.node')?.dataset.id);setWebDocumentZoom(frame,n?.documentZoom||1)})}
-window.addEventListener('message',e=>{if(!['creative-document-ready','creative-document-zoom'].includes(e.data?.type))return;const frame=[...document.querySelectorAll('.inline-document iframe,#htmlDocument')].find(f=>f.contentWindow===e.source);if(!frame)return;setupWebDocumentControls();const n=board?.nodes.find(n=>n.id===frame.closest('.node')?.dataset.id);if(e.data.type==='creative-document-ready'){frame.dataset.zoomReady='true';(frame.closest('.web-frame-host')||frame).previousElementSibling?.querySelectorAll('button').forEach(b=>b.disabled=false);setWebDocumentZoom(frame,n?.documentZoom||1);return}const scale=Number(e.data.scale);if(!Number.isFinite(scale)||scale<.25||scale>5)return;frame.dataset.webZoom=scale;(frame.closest('.web-frame-host')||frame).previousElementSibling?.querySelector('.web-zoom-value')?.replaceChildren(document.createTextNode(Math.round(scale*100)+'%'));if(n&&Math.abs((n.documentZoom||1)-scale)>.0001){n.documentZoom=scale;change()}});
+window.addEventListener('message',e=>{if(!['creative-document-ready','creative-document-zoom'].includes(e.data?.type))return;const frame=[...document.querySelectorAll('.inline-document iframe,#htmlDocument')].find(f=>f.contentWindow===e.source);if(!frame)return;setupWebDocumentControls();const n=board?.nodes.find(n=>n.id===frame.closest('.node')?.dataset.id);if(e.data.type==='creative-document-ready'){frame.dataset.zoomReady='true';setWebDocumentZoom(frame,n?.documentZoom||1);return}const scale=Number(e.data.scale);if(!Number.isFinite(scale)||scale<.25||scale>5)return;frame.dataset.webZoom=scale;(frame.closest('.web-frame-host')||frame).previousElementSibling?.querySelector('.web-zoom-value')?.replaceChildren(document.createTextNode(Math.round(scale*100)+'%'));if(n&&Math.abs((n.documentZoom||1)-scale)>.0001){n.documentZoom=scale;change()}});
 const mountBeforeWebZoom=mountInlineDocuments;mountInlineDocuments=function(){mountBeforeWebZoom();setupWebDocumentControls()};
 const previewBeforeWebZoom=previewAsset;previewAsset=async function(id){await previewBeforeWebZoom(id);setupWebDocumentControls()};
 
 // Each navigation must prove that its new document has the wheel guard installed.
-function protectWebNavigation(frame){if(frame.dataset.navigationGuard)return;frame.dataset.navigationGuard='true';let host=frame.closest('.web-frame-host');if(!host){host=document.createElement('div');host.className='web-frame-host inline-ui';frame.before(host);host.append(frame)}const cover=document.createElement('div');cover.className='web-navigation-cover inline-ui';cover.innerHTML='<p>正在载入网页…</p><button type="button">返回原网页</button>';host.append(cover);cover.querySelector('button').onclick=()=>{frame.src=frame.getAttribute('src')};frame._navigationCover=cover;
- // An early script handshake is not the final load-time probe. Revealing the
- // page in between lets the later probe interrupt a user's first click.
- const probe=loaded=>{frame._navigationLoaded=!!loaded;frame._zoomProof=null;frame.inert=true;if(document.activeElement===frame){frame.blur();canvas.focus()}cover.hidden=false;cover.querySelector('p').textContent='正在载入网页…';frame._zoomNonce=crypto.randomUUID();frame.contentWindow?.postMessage({type:'creative-document-probe',nonce:frame._zoomNonce},'*');clearTimeout(frame._navigationTimer);frame._navigationTimer=setTimeout(()=>{if(!cover.hidden)cover.querySelector('p').textContent=frame._zoomProof&&!frame._navigationLoaded?'网页还在载入，可以稍等或返回原网页。':'这个页面未接入白板的缩放保护。请返回原网页，避免误缩放整个界面。'},1600)};frame.addEventListener('load',()=>probe(true));probe(false)}
+function webNavigationStatus(frame,message){const view=$('documentView');if(frame.isConnected&&view?.contains(frame)&&$('documentState'))$('documentState').textContent=message}
+function protectWebNavigation(frame){
+ if(frame.dataset.navigationGuard)return;
+ frame.dataset.navigationGuard='true';
+ let host=frame.closest('.web-frame-host');
+ if(!host){host=document.createElement('div');host.className='web-frame-host inline-ui';frame.before(host);host.append(frame)}
+ const cover=document.createElement('div');cover.className='web-navigation-cover inline-ui';
+ cover.innerHTML='<p role="status">正在载入网页…</p><button type="button">返回原网页</button>';
+ host.append(cover);frame._navigationCover=cover;
+ // An early handshake does not complete the final load-time protection probe.
+ const probe=loaded=>{
+  frame._navigationLoaded=!!loaded;frame._zoomProof=null;frame.inert=true;
+  enableWebDocumentControls(frame,false);
+  if(document.activeElement===frame){frame.blur();canvas.focus()}
+  cover.hidden=false;cover.querySelector('p').textContent='正在载入网页…';
+  webNavigationStatus(frame,'正在载入网页…');
+  frame._zoomNonce=crypto.randomUUID();
+  frame.contentWindow?.postMessage({type:'creative-document-probe',nonce:frame._zoomNonce},'*');
+  clearTimeout(frame._navigationTimer);
+  frame._navigationTimer=setTimeout(()=>{
+   if(cover.hidden)return;
+   const waiting=!frame._navigationLoaded;
+   cover.querySelector('p').textContent=waiting?'网页还在载入，可以稍等或返回原网页。':'这个网页无法在白板里显示。请返回原网页继续查看。';
+   webNavigationStatus(frame,waiting?'网页还在载入…':'网页未能显示');
+  },1600);
+ };
+ frame._probeNavigation=probe;
+ cover.querySelector('button').onclick=()=>{probe(false);frame.src=frame.getAttribute('src')};
+ frame.addEventListener('load',()=>probe(true));probe(false);
+}
 const setupBeforeNavigationGuard=setupWebDocumentControls;setupWebDocumentControls=function(){setupBeforeNavigationGuard();document.querySelectorAll('.inline-document iframe,#htmlDocument').forEach(protectWebNavigation)};
-window.addEventListener('message',e=>{if(!['creative-document-leaving','creative-document-protected','creative-document-ready'].includes(e.data?.type))return;const frame=[...document.querySelectorAll('.inline-document iframe,#htmlDocument')].find(f=>f.contentWindow===e.source);if(!frame)return;setupWebDocumentControls();const cover=frame._navigationCover;if(e.data.type==='creative-document-leaving'){frame.inert=true;frame.blur();cover.hidden=false;cover.querySelector('p').textContent='正在跳转…';frame._zoomNonce=null;frame._zoomProof=null;frame._navigationLoaded=false;return}if(e.data.type==='creative-document-ready'){frame.contentWindow.postMessage({type:'creative-document-probe',nonce:frame._zoomNonce},'*');return}if(frame._zoomNonce&&e.data.nonce===frame._zoomNonce){frame._zoomProof=e.data.nonce;if(frame._navigationLoaded){frame.inert=false;cover.hidden=true;clearTimeout(frame._navigationTimer)}}});
+window.addEventListener('message',e=>{
+ if(!['creative-document-leaving','creative-document-protected','creative-document-ready'].includes(e.data?.type))return;
+ const frame=[...document.querySelectorAll('.inline-document iframe,#htmlDocument')].find(f=>f.contentWindow===e.source);
+ if(!frame)return;
+ setupWebDocumentControls();const cover=frame._navigationCover;
+ if(e.data.type==='creative-document-leaving'){
+  frame.inert=true;frame.blur();enableWebDocumentControls(frame,false);
+  cover.hidden=false;cover.querySelector('p').textContent='正在跳转…';webNavigationStatus(frame,'正在跳转…');
+  frame._zoomNonce=null;frame._zoomProof=null;frame._navigationLoaded=false;clearTimeout(frame._navigationTimer);return;
+ }
+ if(e.data.type==='creative-document-ready'){
+  if(!frame._zoomNonce)frame._probeNavigation(false);
+  frame.contentWindow.postMessage({type:'creative-document-probe',nonce:frame._zoomNonce},'*');return;
+ }
+ if(frame._zoomNonce&&e.data.nonce===frame._zoomNonce){
+  frame._zoomProof=e.data.nonce;
+  if(frame._navigationLoaded){
+   frame.inert=false;cover.hidden=true;enableWebDocumentControls(frame,true);
+   webNavigationStatus(frame,'网页预览 · 支持页面内的样式与交互');clearTimeout(frame._navigationTimer);
+  }
+ }
+});
 
 // Screen coordinates keep dragging steady even while the iframe moves with the board.
 // A preview may cancel an unfinished research copy, never write clipboard data.

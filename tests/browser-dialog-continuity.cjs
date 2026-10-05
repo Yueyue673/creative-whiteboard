@@ -32,6 +32,10 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
     await page.evaluate(async () => {await loadAssets();});
     const settleClose = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const caseName = process.env.CREATIVE_PREVIEW_CASE;
+    const previewShot=async name=>{
+      const directory=process.env.CREATIVE_PREVIEW_SCREENSHOTS;if(!directory)return;
+      fs.mkdirSync(directory,{recursive:true});await page.screenshot({path:path.join(directory,name+'.png')});
+    };
 
     if (!caseName || caseName === 'web-loading') {
       let arrive, release;
@@ -52,6 +56,92 @@ const assert = require('assert'), {spawn} = require('child_process'), {chromium}
       await frame.locator('#loadCount').click(); assert.equal(await frame.locator('#loadCount').textContent(), '1');
       await page.unroute('**/slow-preview-image.png', handler); await page.evaluate(() => $('dialog').close()); await settleClose();
       console.log('Preview continuity: loading documents do not expose controls before the final protection probe');
+    }
+
+    if (!caseName || caseName === 'web-retry') {
+      let arrive, release, settle, arrivalTimer, releaseImage, imageSettled, imageStarted=false;
+      const arrived=new Promise(resolve=>arrive=resolve), gate=new Promise(resolve=>release=resolve);
+      const settled=new Promise(resolve=>settle=resolve);
+      const pattern='**/api/preview/'+first.id;
+      let initial=true;
+      const handler=async route=>{
+        if(!initial)return route.continue();
+        initial=false;arrive();await gate;
+        try{await route.continue()}finally{settle()}
+      };
+      await page.route(pattern,handler);
+      try{
+        await page.evaluate(id=>previewAsset(id),first.id);
+        await Promise.race([arrived,new Promise((_,reject)=>arrivalTimer=setTimeout(()=>reject(Error('The initial preview request did not arrive')),10000))]);
+        clearTimeout(arrivalTimer);
+        await page.waitForFunction(()=>{
+          const frame=document.querySelector('#htmlDocument');
+          return frame?._navigationCover?.textContent!==undefined&&!frame._navigationCover.textContent.includes('正在载入网页…');
+        });
+        assert((await page.locator('.web-navigation-cover p').innerText()).includes('网页还在载入'),
+          'A pending HTML response is loading, not a page without zoom protection');
+        assert.equal(await page.locator('#documentState').innerText(),'网页还在载入…');
+        assert(await page.locator('#htmlDocument').evaluate(frame=>frame.inert&&!frame._navigationLoaded&&!frame._zoomProof));
+        await previewShot('html-response-waiting');
+        release();await settled;
+        await page.waitForFunction(()=>document.querySelector('#htmlDocument')?._navigationCover?.hidden===true);
+        assert((await page.locator('#documentState').innerText()).includes('支持页面内的样式与交互'));
+
+        const slow=await upload('return-image.html','<!doctype html><html><body><p id="slowMarker">正在等待图片的网页</p><img src="https://example.invalid/return-image.png"></body></html>');
+        let imageArrive, imageFinish;
+        const imageArrived=new Promise(resolve=>imageArrive=resolve), imageGate=new Promise(resolve=>releaseImage=resolve);
+        imageSettled=new Promise(resolve=>imageFinish=resolve);
+        await page.route('**/return-image.png',async route=>{
+          imageStarted=true;imageArrive();await imageGate;
+          try{await route.fulfill({status:404,contentType:'text/plain',body:'Unavailable test image'})}finally{imageFinish()}
+        });
+        const frame=page.locator('#htmlDocument').contentFrame();
+        await frame.locator('#marker').evaluate((element,url)=>location.href=url,base+'/api/preview/'+slow.id);
+        await imageArrived;
+        await page.waitForFunction(()=>document.querySelector('#htmlDocument')?._navigationCover?.textContent.includes('网页还在载入'));
+        assert(await page.locator('#htmlDocument').evaluate(frame=>frame.inert&&!frame._navigationLoaded&&!!frame._zoomProof),
+          'A slow navigation stays covered even after its early bridge proof');
+        const oldProof=await page.locator('#htmlDocument').evaluate(frame=>frame._zoomNonce);
+        await page.locator('.web-navigation-cover button').click();
+        await page.waitForFunction(proof=>{
+          const frame=document.querySelector('#htmlDocument');
+          return frame?._navigationCover?.hidden===true&&frame._zoomProof&&frame._zoomNonce!==proof;
+        },oldProof);
+        assert.equal(await frame.locator('#marker').innerText(),'第一次查阅');
+        releaseImage();await imageSettled;await page.unroute('**/return-image.png');
+        await settleClose();
+        assert.equal(await frame.locator('#marker').innerText(),'第一次查阅','An abandoned image response cannot replace the restored original');
+        assert((await page.locator('#documentState').innerText()).includes('支持页面内的样式与交互'));
+
+        await frame.locator('#marker').evaluate((element,url)=>location.href=url,base+'/api/preview/missing-test-document');
+        await page.waitForFunction(()=>document.querySelector('#htmlDocument')?._navigationCover?.textContent.includes('无法在白板里显示'));
+        assert.equal(await page.locator('#documentState').innerText(),'网页未能显示');
+        assert(await page.locator('#htmlDocument').evaluate(frame=>frame.inert&&!frame._navigationCover.hidden));
+        assert.equal(await page.locator('.web-zoom-controls button:enabled').count(),0,
+          'An unavailable page does not leave nonfunctional zoom buttons enabled');
+        await previewShot('html-navigation-unavailable');
+        await page.locator('.web-navigation-cover button').click();
+        await page.waitForFunction(()=>document.querySelector('#htmlDocument')?._navigationCover?.hidden===true);
+        assert.equal(await frame.locator('#marker').innerText(),'第一次查阅');
+        assert.equal(await page.locator('.web-zoom-controls button:enabled').count(),3,
+          'Returning to a protected page restores its document controls');
+        const boardView=await page.evaluate(()=>({...view()}));
+        await page.locator('.web-zoom-controls button[title="放大网页"]').click();
+        await page.waitForFunction(()=>Number(document.querySelector('#htmlDocument').dataset.webZoom)>1);
+        assert((await frame.locator('html').evaluate(element=>Number(element.style.zoom)))>1);
+        await page.locator('.web-zoom-value').click();
+        await page.waitForFunction(()=>Number(document.querySelector('#htmlDocument').dataset.webZoom)===1);
+        assert.deepEqual(await page.evaluate(()=>({...view()})),boardView,'Document buttons retain the independent board scale');
+        assert.equal(await page.locator('#htmlDocument').getAttribute('sandbox'),'allow-scripts');
+        assert.equal(await page.evaluate(()=>visualViewport.scale),1);
+      }finally{
+        clearTimeout(arrivalTimer);release();if(!initial)await settled;
+        releaseImage?.();if(imageStarted)await imageSettled;
+        await page.unroute('**/return-image.png');
+        await page.unroute(pattern,handler);await page.evaluate(()=>$('dialog').close());await settleClose();
+        await page.evaluate(()=>loadAssets());
+      }
+      console.log('Preview continuity: truthful pending/failure/ready status and return to original from slow or unavailable pages; sandbox and viewport preserved');
     }
 
     if (!caseName || caseName === 'html') {
