@@ -5,7 +5,6 @@
  const dialog=$('dialog');
  const batches=catalog=>Array.isArray(catalog.trash)?catalog.trash.filter(t=>t&&typeof t.id==='string'&&Array.isArray(t.assetIds)&&Array.isArray(t.folders)):[];
  const active=token=>token===epoch&&dialog.open&&owner?.isConnected;
- const parent=path=>path.includes('/')?path.slice(0,path.lastIndexOf('/')):'';
  const prefix=(path,folder)=>path===folder||path.startsWith(folder+'/');
  const unarchive=item=>{delete item.archived;delete item.archiveBatch;delete item.archivedAt;return item};
  const addFolders=(catalog,paths)=>catalog.folders=[...new Set([...catalog.folders,...paths.filter(path=>typeof path==='string'&&path)])];
@@ -17,20 +16,25 @@
  deleteExplorer=async function(kind){
   if(kind!=='asset')return deleteBefore(kind);
   if(explorerBusy)return;
-  const folder=assetFolderPick,ids=new Set(assetSelected),location=assetFolder;
-  if(!folder&&!ids.size)return;
+  const picked=assetFolderPick,target=picked?libraryFolderTarget(picked):null,ids=new Set(assetSelected),location=libraryFolderTarget(assetFolder);
+  const placements=new Map(assetIndex.assets.filter(a=>ids.has(a.id)&&!a.archived).map(a=>[a.id,libraryFolderIdentity(a.folder)]));
+  if(!picked&&!ids.size)return;
   explorerBusy=true;
   try{
    await loadAssets();
+   const folder=target?libraryFolderLocation(target):null;
+   if(target&&!folder)return toast('原文件夹已移除，请重新选择后再删除');
+   if(!target&&[...ids].some(id=>{const item=assetById(id);return !item||item.archived||placements.get(id)!==libraryFolderIdentity(item.folder)}))return toast('选中的内容已被移走，请重新选择后再删除');
    const next=clone(assetIndex),removed=next.assets.filter(a=>!a.archived&&(folder?prefix(a.folder||'',folder):ids.has(a.id)));
    const folders=folder?allAssetFolders().filter(path=>prefix(path,folder)):[];
    if(!removed.length&&!folders.length)return toast('这项内容已移走，请重新选择');
-   const ticket={id:uid(),kind:folder?'folder':'items',title:folder?folder.split('/').at(-1):removed[0].title,folder:folder||location,folders,folderIds:Object.fromEntries(folders.map(path=>[path,next.folderIds?.[path]])),assetIds:removed.map(a=>a.id),savedAt:Date.now()/1000};
+   const ticket={id:uid(),kind:folder?'folder':'items',title:folder?folder.split('/').at(-1):removed[0].title,folder:folder||libraryFolderLocation(location),folders,folderIds:Object.fromEntries(folders.map(path=>[path,next.folderIds?.[path]])),assetIds:removed.map(a=>a.id),savedAt:Date.now()/1000};
    for(const item of removed){item.archived=true;item.archiveBatch=ticket.id;item.archivedAt=ticket.savedAt}
    next.folders=next.folders.filter(path=>!folders.includes(path));
    next.trash=[...batches(next),ticket];
    if(await saveAssets(next)){
-    assetSelected.clear();assetFolderPick=null;enterAssetFolder(folder?parent(folder):location);
+    // Saving removes only the deleted selection. A new view or selection chosen
+    // while the request was in flight is preserved by folder navigation sync.
     toast('已移入回收站 · Ctrl+Z 撤销');
    }
   }catch(e){toast(e.message)}finally{explorerBusy=false}

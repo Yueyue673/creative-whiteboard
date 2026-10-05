@@ -55,11 +55,13 @@ const {chromium} = require('playwright');
    if (route.request().method() === 'PUT') await lateSaveGate;
    await route.continue();
   });
+  const lateSaveRequest = page.waitForRequest(request => request.method() === 'PUT' && new URL(request.url()).pathname === '/api/boards/a');
   await page.evaluate(() => {
    board.nodes[0].body = '先保存的一次修改。'; change();
    window.lateSave = persist(); window.switchAfterSave = switchBoard('b');
   });
-  await page.waitForFunction(() => !!savePromise && !dirty);
+  await lateSaveRequest;
+  assert(await page.evaluate(() => !!savePromise), 'The original document save is still held before starting the later import');
   await page.evaluate(() => {
    const file = new File(['保存期间导入的记录。'], '保存期间的记录.txt', {type:'text/plain'});
    file.text = () => new Promise(resolve => window.finishLateImport = resolve);

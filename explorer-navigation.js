@@ -9,7 +9,7 @@
  function rows(panel){return [...list(panel).querySelectorAll(selector)]}
  function key(row){
   if(row?.dataset.asset)return 'asset:'+row.dataset.asset;
-  if(row?.dataset.asub)return 'folder:'+row.dataset.asub;
+  if(row?.dataset.asub)return row.dataset.folderIdentity?'folder-id:'+row.dataset.folderIdentity:'folder-path:'+row.dataset.asub;
   if(row?.dataset.entryId)return 'entry:'+row.dataset.entryId;
   return null;
  }
@@ -29,6 +29,7 @@
   root.setAttribute('aria-multiselectable',String(panel==='assetPane'));
   const active=document.activeElement?.closest(selector),tabStop=items.includes(active)?active:items.find(row=>chosen(row,panel))||items[0];
   for(const row of items){
+   if(panel==='assetPane'&&row.dataset.asub){const identity=assetIndex.folderIds?.[row.dataset.asub];if(identity)row.dataset.folderIdentity=identity;else delete row.dataset.folderIdentity}
    row.setAttribute('role','option');row.setAttribute('aria-selected',String(chosen(row,panel)));
    row.tabIndex=row===tabStop?0:-1;
    row.querySelectorAll('button,input[type=checkbox]').forEach(el=>el.tabIndex=-1);
@@ -57,7 +58,7 @@
  }
  function inList(e,panel){return e.target.closest('#'+panels[panel])||e.target===$(panel)}
  function currentRow(panel,e){return e.target.closest(selector)||rows(panel).find(row=>chosen(row,panel))}
- function location(panel){return JSON.stringify(panel==='assetPane'?[assetFolder,$('assetSearch').value]:[folderSelected,$('boardSearch').value])}
+ function location(panel){const identity=assetFolder?assetIndex.folderIds?.[assetFolder]:null;return JSON.stringify(panel==='assetPane'?[identity?'folder-id:'+identity:assetFolder?'folder-path:'+assetFolder:'root',$('assetSearch').value]:[folderSelected,$('boardSearch').value])}
  function rememberScroll(panel){
   const values=[];
   for(let el=list(panel);el&&el!==$(panel).parentElement;el=el.parentElement)values.push({el,top:el.scrollTop,left:el.scrollLeft});

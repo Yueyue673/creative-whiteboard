@@ -19,6 +19,7 @@ function moveLibraryFolderIds(next,old,destination){
  next.folderIds=ids;
 }
 function libraryFolderTarget(path=assetFolder){return {path,id:assetIndex.folderIds?.[path]||''}}
+function libraryFolderIdentity(path='',catalog=assetIndex){return path?(catalog.folderIds?.[path]?'folder:'+catalog.folderIds[path]:'path:'+path):'root'}
 function libraryFolderLocation(target,catalog=assetIndex){
  if(!target.id)return target.path&&libraryFolderPaths(catalog).includes(target.path)?target.path:'';
  return Object.entries(catalog.folderIds||{}).find(([,id])=>id===target.id)?.[0]??'';
@@ -26,10 +27,22 @@ function libraryFolderLocation(target,catalog=assetIndex){
 function syncLibraryFolderNavigation(previous,next){
  const paths=new Set(libraryFolderPaths(next)),locations=new Map(Object.entries(next.folderIds||{}).map(([path,id])=>[id,path]));
  const locate=path=>{if(!path)return '';const id=previous.folderIds?.[path];return id?(locations.get(id)??''):(paths.has(path)?path:'')};
- assetFolder=locate(assetFolder);assetFolderPick=locate(assetFolderPick)||null;
+ const picked=assetFolderPick,parent=path=>path.includes('/')?path.slice(0,path.lastIndexOf('/')):'';
+ let current=assetFolder;assetFolder=locate(current);
+ // A removed current folder falls back through its original parent identities,
+ // without entering a new folder that happens to reuse one of the old names.
+ while(current&&!assetFolder){current=parent(current);assetFolder=locate(current)}
+ assetFolderPick=locate(assetFolderPick)||null;
  const expanded=[...assetExpanded].map(locate).filter(Boolean);assetExpanded.clear();expanded.forEach(path=>assetExpanded.add(path));
  const parts=assetFolder.split('/').filter(Boolean);for(let i=1;i<=parts.length;i++)assetExpanded.add(parts.slice(0,i).join('/'));
  const live=new Set(next.assets.filter(a=>!a.archived).map(a=>a.id));assetSelected=new Set([...assetSelected].filter(id=>live.has(id)));
+ const query=$('assetSearch')?.value.trim().toLowerCase()||'';
+ if(assetFolderPick&&libraryFolderIdentity(parent(picked),previous)!==libraryFolderIdentity(parent(assetFolderPick),next)&&(query||parent(assetFolderPick)!==assetFolder))assetFolderPick=null;
+ const visible=new Set(next.assets.filter(a=>!a.archived&&(query?wfLibraryText(a).toLowerCase().includes(query):a.folder===assetFolder)).map(a=>a.id));
+ const oldItems=new Map(previous.assets.map(a=>[a.id,a])),newItems=new Map(next.assets.map(a=>[a.id,a]));
+ // Explicit research selections may be outside this view. Only a newly moved item
+ // that left the current list loses selection; folder renames preserve identity.
+ assetSelected=new Set([...assetSelected].filter(id=>{const old=oldItems.get(id),current=newItems.get(id);return !old||libraryFolderIdentity(old.folder,previous)===libraryFolderIdentity(current.folder,next)||visible.has(id)}));
 }
 function selectLibraryImports(added,target,startedAt){
  // Navigation during an upload is intentional; do not pull the user back.

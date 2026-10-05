@@ -1,7 +1,7 @@
 const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),{spawn}=require('child_process'),assert=require('assert');
 const {chromium}=require('playwright');
 (async()=>{
- const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-recovery-'));
+ const root=process.env.CREATIVE_BOARD_TEST_ROOT||path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-recovery-'));
  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p))})});
  const base='http://127.0.0.1:'+port,proc=spawn(process.env.PYTHON||'python',[root+'/server.py'],{env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:tmp,PYTHONIOENCODING:'utf-8'},windowsHide:true});let browser,p;
  try{
@@ -32,7 +32,37 @@ const {chromium}=require('playwright');
   await p.evaluate(()=>wfRecovery('library'));let releaseRevision,revisionStarted,revisionDone;const revisionGate=new Promise(r=>releaseRevision=r),revisionRequest=new Promise(r=>revisionStarted=r),revisionSettled=new Promise(r=>revisionDone=r);await p.route('**/api/history/library/catalog/*',async route=>{revisionStarted();await revisionGate;try{await route.continue()}finally{revisionDone()}});await p.locator('[data-revision]').first().click();await revisionRequest;await p.keyboard.press('Escape');await p.evaluate(()=>showDialog('<h2>自己正在编辑的窗口</h2>',[['关闭',()=>document.getElementById('dialog').close()]]));releaseRevision();await revisionSettled;await p.unroute('**/api/history/library/catalog/*');await p.waitForTimeout(100);assert.equal(await p.locator('#dialogBody h2').innerText(),'自己正在编辑的窗口');assert.deepEqual(errors,[]);
   // Board recovery is additive, and a whole revision is a separate board.
   await p.keyboard.press('Escape');const sourceBoard=await p.evaluate(async()=>{board.nodes=[{id:'old-note',type:'note',title:'早先的观察',body:'早先写的内容。',x:100,y:100,w:340,h:180,tags:[]}];render();change();await persist();await api('/api/checkpoints/'+boardId,{method:'PUT'});board.nodes[0].body='最新写的内容。';render();change();await persist();return boardId});await p.evaluate(()=>wfRecovery('board'));await p.locator('[data-revision]').first().click();await p.locator('[data-recover-node="old-note"]').check();await p.getByRole('button',{name:'添加勾选内容',exact:true}).click();await p.waitForFunction(()=>board.nodes.length===2);assert.equal(await p.evaluate(()=>boardId),sourceBoard);assert.deepEqual(await p.evaluate(()=>board.nodes.map(n=>n.body).sort()),['早先写的内容。','最新写的内容。'].sort());await p.evaluate(()=>undo());assert.equal(await p.evaluate(()=>board.nodes[0].body),'最新写的内容。');await p.evaluate(()=>wfRecovery('board'));await p.locator('[data-revision]').first().click();await p.getByRole('button',{name:'整份记录另存为白板',exact:true}).click();await p.waitForFunction(id=>boardId!==id&&!loading,sourceBoard);assert.equal(await p.evaluate(()=>board.nodes[0].body),'早先写的内容。');assert.equal((await fetch(base+'/api/boards/'+sourceBoard).then(r=>r.json())).nodes[0].body,'最新写的内容。');assert.deepEqual(errors,[]);
-  console.log('Recovery: persistent empty/nested folders, grouped deletion, undo/redo, fresh cross-window restoration, legacy archives, failed-save retry, tab race and independent revision copies passed');
+  // A delete captures object identity, then rechecks placement after its fresh read.
+  await p.evaluate(async()=>{await loadAssets();const next=clone(assetIndex);next.folders.push('待处理','待处理/资料','其他','笔记','笔记/子目录');for(const [id,folder] of [['pending-piece','待处理/资料'],['elsewhere-piece','其他'],['nested-piece','笔记/子目录']])next.assets.push({id,title:id,path:'',folder,mime:bundleMime,size:0,tags:[],bundle:{nodes:[{id:id+'-atom',type:'note',title:id,body:'由作者保留的原文。',x:0,y:0,w:320,h:120}],edges:[]}});await saveAssets(next);await showWorkspaceTab('assetPane');enterAssetFolder('待处理/资料')});
+  async function holdCatalog(method){
+   let release,arrive,used=false;const arrived=new Promise(resolve=>arrive=resolve);
+   const handler=async route=>{if(route.request().method()===method&&!used){used=true;await new Promise(resolve=>{release=resolve;arrive()})}await route.continue()};
+   await p.route('**/api/assets',handler);return {arrived,release:()=>release(),remove:()=>p.unroute('**/api/assets',handler)};
+  }
+  await p.locator('[data-asset="pending-piece"]').click();let hold=await holdCatalog('GET');
+  await p.evaluate(()=>{window.pendingDelete=deleteExplorer('asset')});await hold.arrived;
+  await q.evaluate(async()=>{await loadAssets();await moveAssetItems(['pending-piece'],'其他')});hold.release();await p.evaluate(()=>pendingDelete);await hold.remove();
+  assert.equal(await p.evaluate(()=>!!assetById('pending-piece').archived),false,'A selected item moved while the delete refresh was pending is not deleted from its new location');
+  assert.equal(await p.evaluate(()=>assetFolder),'待处理/资料');assert.deepEqual(await p.evaluate(()=>[...assetSelected]),[]);
+  await q.evaluate(async()=>{await loadAssets();await moveAssetItems(['pending-piece'],'待处理/资料')});await p.evaluate(()=>loadAssets());
+  // A renamed original and a new same-named folder are different deletion targets.
+  await p.evaluate(()=>enterAssetFolder(''));await p.locator('[data-asub="待处理"]').click();hold=await holdCatalog('GET');
+  await p.evaluate(()=>{window.pendingDelete=deleteExplorer('asset')});await hold.arrived;
+  await q.evaluate(async()=>{await loadAssets();await moveAssetFolder('待处理','','原文件夹');const next=clone(assetIndex);next.folders.push('待处理');next.assets.push({id:'replacement-piece',title:'新文件夹里的原文',folder:'待处理',path:'',mime:bundleMime,bundle:{nodes:[{id:'replacement-atom',type:'note',body:'不能因旧名称而被删除。',x:0,y:0,w:300,h:100}],edges:[]}});await saveAssets(next)});
+  hold.release();await p.evaluate(()=>pendingDelete);await hold.remove();
+  assert(await p.evaluate(()=>assetById('pending-piece').archived),'The captured original folder is deleted after its rename');
+  assert.equal(await p.evaluate(()=>!!assetById('replacement-piece').archived),false,'A new folder with the original name is left intact');
+  assert(await p.evaluate(()=>assetIndex.folders.includes('待处理')));assert.equal(await p.evaluate(()=>assetFolder),'');
+  // Removing a nested current folder naturally returns to its surviving parent.
+  await p.evaluate(()=>{enterAssetFolder('笔记/子目录');assetFolderPick='笔记/子目录'});await p.evaluate(()=>deleteExplorer('asset'));
+  assert.equal(await p.evaluate(()=>assetFolder),'笔记','Deleting the current child retains the nearest surviving parent view');
+  // A late deletion never clears a new selection or forces an old reading location.
+  await p.evaluate(()=>{enterAssetFolder('待处理');assetSelected=new Set(['replacement-piece']);renderAssets()});hold=await holdCatalog('PUT');
+  await p.evaluate(()=>{window.pendingDelete=deleteExplorer('asset')});await hold.arrived;
+  await p.evaluate(()=>{enterAssetFolder('其他');assetSelected=new Set(['elsewhere-piece']);renderAssets()});hold.release();await p.evaluate(()=>pendingDelete);await hold.remove();
+  assert.equal(await p.evaluate(()=>assetFolder),'其他');assert.deepEqual(await p.evaluate(()=>[...assetSelected]),['elsewhere-piece'],'A new selection made during the write remains selected');
+  assert.equal(await p.evaluate(()=>!!assetById('elsewhere-piece').archived),false);assert.deepEqual(errors,[]);
+  console.log('Recovery: persistent empty/nested folders, grouped deletion, undo/redo, fresh restoration, failed-save retry, independent revision copies, stable deletion targets and navigation continuity passed');
  }catch(e){if(p)console.error(await p.evaluate(()=>({dialog:document.getElementById('dialog').open,text:document.getElementById('dialogBody').innerText,toast:document.getElementById('toast').innerText,item:assetById('item-1')})));throw e}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});

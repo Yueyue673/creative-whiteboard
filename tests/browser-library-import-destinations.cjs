@@ -41,6 +41,7 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
    return async()=>{release();const result=await page.evaluate(()=>destinationImport);await page.unroute('**/api/assets/upload',handler);assert(result.ok,result.error);return result.value};
   }
   // An initially empty folder still has identity; rename does not recreate its old path.
+  await page.evaluate(()=>enterAssetFolder('草稿'));
   const finishFirst=await pending(['first.wav'],'草稿');
   await page.evaluate(()=>moveAssetFolder('草稿','','片段'));
   const first=await finishFirst();

@@ -1,7 +1,7 @@
 const fs=require('fs'),os=require('os'),path=require('path'),net=require('net'),{spawn}=require('child_process'),assert=require('assert');
 const {chromium}=require('playwright');
 (async()=>{
- const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-explorer-navigation-'));
+ const root=process.env.CREATIVE_BOARD_TEST_ROOT||path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(path.join(os.tmpdir(),'whiteboard-explorer-navigation-'));
  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p))})});
  const base='http://127.0.0.1:'+port,proc=spawn(process.env.PYTHON||'python',[root+'/server.py'],{env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:tmp,PYTHONIOENCODING:'utf-8'},windowsHide:true});let browser,p;
  try{
@@ -15,6 +15,56 @@ const {chromium}=require('playwright');
   await p.keyboard.press('Enter');await p.waitForFunction(()=>document.getElementById('dialog').open);await p.keyboard.press('Escape');await p.waitForFunction(()=>!document.getElementById('dialog').open);assert.equal(await p.evaluate(()=>document.activeElement.dataset.asset),'entry-10','Closing preview returns to the same row');await p.keyboard.press('ArrowDown');assert.deepEqual(await p.evaluate(()=>[...assetSelected]),['entry-11']);await p.keyboard.press('F2');await p.locator('#library-annotation').fill('作者补充的备注。');await p.locator('#dialogActions button').filter({hasText:'保存到内容库'}).click();await p.waitForFunction(()=>!document.getElementById('dialog').open);assert.equal(await p.evaluate(()=>document.activeElement.dataset.asset),'entry-11');assert.equal(await p.evaluate(()=>assetById('entry-11').bundle.nodes[0].annotation),'作者补充的备注。');
   await p.keyboard.press('Shift+F10');assert(await p.locator('#fileContext').isVisible());await p.keyboard.press('End');assert(await p.locator('#fileContext button').last().evaluate(el=>el===document.activeElement));await p.keyboard.press('Escape');assert.equal(await p.evaluate(()=>document.activeElement.dataset.asset),'entry-11');await p.keyboard.press('Control+a');assert.equal(await p.evaluate(()=>assetSelected.size),95);assert.equal(await p.evaluate(()=>document.activeElement.dataset.asset),'entry-11','Select all does not drop focus');
   await p.keyboard.press('Alt+ArrowUp');assert.equal(await p.evaluate(()=>assetFolder),'');assert.equal(await p.evaluate(()=>document.activeElement.dataset.asub),'观察','Going up returns focus to the folder just left');await p.locator('[data-asub="空文件夹"]').click();await p.keyboard.press('Enter');await p.keyboard.press('ArrowDown');assert.equal(await p.evaluate(()=>document.activeElement.id),'assetList');assert.equal(await p.evaluate(()=>board.nodes[0].y),100);await p.keyboard.press('Alt+ArrowUp');
+  // Names and paths can change while the focused folder remains the same object.
+  const other=await context.newPage();other.on('pageerror',e=>errors.push(e.message));await other.goto(base+'/index.html');await other.waitForFunction(()=>board&&!loading&&assetIndex.folderIds?.['观察']);
+  await p.locator('[data-asub="观察"]').click();const originalIdentity=await p.evaluate(()=>assetIndex.folderIds['观察']);
+  await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('观察','','观察记录')});await p.evaluate(()=>loadAssets());
+  assert.equal(await p.evaluate(()=>document.activeElement.dataset.asub),'观察记录','The focused folder follows a rename in another window');
+  assert.equal(await p.evaluate(()=>assetFolderPick),'观察记录');assert.equal(await p.evaluate(()=>assetIndex.folderIds['观察记录']),originalIdentity);
+  await p.keyboard.press('Enter');await p.keyboard.press('ArrowDown');await p.keyboard.press('ArrowDown');
+  const remoteScroll=await p.evaluate(()=>{let el=$('assetList');while(el.scrollHeight<=el.clientHeight+1&&el.parentElement)el=el.parentElement;window._renameScroll=el;el.scrollTop=540;return el.scrollTop});
+  assert(remoteScroll>400);assert.equal(await p.evaluate(()=>document.activeElement.dataset.asset),'entry-0');
+  await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('观察记录','','观察')});await p.evaluate(()=>loadAssets());
+  assert.equal(await p.evaluate(()=>assetFolder),'观察');assert.equal(await p.evaluate(()=>document.activeElement.dataset.asset),'entry-0');
+  assert(Math.abs(await p.evaluate(()=>window._renameScroll.scrollTop)-remoteScroll)<1,'The same renamed folder preserves its scroll even when the focused item is offscreen');
+  await p.keyboard.press('Alt+ArrowUp');
+  // Focus-only movement remains independent from the existing selection after a rename.
+  await p.keyboard.press('Control+ArrowDown');assert.equal(await p.evaluate(()=>document.activeElement.dataset.asub),'空文件夹');
+  await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('空文件夹','','空记录')});await p.evaluate(()=>loadAssets());
+  assert.equal(await p.evaluate(()=>document.activeElement.dataset.asub),'空记录');assert.equal(await p.evaluate(()=>assetFolderPick),'观察');
+  await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('空记录','','空文件夹')});await p.evaluate(()=>loadAssets());
+  // Removed visible entries cannot stay selected invisibly for the next destructive shortcut.
+  await p.evaluate(()=>enterAssetFolder('观察'));await p.locator('[data-asset="entry-0"]').click();
+  await other.evaluate(async()=>{await loadAssets();await moveAssetItems(['entry-0'],'')});await p.evaluate(()=>loadAssets());
+  assert.deepEqual(await p.evaluate(()=>[...assetSelected]),[]);assert.equal(await p.evaluate(()=>document.activeElement.id),'assetList');
+  await other.evaluate(async()=>{await loadAssets();await moveAssetItems(['entry-0'],'观察')});await p.evaluate(()=>loadAssets());
+  await p.locator('[data-asub="观察/声音"]').click();
+  await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('观察/声音','','声音')});await p.evaluate(()=>loadAssets());
+  assert.equal(await p.evaluate(()=>assetFolderPick),null);assert.equal(await p.evaluate(()=>document.activeElement.id),'assetList');
+  await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('声音','观察')});await p.evaluate(()=>loadAssets());
+  await p.evaluate(()=>enterAssetFolder(''));
+  // A folder with the same new name is a different object after the original is removed.
+  await p.locator('[data-asub="空文件夹"]').click();
+  await other.evaluate(async()=>{await loadAssets();const next=clone(assetIndex);next.folderIds['空文件夹']='replacement-identity';await saveAssets(next)});await p.evaluate(()=>loadAssets());
+  assert.equal(await p.evaluate(()=>document.activeElement.id),'assetList');assert.equal(await p.evaluate(()=>assetFolderPick),null);
+  // A late save must not redirect a user who has already navigated elsewhere.
+  let releaseRename,arriveRename,held=false;const renameArrived=new Promise(resolve=>arriveRename=resolve);
+  const heldRename=async route=>{if(route.request().method()==='PUT'&&!held){held=true;await new Promise(resolve=>{releaseRename=resolve;arriveRename()})}await route.continue()};
+  await p.route('**/api/assets',heldRename);
+  await p.evaluate(()=>{window.renameInProgress=moveAssetFolder('空文件夹','','空目录')});await renameArrived;
+  await p.evaluate(()=>enterAssetFolder('观察'));releaseRename();await p.evaluate(()=>renameInProgress);await p.unroute('**/api/assets',heldRename);
+  assert.equal(await p.evaluate(()=>assetFolder),'观察','Completing a rename does not pull the user out of their new reading location');
+  await p.evaluate(()=>enterAssetFolder(''));
+  await p.locator('[data-asub="空目录"]').click();await p.keyboard.press('F2');await p.locator('#nameInput').fill('空文件夹');await p.getByRole('button',{name:'确定',exact:true}).click();
+  await p.waitForFunction(()=>!document.getElementById('dialog').open&&assetIndex.folders.includes('空文件夹'));
+  assert.equal(await p.evaluate(()=>assetFolder),'','Renaming a selected child folder keeps its parent view');
+  assert.equal(await p.evaluate(()=>document.activeElement.dataset.asub),'空文件夹');
+  // A failed rename preserves the name and the parent view for a direct retry.
+  await p.keyboard.press('F2');await p.locator('#nameInput').fill('未成功的名称');
+  const failRename=route=>route.request().method()==='PUT'?route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'模拟目录保存冲突'})}):route.continue();
+  await p.route('**/api/assets',failRename);await p.getByRole('button',{name:'确定',exact:true}).click();await p.locator('#folderRenameError').waitFor();
+  assert.equal(await p.locator('#nameInput').inputValue(),'未成功的名称');assert(await p.locator('#nameInput').isEnabled());assert.equal(await p.evaluate(()=>assetFolder),'');
+  await p.unroute('**/api/assets',failRename);await p.locator('#nameInput').fill('空文件夹');await p.getByRole('button',{name:'确定',exact:true}).click();await p.waitForFunction(()=>!$('dialog').open);
   await p.evaluate(async()=>{const next=clone(folderData);next.folders=[{id:'parent',name:'笔记',parent:''},{id:'child',name:'拍摄',parent:'parent'}];await saveFolders(next);await showWorkspaceTab('manager');enterBoardFolder('')});await p.locator('[data-entry-id=parent]').click();await p.keyboard.press('Enter');assert.equal(await p.evaluate(()=>folderSelected),'parent');assert.equal(await p.evaluate(()=>document.activeElement.id),'boardContents');await p.keyboard.press('ArrowDown');assert.equal(await p.evaluate(()=>boardEntry.id),'child');await p.keyboard.press('Enter');assert.equal(await p.evaluate(()=>folderSelected),'child');await p.keyboard.press('Alt+ArrowUp');assert.equal(await p.evaluate(()=>document.activeElement.dataset.entryId),'child');assert.equal(await p.locator('[data-entry-id=child]').getAttribute('aria-selected'),'true');
   assert.deepEqual(await p.evaluate(()=>({x:board.nodes[0].x,y:board.nodes[0].y,body:board.nodes[0].body})),{x:400,y:100,body:'原文保留。'});await p.evaluate(()=>persist());
   // The shared sidebar follows the same rules and can switch application tabs.
