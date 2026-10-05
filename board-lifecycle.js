@@ -64,7 +64,7 @@
   }
   window.whiteboardBoardDocument={
    freeze,markDeleted,restored,materialize,
-   flush:async()=>{coordinated=true;try{return await persistBefore()}finally{coordinated=false}},
+   flush:async()=>{coordinated=true;try{await window.whiteboardImports?.idle();return await persistBefore()}finally{coordinated=false}},
    detach:()=>{clearTimeout(saveTimer);if(typeof captureReading==='function')captureReading()},
    state:()=>({boardId,dirty,contentDirty,savingContent,blocked,saveError,deleted:!!deleted,loading})
   };

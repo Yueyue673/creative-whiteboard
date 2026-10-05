@@ -18,6 +18,7 @@
   throw Error('目标白板打开较慢，内容尚未添加。打开后可以重试。');
  }
  window.whiteboardLibraryTransfer={
+  destination(){const tab=current();return tab?{tabId:tab.id,boardId:tab.boardId}:null},
   async place(message,source){
    const requestId=message.requestId;
    const reply=value=>source.postMessage({type:'explorer-place-result',requestId,...value},location.origin);
@@ -25,7 +26,9 @@
    if(!Array.isArray(message.items)||!message.items.length){reply({error:'没有可添加的内容。'});return}
    active=requestId||uid();
    try{
-    let tab=current();
+    const specified=Object.hasOwn(message,'destination'),target=message.destination;
+    let tab=specified?(target?model.tabs.find(tab=>tab.id===target.tabId&&tab.boardId===target.boardId):null):current();
+    if(target&&!tab)throw Error('原来选择的白板已关闭，内容尚未添加。请重新选择。');
     if(!tab)tab=await picker(model.side,{title:'把内容放到哪张白板？',hint:'选择已有白板，或新建一张。取消后保留原来的内容和勾选。'});
     if(!tab){reply({cancelled:true});return}
     // The tab selected at the start remains the destination, even after a later tab switch.

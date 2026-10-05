@@ -8,7 +8,7 @@
  $('workspaceSidebar').hidden=!explorer;
  const send=(type,extra={})=>parent.postMessage({type,...extra},location.origin);
  let visible=true,reporting=false,lastState='';
- function state(){return {boardId,name:board?.name||'',dirty:!!dirty,blocked:!!blocked,saving:!!savePromise,loading:!!loading,contentDirty,savingContent,saveError,loadTargetId,loadError,loadErrorCode,revision:contentRevision}}
+ function state(){return {boardId,name:board?.name||'',dirty:!!dirty,blocked:!!blocked,saving:!!savePromise,loading:!!loading,pendingImports:window.whiteboardImports?.pendingCanvas()||false,contentDirty,savingContent,saveError,loadTargetId,loadError,loadErrorCode,revision:contentRevision}}
  function report(){if(explorer||reporting)return;reporting=true;queueMicrotask(()=>{reporting=false;const next=state(),key=JSON.stringify(next);if(key===lastState)return;lastState=key;send('pane-state',{state:next})})}
  const initialLoad=loadBoard;loadBoard=async function(id){if(board&&boardId&&id!==boardId){$('boards').value=boardId;send(explorer?'explorer-open':'pane-open',{boardId:id});return}await initialLoad(id);if(explorer)await showWorkspaceTab(workspaceTab);else report()};
  const oldChange=change,oldPersist=persist;change=function(viewOnly=false){if(explorer)return;oldChange(viewOnly);report()};persist=async function(){if(explorer)return true;const result=oldPersist();report();try{return await result}finally{report()}};
@@ -26,19 +26,19 @@
    request.buttons.forEach(({button,disabled})=>{if(button.isConnected)button.disabled=disabled});
    if(e.data.error)toast(e.data.error);request.resolve(e.data.ids||false);
   });
-  commitLibraryBatch=function(items){
+  commitLibraryBatch=function(items,position,destination=parent.whiteboardLibraryTransfer?.destination()){
    if(placementPending){toast('上一批内容还在添加，请稍候。');return Promise.resolve(false)}
    if(!items.length){toast('没有可添加的内容');return Promise.resolve(false)}
    placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
    buttons.forEach(({button})=>button.disabled=true);
-   return new Promise(resolve=>{placements.set(requestId,{resolve,buttons});send('explorer-place',{items,requestId})});
+   return new Promise(resolve=>{placements.set(requestId,{resolve,buttons});send('explorer-place',{items,requestId,destination})});
   };
   selectNode=function(id){send('explorer-focus',{nodeId:id})};focusNode=function(n){if(n)send('explorer-focus',{nodeId:n.id})};
   const captureOutline=renderOutline;renderOutline=function(){captureOutline();$('items').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>send('explorer-focus',{nodeId:b.dataset.open}))};
   const captureAssets=renderAssets;renderAssets=function(){captureAssets();queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder}))};
   const saveCatalog=saveAssets;saveAssets=async function(next){const ok=await saveCatalog(next);if(ok)send('explorer-catalog');return ok};
   $('assetList').addEventListener('click',()=>queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder})));
-  window.whiteboardExplorer={show:showWorkspaceTab,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline()},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
+  window.whiteboardExplorer={show:showWorkspaceTab,pending:()=>window.whiteboardImports?.pending()||false,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline()},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
   whiteboardExplorer.command=async function(name,extra={}){
    if(name==='ai'){
     await loadAssets();assetSelected=new Set(extra.libraryIds||[]);await whiteboardAI.compose();
@@ -57,6 +57,6 @@
   document.addEventListener('pointerdown',()=>{send('pane-active');queueMicrotask(report)},true);document.addEventListener('creative-board-pan-start',()=>send('pane-active'));document.addEventListener('creative-document-active',()=>send('pane-active'));
   document.addEventListener('keydown',e=>{send('pane-active');if((e.ctrlKey||e.metaKey)&&e.key==='Tab'){e.preventDefault();e.stopImmediatePropagation();send('pane-shortcut',{reverse:e.shiftKey})}},true);
   if($('windowWorkspace'))$('windowWorkspace').onclick=()=>send('pane-split');
-  window.addEventListener('creative-board-loading',report);if(board)report();
+  window.addEventListener('creative-board-loading',report);window.addEventListener('creative-import-state',report);if(board)report();
  }
 })();
