@@ -90,7 +90,7 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    except (OSError,ValueError,TypeError,AttributeError):
     self.reply(400,{'error':'这份白板文件的内容有问题，暂时无法读取。原文件仍保留。'});return
    self.reply(200,raw,etag=digest(raw));return
-  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/explorer-navigation.js','/recovery.js','/board-lifecycle.js','/library-transfer.js','/document-loading.js','/import-session.js','/library-folders.js']:
+  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/explorer-navigation.js','/recovery.js','/board-lifecycle.js','/library-transfer.js','/document-loading.js','/import-session.js','/library-folders.js','/library-editing.js']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
   if p=='/vendor/html2canvas.min.js':
    self.reply(200,(APP_ROOT/'vendor/html2canvas.min.js').read_bytes(),'text/javascript; charset=utf-8');return
