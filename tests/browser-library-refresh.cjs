@@ -16,6 +16,7 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   assert((await fetch(base+'/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':response.headers.get('ETag')},body:JSON.stringify(catalog)})).ok);
   assert((await fetch(base+'/api/boards/work',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify({format:'creative-board',version:1,name:'连续整理',nodes:[],edges:[],view:{x:0,y:0,z:1}})})).ok);
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||undefined});
+  await verifyLibraryReadFeedback(browser,base,tmp);
   const page=await browser.newPage({viewport:{width:1400,height:900}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));await page.goto(base+'/index.html?board=work');
   await page.waitForFunction(()=>boardId==='work'&&!loading&&assetIndex.folderIds?.['草稿']);
@@ -141,3 +142,51 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true});
  }
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+async function verifyLibraryReadFeedback(browser,base,tmp){
+ const context=await browser.newContext({viewport:{width:1400,height:900}}),page=await context.newPage(),errors=[],inFlight=new Set();
+ let release,arrive;const gate=new Promise(resolve=>release=resolve),arrived=new Promise(resolve=>arrive=resolve);
+ let responseMode={gate,arrive,fail:true};page.on('pageerror',error=>errors.push(error.message));
+ const original=fs.readFileSync(path.join(tmp,'素材目录.json'),'utf8');
+ await page.addInitScript(()=>localStorage.setItem('creative-sidebar-state',JSON.stringify({open:true,tab:'assetPane'})));
+ await page.route('**/api/assets',async route=>{
+  if(route.request().method()!=='GET')return route.continue();const mode=responseMode;
+  const pending=(async()=>{mode.arrive?.();if(mode.gate)await mode.gate;if(mode.fail)await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟内容库暂时无法读取'})});else await route.continue()})();
+  inFlight.add(pending);try{await pending}finally{inFlight.delete(pending)}
+ });
+ async function shot(name){if(!process.env.LIBRARY_READ_SCREENSHOT_DIR)return;fs.mkdirSync(process.env.LIBRARY_READ_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.LIBRARY_READ_SCREENSHOT_DIR,name+'.png')})}
+ try{
+  await page.goto(base,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>whiteboardWorkspace.explorer());await arrived;
+  const library=page.frames().find(frame=>new URL(frame.url()).searchParams.get('explorer')==='1');
+  await library.locator('#assetList .explorer-empty').waitFor({state:'attached'});await shot('library-reading-dark');
+  assert(await library.locator('#assetCount').isHidden(),'Unread catalog must not claim zero contents');
+  assert(await library.locator('#assetList .explorer-empty').isHidden(),'Pending data must not claim an empty folder');
+  assert.equal(await library.locator('#assetList').getAttribute('aria-busy'),'true');
+  assert.equal(await library.locator('#assetReadStatus').innerText(),'正在读取内容库…');
+  await library.evaluate(()=>whiteboardAppearance.apply({preset:'paper',custom:{},note:'#fff0aa'}));await page.setViewportSize({width:700,height:820});await shot('library-reading-light-narrow');
+  const readability=await library.locator('#assetReadStatus').evaluate(element=>{const text=getComputedStyle(element).color,background=getComputedStyle(document.getElementById('assetPane')).backgroundColor;return {text,background}});
+  const luminance=color=>{const c=color.match(/\d+(?:\.\d+)?/g).slice(0,3).map(Number).map(value=>{value/=255;return value<=.04045?value/12.92:((value+.055)/1.055)**2.4});return c[0]*.2126+c[1]*.7152+c[2]*.0722};
+  const a=luminance(readability.text),b=luminance(readability.background);assert((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,'Reading feedback is legible on the light panel');
+  await library.evaluate(()=>whiteboardAppearance.apply({preset:'resolve',custom:{},note:'#fff0aa'}));await page.setViewportSize({width:1400,height:900});
+  release();await library.locator('#assetReadRetry').waitFor();await shot('library-read-failure');
+  assert(await library.locator('#assetCount').isHidden());assert(await library.locator('#assetList .explorer-empty').isHidden());
+  assert((await library.locator('#assetReadStatus').innerText()).includes('模拟内容库暂时无法读取'));
+  assert.equal(await library.locator('#assetList').getAttribute('aria-busy'),'false');
+  responseMode={fail:false};await library.locator('#assetReadRetry').focus();await page.keyboard.press('Enter');await library.locator('[data-asub="草稿"]').waitFor();
+  assert(await library.locator('#assetReadStatus').isHidden());await library.locator('[data-asub="草稿"]').dblclick();await library.locator('[data-asset="observation"]').click();
+  const selected=library.locator('[data-asset="observation"]'),before=await selected.elementHandle();await shot('library-read-ready');
+  let releaseRefresh,refreshArrive;const refreshGate=new Promise(resolve=>releaseRefresh=resolve),refreshArrived=new Promise(resolve=>refreshArrive=resolve);
+  release=releaseRefresh;responseMode={gate:refreshGate,arrive:refreshArrive,fail:true};
+  await library.locator('#assetsButton').click();await refreshArrived;
+  assert(await before.evaluate(element=>element.isConnected),'Refreshing retains the existing row instead of rebuilding it');
+  assert.equal(await selected.getAttribute('aria-selected'),'true');assert(await library.locator('#assetReadStatus').isHidden(),'Cached refreshes do not flash ordinary status');
+  releaseRefresh();await library.locator('#assetReadRetry').waitFor();assert(await before.evaluate(element=>element.isConnected));
+  assert.equal(await library.locator('#assetCount').isVisible(),true);assert.equal(await selected.getAttribute('aria-selected'),'true');
+  await shot('library-refresh-retained');responseMode={fail:false};await library.locator('#assetReadRetry').click();await library.waitForFunction(()=>document.getElementById('assetReadStatus').hidden);
+  assert.equal(await selected.getAttribute('aria-selected'),'true');assert.equal(await library.evaluate(()=>assetById('observation').notes),'作者自己写下的内容。');
+  await library.locator('[data-acrumb=""]').click();await library.locator('[data-asub="参考"]').dblclick();
+  assert(await library.locator('#assetList .explorer-empty').isVisible());assert((await library.locator('#assetCount').innerText()).startsWith('0 项'));assert(await library.locator('#assetReadStatus').isHidden());await shot('library-confirmed-empty');
+  assert.equal(fs.readFileSync(path.join(tmp,'素材目录.json'),'utf8'),original,'Reading, retrying and navigating never alter authored catalog data');assert.deepEqual(errors,[]);
+  console.log('内容库读取反馈：等待时不误报空目录，失败可直接重试，已有内容与选择保留，快速刷新安静，空目录据实显示，浅色与窄窗口清晰，通过');
+ }finally{release();await Promise.allSettled([...inFlight]);await context.close()}
+}

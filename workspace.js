@@ -39,11 +39,23 @@ mountTableEditor=function(n){imageGrid(n);cellItemGrid(n);$('inlineTable').inner
  $('tableAddRow').onclick=()=>{if(n.rows.length>=5000)return;undoPoint();n.rows.push(n.columns.map(()=>''));rebuild()};$('tableAddColumn').onclick=()=>{if(n.columns.length>=100)return;undoPoint();n.columns.push('列 '+(n.columns.length+1));if(n.columnWidths)n.columnWidths.push(160);n.rows.forEach(r=>r.push(''));rebuild()};$('tableCSV').onclick=()=>{toast('CSV只包含单元格文字；便签、音视频和图片请用白板JSON保存');exportCSV(n)};$('tableFirstHeader').disabled=!n.rows.length;$('tableFirstHeader').onclick=()=>{if(imagesAt(n,0,0).length||n.cellImages[0]?.some(a=>a.length)||n.cellItems[0]?.some(a=>a.length))return toast('首行含附件，请先移出再设为列名');undoPoint();n.columns=n.rows.shift();n.rowIds.shift();n.cellImages.shift();n.cellItems.shift();rebuild()};
  $('inlineTable').querySelectorAll('[data-remove-col]').forEach(b=>b.onclick=()=>{if(n.columns.length===1)return toast('至少保留一列');const i=+b.dataset.removeCol;confirmTableDelete('删除这一列及其中的内容？',()=>{undoPoint();n.columns.splice(i,1);n.columnIds.splice(i,1);n.columnWidths?.splice(i,1);n.rows.forEach(r=>r.splice(i,1));n.cellImages.forEach(r=>r.splice(i,1));n.cellItems.forEach(r=>r.splice(i,1));rebuild()})});$('inlineTable').querySelectorAll('[data-remove-row]').forEach(b=>b.onclick=()=>{const i=+b.dataset.removeRow;confirmTableDelete('删除这一行及其中的内容？',()=>{undoPoint();n.rows.splice(i,1);n.rowIds.splice(i,1);n.cellImages.splice(i,1);n.cellItems.splice(i,1);rebuild()})});bindImageRemoval(n);
 };
-let assetReadSequence=0,assetWriteSequence=0,assetReadPending=null;
+let assetReadSequence=0,assetWriteSequence=0,assetReadPending=null,assetCatalogReady=false,assetReadState='loading',assetReadError='';
 const assetWritesPending=new Set();
+function renderAssetReadState(){
+ const list=$('assetList'),count=$('assetCount'),pane=$('assetPane');if(!list||!count||!pane)return;
+ let status=$('assetReadStatus');
+ if(!status){status=document.createElement('div');status.id='assetReadStatus';status.className='library-read-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');status.innerHTML='<p></p><button id="assetReadRetry" hidden>重试</button>';count.after(status);$('assetReadRetry').onclick=()=>loadAssets().catch(()=>{})}
+ list.setAttribute('aria-busy',String(assetReadState==='loading'));
+ count.hidden=!assetCatalogReady;list.querySelectorAll('.explorer-empty').forEach(element=>element.hidden=!assetCatalogReady);
+ status.hidden=assetCatalogReady&&!assetReadError;
+ status.querySelector('p').textContent=assetReadError?'内容库暂时未能读取：'+assetReadError:'正在读取内容库…';
+ $('assetReadRetry').hidden=!assetReadError;
+}
 function loadAssets(){
  const sequence=++assetReadSequence;
+ assetReadState='loading';assetReadError='';renderAssetReadState();
  const task=(async()=>{
+  try{
   while(true){
    await Promise.all([...assetWritesPending]);
    if(sequence!==assetReadSequence){await assetReadPending;return false}
@@ -55,9 +67,11 @@ function loadAssets(){
    // A save that overlapped the request invalidates both its data and its ETag.
    if(writeSequence!==assetWriteSequence||assetWritesPending.size)continue;
    if(error)throw error;
-   syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;
+   syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;assetCatalogReady=true;
    assetETag=r.headers.get('ETag');renderAssets();return true;
   }
+  }catch(error){if(sequence===assetReadSequence)assetReadError=error.message;throw error}
+  finally{if(sequence===assetReadSequence){assetReadState=assetReadError?'failed':'ready';renderAssetReadState()}}
  })();
  assetReadPending=task;return task;
 }
@@ -68,7 +82,7 @@ async function saveAssets(next){
   prepareLibraryFolderIds(next);
   const r=await api('/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':expected},body:JSON.stringify(next)});
   const result=await r.json();next.folderIds=result.folderIds;
-  syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;
+  syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;assetCatalogReady=true;assetReadError='';
   assetETag=r.headers.get('ETag');renderAssets();return true;
  }catch(e){toast(e.message);return false}
  finally{assetWritesPending.delete(pending);finish()}
@@ -202,6 +216,7 @@ renderAssets=function(){if(!$('assetTree'))return;const q=$('assetSearch').value
  $('assetList').innerHTML=folders.map(path=>'<button class="asset-subfolder" data-asub="'+esc(path)+'" draggable="true"><span>▱</span><b>'+esc(path.split('/').at(-1))+'</b><small>打开文件夹 ›</small></button>').join('')+list.slice(0,assetLimit).map(a=>'<div class="asset-row '+(assetSelected.has(a.id)?'selected':'')+'" draggable="true" tabindex="0" data-asset="'+a.id+'"><input type="checkbox" aria-label="选择 '+esc(a.title)+'" '+(assetSelected.has(a.id)?'checked':'')+'>'+(a.mime?.startsWith('image/')?'<img loading="lazy" src="'+mediaURL(a.id)+'" alt="">':'<span class="asset-icon">'+(a.mime?.startsWith('video/')?'▶':a.mime?.startsWith('audio/')?'♪':'▤')+'</span>')+'<div><b>'+esc(a.title)+'</b><small>'+esc(q?a.folder:((a.size||0)/1048576).toFixed(1)+' MB')+'</small></div><button data-asset-preview="'+a.id+'" title="预览">↗</button></div>').join('')+(list.length>assetLimit?'<button id="assetMore">显示更多</button>':'')+(!list.length&&!folders.length?'<div class="explorer-empty">'+(q?'没有找到匹配素材':'文件夹还是空的。<br>把文件拖到这里，或点击“导入文件”。')+'</div>':'');
  $('assetPane').querySelectorAll('[data-acrumb]').forEach(b=>b.onclick=()=>enterAssetFolder(b.dataset.acrumb));$('assetTree').querySelectorAll('[data-atoggle]').forEach(b=>b.onclick=e=>{e.stopPropagation();assetExpanded.has(b.dataset.atoggle)?assetExpanded.delete(b.dataset.atoggle):assetExpanded.add(b.dataset.atoggle);renderAssets()});$('assetTree').querySelectorAll('[data-afolder]').forEach(el=>{el.title=el.dataset.afolder||'素材库';el.onclick=()=>enterAssetFolder(el.dataset.afolder);bindAssetFolderDrop(el,()=>el.dataset.afolder);el.ondragstart=e=>{if(el.dataset.afolder)e.dataTransfer.setData('application/x-asset-folder',el.dataset.afolder);e.stopPropagation()}});$('assetList').querySelectorAll('[data-asub]').forEach(el=>{el.onclick=()=>enterAssetFolder(el.dataset.asub);bindAssetFolderDrop(el,()=>el.dataset.asub);el.ondragstart=e=>e.dataTransfer.setData('application/x-asset-folder',el.dataset.asub)});
  $('assetList').querySelectorAll('[data-asset]').forEach(el=>{const select=e=>{if(e.target.closest('button'))return;const id=el.dataset.asset;if(e.ctrlKey||e.shiftKey||e.target.type==='checkbox'){assetSelected.has(id)?assetSelected.delete(id):assetSelected.add(id)}else assetSelected=new Set([id]);$('assetList').querySelectorAll('[data-asset]').forEach(row=>{row.classList.toggle('selected',assetSelected.has(row.dataset.asset));row.querySelector('input').checked=assetSelected.has(row.dataset.asset)});$('assetCount').textContent=list.length+' 项'+(assetSelected.size?' · 已选 '+assetSelected.size+' 项':'')};el.onclick=select;el.ondblclick=()=>previewAsset(el.dataset.asset);el.onkeydown=e=>{if(e.key==='Enter')previewAsset(el.dataset.asset)};el.ondragstart=e=>{if(!assetSelected.has(el.dataset.asset))assetSelected=new Set([el.dataset.asset]);e.dataTransfer.setData('application/x-creative-assets',JSON.stringify([...assetSelected]));e.dataTransfer.effectAllowed='copyMove'}});$('assetList').querySelectorAll('[data-asset-preview]').forEach(b=>b.onclick=()=>previewAsset(b.dataset.assetPreview));if($('assetMore'))$('assetMore').onclick=()=>{assetLimit+=80;renderAssets()};
+ renderAssetReadState();
 };
 const assetHead=document.createElement('div');assetHead.className='explorer-location';assetHead.innerHTML='<button id="assetUp" title="上一级">↑</button><nav id="assetBreadcrumbs"></nav>';$('assetFolder').before(assetHead);$('assetFolder').hidden=true;
 const assetColumns=document.createElement('div');assetColumns.className='explorer-columns';const tree=document.createElement('nav');tree.id='assetTree';tree.setAttribute('aria-label','素材文件夹目录');$('assetList').before(assetColumns);assetColumns.append(tree,$('assetList'));const renameButton=document.createElement('button');renameButton.id='assetFolderRename';renameButton.textContent='重命名文件夹';$('assetFolderNew').after(renameButton);
