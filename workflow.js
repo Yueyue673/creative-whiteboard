@@ -180,7 +180,36 @@ for(const key of sizeKeys)if(!wfContentFields.includes(key))wfContentFields.push
 Object.assign(wfLabels,{fontSize:'正文字号',titleFontSize:'标题字号'});
 const clampSize=v=>Math.min(72,Math.max(10,Number(v)||14));
 function textNodes(){return board?.nodes.filter(n=>selected.has(n.id)&&n.type!=='frame')||[]}
-function applyTypography(){const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el]));for(const n of board?.nodes||[]){const el=elements.get(n.id);if(!el)continue;let changed=false;for(const [key,selector] of [['titleFontSize','[id="title"],[data-preview-id="title"]'],['fontSize','[id="body"],[id="userText"],[id="annotation"],[data-preview-id="body"],[data-preview-id="userText"],[data-preview-id="annotation"],.edit-table textarea,.edit-table input']])for(const field of el.querySelectorAll(selector)){const size=Number.isFinite(n[key])?clampSize(n[key])+'px':'';if(size){if(field.style.fontSize!==size||field.style.getPropertyPriority('font-size')!=='important'){field.style.setProperty('font-size',size,'important');changed=true}}else if(field.style.fontSize){field.style.removeProperty('font-size');changed=true}}if(changed&&typeof growContentFields==='function')growContentFields(el)}}
+function applyFieldSize(field,value){
+ const size=Number.isFinite(value)?clampSize(value)+'px':'';
+ if(size){
+  if(field.style.fontSize===size&&field.style.getPropertyPriority('font-size')==='important')return false;
+  field.style.setProperty('font-size',size,'important');return true;
+ }
+ if(!field.style.fontSize)return false;
+ field.style.removeProperty('font-size');return true;
+}
+function applyTypography(){
+ const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el]));
+ for(const n of board?.nodes||[]){
+  const el=elements.get(n.id);if(!el)continue;let changed=false;
+  for(const [key,selector] of [['titleFontSize','[id="title"],[data-preview-id="title"]'],['fontSize','[id="body"],[id="userText"],[id="annotation"],[data-preview-id="body"],[data-preview-id="userText"],[data-preview-id="annotation"],.edit-table textarea,.edit-table input']]){
+   for(const field of el.querySelectorAll(selector)){
+    // A table owns its plain cell text, not the independent content copies inside it.
+    if(!field.closest('.cell-content'))changed=applyFieldSize(field,n[key])||changed;
+   }
+  }
+  for(const cell of el.querySelectorAll('.cell-content')){
+   const item=n.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem];
+   if(!item)continue;
+   for(const field of cell.querySelectorAll('[data-cell-note-field]')){
+    const key=field.dataset.cellNoteField==='title'?'titleFontSize':'fontSize';
+    changed=applyFieldSize(field,item[key])||changed;
+   }
+  }
+  if(changed&&typeof growContentFields==='function')growContentFields(el);
+ }
+}
 const bar=document.createElement('details');bar.id='textSizeTools';bar.className='inline-ui';bar.hidden=true;
 bar.innerHTML='<summary title="调整选中内容的文字大小">字号</summary><div class="text-size-popup"><span id="textSizeCount"></span><label>标题 <input id="noteTitleSize" type="number" min="10" max="72" aria-label="标题字号"></label><label>正文 <input id="noteBodySize" type="number" min="10" max="72" aria-label="正文字号"></label><button id="resetNoteSize" title="恢复选中内容的默认字号">重置字号</button></div>';
 ($('creationDock')||canvas).append(bar);
