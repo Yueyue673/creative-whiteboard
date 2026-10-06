@@ -137,7 +137,7 @@ async function copyBlocks(){const b=selectionBundle();if(!b.nodes.length)return;
 async function pasteBlocks(anchor=pasteAnchor()){try{if(window.whiteboardLibraryClipboard&&!await whiteboardLibraryClipboard.ready())return;const raw=await navigator.clipboard.readText();await pastePayload(raw,[],anchor)}catch(err){toast('无法直接读取剪贴板，请使用 Ctrl+V 粘贴')}}
 
 // Extend the existing menu rather than add competing context-menu handlers.
-const continuityMenu=fileMenu;fileMenu=function(e,items){if(e.target.closest('#canvas')&&!e.target.closest('[data-edge]')){const node=e.target.closest('.node'),pasteAt={x:e.clientX,y:e.clientY,boardId,atPointer:true};if(node&&!selected.has(node.dataset.id)){selected=new Set([node.dataset.id]);refreshSelectionUI()}items=[...(selected.size?[['复制内容  Ctrl+C',copyBlocks]]:[]),['粘贴内容  Ctrl+V',()=>pasteBlocks(pasteAt)],...items]}return continuityMenu(e,items)};
+const continuityMenu=fileMenu;fileMenu=function(e,items){if(e.target.closest('#canvas')&&!e.target.closest('#creationDock,#canvasTools,[data-edge]')){const node=e.target.closest('.node'),pasteAt={x:e.clientX,y:e.clientY,boardId,atPointer:true};if(node&&!selected.has(node.dataset.id)){selected=new Set([node.dataset.id]);refreshSelectionUI()}items=[...(selected.size?[['复制内容  Ctrl+C',copyBlocks]]:[]),['粘贴内容  Ctrl+V',()=>pasteBlocks(pasteAt)],...items]}return continuityMenu(e,items)};
 canvas.addEventListener('contextmenu',e=>{if(e.target.closest('.node,[data-edge]'))return;if(contextDown&&Math.hypot(e.clientX-contextDown.x,e.clientY-contextDown.y)>5)return;fileMenu(e,[])});
 // A second window has its own board selection; updates remain protected by ETags.
 async function openSecondWindow(){if(!await persist())return;window.open('/index.html?board='+encodeURIComponent(boardId),'_blank','popup,width=1200,height=850');}
@@ -365,7 +365,7 @@ if(board){applyTypography();syncTextTools();announce()}
  const originalClose=closeFileContext;
  closeFileContext=function(){
   const restore=!context.hidden&&context.contains(document.activeElement);
-  originalClose();if(restore&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
+  originalClose();if(returnFocus?.matches('#creationMore,#zoomValue'))returnFocus.setAttribute('aria-expanded','false');if(restore&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
  };
  const originalMenu=fileMenu;
  fileMenu=function(e,items){
@@ -383,8 +383,10 @@ if(board){applyTypography();syncTextTools();announce()}
     if(n){n.x=p.x;n.y=p.y;drawNodes();change();$('title')?.focus()}
    }],...items];
   }
-  returnFocus=e.target.closest?.('[data-entry-id],[data-asub],[data-asset],#sidebarClose')||canvas;
+  if(returnFocus?.matches('#creationMore,#zoomValue'))returnFocus.setAttribute('aria-expanded','false');
+  returnFocus=e.target.closest?.('[data-entry-id],[data-asub],[data-asset],#sidebarClose,#creationMore,#zoomValue')||canvas;
   originalMenu(e,items);
+  if(returnFocus.matches('#creationMore,#zoomValue'))returnFocus.setAttribute('aria-expanded','true');
   const buttons=[...context.querySelectorAll('button')];
   if(buttons.some(b=>b.textContent.startsWith('添加选中的 ')))buttons.filter(b=>b.textContent==='放到白板').forEach(b=>b.remove());
   const seen=new Set();

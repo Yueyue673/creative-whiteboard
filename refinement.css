@@ -21,6 +21,22 @@ button,summary,select{transition:none}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer{width:25px;padding:0;justify-content:center}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer span{display:none}
 #canvas.stacked-actions #nodes>.node .block-actions{flex-direction:column}
+/* One calm row of tools, even when the shared workspace is split into narrow panes. */
+#canvas #creationMore{display:none}
+#canvas.compact-tools #creationDock{flex-wrap:nowrap}
+#canvas.compact-tools #creationMore{display:block;font-size:18px;line-height:1;padding:4px 8px;min-width:32px}
+#canvas.compact-tools #creationDock>#import,#canvas.compact-tools #creationDock>#undo,#canvas.compact-tools #creationDock>#redo,#canvas.compact-tools #creationDock>#collectToLibrary,#canvas.compact-tools #creationDock>#textSizeTools{display:none}
+#canvas.tiny-tools #creationDock>#add,#canvas.tiny-tools #creationDock>#addTable{display:none}
+#canvas.tight-tools #canvasTools{right:8px;max-width:calc(100% - 16px);gap:0}
+#canvas.tight-tools #canvasTools>button:not(#zoomValue){display:none}
+#canvas.tight-tools #canvasTools>#zoomValue{min-width:0;padding:4px 6px;white-space:nowrap}
+#canvas.tight-tools #zoomValue::after{content:'⌄';margin-left:4px;font-size:11px;color:var(--ui-muted)}
+#canvas.compact-tools #creationDock>#textSizeTools[open]:not([hidden]){display:block;position:absolute;left:50%;top:0;width:0;height:0}
+#canvas.compact-tools #textSizeTools>summary{display:none}
+#canvas.compact-tools #creationDock .text-size-popup{position:absolute;bottom:12px;left:0;right:auto;transform:translateX(-50%);width:min(240px,calc(100vw - 16px));min-width:0;max-height:calc(100dvh - 88px);box-sizing:border-box;overflow:auto;padding:12px;overflow-wrap:anywhere}
+#canvas.compact-tools .text-size-popup label{display:grid;gap:4px;min-width:0}
+#canvas.compact-tools .text-size-popup input{box-sizing:border-box;width:100%;min-width:0;padding:6px}
+@media(max-width:110px){#canvas.compact-tools #creationDock .text-size-popup{padding:6px}#canvas.compact-tools .text-size-popup input{appearance:textfield}#canvas.compact-tools .text-size-popup input::-webkit-inner-spin-button{display:none}#canvas.compact-tools #creationDock .text-size-popup button{white-space:normal;overflow-wrap:anywhere;padding:6px 2px}}
 .node.active:not(:has(.live-layout)) [data-preview-id=title]{padding-right:0}
 .node .read-layout>.edit-scroll>textarea.empty-field{display:none!important}
 .node .content-image>.single-image{flex:1 1 0;min-height:0;margin:4px 0 0}

@@ -21,15 +21,31 @@
  const originalFit=whiteboardExperience.fitBlock;
  whiteboardExperience.fitBlock=function(id){const el=canvasBlock(id),n=board.nodes.find(n=>n.id===id),area=el?.querySelector('.edit-scroll'),gallery=area?.querySelector(':scope>.single-image'),img=gallery?.querySelector('img');if(!n||!img?.naturalWidth)return originalFit(id);const style=getComputedStyle(area),width=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),other=[...area.children].filter(c=>c!==gallery&&getComputedStyle(c).display!=='none').reduce((sum,c)=>{const s=getComputedStyle(c);return sum+c.offsetHeight+parseFloat(s.marginTop||0)+parseFloat(s.marginBottom||0)},0);undoPoint();n.h=Math.ceil(Math.max(120,Math.min(5000,width*img.naturalHeight/img.naturalWidth+other+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+10)));drawNodes();change()};
  const previousMenu=fileMenu;fileMenu=function(e,items){const el=e.target.closest?.('.node[data-id]');if(el&&!e.target.closest('[data-edge]'))items=[['展开编辑',()=>readNote(el.dataset.id)],...items.map(([label,fn])=>[label,label==='按内容调整大小'?()=>whiteboardExperience.fitBlock(el.dataset.id):fn])];return previousMenu(e,items)};
+ // Keep the existing actions and fields; narrow panes only change how they are reached.
+ const dock=$('creationDock'),textTools=$('textSizeTools'),more=document.createElement('button');
+ more.id='creationMore';more.textContent='⋯';more.title='创作工具';more.setAttribute('aria-label','创作工具');more.setAttribute('aria-haspopup','menu');more.setAttribute('aria-controls','fileContext');more.setAttribute('aria-expanded','false');dock.append(more);
+ more.onclick=e=>{
+  const r=more.getBoundingClientRect(),items=[];
+  if(canvas.classList.contains('tiny-tools'))items.push(['新建便签  N',()=>$('add').click()],['新建表格  T',()=>$('addTable').click()]);
+  items.push(...whiteboardExperience.importOptions());
+  if(!$('undo').disabled)items.push(['撤销  Ctrl+Z',()=>$('undo').click()]);
+  if(!$('redo').disabled)items.push(['重做  Ctrl+Shift+Z',()=>$('redo').click()]);
+  if(!$('collectToLibrary').hidden)items.push(['保存到库  Ctrl+Shift+L',()=>$('collectToLibrary').click()]);
+  if(!textTools.hidden)items.push(['调整字号…',()=>{textTools.open=true;positionActions();$('noteTitleSize').focus({preventScroll:true})}]);
+  fileMenu({target:more,clientX:r.left,clientY:r.top,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},items);
+ };
+ textTools.addEventListener('toggle',positionActions);
+ textTools.addEventListener('keydown',e=>{if(e.key==='Escape'&&e.defaultPrevented&&canvas.classList.contains('compact-tools'))more.focus({preventScroll:true})});
  function positionActions(){
   if(!board)return;const bounds=canvas.getBoundingClientRect(),z=view().z,scale=String(1/z);
   // Keep the same click targets: hide the drag caption, then stack only when three icons cannot fit.
   canvas.classList.toggle('compact-actions',bounds.width<156);canvas.classList.toggle('stacked-actions',bounds.width<99);
+  canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions')?.closest('.node');
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
   // Measure before writing positions so selecting many cards does not force a layout per card.
-  const obstacles=['canvasTools','creationDock','textSizeTools'].map(id=>$(id)?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
+  const obstacles=[$('canvasTools'),dock,textTools.open?textTools.querySelector('.text-size-popup'):null].map(el=>el?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
   const placements=elements.map(el=>{const actions=el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,width=actions.offsetWidth,height=actions.offsetHeight;
    const left=r.right-z-width,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
