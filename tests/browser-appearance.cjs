@@ -285,6 +285,68 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
     await page.setViewportSize({width:1400,height:940});
     assert.deepEqual(await page.evaluate(()=>board),authoredBeforeDocuments,'Preview layout cannot alter the original board');
     console.log('Document reading: full long names, two-line headings, compact download/close controls and unchanged source files passed');
+    // Media names must not impose a 640px minimum on a smaller pane. Use
+    // playable temporary files so the native controls and continuity are real.
+    const wav=Buffer.alloc(44+128000);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);
+    wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);
+    wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(128000,40);
+    // Generated one-second solid-color VP8 clip; no encoder is needed to run the check.
+    const videoBytes=fs.readFileSync(path.join(__dirname,'fixtures','media-preview.webm'));
+    const previews=[];
+    for(const [extension,original] of [['wav',wav],['webm',videoBytes]]){
+      const title=prefix+'original.'+extension;
+      const response=await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':title},body:original});assert(response.ok);
+      previews.push({...(await response.json()),title,original,kind:extension==='wav'?'audio':'video'});
+    }
+    for(const preview of previews){
+      await page.evaluate(async id=>{await loadAssets();await previewAsset(id)},preview.id);
+      await page.waitForFunction(kind=>document.querySelector('.media-preview '+kind)?.readyState>=2,preview.kind);
+      assert.equal(await page.locator('.media-preview h2').textContent(),preview.title);
+      assert.equal(await page.locator('.media-preview h2').getAttribute('title'),preview.title);
+      assert.equal(await page.locator('.media-preview .source-path').textContent(),preview.path,'The full storage path remains available');
+      for(const preset of ['resolve','paper','slate']){
+        await page.evaluate(preset=>whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'}),preset);
+        for(const selector of ['.media-preview h2','.media-preview .source-path','.media-preview>a'])
+          assert((await contrast(selector,'#dialog')).ratio>=4.5,'Media file context remains readable');
+        for(const [width,height] of [[1400,760],[620,760],[360,760],[230,760],[360,320]]){
+          await page.setViewportSize({width,height});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+          const layout=await page.locator('#dialog').evaluate(el=>{
+            const rect=element=>{const r=element.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
+            const heading=el.querySelector('h2'),body=el.querySelector('#dialogBody'),player=el.querySelector('audio,video');
+            return {dialog:rect(el),heading:{...rect(heading),scroll:heading.scrollWidth,client:heading.clientWidth,line:parseFloat(getComputedStyle(heading).lineHeight)},
+              body:{scroll:body.scrollWidth,client:body.clientWidth},player:rect(player),actions:[...el.querySelectorAll('#dialogActions button')].map(rect)};
+          });
+          assert(layout.dialog.left>=0&&layout.dialog.right<=width&&layout.dialog.bottom<=height,'Media preview fits its window');
+          assert(layout.heading.scroll<=layout.heading.client+1&&layout.heading.height<=layout.heading.line*2+1,'Long media name stays within two lines');
+          assert(layout.body.scroll<=layout.body.client+1,'Media information does not cause horizontal overflow');
+          assert(layout.player.width>100&&layout.player.left>=layout.dialog.left&&layout.player.right<=layout.dialog.right,'Native media fits usable preview width');
+          if(preview.kind==='audio')assert(layout.player.width>=layout.body.client-1,'Audio uses the available width for seeking');
+          assert(layout.actions.every(r=>r.left>=layout.dialog.left&&r.right<=layout.dialog.right&&r.bottom<=height),'Both media actions remain reachable');
+        }
+      }
+      await page.setViewportSize({width:360,height:760});
+      if(preview.kind==='audio'){
+        const player=page.locator('.media-preview audio'),box=await player.boundingBox();
+        await page.mouse.click(box.x+27,box.y+box.height/2);
+        await page.waitForFunction(()=>{const p=document.querySelector('.media-preview audio');return !p.paused&&p.currentTime>.1});
+        await page.mouse.click(box.x+27,box.y+box.height/2);assert(await player.evaluate(el=>el.paused),'Native play and pause remain usable');
+        await page.setViewportSize({width:620,height:760});
+        const seekBox=await player.boundingBox();
+        await page.mouse.click(seekBox.x+seekBox.width*.62,seekBox.y+seekBox.height/2);
+        await page.waitForFunction(()=>document.querySelector('.media-preview audio').currentTime>4);
+        const position=await player.evaluate(el=>el.currentTime);
+        await page.getByRole('button',{name:'关闭',exact:true}).click();
+        await page.evaluate(id=>previewAsset(id),preview.id);await page.waitForFunction(()=>document.querySelector('.media-preview audio')?._readingRestored);
+        assert(Math.abs(await page.locator('.media-preview audio').evaluate(el=>el.currentTime)-position)<.1,'Reopening retains the same source playback position');
+      }
+      await page.getByRole('button',{name:'修改说明',exact:true}).click();
+      assert.equal(await page.locator('.media-preview').count(),0,'Preview sizing does not leak into the next editor');
+      await page.keyboard.press('Escape');assert.equal(await page.locator('#dialog').evaluate(el=>el.open),false);
+      assert.deepEqual(Buffer.from(await(await fetch(base+'/api/media/'+preview.id)).arrayBuffer()),preview.original,'Preview preserves source bytes');
+    }
+    await page.setViewportSize({width:1400,height:940});
+    assert.deepEqual(await page.evaluate(()=>board),authoredBeforeDocuments,'Media layout and playback preserve authored content');
+    console.log('Media previews: playable audio/video, three themes, bounded full names, responsive controls/actions, native playback/seek/reopen and unchanged originals passed');
     assert.deepEqual(errors, []);
     console.log('Appearance: readable custom panels and canvas, selection over authored content, JSON, saved preferences and unchanged note colours/geometry passed');
   } finally {

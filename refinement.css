@@ -58,6 +58,17 @@ button,summary,select{transition:none}
 .document-dialog .document-bar{flex-wrap:wrap;align-items:flex-start;gap:6px 12px}
 .document-dialog .document-bar>span{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
 .document-dialog .document-bar>a{flex:none;white-space:nowrap}
+/* Native media previews fit the pane without losing their file context or exit. */
+#dialog:has(.media-preview){width:min(640px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);padding:24px;display:flex;flex-direction:column;overflow:hidden}
+#dialog:has(.media-preview):not([open]){display:none}
+#dialog:has(.media-preview) #dialogBody{min-width:0;min-height:0;overflow:auto}
+#dialog:has(.media-preview) #dialogActions{flex:none}
+.media-preview h2{font-size:18px;line-height:1.5;margin:0 0 20px;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.media-preview audio{display:block;width:100%;min-width:0;max-width:100%}
+.media-preview video{max-height:min(480px,55dvh)}
+.media-preview .source-path{line-height:1.6;margin:16px 0 8px}
+.media-preview>a{font-size:13px;white-space:nowrap}
+@media(max-width:650px){#dialog:has(.media-preview){padding:16px}}
 .node .table-scroll{scrollbar-gutter:stable}
 .node.table .edit-table{table-layout:fixed;width:100%}.node.table .edit-table textarea,.node.table .edit-table input{min-width:0}
 .node.table .edit-table th{position:relative}
