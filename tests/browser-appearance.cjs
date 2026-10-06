@@ -347,6 +347,65 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
     await page.setViewportSize({width:1400,height:940});
     assert.deepEqual(await page.evaluate(()=>board),authoredBeforeDocuments,'Media layout and playback preserve authored content');
     console.log('Media previews: playable audio/video, three themes, bounded full names, responsive controls/actions, native playback/seek/reopen and unchanged originals passed');
+    // Text files keep their exact source formatting while their reader uses
+    // the available space. Long names cannot push its exit outside the pane.
+    const textFiles=[];
+    const rawText='原始记录\r\n甲\t乙\r\n<script>window.unwantedTextExecution=true</script>\r\n'+
+      Array.from({length:80},(_,i)=>'观察 '+i+'：保留原始说明。').join('\n');
+    for(const [extension,original] of [['txt',rawText],['md','# 原始记录\n\n'+rawText],['csv','序号,原文\n'+rawText.repeat(30)]]){
+      const title=prefix+'part"original.'+extension;
+      const response=await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':title},body:original});assert(response.ok);
+      textFiles.push({...(await response.json()),title,original});
+    }
+    await page.evaluate(async id=>{
+      await loadAssets();board.nodes.push({id:'text-source',type:'note',title:'资料观察',body:'',assetId:id,
+        x:720,y:100,w:400,h:350,sizeMode:'manual',color:'#ffffff',tags:[]});render();
+    },textFiles[0].id);
+    await page.locator('[data-id=text-source] .file-text-preview pre').waitFor();
+    const authoredBeforeText=await page.evaluate(()=>clone(board));
+    for(const file of textFiles){
+      await page.evaluate(id=>previewAsset(id),file.id);const pre=page.locator('.text-file-preview pre');await pre.waitFor();
+      assert.equal(await page.locator('.text-file-preview h2').textContent(),file.title);
+      assert.equal(await page.locator('.text-file-preview h2').getAttribute('title'),file.title);
+      assert.equal(await pre.textContent(),file.original.slice(0,24000),'Line breaks, tabs and markup remain original source text');
+      assert.equal(await pre.locator('script').count(),0);assert.equal(await page.evaluate(()=>window.unwantedTextExecution),undefined);
+      const partial=file.original.length>24000;
+      assert.equal((await page.locator('.text-file-preview small').textContent()).includes('仅显示前段'),partial,'Bounded previews still clearly disclose partial content');
+      for(const preset of ['resolve','paper','slate']){
+        await page.evaluate(preset=>whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'}),preset);
+        for(const selector of ['.text-file-preview h2','.text-file-preview small','.text-file-preview pre','.text-file-preview>a',
+          '[data-id=text-source] .file-text-preview small'])assert((await contrast(selector)).ratio>=4.5,'Text reader and inline file context stay readable');
+        assert(await page.locator('[data-id=text-source] .file-text-preview small').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=12));
+        for(const [width,height] of [[1400,760],[620,760],[360,760],[230,760],[360,320]]){
+          await page.setViewportSize({width,height});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+          const layout=await page.locator('#dialog').evaluate(el=>{
+            const rect=t=>{const r=t.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,height:r.height}};
+            const heading=el.querySelector('h2'),pre=el.querySelector('pre');
+            return {dialog:rect(el),heading:{...rect(heading),scroll:heading.scrollWidth,client:heading.clientWidth,line:parseFloat(getComputedStyle(heading).lineHeight)},
+              reading:{...rect(pre),font:parseFloat(getComputedStyle(pre).fontSize)},download:rect(el.querySelector('a')),
+              actions:[...el.querySelectorAll('#dialogActions button')].map(rect)};
+          });
+          assert(layout.dialog.left>=0&&layout.dialog.right<=width&&layout.dialog.bottom<=height,'Text reading fits its own window');
+          assert(layout.heading.scroll<=layout.heading.client+1&&layout.heading.height<=layout.heading.line*2+1,'The full-name hint accompanies a bounded heading');
+          assert(layout.reading.font>=13&&layout.reading.height>(height>500?150:20),'Original text retains usable reading space');
+          assert(layout.download.left>=layout.dialog.left&&layout.download.right<=layout.dialog.right,'Source download remains in view');
+          assert(layout.actions.every(r=>r.left>=layout.dialog.left&&r.right<=layout.dialog.right&&r.bottom<=height),'Text preview exit stays reachable');
+          if(width===1400)assert(layout.reading.height>330,'The expanded reader uses more than the old 260px reading area');
+        }
+      }
+      await page.setViewportSize({width:620,height:760});await pre.focus();await page.keyboard.press('PageDown');
+      await page.waitForFunction(()=>document.querySelector('.text-file-preview pre').scrollTop>0,null,{timeout:3000}).catch(async error=>{
+        console.error('Text reading focus:',await pre.evaluate(el=>({active:document.activeElement?.outerHTML.slice(0,160),tabIndex:el.tabIndex,scroll:el.scrollTop,client:el.clientHeight,height:el.scrollHeight,overflow:getComputedStyle(el).overflowY})));throw error;
+      });
+      assert(await pre.evaluate(el=>el.scrollTop>0),'Native keyboard reading scrolls the source without moving the board');
+      await page.getByRole('button',{name:'关闭',exact:true}).click();assert.equal(await page.locator('#dialog').evaluate(el=>el.open),false);
+      assert.equal(await(await fetch(base+'/api/media/'+file.id)).text(),file.original,'Reader styling cannot rewrite the file');
+    }
+    assert.deepEqual(await page.evaluate(()=>board),authoredBeforeText,'Reading retains inline file geometry and all authored content');
+    await page.evaluate(()=>{board.nodes=board.nodes.filter(n=>n.id!=='text-source');render()});
+    assert.deepEqual(await page.evaluate(()=>board),authoredBeforeDocuments);
+    await page.setViewportSize({width:1400,height:940});
+    console.log('Text reading: TXT/Markdown/CSV source, inline/expanded captions, long full names, usable compact/short reader, keyboard scrolling and unchanged originals passed');
     assert.deepEqual(errors, []);
     console.log('Appearance: readable custom panels and canvas, selection over authored content, JSON, saved preferences and unchanged note colours/geometry passed');
   } finally {
