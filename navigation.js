@@ -7,10 +7,22 @@
  // Native Tab navigation can scroll the hidden canvas container. Keep that
  // visible movement in the board view so pointer coordinates and reopening agree.
  canvas.addEventListener('focusin',e=>{
-  if(!board||loading||!e.target.closest?.('#nodes > .node'))return;
-  const dx=canvas.scrollLeft,dy=canvas.scrollTop;if(!dx&&!dy)return;
-  board.view={...view(),x:view().x-dx,y:view().y-dy};
-  canvas.scrollLeft=canvas.scrollTop=0;moveView();change(true);
+  const node=e.target.closest?.('#nodes > .node');if(!board||loading||!node)return;
+  const dx=canvas.scrollLeft,dy=canvas.scrollTop;let moved=!!(dx||dy);
+  if(moved){board.view={...view(),x:view().x-dx,y:view().y-dy};canvas.scrollLeft=canvas.scrollTop=0;moveView()}
+  // Browsers cannot scroll to negative world coordinates. Reveal a hidden
+  // focus target there without changing the selected content or its geometry.
+  const c=canvas.getBoundingClientRect(),r=e.target.getBoundingClientRect();
+  const hiddenX=r.width<=c.width?r.left<c.left||r.right>c.right:r.right<=c.left||r.left>=c.right;
+  const hiddenY=r.height<=c.height?r.top<c.top||r.bottom>c.bottom:r.bottom<=c.top||r.top>=c.bottom;
+  if(hiddenX||hiddenY){
+   const n=node.getBoundingClientRect(),box={left:Math.min(n.left,r.left),right:Math.max(n.right,r.right),top:Math.min(n.top,r.top),bottom:Math.max(n.bottom,r.bottom)};
+   const fit=box.right-box.left<=c.width-32&&box.bottom-box.top<=c.height-32,area=fit?box:r;
+   const x=area.left<c.left?c.left+16-area.left:area.right>c.right?c.right-16-area.right:0;
+   const y=area.top<c.top?c.top+16-area.top:area.bottom>c.bottom?c.bottom-16-area.bottom:0;
+   if(x||y){board.view={...view(),x:view().x+x,y:view().y+y};moveView();moved=true}
+  }
+  if(moved)change(true);
  });
  function effectiveSelection(){const ids=new Set(selected);for(const f of board.nodes.filter(n=>selected.has(n.id)&&n.type==='frame'))for(const n of board.nodes)if(groupOf(n)?.id===f.id)ids.add(n.id);return board.nodes.filter(n=>ids.has(n.id))}
  function fitSelection(){const ns=effectiveSelection();if(!ns.length)return;const x=Math.min(...ns.map(n=>n.x)),y=Math.min(...ns.map(n=>n.y)),w=Math.max(...ns.map(n=>n.x+n.w))-x,h=Math.max(...ns.map(n=>n.y+n.h))-y,r=canvas.getBoundingClientRect(),z=Math.max(.15,Math.min(4,(r.width-100)/w,(r.height-100)/h));board.view={x:(r.width-w*z)/2-x*z,y:(r.height-h*z)/2-y*z,z};moveView();change(true)}
