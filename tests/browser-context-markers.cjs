@@ -232,6 +232,25 @@ async function verifyPopoverBounds(page,audioId){
  const position=await page.locator('#mediaPopover').evaluate(el=>el.getBoundingClientRect().top);
  await page.locator('.media-marker-title').fill('第一段声音的记录');
  assert.equal(await page.locator('#mediaPopover').evaluate(el=>el.getBoundingClientRect().top),position,'Ordinary text edits do not move the panel');
+ const shortTitleHeight=await page.locator('.media-marker-title').evaluate(el=>el.clientHeight);
+ const longTitle='走廊另一端的脚步声，先保留这段现场录音，再比较远处背景声与近处动作的变化。';
+ await page.locator('.media-marker-title').fill(longTitle);await bounded();
+ const longTitleSize=await page.locator('.media-marker-title').evaluate(el=>({height:el.clientHeight,scroll:el.scrollHeight,width:el.clientWidth,scrollWidth:el.scrollWidth}));
+ assert(longTitleSize.height>shortTitleHeight+15,'A long marker name grows instead of hiding its ending in a single line');
+ assert(longTitleSize.scroll<=longTitleSize.height+1&&longTitleSize.scrollWidth<=longTitleSize.width+1,'The complete ordinary long name is visible without horizontal scrolling');
+ assert(await page.locator('.media-marker-row>span:nth-child(2)').evaluate(el=>el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1),'The list wraps the full marker name');
+ await page.locator('.media-marker-title').fill('第一段声音的记录');await bounded();
+ assert.equal(await page.locator('.media-marker-title').evaluate(el=>el.clientHeight),shortTitleHeight,'Shortening the name restores its compact field');
+ // Long uninterrupted names and the maximum accepted title still wrap within
+ // the panel. Longer editing stays bounded and can scroll vertically.
+ await page.locator('.media-marker-title').fill('录音'.repeat(100));await bounded();
+ assert.equal(await page.locator('.media-marker-title').inputValue(),'录音'.repeat(100));
+ const maximumTitle=await page.locator('.media-marker-title').evaluate(el=>({height:el.getBoundingClientRect().height,scroll:el.scrollHeight,client:el.clientHeight,width:el.clientWidth,scrollWidth:el.scrollWidth}));
+ assert(maximumTitle.height<=115&&maximumTitle.scroll>maximumTitle.client,'The maximum name remains editable in a bounded scrolling field');
+ assert(maximumTitle.scrollWidth<=maximumTitle.width+1);
+ await page.locator('.media-marker-title').fill(longTitle);await bounded();
+ assert.equal(await page.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time),originalTime,'Resizing the name does not alter the time');
+ assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
  await page.locator('#mediaPopover .media-play').click();await page.waitForFunction(()=>!document.querySelector('[data-id="bounded-sound"] audio').paused);
  await page.locator('.media-add-marker').click();await bounded();
  assert(await sound.locator('audio').evaluate(el=>!el.paused&&el.currentTime>=2.5),'Adding and fitting a marker keeps playback running at its current position');
@@ -250,11 +269,14 @@ async function verifyPopoverBounds(page,audioId){
  await page.locator('.media-marker-start').uncheck();await bounded();
  assert(await page.locator('#mediaPopover').evaluate(el=>el.scrollTop)>0,'The replay setting is reachable by scrolling the bounded panel');
  assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
+ assert.equal(await page.locator('.media-marker-title').inputValue(),longTitle);
+ assert(await page.locator('.media-marker-title').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'The long name also fits the compact viewport');
  await page.keyboard.press('Escape');
  await resizeViewport({width:1600,height:900});
  await page.evaluate(()=>whiteboardReading.open('bounded-sound'));
  await page.locator('#immersiveSurface .media-time').click();await bounded();
  assert.equal(await page.locator('#dialog #mediaPopover').count(),1);
+ assert.equal(await page.locator('.media-marker-title').inputValue(),longTitle,'Expanded editing retains the complete name');
  await page.locator('.media-marker-time').fill('999');await page.locator('.media-marker-time').press('Tab');await bounded();
  assert(await page.locator('.media-marker-error').isVisible());
  await page.keyboard.press('Escape');await page.keyboard.press('Escape');
@@ -262,6 +284,7 @@ async function verifyPopoverBounds(page,audioId){
  assert.equal(await page.evaluate(async()=>{change();return persist()}),true);
  await page.reload();await page.waitForFunction(()=>board&&!loading);
  assert.equal(await page.evaluate(()=>Object.values(board.nodes.find(n=>n.id==='bounded-sound').mediaTimeline)[0].markers[0].note),'保留自己的声音观察。','Marker notes survive fitting and reopening');
+ assert.equal(await page.evaluate(()=>Object.values(board.nodes.find(n=>n.id==='bounded-sound').mediaTimeline)[0].markers[0].title),longTitle,'The full marker name survives reopening without automatic rewriting');
  assert.deepEqual(await page.evaluate(()=>board.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h])),geometry);
  console.log('播放面板：底部新增标记、错误提示与重播设置保持可见，短窗口内滚动，普通编辑位置稳定，播放和格内副本独立，沉浸返回与重开通过');
 }
