@@ -6,14 +6,19 @@
  let immersion=null;
  function canvasBlock(id){return [...$('nodes').children].find(el=>el.dataset.id===id)}
  function restoreEditor(){if(!immersion)return;const inner=immersion.surface.querySelector('.inner');if(inner)canvasBlock(immersion.id)?.prepend(inner)}
+ function bindImmersiveDetails(){
+  const session=immersion,details=session?.surface.querySelector('#inlineMeta'),trigger=$('immersiveDetails');if(!details||!trigger)return;
+  trigger.setAttribute('aria-expanded',String(details.open));
+  details.ontoggle=()=>{if(immersion!==session)return;trigger.setAttribute('aria-expanded',String(details.open));growContentFields(session.surface);if(!details.open&&details.contains(document.activeElement))trigger.focus({preventScroll:true})};
+ }
  function finishImmersion(session=immersion){if(!session||immersion!==session)return;restoreEditor();immersion=null;$('dialog').classList.remove('reading-dialog','immersive-dialog');editorId=null;drawNodes();renderOutline();const area=canvasBlock(session.id)?.querySelector('.edit-scroll');if(area)area.scrollTop=session.originalScroll;canvas.focus({preventScroll:true})}
  const previousDialog=showDialog;showDialog=function(...args){if(immersion){finishImmersion();$('dialog').close()}return previousDialog(...args)};
- function expandEditor(){if(!immersion)return;const el=canvasBlock(immersion.id),inner=el?.querySelector('.inner');if(!inner)return;immersion.surface.className=el.className.replace(/\bactive\b/g,'')+' reading-sheet immersive-surface';immersion.surface.style.background=el.style.background;immersion.surface.style.setProperty('--body-size',(board.nodes.find(n=>n.id===immersion.id)?.fontSize||16)+'px');immersion.surface.style.setProperty('--title-size',(board.nodes.find(n=>n.id===immersion.id)?.titleFontSize||24)+'px');immersion.surface.replaceChildren(inner);if($('inlineDone'))$('inlineDone').onclick=()=>$('dialog').close();growContentFields(immersion.surface)}
+ function expandEditor(){if(!immersion)return;const el=canvasBlock(immersion.id),inner=el?.querySelector('.inner');if(!inner)return;immersion.surface.className=el.className.replace(/\bactive\b/g,'')+' reading-sheet immersive-surface';immersion.surface.style.background=el.style.background;immersion.surface.style.setProperty('--body-size',(board.nodes.find(n=>n.id===immersion.id)?.fontSize||16)+'px');immersion.surface.style.setProperty('--title-size',(board.nodes.find(n=>n.id===immersion.id)?.titleFontSize||24)+'px');immersion.surface.replaceChildren(inner);if($('inlineDone'))$('inlineDone').onclick=()=>$('dialog').close();growContentFields(immersion.surface);bindImmersiveDetails()}
  function readNote(id){
   const n=board?.nodes.find(n=>n.id===id);if(!n||n.type==='frame')return;if(blocked)return toast('请先处理保存冲突');if(immersion){finishImmersion();$('dialog').close()}
   const originalScroll=canvasBlock(id)?.querySelector('.edit-scroll')?.scrollTop||0;
   openEditor(id);
-  showDialog('<div class="immersive-heading"><span>展开编辑</span><div><button id="immersiveDetails">补充与来源</button><button id="immersiveReturn">返回白板 <small>Esc</small></button></div></div><article class="reading-sheet node immersive-surface" id="immersiveSurface"></article>',[]);
+  showDialog('<div class="immersive-heading"><span>展开编辑</span><div><button id="immersiveDetails" aria-controls="inlineMeta" aria-expanded="false">补充与来源</button><button id="immersiveReturn">返回白板 <small>Esc</small></button></div></div><article class="reading-sheet node immersive-surface" id="immersiveSurface"></article>',[]);
   const dialog=$('dialog');dialog.classList.add('reading-dialog','immersive-dialog');immersion={id,surface:$('immersiveSurface'),originalScroll};immersion.surface.dataset.id=id;const session=immersion;
   $('immersiveReturn').onclick=()=>dialog.close();$('immersiveDetails').onclick=()=>{$('inlineMeta').open=!$('inlineMeta').open;growContentFields()};expandEditor();
   onDialogDismiss(()=>finishImmersion(session));

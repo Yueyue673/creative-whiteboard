@@ -43,10 +43,50 @@ const {chromium}=require('playwright');
   await setup();await p.evaluate(()=>{board.nodes[0].url='https://example.com/reference';drawNodes()});const source=p.locator('#nodes [data-file-link]');await source.hover();const sourceColors=await source.evaluate(el=>{const s=getComputedStyle(el);return{foreground:s.color,background:s.backgroundColor,expected:getComputedStyle(document.documentElement).getPropertyValue('--ui-text').trim()}});assert.equal(sourceColors.foreground,await p.evaluate(value=>{const el=document.createElement('span');el.style.color=value;document.body.append(el);const color=getComputedStyle(el).color;el.remove();return color},sourceColors.expected),'Source hover uses the foreground paired with its UI surface');
   await verifyCanvasHandles(p,{image:testImage,jsonId:json.id});
   await verifyToolbarEdges(p);
+  await verifyImmersiveDetails(p,base);
   assert.deepEqual(errors,[]);console.log('选中内容不重排；展开编辑文字、备注、标签、来源、图片和表格；返回与重开保留；图片利用空间；普通滚轮不缩放，Ctrl缩放便签/图片/表格/JSON/HTML及跳转后网页；浅色选中文字与来源悬浮文字对比，通过');
  }catch(err){if(p&&process.env.DIRECT_EDIT_SCREENSHOT_DIR){fs.mkdirSync(process.env.DIRECT_EDIT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.DIRECT_EDIT_SCREENSHOT_DIR,'failure.png')})}throw err}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const absolute=path.resolve(tmp);assert(absolute.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(absolute,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+async function verifyImmersiveDetails(p,base){
+ const body=Array(8).fill('原始记录里的日期、地点和声音需要保持原样。'.repeat(8)).join('\n\n');
+ for(const [id,type,name] of [['detail-note','note','说明与正文'],['detail-table','table','说明与表格']]){
+  const node={id:'detail-content',type,title:'保留原始标题',body,userText:'已有的补充',annotation:'已有的备注',tags:['观察'],url:'https://example.com/reference',color:type==='table'?'#ffffff':'#fff0aa',sizeMode:'manual',x:60,y:95,w:430,h:300};
+  if(type==='table')Object.assign(node,{columns:['画面','声音'],rows:[['第一段','现场声音'],['第二段','待核对']]});
+  const board={format:'creative-board',version:1,name,folder:'',nodes:[node],edges:[],view:{x:0,y:0,z:1}};
+  assert((await fetch(base+'/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(board)})).ok);
+ }
+ await p.goto(base+'/?board=detail-note');await p.waitForFunction(()=>pane(current())?.state().boardId==='detail-note');
+ const frameFor=id=>p.frames().find(f=>f.url().includes('/index.html?')&&new URL(f.url()).searchParams.get('board')===id);
+ const note=frameFor('detail-note');await note.waitForFunction(()=>board&&!loading);
+ const settled=frame=>frame.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await settled(note);
+ async function open(frame){
+  await frame.evaluate(()=>{selected=new Set(['detail-content']);refreshSelectionUI()});await frame.locator('[data-id=detail-content] .block-read').click();
+  await frame.locator('#immersiveSurface #title').waitFor({state:'visible'});await p.waitForFunction(()=>document.querySelector('.board-frame.pane-modal')?.getBoundingClientRect().width===innerWidth);
+ }
+ async function boxes(frame){return frame.locator('#immersiveSurface').evaluate(el=>{const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}},details=el.querySelector('#inlineMeta');return{surface:rect(el),main:rect(el.querySelector('.edit-scroll')),details:rect(details),title:rect(el.querySelector('#title')),button:rect(document.getElementById('immersiveDetails')),scroll:el.querySelector('.edit-scroll').scrollWidth-el.querySelector('.edit-scroll').clientWidth,fields:[...details.querySelectorAll('input,textarea')].filter(e=>getComputedStyle(e).display!=='none').map(rect)}})}
+ function beside(r){assert(r.main.right<=r.details.left+.5,'Details must not cover the live document');assert(r.title.right<=r.details.left+.5,'The title remains visible beside details');assert(r.details.right<=r.surface.right+.5&&r.details.bottom<=r.surface.bottom+.5,'Details remain inside the editor');assert(r.main.width>380,'The document keeps a useful editing width');assert.equal(r.scroll,0,'Opening details does not introduce horizontal document overflow');for(const field of r.fields)assert(field.left>=r.details.left&&field.right<=r.details.right,'Metadata fields fit their panel')}
+ const before=await note.evaluate(()=>({view:clone(view()),node:clone(board.nodes[0])}));await open(note);
+ const expanded=await boxes(note),bodyHeight=await note.locator('#body').evaluate(el=>el.clientHeight);
+ await note.locator('#immersiveDetails').click();await note.waitForFunction(()=>document.getElementById('immersiveDetails').getAttribute('aria-expanded')==='true');beside(await boxes(note));
+ assert(await note.locator('#body').evaluate(el=>el.clientHeight>=el.scrollHeight-2),'Long body is fully editable after narrowing the page');
+ await note.locator('#tags').fill('观察，核对');await note.locator('#url').fill('https://example.com/updated-reference');await note.locator('#inlineMetaClose').click();
+ await note.waitForFunction(()=>document.getElementById('immersiveDetails').getAttribute('aria-expanded')==='false'&&document.activeElement.id==='immersiveDetails');
+ const restored=await boxes(note);assert.deepEqual(restored.main,expanded.main,'Closing details restores the page width');assert.equal(await note.locator('#body').evaluate(el=>el.clientHeight),bodyHeight,'Closing details restores long-field measurements');
+ await p.keyboard.press('Escape');await note.waitForFunction(()=>!whiteboardReading.isEditing());
+ const after=await note.evaluate(()=>({view:clone(view()),node:clone(board.nodes[0])}));assert.deepEqual(after.view,before.view);for(const key of ['title','body','userText','annotation','sizeMode','x','y','w','h','color'])assert.deepEqual(after.node[key],before.node[key]);assert.deepEqual(after.node.tags,['观察','核对']);assert.equal(after.node.url,'https://example.com/updated-reference');
+ // The same editor works from a real split pane and retains its table actions.
+ await p.locator('.add-tab[data-side=left]').click();await p.locator('#boardChoices').getByRole('button',{name:/说明与表格/}).click();await p.waitForFunction(()=>pane(current())?.state().boardId==='detail-table');await p.locator('#splitToggle').click();await p.waitForFunction(()=>document.querySelectorAll('.board-frame:not([hidden])').length===2);
+ const table=frameFor('detail-table');await table.waitForFunction(()=>board&&!loading);await settled(table);const tableBefore=await table.evaluate(()=>({view:clone(view()),node:clone(board.nodes[0])}));await open(table);await table.locator('#immersiveDetails').click();beside(await boxes(table));
+ const toolbar=await table.locator('#immersiveSurface .inline-toolbar').boundingBox(),main=await table.locator('#immersiveSurface .edit-scroll').boundingBox();assert(toolbar.y+toolbar.height<=main.y+.5,'Table actions stay above the document');
+ await table.locator('[data-row="0"][data-col="0"]').fill('手动修改的单元格');await table.locator('#tableAddRow').click();await table.locator('[data-row="2"][data-col="0"]').waitFor({state:'visible'});await table.locator('#immersiveDetails').click();await table.locator('#userText').fill('手动修改的补充');await table.locator('#inlineMetaClose').click();await p.keyboard.press('Escape');await table.waitForFunction(()=>!whiteboardReading.isEditing());
+ const tableAfter=await table.evaluate(()=>({view:clone(view()),node:clone(board.nodes[0])}));assert.deepEqual(tableAfter.view,tableBefore.view);for(const key of ['x','y','w','h','title','body','annotation'])assert.deepEqual(tableAfter.node[key],tableBefore.node[key]);assert.equal(tableAfter.node.rows.length,3);assert.equal(tableAfter.node.rows[0][0],'手动修改的单元格');assert.equal(tableAfter.node.userText,'手动修改的补充');
+ // Smaller windows retain a bounded, dismissible details popup rather than squeezing the page.
+ await p.setViewportSize({width:620,height:760});await table.waitForFunction(()=>innerWidth<800);await settled(table);await table.evaluate(()=>whiteboardPane.focusNode('detail-content'));await open(table);await table.locator('#immersiveDetails').click();const compact=await boxes(table);assert(compact.details.width<=340.5&&compact.details.left>=compact.surface.left-.5&&compact.details.right<=compact.surface.right+.5,'Compact details stay inside the editor');assert(compact.details.bottom<=compact.surface.bottom+.5);await table.locator('#tags').fill('窄窗口');await table.locator('#inlineMetaClose').click();await table.waitForFunction(()=>document.activeElement.id==='immersiveDetails');await p.keyboard.press('Escape');await table.waitForFunction(()=>!whiteboardReading.isEditing());await table.evaluate(()=>persist());
+ assert.equal(await table.evaluate(()=>board.nodes[0].rows[0][0]),'手动修改的单元格');assert.deepEqual(await table.evaluate(()=>board.nodes[0].tags),['窄窗口']);
+ console.log('真实工作区展开编辑：说明与正文并排、长文字自动换行与恢复、关闭说明返回焦点、双栏表格操作、窄窗口说明、原文尺寸和视角保留，通过');
+}
 
 async function verifyCanvasHandles(p,{image,jsonId}){
  const node=(id='handle-card')=>p.locator('#nodes>[data-id="'+id+'"]');

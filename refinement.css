@@ -64,12 +64,17 @@ button,summary,select{transition:none}
 .immersive-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line);flex-shrink:0;color:var(--ui-muted);font-size:13px}
 .immersive-heading button{background:transparent;border:0;padding:5px 7px;font-size:13px;white-space:nowrap}.immersive-heading small{color:var(--ui-muted);margin-left:8px;font-size:11px}
 .node.immersive-surface{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;max-width:none;padding:0;margin:0;border:0;outline:0;box-shadow:none;flex:1;min-height:0;border-radius:0;white-space:normal;overflow:hidden}
-.immersive-surface .inner{height:100%;display:flex;flex-direction:column}
-.immersive-surface .edit-scroll{padding:26px max(24px,calc((100% - 760px)/2));overflow:auto;scrollbar-gutter:stable;min-height:0}
+.node.immersive-surface .inner{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.immersive-surface .edit-scroll{grid-column:1;grid-row:2;width:auto;padding:26px max(24px,calc((100% - 760px)/2));overflow:auto;scrollbar-gutter:stable;min-height:0}
 .immersive-surface .edit-scroll>textarea{font-size:var(--body-size)!important;line-height:1.85!important;min-height:32px;margin:8px 0}
 .immersive-surface #title{font-size:var(--title-size)!important;line-height:1.5!important;font-weight:600;margin:0 0 14px}
-.immersive-surface .inline-toolbar{flex-shrink:0}.immersive-surface:not(.table) .inline-toolbar{display:none!important}.immersive-surface #inlineDone,.immersive-surface #inlineDetails{display:none}
-.immersive-surface #inlineMeta{width:min(500px,100%);max-height:calc(100% - 20px)}
+.immersive-surface .inline-toolbar{grid-column:1/-1;grid-row:1;flex-shrink:0}.immersive-surface:not(.table) .inline-toolbar{display:none!important}.immersive-surface #inlineDone,.immersive-surface #inlineDetails{display:none}
+.immersive-surface #inlineMeta{left:auto;right:0;width:min(340px,100%);max-height:calc(100% - 20px)}
+/* Optional details sit beside the live page instead of covering its title and text. */
+@media(min-width:800px){
+ .immersive-surface .inner:has(>#inlineMeta[open]){grid-template-columns:minmax(0,1fr) min(320px,36%)}
+ .immersive-surface #inlineMeta[open]{grid-column:2;grid-row:2;position:relative;inset:auto;width:100%;height:100%;max-height:none;min-height:0;border:0;border-left:1px solid var(--ui-line);border-radius:0;box-shadow:none;padding:20px}
+}
 .immersive-surface .content-table{padding:20px!important}.immersive-surface .table-actions{margin-right:auto}
 .immersive-surface .content-image>.single-image{flex:none;min-height:160px}.immersive-surface .content-image>.single-image figure,.immersive-surface .content-image>.single-image img{height:auto}
 .node [data-file-link]{color:inherit}
