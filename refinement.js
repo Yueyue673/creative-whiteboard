@@ -23,6 +23,8 @@
  const previousMenu=fileMenu;fileMenu=function(e,items){const el=e.target.closest?.('.node[data-id]');if(el&&!e.target.closest('[data-edge]'))items=[['展开编辑',()=>readNote(el.dataset.id)],...items.map(([label,fn])=>[label,label==='按内容调整大小'?()=>whiteboardExperience.fitBlock(el.dataset.id):fn])];return previousMenu(e,items)};
  function positionActions(){
   if(!board)return;const bounds=canvas.getBoundingClientRect(),z=view().z,scale=String(1/z);
+  // Keep the same click targets: hide the drag caption, then stack only when three icons cannot fit.
+  canvas.classList.toggle('compact-actions',bounds.width<156);canvas.classList.toggle('stacked-actions',bounds.width<99);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions')?.closest('.node');
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
@@ -31,7 +33,7 @@
   const placements=elements.map(el=>{const actions=el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,width=actions.offsetWidth,height=actions.offsetHeight;
    const left=r.right-z-width,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
-   if(visible){const clamp=p=>({x:Math.max(bounds.left+6,Math.min(p.x,bounds.right-width-6)),y:Math.max(bounds.top+6,Math.min(p.y,bounds.bottom-height-6))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
+   if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
     const start=clamp({x,y}),choices=[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
     for(const b of obstacles)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));
     const free=choices.filter(p=>!obstacles.some(b=>overlap(p,b,5.8)));free.sort((a,b)=>Number(overlap(a,r))-Number(overlap(b,r))||(a.x-left)**2+(a.y-top)**2-(b.x-left)**2-(b.y-top)**2);
