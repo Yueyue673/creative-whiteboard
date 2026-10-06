@@ -48,6 +48,8 @@
  const sizing=()=>{const ui={scale:Number(d.querySelector('#appearanceScale').value)/100,width:Number(d.querySelector('#appearanceWidth').value)};localStorage.setItem('creative-interface',JSON.stringify(ui));if(typeof applyInterfacePrefs==='function')applyInterfacePrefs(ui);window.dispatchEvent(new CustomEvent('creative-appearance-sizing',{detail:ui}));labels()};d.querySelector('#appearanceScale').oninput=d.querySelector('#appearanceWidth').oninput=sizing;
  d.querySelector('#appearanceReset').onclick=()=>{p={preset:'resolve',custom:{},note:'#fff0aa'};localStorage.setItem('creative-interface',JSON.stringify({scale:1,width:340}));update();sizing()};d.querySelector('#appearanceDone').onclick=()=>d.close();d.addEventListener('close',()=>d.remove());update();d.showModal();
  }
- window.addEventListener('storage',e=>{if(e.key===key)apply(read());if(e.key==='creative-interface'&&typeof applyInterfacePrefs==='function')applyInterfacePrefs(JSON.parse(e.newValue||'{}'))});
+ // Storage notifications can arrive after a later choice. Read the latest
+ // value, and never broadcast a received older preference back to other panes.
+ window.addEventListener('storage',e=>{if(e.key===key)apply(read());if(e.key==='creative-interface'&&typeof applyInterfacePrefs==='function')applyInterfacePrefs(readInterfacePrefs(),false)});
  apply(read());window.whiteboardAppearance={open,read,apply,palettes};
 })();

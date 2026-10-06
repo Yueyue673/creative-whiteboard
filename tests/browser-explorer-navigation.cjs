@@ -101,6 +101,48 @@ const {chromium}=require('playwright');
   await shared.locator('[data-asset=entry-0]').click();await p.keyboard.press('Enter');await shared.waitForFunction(()=>$('dialog').open);await p.keyboard.press('Escape');await shared.waitForFunction(()=>!$('dialog').open);assert.equal(await shared.evaluate(()=>document.activeElement.dataset.asset),'entry-0');assert.equal(await shared.evaluate(()=>assetById('entry-0').notes===window.originalSearchNotes),true,'Search display never rewrites the original note');
   await shared.locator('#assetSearch').fill('');await shared.waitForFunction(()=>!document.querySelector('#assetList .wf-search-snippet'));
   console.log('Library search: real 260px sidebar, long filenames, deep paths, visible body matches, compact excerpts, full hover text, JSON/author preview and focus return passed');
+  // Deep paths keep current context visible, without scattering separators over several lines.
+  const catalogBeforePath=fs.readFileSync(path.join(tmp,'素材目录.json'),'utf8');
+  const contentBeforePath=await shared.evaluate(()=>JSON.stringify({nodes:board.nodes,edges:board.edges}));
+  await shared.evaluate(folder=>enterAssetFolder(folder),layoutFolder);
+  const pathMetrics=await shared.locator('#assetBreadcrumbs').evaluate(nav=>{
+   const current=nav.querySelector('[aria-current=location]'),root=nav.querySelector('[data-acrumb=""]'),r=nav.getBoundingClientRect(),c=current.getBoundingClientRect();
+   return {height:nav.closest('.clear-location').getBoundingClientRect().height,rootVisible:!!root.getBoundingClientRect().width,currentVisible:c.width>20&&c.left>=r.left&&c.right<=r.right+1,path:current.dataset.acrumb,title:nav.title};
+  });
+  assert(pathMetrics.height<=60&&pathMetrics.rootVisible&&pathMetrics.currentVisible,'Deep paths leave space for the content list: '+JSON.stringify(pathMetrics));
+  assert.equal(pathMetrics.path,layoutFolder);assert(pathMetrics.title.includes(layoutFolder.split('/').join(' / ')),'The complete original path remains available');
+  const overflow=shared.locator('#assetBreadcrumbs .location-overflow');await overflow.focus();await p.keyboard.press('Enter');
+  await shared.locator('#locationMenu').waitFor({state:'visible'});assert.equal(await overflow.getAttribute('aria-expanded'),'true');
+  const ancestors=layoutFolder.split('/').slice(0,-1);assert.deepEqual(await shared.locator('#locationMenu button').allTextContents(),ancestors);
+  assert.equal(await shared.locator('#locationMenu button').last().getAttribute('title'),'内容库 / '+ancestors.join(' / '),'Repeated folder names retain their full hierarchy on hover');
+  await p.keyboard.press('End');assert.equal(await shared.evaluate(()=>document.activeElement.textContent),ancestors.at(-1));await p.keyboard.press('Escape');
+  assert.equal(await overflow.getAttribute('aria-expanded'),'false');assert.equal(await shared.evaluate(()=>document.activeElement.classList.contains('location-overflow')),true);
+  await p.keyboard.press('Enter');await p.keyboard.press('Tab');assert(await shared.locator('#locationMenu').isHidden());assert.equal(await shared.evaluate(()=>document.activeElement.dataset.acrumb),layoutFolder,'Tab resumes the path controls');
+  await overflow.click();await overflow.click();assert(await shared.locator('#locationMenu').isHidden(),'Clicking the path overflow again closes it');
+  await overflow.click();await shared.locator('#locationMenu').getByRole('menuitem',{name:ancestors[1],exact:true}).click();
+  await shared.waitForFunction(()=>assetFolder==='观察/声音');assert.equal(await shared.evaluate(()=>document.activeElement.dataset.acrumb),'观察/声音','Jumping to an ancestor keeps focus with the new path');
+  await shared.locator('[data-asub="'+layoutFolder.split('/').slice(0,3).join('/')+'"]').dblclick();
+  await shared.evaluate(folder=>enterAssetFolder(folder),layoutFolder);await overflow.click();await shared.evaluate(()=>renderAssets());assert(await shared.locator('#locationMenu').isHidden(),'Refresh cannot leave a stale path menu');
+  assert.equal(fs.readFileSync(path.join(tmp,'素材目录.json'),'utf8'),catalogBeforePath,'Path navigation cannot modify catalog contents');
+  await shared.locator('#assetBreadcrumbs [data-acrumb=""]').click();assert.equal(await shared.evaluate(()=>assetFolder),'');assert(await overflow.isHidden());
+  // The same navigation is used by whiteboard folders, with original identities intact.
+  const boardPathNames=['日常记录','影像与声音','现场收集','第一阶段','等待核对'];
+  await shared.evaluate(async names=>{const next=clone(folderData);names.forEach((name,i)=>next.folders.push({id:'path-'+i,name,parent:i?'path-'+(i-1):''}));await saveFolders(next);await showWorkspaceTab('manager');enterBoardFolder('')},boardPathNames);
+  for(let i=0;i<boardPathNames.length;i++){await shared.locator('[data-entry-id="path-'+i+'"]').dblclick();await shared.waitForFunction(id=>folderSelected===id,'path-'+i)}
+  const boardOverflow=shared.locator('#boardCrumbs .location-overflow');assert(await boardOverflow.isVisible());assert.equal(await shared.locator('#boardCrumbs [aria-current=location]').textContent(),boardPathNames.at(-1));
+  await boardOverflow.click();assert.deepEqual(await shared.locator('#locationMenu button').allTextContents(),boardPathNames.slice(0,-1));await p.keyboard.press('Home');await p.keyboard.press('ArrowDown');await p.keyboard.press('Enter');
+  await shared.waitForFunction(()=>folderSelected==='path-1');assert.equal(await shared.evaluate(()=>document.activeElement.dataset.bcrumb),'path-1');
+  const resize=await p.locator('#explorerGrip').boundingBox();await p.mouse.move(resize.x+resize.width/2,resize.y+100);await p.mouse.down();await p.mouse.move(520,resize.y+100);await p.mouse.up();
+  await shared.waitForFunction(()=>innerWidth>=518);await shared.waitForFunction(()=>!document.querySelector('#boardCrumbs .location-overflow')||document.querySelector('#boardCrumbs .location-overflow').hidden);
+  assert.equal(await shared.locator('#boardCrumbs button:visible').count(),3,'A wider sidebar restores the short complete path');
+  await shared.evaluate(()=>{applyInterfacePrefs({scale:1.25,width:520});enterBoardFolder('path-4')});
+  await shared.locator('#boardCrumbs .location-overflow').click();
+  const scaledMenu=await shared.locator('#locationMenu').evaluate(menu=>{const r=menu.getBoundingClientRect();return {font:getComputedStyle(menu.querySelector('button')).fontSize,left:r.left,right:r.right,width:innerWidth}});
+  assert.equal(scaledMenu.font,'16.25px','The ancestor menu follows the user interface size');assert(scaledMenu.left>=0&&scaledMenu.right<=scaledMenu.width,'Scaled menus still fit the sidebar window');await p.keyboard.press('Escape');
+  const settledScales=await shared.evaluate(async()=>{const values=[];for(let i=0;i<12;i++){await new Promise(requestAnimationFrame);values.push({stored:JSON.parse(localStorage.getItem('creative-interface')).scale,shown:getComputedStyle(document.documentElement).getPropertyValue('--interface-scale'),pathWidth:$('boardCrumbs').clientWidth})}return values});
+  assert(settledScales.every(value=>value.stored===1.25&&value.shown==='1.25'),'Old pane notifications cannot overwrite the latest interface size: '+JSON.stringify(settledScales));assert.equal(new Set(settledScales.map(value=>value.pathWidth)).size,1,'The path remains stable across frames');
+  assert.equal(await shared.evaluate(()=>JSON.stringify({nodes:board.nodes,edges:board.edges})),contentBeforePath,'Folder navigation and resizing preserve the board content');
+  console.log('Path navigation: compact current context, full ancestor names, keyboard jump/Escape/Tab, stale-menu cleanup, root return, board folders and width adaptation passed');
   assert.deepEqual(errors,[]);console.log('Explorer keyboard: focus continuity, ranges, focus-only movement, long lists, native copy, preview/editor return, folder hierarchy and shared-sidebar tab switching passed');
  }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});

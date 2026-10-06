@@ -25,7 +25,13 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 #workspaceSidebar .workspace-tabs #sidebarClose{order:10;flex:0 0 26px;min-width:26px;padding:5px 0;background:transparent;color:var(--ui-muted)}
 #workspaceSidebar .location-heading{display:none}
 #workspaceSidebar .clear-location{padding:10px 12px;margin-top:0}
-#workspaceSidebar .clear-location nav{flex-wrap:wrap;line-height:1.5}
+#workspaceSidebar .clear-location nav{flex-wrap:nowrap;line-height:1.5;overflow:hidden;gap:3px}
+#workspaceSidebar .clear-location nav button{min-width:0;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;flex-shrink:0}
+#workspaceSidebar .clear-location nav button[aria-current=location]{flex-shrink:1}
+#workspaceSidebar .clear-location nav .location-overflow{width:30px;padding:4px 0;font-size:18px}
+#locationMenu{position:fixed;z-index:10000;width:max-content;min-width:180px;max-width:calc(100vw - 16px);max-height:min(420px,calc(100dvh - 16px));overflow:auto;padding:calc(5px * var(--interface-scale,1));background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-line);border-radius:6px;box-shadow:0 8px 25px #0005;overscroll-behavior:contain}
+#locationMenu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:calc(8px * var(--interface-scale,1)) calc(10px * var(--interface-scale,1));border-radius:3px;font-size:calc(13px * var(--interface-scale,1));overflow-wrap:anywhere}
+#locationMenu button:hover{background:var(--ui-hover)}
 .node.table .read-layout .empty-field{display:none!important}
 .node.table .read-layout .add-cell-image{display:none!important}
 .node.table .read-layout td{vertical-align:top}

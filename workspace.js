@@ -388,7 +388,64 @@ document.addEventListener('click',e=>{const a=e.target.closest('a[data-file-link
 const renderBeforeTypeColors=renderAssets;renderAssets=function(){renderBeforeTypeColors();$('assetList').querySelectorAll('[data-asset]').forEach(el=>{const a=assetById(el.dataset.asset),m=a?.mime||'',kind=m===bundleMime?'组合':m.startsWith('image/')?'图片':m.startsWith('video/')?'视频':m.startsWith('audio/')?'音频':/\.json$/i.test(a?.path||'')?'JSON':/\.html?$/i.test(a?.path||'')?'网页':m==='application/pdf'?'PDF':'文件';el.dataset.kind=kind;const label=document.createElement('span');label.className='file-kind';label.textContent=kind;el.querySelector('div')?.prepend(label)})};
 
 // A readable current location, with the actual navigable hierarchy kept underneath.
-function clarifyLocation(navId,label){const nav=$(navId);if(!nav)return;const row=nav.parentElement;row.classList.add('clear-location');const up=row.querySelector('[id$=Up]');if(up){up.textContent='↑ 上一级';up.setAttribute('aria-label','返回上一级文件夹')}let head=row.querySelector('.location-heading');if(!head){head=document.createElement('div');head.className='location-heading';row.prepend(head)}const buttons=[...nav.querySelectorAll('button')];if(buttons[0])buttons[0].textContent=label;const current=buttons.at(-1);head.replaceChildren();const caption=document.createElement('small'),name=document.createElement('strong');caption.textContent='当前位置';name.textContent=current?.textContent||label;head.append(caption,name);const path=buttons.map(x=>x.textContent).join(' / ');head.title=path;nav.setAttribute('aria-label',label+'路径');for(const b of buttons){b.title=b.textContent;b.removeAttribute('aria-current')}current?.setAttribute('aria-current','location');row.querySelector('.treeToggle')?.setAttribute('title','展开或收起完整目录');}
+function clarifyLocation(navId,label){const nav=$(navId);if(!nav)return;const row=nav.parentElement;row.classList.add('clear-location');const up=row.querySelector('[id$=Up]');if(up){up.textContent='↑ 上一级';up.setAttribute('aria-label','返回上一级文件夹')}let head=row.querySelector('.location-heading');if(!head){head=document.createElement('div');head.className='location-heading';row.prepend(head)}const buttons=[...nav.querySelectorAll('button')];if(buttons[0])buttons[0].textContent=label;const current=buttons.at(-1);head.replaceChildren();const caption=document.createElement('small'),name=document.createElement('strong');caption.textContent='当前位置';name.textContent=current?.textContent||label;head.append(caption,name);const path=buttons.map(x=>x.textContent).join(' / ');head.title=path;nav.title=path;nav.setAttribute('aria-label',label+'路径');for(const b of buttons){b.title=b.textContent;b.removeAttribute('aria-current')}current?.setAttribute('aria-current','location');row.querySelector('.treeToggle')?.setAttribute('title','展开或收起完整目录');compactLocation(nav);}
+// Preserve root/current context without letting deep paths crowd the file list.
+let locationMenu=null,locationMenuOrigin=null,locationMenuNav=null;
+function closeLocationMenu(restore=false){
+ if(!locationMenu||locationMenu.hidden)return;
+ const origin=locationMenuOrigin;locationMenu.hidden=true;locationMenuOrigin=null;locationMenuNav=null;
+ origin?.setAttribute('aria-expanded','false');
+ if(restore&&origin?.isConnected&&!origin.hidden)origin.focus({preventScroll:true});
+}
+function openLocationMenu(e,buttons){
+ e.preventDefault();e.stopPropagation();if(locationMenu&&!locationMenu.hidden&&locationMenuOrigin===e.currentTarget){closeLocationMenu(true);return}closeLocationMenu();closeFileContext();
+ if(!locationMenu){
+  locationMenu=document.createElement('div');locationMenu.id='locationMenu';locationMenu.setAttribute('role','menu');locationMenu.hidden=true;document.body.append(locationMenu);
+  locationMenu.addEventListener('keydown',event=>{
+   if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;
+   const items=[...locationMenu.querySelectorAll('button')],at=items.indexOf(document.activeElement);
+   const next=event.key==='Home'?0:event.key==='End'?items.length-1:(at+(event.key==='ArrowDown'?1:items.length-1))%items.length;
+   event.preventDefault();event.stopPropagation();items[next]?.focus({preventScroll:true});items[next]?.scrollIntoView({block:'nearest'});
+  });
+  document.addEventListener('pointerdown',event=>{if(!locationMenu.contains(event.target)&&event.target!==locationMenuOrigin)closeLocationMenu()},true);
+  window.addEventListener('keydown',event=>{if(locationMenu.hidden)return;if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeLocationMenu(true)}else if(event.key==='Tab')closeLocationMenu(true)},true);
+  window.addEventListener('blur',()=>closeLocationMenu());
+ }
+ locationMenuOrigin=e.currentTarget;locationMenuNav=locationMenuOrigin.parentElement;locationMenuOrigin.setAttribute('aria-expanded','true');locationMenu.replaceChildren();
+ locationMenu.setAttribute('aria-label','上级文件夹');
+ const trail=[...locationMenuNav.querySelectorAll('button')].filter(button=>!button.classList.contains('location-overflow'));
+ for(const original of buttons){
+  const button=document.createElement('button');button.type='button';button.textContent=original.textContent;button.title=trail.slice(0,trail.indexOf(original)+1).map(item=>item.textContent).join(' / ');button.setAttribute('role','menuitem');
+  button.onclick=()=>{const nav=original.parentElement;closeLocationMenu();original.click();if(nav.isConnected)nav.querySelector('[aria-current=location]')?.focus({preventScroll:true})};locationMenu.append(button);
+ }
+ locationMenu.hidden=false;
+ const anchor=locationMenuOrigin.getBoundingClientRect(),box=locationMenu.getBoundingClientRect();
+ locationMenu.style.left=Math.max(8,Math.min(anchor.left,innerWidth-box.width-8))+'px';locationMenu.style.top=Math.max(8,Math.min(anchor.bottom+4,innerHeight-box.height-8))+'px';
+ locationMenu.querySelector('button')?.focus({preventScroll:true});
+}
+function compactLocation(nav){
+ if(locationMenuNav===nav)closeLocationMenu();
+ if(!nav.clientWidth)return;
+ const original=[...nav.children].filter(el=>!el.classList.contains('location-overflow-part'));
+ original.forEach(el=>el.hidden=false);nav.classList.remove('compact-path');
+ let overflow=nav.querySelector('.location-overflow');
+ nav.querySelectorAll('.location-overflow-part').forEach(el=>el.hidden=true);
+ const buttons=original.filter(el=>el.tagName==='BUTTON');
+ // Measure full labels before deciding whether they fit in the current width.
+ const current=buttons.at(-1),shrink=current?.style.flexShrink;
+ if(current)current.style.flexShrink='0';const naturalWidth=nav.scrollWidth;if(current)current.style.flexShrink=shrink;
+ if(buttons.length>2&&naturalWidth>nav.clientWidth+1){
+  if(!overflow){
+   const separator=()=>{const el=document.createElement('span');el.className='location-overflow-part';el.textContent='›';el.setAttribute('aria-hidden','true');return el};
+   overflow=document.createElement('button');overflow.type='button';overflow.className='location-overflow location-overflow-part';overflow.textContent='⋯';overflow.setAttribute('aria-haspopup','menu');overflow.setAttribute('aria-controls','locationMenu');overflow.setAttribute('aria-expanded','false');
+   buttons.at(-1).before(separator(),overflow,separator());
+  }
+  original.slice(1,-1).forEach(el=>el.hidden=true);nav.querySelectorAll('.location-overflow-part').forEach(el=>el.hidden=false);nav.classList.add('compact-path');
+  const ancestors=buttons.slice(1,-1);overflow.title='查看 '+ancestors.length+' 级上级文件夹';overflow.setAttribute('aria-label',overflow.title);overflow.onclick=e=>openLocationMenu(e,ancestors);
+ }
+ original.filter(el=>el.tagName==='SPAN').forEach(el=>el.setAttribute('aria-hidden','true'));
+ if(!nav._locationObserver){nav._locationObserver=new ResizeObserver(()=>compactLocation(nav));nav._locationObserver.observe(nav)}
+}
 const foldersBeforeLocation=renderFolders;renderFolders=function(){foldersBeforeLocation();clarifyLocation('boardCrumbs','我的白板')};
 const assetsBeforeLocation=renderAssets;renderAssets=function(){assetsBeforeLocation();clarifyLocation('assetBreadcrumbs','内容库')};
 function documentKind(a){if(!a)return '';return /\.html?$/i.test(a.path||'')||a.mime==='text/html'?'html':/\.json$/i.test(a.path||'')||a.mime==='application/json'?'json':''}
