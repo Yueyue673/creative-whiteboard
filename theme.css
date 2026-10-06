@@ -105,10 +105,11 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node .inline-toolbar .cell-tools button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:4px;font-size:17px}
 .node .inline-toolbar:has(.cell-tools:not([hidden])) #inlineDone{margin-left:6px}
 .node .live-layout .cell-content.cell-target{outline:1px solid var(--ui-accent);outline-offset:1px}
-#fileContext{max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;border-radius:6px;padding:4px;min-width:210px}
+#fileContext{max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;border-radius:6px;padding:4px;min-width:min(210px,calc(100vw - 16px))}
 #fileContext button{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:8px 10px;min-height:32px;border-radius:3px;line-height:1.4}
 #fileContext button:focus-visible{outline:0;background:var(--ui-selected)}
 #fileContext kbd{font:11px/1.4 inherit;font-family:inherit;color:var(--ui-muted);white-space:nowrap;background:none;border:0;padding:0}
+@media(max-width:240px){#fileContext button{flex-direction:column;align-items:flex-start;gap:3px;padding:8px 6px;white-space:normal;overflow-wrap:anywhere}#fileContext button>span,#fileContext kbd{max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere}}
 @media(max-width:600px){#canvas #creationDock button{padding-left:8px;padding-right:8px}#creationDock .text-size-popup{left:auto;right:0;transform:none;min-width:215px}}
 
 .node .playback-state[hidden]{display:none!important}
