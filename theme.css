@@ -167,6 +167,13 @@ body.content-transfer .node .read-layout [data-cell]{pointer-events:auto}
 .explorer-empty{color:var(--ui-muted)}
 .node.theme-surface{color-scheme:var(--ui-scheme,dark)}
 .json-reader .json-tools .chosen,.inline-document .json-tools button.chosen{color:var(--ui-text)}
+/* Expanded readers retain the same surfaces and field hierarchy as canvas readers. */
+.document-dialog #documentView{border-color:var(--ui-line)}
+.document-dialog .document-bar{color:var(--ui-muted)}
+.document-dialog .document-bar>a{color:var(--ui-link)}
+#documentView.json-reader details>summary{background:transparent;color:var(--ui-text);list-style:none}
+.json-reader .json-leaf b,#documentView.json-reader .json-leaf b{color:var(--ui-muted)}
+.json-reader .json-leaf span,#documentView.json-reader .json-leaf span{color:var(--ui-text)}
 #hint,#empty,#empty h1,.empty-pane,.empty-pane h2,.node.frame,.node.frame h3{color:var(--ui-canvas-muted,var(--ui-muted))}
 #boardLoadState h2{color:var(--ui-canvas-text,var(--ui-text))}#boardLoadState p{color:var(--ui-canvas-muted,var(--ui-muted))}#boardLoadState button,#boardLoadState[data-mode=banner] h2{color:var(--ui-text)}#boardLoadState[data-mode=banner] p{color:var(--ui-muted)}
 /* Outline labels quote the work; a compact preview helps recognize each draft. */

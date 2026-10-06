@@ -150,6 +150,15 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
       const focus=await contrast(selector+' [data-json-mode="结构"]',selector+' .json-tools','outlineColor');
       assert(focus.ratio>=3,'Keyboard focus stays visible on the document toolbar');
       await page.keyboard.press('Enter');assert(await bar.locator('[data-json-mode="结构"]').evaluate(el=>el.classList.contains('chosen')));
+      for(const part of ['summary','.json-leaf b','.json-leaf span']){
+        assert((await contrast(selector+' '+part)).ratio>=4.5,'JSON structure remains readable in this theme and surface: '+part);
+      }
+      const disclosure=page.locator(selector+' summary').first();
+      assert.equal(await disclosure.evaluate(el=>getComputedStyle(el).listStyleType),'none','JSON uses one disclosure indication in the card and expanded reader');
+      await disclosure.focus();await page.keyboard.press('Space');
+      assert.equal(await disclosure.evaluate(el=>el.parentElement.open),false,'Native disclosure keyboard toggling stays available');
+      await page.keyboard.press('Space');assert.equal(await disclosure.evaluate(el=>el.parentElement.open),true);
+
       await bar.locator('[title="放大 JSON 内容"]').click();assert.equal(await bar.locator('[title="恢复 JSON 至100%"]').innerText(),'115%');
       await bar.locator('[title="恢复 JSON 至100%"]').click();await bar.locator('[data-json-mode="原文"]').click();
       assert((await page.locator(selector+' pre').innerText()).includes('原始说明'));
@@ -238,6 +247,44 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
     assert.equal(await page.evaluate(async()=>{change();return persist()}),true);await page.reload();await page.waitForFunction(()=>board&&!loading);
     await checkPaperInk();assert.deepEqual(await page.evaluate(()=>board.nodes),paperOriginals,'Reopening keeps chosen paper colors and all original content');
     console.log('Paper reading: custom gray and colored notes, table copies, three themes, pointer editing, immersive editing and reopening passed');
+    // Long file names stay available as text and a native full-name hint;
+    // the reading area and download/close controls fit compact windows.
+    const prefix='observations_2026_10_06_sequence_'.repeat(4);
+    const documents=[];
+    for(const [extension,body] of [['json',JSON.stringify({records:[{name:'原始观察',notes:'保留资料。'}]})],
+      ['html','<!doctype html><html><body><p>保留原始网页。</p></body></html>']]){
+      const title=prefix+'original.'+extension;
+      const response=await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':title},body});assert(response.ok);
+      documents.push({...(await response.json()),title,original:body});
+    }
+    const authoredBeforeDocuments=await page.evaluate(()=>clone(board));
+    for(const document of documents){
+      await page.evaluate(async id=>{await loadAssets();await previewAsset(id)},document.id);
+      const heading=page.locator('.document-dialog h2');assert.equal(await heading.textContent(),document.title);
+      assert.equal(await heading.getAttribute('title'),document.title,'The complete name is available without adding another control');
+      for(const selector of ['#documentState','.document-bar>a'])assert((await contrast(selector,'#dialog')).ratio>=4.5,'Document state and source action remain readable');
+      for(const width of [1400,620,360,230]){
+        await page.setViewportSize({width,height:760});await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+        const layout=await page.locator('.document-dialog').evaluate(el=>{
+          const heading=el.querySelector('h2'),h=heading.getBoundingClientRect(),d=el.getBoundingClientRect(),view=document.getElementById('documentView').getBoundingClientRect();
+          const download=el.querySelector('.document-bar>a'),r=download.getBoundingClientRect(),lineHeight=parseFloat(getComputedStyle(download).lineHeight);
+          return {heading:{width:h.width,height:h.height,client:heading.clientWidth,scroll:heading.scrollWidth,line:parseFloat(getComputedStyle(heading).lineHeight)},
+            dialog:{left:d.left,right:d.right},viewHeight:view.height,download:{left:r.left,right:r.right,height:r.height,lineHeight},
+            close:[...el.querySelectorAll('#dialogActions button')].map(b=>{const r=b.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom}}),windowHeight:innerHeight};
+        });
+        assert(layout.heading.scroll<=layout.heading.client+1,'File name does not create horizontal overflow: '+width);
+        assert(layout.heading.height<=layout.heading.line*2+1,'File heading retains at most two lines');
+        assert(layout.viewHeight>150,'The actual document retains usable reading space: '+width);
+        assert(layout.download.height<=layout.download.lineHeight+1,'Download label stays on one line');
+        assert(layout.download.left>=layout.dialog.left&&layout.download.right<=layout.dialog.right,'Download remains within the dialog');
+        assert(layout.close.every(r=>r.left>=layout.dialog.left&&r.right<=layout.dialog.right&&r.bottom<=layout.windowHeight),'Close remains reachable');
+      }
+      await page.getByRole('button',{name:'关闭 Esc',exact:true}).click();assert.equal(await page.locator('#dialog').evaluate(el=>el.open),false);
+      assert.equal(await (await fetch(base+'/api/media/'+document.id)).text(),document.original,'Reading preserves original file bytes');
+    }
+    await page.setViewportSize({width:1400,height:940});
+    assert.deepEqual(await page.evaluate(()=>board),authoredBeforeDocuments,'Preview layout cannot alter the original board');
+    console.log('Document reading: full long names, two-line headings, compact download/close controls and unchanged source files passed');
     assert.deepEqual(errors, []);
     console.log('Appearance: readable custom panels and canvas, selection over authored content, JSON, saved preferences and unchanged note colours/geometry passed');
   } finally {

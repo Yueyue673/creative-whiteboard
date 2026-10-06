@@ -375,7 +375,7 @@ window.addEventListener('keydown',e=>{if($('dialog').open||isTyping(e)||!e.targe
 let documentReadSerial=0;
 const previewBeforeDocuments=previewAsset;
 previewAsset=async function(id){const a=assetById(id);if(!a)return;const html=/\.html?$/i.test(a.path||''),json=/\.json$/i.test(a.path||'')||a.mime==='application/json';if(!html&&!json)return previewBeforeDocuments(id);const requestNumber=++documentReadSerial;
- showDialog('<h2>'+esc(a.title)+'</h2><div class="document-bar"><span id="documentState">'+(html?'网页预览':'正在读取完整 JSON…')+'</span><a href="'+mediaURL(id)+'" target="_blank" rel="noopener">下载原文件</a></div><div id="documentView"></div>',[['关闭 Esc',()=>$('dialog').close()]]);$('dialog').classList.add('document-dialog');
+ showDialog('<h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2><div class="document-bar"><span id="documentState">'+(html?'网页预览':'正在读取完整 JSON…')+'</span><a href="'+mediaURL(id)+'" target="_blank" rel="noopener">下载原文件</a></div><div id="documentView"></div>',[['关闭 Esc',()=>$('dialog').close()]]);$('dialog').classList.add('document-dialog');
  const documentView=$('documentView'),documentState=$('documentState'),current=()=>requestNumber===documentReadSerial&&$('dialog').open&&documentView.isConnected;
  onDialogDismiss(()=>documentView.querySelectorAll('iframe').forEach(f=>f.remove()));
  if(html){const f=document.createElement('iframe');f.id='htmlDocument';f.title=a.title;f.setAttribute('sandbox','allow-scripts');f.src='/api/preview/'+encodeURIComponent(id);const host=document.createElement('div');host.className='web-frame-host inline-ui';host.append(f);documentView.append(host);f.onload=()=>{if(current())documentState.textContent='网页预览 · 支持页面内的样式与交互'};return}
