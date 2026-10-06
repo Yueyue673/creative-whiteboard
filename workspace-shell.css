@@ -11,3 +11,5 @@
 #boardChoices .board-choice-name{grid-column:1;grid-row:1;min-width:0;font-size:14px;font-weight:500;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 #boardChoices .board-choice-location{grid-column:1;grid-row:2;min-width:0;font-size:12px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-muted)}
 #boardChoices .board-choice-state{grid-column:2;grid-row:1/3;white-space:nowrap;font-size:12px;color:var(--ui-muted)}
+/* Keep short names recognizable; overflow stays in the one-row tab strip. */
+.tab{min-width:160px}.tabs{overscroll-behavior-x:contain}
