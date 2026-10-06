@@ -1,6 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id),uid=()=>crypto.randomUUID(),frames=new Map(),closingTabs=new Set();
 let boards=[],model={tabs:[],active:{left:null,right:null},side:'left',split:false,ratio:50},pickerSide='left',pickerResolve=null,pickerEpoch=0,contextTab=null,dragTab=null,toastTimer,lastLayout='',layoutLoaded=false,savingTimer,savingTab='',savingSince=0;
+let pickerFolders=null;
 function toast(text){$('shellToast').textContent=text;$('shellToast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('shellToast').hidden=true,4500)}
 async function api(path,options){const r=await fetch(path,options);if(!r.ok){let value;try{value=await r.json()}catch{}throw Error(value?.error||'读取失败，请稍后再试')}return r.json()}
 function saveLayout(){if(layoutLoaded){const url=new URL(location.href),tab=current();if(url.searchParams.has('board')){if(tab)url.searchParams.set('board',tab.boardId);else url.searchParams.delete('board');if(url.href!==location.href)window.history.replaceState(null,'',url)}}const value=JSON.stringify(model);if(value===lastLayout)return;try{sessionStorage.setItem('creative-board-tabs',value);localStorage.setItem('creative-board-tabs-last',value);lastLayout=value}catch{toast('浏览器未能记住布局；白板内容仍单独保存')}}
@@ -34,8 +35,10 @@ function moveTab(id,side,before){const t=model.tabs.find(t=>t.id===id);if(!t)ret
 function toggleSplit(){if(model.split){const keep=current()?.id;for(const t of model.tabs)t.side='left';model.split=false;model.active.left=keep||model.active.left;model.side='left'}else{model.split=true;const active=current();if(model.tabs.filter(t=>t.side==='left').length>1&&active){moveTab(active.id,'right');return}}renderTabs()}
 async function picker(side=model.side,purpose=null){
  const epoch=++pickerEpoch;pickerResolve?.(null);pickerResolve=null;pickerSide=side;
- try{boards=await api('/api/boards')}catch(e){toast(e.message);return null}
+ const [boardResult,folderResult]=await Promise.allSettled([api('/api/boards'),api('/api/folders')]);
  if(epoch!==pickerEpoch)return null;
+ if(boardResult.status==='rejected'){toast(boardResult.reason.message);return null}
+ boards=boardResult.value;pickerFolders=folderResult.status==='fulfilled'?folderResult.value.folders:null;
  $('boardQuery').value='';$('newBoardName').value='';$('boardPicker').querySelector('h2').textContent=purpose?.title||'打开白板';
  $('pickerHint').hidden=!purpose;$('pickerHint').textContent=purpose?.hint||'在'+(side==='right'?'右':'左')+'侧打开；已打开的白板会使用原标签。';
  const answer=purpose?new Promise(resolve=>pickerResolve=resolve):null;
@@ -43,7 +46,29 @@ async function picker(side=model.side,purpose=null){
 }
 function finishPicker(id,side=pickerSide){const resolve=pickerResolve;pickerResolve=null;openBoard(id,side);$('boardPicker').close();resolve?.(model.tabs.find(t=>t.boardId===id)||null)}
 $('boardPicker').addEventListener('close',()=>{if(!$('boardPicker').open){const resolve=pickerResolve;pickerResolve=null;resolve?.(null)}});
-function drawChoices(){const list=$('boardChoices');list.replaceChildren();const q=$('boardQuery').value.trim().toLowerCase();for(const b of boards.filter(b=>b.name.toLowerCase().includes(q))){const btn=document.createElement('button'),name=document.createElement('span'),meta=document.createElement('small');name.textContent=b.name;meta.textContent=model.tabs.some(t=>t.boardId===b.id)?'已打开':b.count+' 块内容';btn.append(name,meta);btn.onclick=()=>finishPicker(b.id);list.append(btn)}if(!list.children.length)list.textContent='没有找到，可以新建一张白板。'}
+function pickerLocation(board,folders){
+ if(!board.folder)return '我的白板';
+ if(!folders)return '位置暂时无法读取';
+ const parts=[],seen=new Set();let id=board.folder;
+ while(id&&!seen.has(id)){
+  seen.add(id);const folder=folders.get(id);
+  if(!folder){parts.unshift('原文件夹不存在');break}
+  parts.unshift(folder.name);id=folder.parent;
+ }
+ return parts.join(' › ');
+}
+function drawChoices(){
+ const list=$('boardChoices');list.replaceChildren();const q=$('boardQuery').value.trim().toLowerCase(),folders=pickerFolders&&new Map(pickerFolders.map(f=>[f.id,f]));
+ for(const b of boards){
+  const location=pickerLocation(b,folders);if(![b.name,location].join(' ').toLowerCase().includes(q))continue;
+  const btn=document.createElement('button'),name=document.createElement('span'),path=document.createElement('small'),meta=document.createElement('small');
+  name.className='board-choice-name';name.textContent=b.name;
+  path.className='board-choice-location';path.textContent=location;path.title=location;
+  meta.className='board-choice-state';meta.textContent=model.tabs.some(t=>t.boardId===b.id)?'已打开':b.count+' 块内容';
+  btn.title=b.name+'\n'+location;btn.dataset.boardChoice=b.id;btn.append(name,meta,path);btn.onclick=()=>finishPicker(b.id);list.append(btn);
+ }
+ if(!list.children.length)list.textContent='没有找到，可以新建一张白板。';
+}
 async function createBoard(name,side,folder="",show=true){const id=uid(),data={format:'creative-board',version:1,name:name||'未命名白板',folder,nodes:[],edges:[],view:{x:80,y:80,z:1}};await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(data)});boards.push({id,name:data.name,folder:data.folder,count:0});if(show)openBoard(id,side);return id}
 async function command(name){const t=current(),view=pane(t);if(!view||view.state().loading||view.state().boardId!==t.boardId)return toast('白板还在打开，请稍等');$('shellMore').open=false;try{await view.command(name)}catch(e){toast(e.message)}}
 function stepTab(offset){const tabs=model.tabs.filter(t=>t.side===model.side);if(!tabs.length)return;const index=tabs.findIndex(t=>t.id===model.active[model.side]);activate(tabs[(index+offset+tabs.length)%tabs.length].id)}
