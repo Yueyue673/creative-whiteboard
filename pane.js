@@ -2,7 +2,8 @@
 // Canvas tabs and the shared explorer have separate views of the same content model.
 (() => {
  if(parent===window||new URLSearchParams(location.search).get('pane')!=='1')return;
- const explorer=new URLSearchParams(location.search).get('explorer')==='1';
+ const params=new URLSearchParams(location.search),explorer=params.get('explorer')==='1';
+ if(explorer&&['manager','assetPane','outline'].includes(params.get('panel')))workspaceTab=params.get('panel');
  document.documentElement.classList.add('embedded-pane',explorer?'explorer-pane':'canvas-pane');
  const style=document.createElement('style');style.textContent='.embedded-pane body>header{display:none!important}.embedded-pane main{height:100dvh!important}.embedded-pane #workspaceSidebar{top:0!important}.canvas-pane #workspaceSidebar{display:none!important}.embedded-pane #windowWorkspace,.embedded-pane #hint{display:none!important}.explorer-pane #canvas,.explorer-pane #editor{display:none!important}.explorer-pane #workspaceSidebar{position:absolute!important;inset:0 auto auto 0!important;width:100%!important;height:calc(100dvh / var(--interface-scale,1))!important;min-width:0!important;max-width:none!important;border:0!important;resize:none!important;transform:none!important;zoom:var(--interface-scale,1)!important}.explorer-pane .workspace-tabs{margin-top:6px!important}.explorer-pane .sidebar-top{display:none!important}';document.head.append(style);
  $('workspaceSidebar').hidden=!explorer;
@@ -16,7 +17,7 @@
  if(explorer){
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Tab'&&!e.isComposing&&!document.querySelector('dialog[open]')){e.preventDefault();e.stopImmediatePropagation();send('explorer-shortcut',{reverse:e.shiftKey})}},true);
   drawNodes=()=>{}; // This document presents lists, never a second hidden canvas.
-  const show=showWorkspaceTab;showWorkspaceTab=async function(panel){await show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel})};
+  const show=showWorkspaceTab;showWorkspaceTab=async function(panel){const pending=show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel});await pending};
   toggleSidebar=()=>send('explorer-toggle');$('sidebarToggle').onclick=toggleSidebar;
   const placements=new Map();let placementPending=false;
   window.addEventListener('message',e=>{

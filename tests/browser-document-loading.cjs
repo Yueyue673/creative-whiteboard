@@ -31,8 +31,57 @@ const {chromium}=require('playwright');
   const missing=await context.newPage();missing.on('pageerror',e=>errors.push(e.message));await missing.goto(base+'/index.html?board=missing');await missing.locator('#boardLoadRetry').waitFor();assert.equal(await missing.evaluate(()=>board),null);assert.equal(await missing.evaluate(()=>loadTargetId),'missing');
   const missingWindow=await context.newPage();missingWindow.on('pageerror',e=>errors.push(e.message));await missingWindow.goto(base+'/?board=missing');await missingWindow.waitForFunction(()=>pane(current())?.state().loadError);assert.equal(await missingWindow.evaluate(()=>model.tabs.length),1);assert.equal(await missingWindow.evaluate(()=>current().boardId),'missing');assert.equal(await missingWindow.evaluate(()=>pane(current()).state().boardId),'');
   const explicitWithoutList=await context.newPage();explicitWithoutList.on('pageerror',e=>errors.push(e.message));await explicitWithoutList.route('**/api/boards',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟目录读取失败'})}));await explicitWithoutList.goto(base+'/?board=a');await explicitWithoutList.waitForFunction(()=>pane(current())?.state().boardId==='a'&&!pane(current()).state().loading);assert.equal(await explicitWithoutList.evaluate(()=>current().boardId),'a');
+  await verifyEarlyLibraryChoice(context,base);
   // The shared library can boot even when the board-list endpoint alone fails.
   const withoutList=await context.newPage();withoutList.on('pageerror',e=>errors.push(e.message));await withoutList.route('**/api/boards',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟目录读取失败'})}));await withoutList.goto(base);await withoutList.waitForFunction(()=>whiteboardWorkspace.explorer());const independent=withoutList.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');await independent.evaluate(()=>showWorkspaceTab('assetPane'));await independent.locator('[data-asset]').first().waitFor();assert.equal(await independent.evaluate(()=>boardId),'');assert.equal(await withoutList.evaluate(()=>model.tabs.length),0);assert.equal((await fetch(base+'/api/boards').then(r=>r.json())).length,3);
   assert.deepEqual(errors,[]);console.log('Document loading: explicit failure and retry, tab status, latest selection wins, in-flight save continuity and independent file contents passed');
  }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+async function verifyEarlyLibraryChoice(context,base){
+ const page=await context.newPage(),errors=[];let releaseBoot,releaseAssets,releaseFolders=()=>{};page.on('pageerror',error=>errors.push(error.message));
+ const bootGate=new Promise(resolve=>releaseBoot=resolve),assetsGate=new Promise(resolve=>releaseAssets=resolve),inFlight=new Set();
+ const gated=gate=>async route=>{const operation=(async()=>{await gate;await route.continue()})();inFlight.add(operation);try{await operation}finally{inFlight.delete(operation)}};
+ await page.addInitScript(()=>localStorage.setItem('creative-sidebar-state',JSON.stringify({open:true,tab:'manager'})));
+ await page.route('**/api/boards',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟目录读取失败'})}));
+ // The explorer is already usable before its last startup script finishes.
+ // Keep assets pending too, so completion cannot stand in for a user choice.
+ const holdExplorerBoot=gated(bootGate);
+ await page.route('**/board-lifecycle.js',route=>new URL(route.request().frame().url()).searchParams.get('explorer')==='1'?holdExplorerBoot(route):route.continue());await page.route('**/api/assets',gated(assetsGate));
+ try{
+  await page.goto(base,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>whiteboardWorkspace.explorer());
+  const library=page.frames().find(frame=>new URL(frame.url()).searchParams.get('explorer')==='1');
+  await page.evaluate(()=>{window.explorerStartupFinished=false;document.getElementById('explorerFrame').addEventListener('load',()=>window.explorerStartupFinished=true,{once:true})});
+  await library.locator('#assetsButton').click();await library.waitForFunction(()=>workspaceTab==='assetPane');
+  releaseBoot();await page.waitForFunction(()=>window.explorerStartupFinished);
+  const choice=await library.evaluate(()=>({panel:workspaceTab,hidden:document.getElementById('assetPane').hidden,selected:document.getElementById('assetsButton').getAttribute('aria-selected')}));
+  if(process.env.DOCUMENT_LOADING_SCREENSHOT_DIR){fs.mkdirSync(process.env.DOCUMENT_LOADING_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.DOCUMENT_LOADING_SCREENSHOT_DIR,'early-library-choice.png')})}
+  assert.deepEqual(choice,{panel:'assetPane',hidden:false,selected:'true'},'Finishing startup retains the real content-library click: '+JSON.stringify(choice));
+  releaseAssets();await library.locator('[data-asset]').first().waitFor();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('creative-sidebar-state')).tab==='assetPane');
+  if(process.env.DOCUMENT_LOADING_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.DOCUMENT_LOADING_SCREENSHOT_DIR,'startup-library-ready.png')});
+  const foldersGate=new Promise(resolve=>releaseFolders=resolve);await page.route('**/api/folders',gated(foldersGate));
+  await library.evaluate(()=>{const show=showWorkspaceTab;showWorkspaceTab=function(panel){const pending=show(panel);if(panel==='manager')window.pendingManagerOpen=pending;return pending}});
+  await library.locator('#manage').click();await library.waitForFunction(()=>workspaceTab==='manager');
+  await library.locator('#assetsButton').click();await library.locator('[data-asset]').first().waitFor();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('creative-sidebar-state')).tab==='assetPane');
+  releaseFolders();await library.evaluate(()=>window.pendingManagerOpen);
+  assert.equal(await library.evaluate(()=>workspaceTab),'assetPane');
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('creative-sidebar-state')).tab),'assetPane','An older directory request cannot replace the newer sidebar choice');
+  await page.unroute('**/api/folders');
+  assert.equal(await page.evaluate(()=>model.tabs.length),0,'A failed board list does not invent a canvas');
+  assert.equal(await library.evaluate(()=>boardId),'');
+ }finally{releaseBoot();releaseAssets();releaseFolders();await Promise.allSettled([...inFlight]);await page.close()}
+ // Reopen the stored library tab with the same unavailable board-list service.
+ const reopened=await context.newPage();reopened.on('pageerror',error=>errors.push(error.message));
+ try{
+  await reopened.route('**/api/boards',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟目录读取失败'})}));
+  await reopened.goto(base);await reopened.waitForFunction(()=>whiteboardWorkspace.explorer());
+  const library=reopened.frames().find(frame=>new URL(frame.url()).searchParams.get('explorer')==='1');
+  await library.locator('[data-asset]').first().waitFor();
+  assert.equal(await library.evaluate(()=>workspaceTab),'assetPane','Startup respects the stored content-library choice');
+  assert.equal(await reopened.evaluate(()=>model.tabs.length),0);
+ }finally{await reopened.close()}
+ assert.deepEqual(errors,[]);
+ console.log('启动中的内容库选择：加载完成保留刚点击的页面，延迟资料正常出现，目录暂不可用也能恢复内容库，通过');
+}
