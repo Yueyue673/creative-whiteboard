@@ -183,6 +183,61 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
       await page.evaluate(() => whiteboardAppearance.apply({preset: 'resolve', custom: {panel: '#e7e6e2'}, note: '#fff0aa'}));
       await page.screenshot({path: path.join(process.env.APPEARANCE_SCREENSHOT_DIR, 'custom-light.png')});
     }
+    // A chosen paper color needs readable ink in every place that holds the
+    // content. In particular, the old brightness cutoff failed on mid-gray.
+    const papers=['#fff0aa','#777777','#7d7d7d','#c28a62','#315b70','#303136',
+      '#000000','#767676','#808080','#949494','#aeb7b4','#dcebc7','#f8f8f8'];
+    await page.evaluate(papers=>{
+      editorId=null;selected.clear();board.view={x:0,y:0,z:1};
+      const notes=papers.map((color,i)=>({id:'paper-test-'+i,type:'note',color,title:'自己的观察 '+i,
+        body:'保留原来的内容。',userText:'补充一条自己的记录。',annotation:'对照原始资料。',
+        x:30+(i%6)*220,y:70+Math.floor(i/6)*230,w:210,h:220,sizeMode:'manual',tags:[]}));
+      board.nodes=[...notes,{id:'paper-table',type:'table',title:'自己的编排',color:'#ffffff',
+        x:30,y:800,w:900,h:360,sizeMode:'manual',columns:['甲','乙','丙'],rows:Array.from({length:5},()=>['','','']),
+        cellItems:Array.from({length:5},(_,r)=>Array.from({length:3},(_,c)=>notes[r*3+c]?[{...clone(notes[r*3+c]),id:'copy-'+(r*3+c)}]:[])),cellImages:[],tags:[]}];
+      board.edges=[];$('nodes').replaceChildren();render();
+    },papers);
+    const paperOriginals=await page.evaluate(()=>clone(board.nodes));
+    async function checkPaperInk(immersive=false){
+      const results=await page.evaluate(immersive=>{
+        const rgb=value=>value.match(/[\d.]+/g).slice(0,3).map(Number);
+        const lum=value=>value.map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((s,c,i)=>s+c*[.2126,.7152,.0722][i],0);
+        const selector=immersive?'#immersiveSurface .edit-scroll>textarea,#immersiveSurface .visible-annotation textarea,#immersiveSurface .visible-annotation label':
+          '[data-id^="paper-test-"] .edit-scroll>textarea,[data-id^="paper-test-"] .visible-annotation textarea,[data-id^="paper-test-"] .visible-annotation label,[data-id="paper-table"] [data-cell-note-field]';
+        return [...document.querySelectorAll(selector)].filter(el=>getComputedStyle(el).display!=='none').map(el=>{
+          const owner=el.closest('.cell-content')||el.closest('.node'),bg=rgb(getComputedStyle(owner).backgroundColor),fg=rgb(getComputedStyle(el).color);
+          let opacity=1;for(let current=el;current&&current!==owner.parentElement;current=current.parentElement)opacity*=Number(getComputedStyle(current).opacity);
+          const painted=fg.map((c,i)=>c*opacity+bg[i]*(1-opacity)),a=lum(painted),b=lum(bg);
+          return {id:owner.dataset.id||'copy-'+owner.dataset.cellC,field:el.dataset.cellNoteField||el.dataset.previewId||el.id||el.tagName,
+            ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),font:parseFloat(getComputedStyle(el).fontSize),caption:el.tagName==='LABEL'};
+        });
+      },immersive);
+      assert(results.length>0);
+      for(const result of results){assert(result.ratio>=4.5,'Chosen paper keeps readable text: '+JSON.stringify(result));
+        if(result.caption)assert(result.font>=12,'A remark caption is not tiny faded text');}
+    }
+    for(const preset of ['resolve','paper','slate']){
+      await page.evaluate(preset=>whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'}),preset);
+      await checkPaperInk();
+      assert.equal(await page.locator('[data-id="paper-test-0"]').evaluate(el=>getComputedStyle(el).color),'rgb(36, 37, 41)',
+        'The already readable default yellow paper keeps its original ink');
+      for(const [i,color] of papers.entries()){
+        const backgrounds=await page.evaluate(i=>[document.querySelector('[data-id="paper-test-'+i+'"]'),
+          document.querySelector('[data-id="paper-table"] [data-cell-r="'+Math.floor(i/3)+'"][data-cell-c="'+i%3+'"]')].filter(Boolean).map(el=>getComputedStyle(el).backgroundColor),i);
+        const expected=await page.evaluate(color=>{const el=document.createElement('span');el.style.backgroundColor=color;return el.style.backgroundColor},color);
+        assert.equal(backgrounds.length,2);assert(backgrounds.every(bg=>bg===expected),'Changing ink preserves chosen paper color in the canvas and table');
+      }
+      const box=await page.locator('[data-id="paper-test-1"]').boundingBox();
+      await page.mouse.dblclick(box.x+24,box.y+28);await page.locator('[data-id="paper-test-1"] .live-layout').waitFor();
+      await checkPaperInk();await page.locator('#inlineDone').click();
+      await page.evaluate(()=>whiteboardReading.open('paper-test-2'));await page.locator('#immersiveSurface #body').waitFor();
+      await checkPaperInk(true);await page.keyboard.press('Escape');
+      await page.waitForFunction(()=>!whiteboardReading.isEditing());
+    }
+    assert.deepEqual(await page.evaluate(()=>board.nodes),paperOriginals,'Paper ink and theme changes preserve words, colors, copies and manual geometry');
+    assert.equal(await page.evaluate(async()=>{change();return persist()}),true);await page.reload();await page.waitForFunction(()=>board&&!loading);
+    await checkPaperInk();assert.deepEqual(await page.evaluate(()=>board.nodes),paperOriginals,'Reopening keeps chosen paper colors and all original content');
+    console.log('Paper reading: custom gray and colored notes, table copies, three themes, pointer editing, immersive editing and reopening passed');
     assert.deepEqual(errors, []);
     console.log('Appearance: readable custom panels and canvas, selection over authored content, JSON, saved preferences and unchanged note colours/geometry passed');
   } finally {
