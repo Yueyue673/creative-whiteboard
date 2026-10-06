@@ -18,6 +18,8 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 /* Secondary labels retain readable contrast on the dark panels. */
 #workspaceSidebar .location-heading strong{color:var(--ui-text)}.wf-explain,.wf-diff small,.wf-result small,.wf-empty,.wf-origin-status,.wf-search-snippet,.wf-history-row small,.destination-browser small,.destination-footer small,.destination-toggle small{color:var(--ui-muted)}.wf-result p{color:var(--ui-text)}.wf-history-row{border-color:var(--ui-line)}.node .inline-toolbar button,.node.table .table-actions button{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line)}
 
+.piece-row:has(>input:checked){background:var(--ui-selected);box-shadow:inset 2px 0 var(--ui-focus,var(--ui-accent))}
+.piece-row small,#pieceCount{color:var(--ui-muted);font-size:12px}
 /* Compact navigation and content-aware table reading layout. */
 #workspaceSidebar .workspace-tabs{display:flex;align-items:center;gap:3px;padding:6px;margin:10px 10px 8px}
 #workspaceSidebar .workspace-tabs #sidebarClose{order:10;flex:0 0 26px;min-width:26px;padding:5px 0;background:transparent;color:var(--ui-muted)}
