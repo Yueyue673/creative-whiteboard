@@ -169,3 +169,7 @@ body.content-transfer .node .read-layout [data-cell]{pointer-events:auto}
 .json-reader .json-tools .chosen,.inline-document .json-tools button.chosen{color:var(--ui-text)}
 #hint,#empty,#empty h1,.empty-pane,.empty-pane h2,.node.frame,.node.frame h3{color:var(--ui-canvas-muted,var(--ui-muted))}
 #boardLoadState h2{color:var(--ui-canvas-text,var(--ui-text))}#boardLoadState p{color:var(--ui-canvas-muted,var(--ui-muted))}#boardLoadState button,#boardLoadState[data-mode=banner] h2{color:var(--ui-text)}#boardLoadState[data-mode=banner] p{color:var(--ui-muted)}
+/* Outline labels quote the work; a compact preview helps recognize each draft. */
+#items .outline-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;font-weight:500;font-size:13px;line-height:1.6}
+#items small{font-size:12px;line-height:1.6;overflow-wrap:anywhere;margin-top:3px}
+#items .outline-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
