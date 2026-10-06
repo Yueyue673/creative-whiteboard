@@ -84,12 +84,12 @@
  }
  async function save(state,asCopy=false){
   if(state.busy||!active(state))return;
-  let draft=capture(state);if(!draft.title.trim()){notice(state,'请给这项内容起一个名称。');return}
+  let draft=capture(state);if(!draft.title.trim()){notice(state,'请给这项内容起一个名称。');if(state.mode==='content')$('libraryName').focus();return}
   busy(state,true);notice(state,'');
   try{
    await loadAssets();if(!active(state))return;
    // Allow typing during the fresh read; the final snapshot includes those later words.
-   draft=capture(state);if(!draft.title.trim()){notice(state,'请给这项内容起一个名称。');return}
+   draft=capture(state);if(!draft.title.trim()){notice(state,'请给这项内容起一个名称。');if(state.mode==='content')$('libraryName').focus();return}
    const current=state.base?assetById(state.base.id):null;
    if(state.base&&!asCopy){const missing=unavailable(state,current,draft);if(missing){showUnavailable(state,missing);return}}
    const target=destination(state.destination);
@@ -136,13 +136,13 @@
   if(id&&!original)return toast('这项内容已移走，请重新选择。');
   if(original&&!original.bundle?.nodes.length)return toast('这份组合没有内容块，可以先把内容收进库，再继续编辑。');
   const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'}],edges:[]}},busy:false};let index=0;
-  showDialog('<section class="library-edit-form"><h2>'+(original?'编辑库中内容':'新建库中内容')+'</h2><p class="library-edit-explain">'+(original?'已放到白板上的副本保持原样。':'先写下想法，需要使用时再拖到白板。')+'</p><label>内容名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label><label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
+  showDialog('<section class="library-edit-form library-content-form"><div class="library-content-heading"><h2>'+(original?'编辑内容':'新建内容')+'</h2><p class="library-edit-explain">'+(original?'已放到白板上的副本保持原样。':'先写下想法，需要使用时再拖到白板。')+'</p></div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div></div><aside class="library-content-details" aria-label="内容信息"><label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label><label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label><div id="librarySupplement"></div></aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
   const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=$('library-'+key).value};
   const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'">'+esc(state.draft.bundle.nodes[index][key]||'')+'</textarea></label>';
-  const draw=()=>{$('libraryFields').innerHTML=field('title','这块内容的标题',1)+field('body','正文',7)+field('userText','自己的补充',3)+field('annotation','备注',2)+(state.draft.bundle.nodes[index].type==='table'?'<p class="library-edit-explain">表格单元格与附件会保留。调整表格结构时，可放到白板编辑后再收录。</p>':'')};
+  const draw=()=>{$('libraryFields').innerHTML=field('title','标题',1)+field('body','正文',7);$('librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(state.draft.bundle.nodes[index].type==='table'?'<p class="library-edit-explain">表格单元格与附件会保留。调整表格结构时，可放到白板编辑后再收录。</p>':'')};
   state.capture=()=>{capturePiece();state.draft.title=$('libraryName').value.trim();state.draft.folder=$('libraryDestination').value};
   if($('libraryPiece'))$('libraryPiece').onchange=e=>{capturePiece();index=Number(e.target.value);draw()};
-  draw();setup(state);$('libraryName').focus();
+  draw();setup(state);$(original?'libraryName':'library-body').focus();
  }
  window.whiteboardLibraryEditing={editFile,editContent};
 })();

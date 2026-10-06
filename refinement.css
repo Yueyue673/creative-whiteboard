@@ -115,6 +115,20 @@ button,summary,select{transition:none}
 #dialog:has(.ai-compose) #dialogBody,#dialog:has(.ai-source-list) #dialogBody{padding:22px 26px;overflow:auto;min-height:0;scrollbar-gutter:stable}
 #dialog:has(.ai-compose) #dialogActions,#dialog:has(.ai-source-list) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .ai-compose>p{line-height:1.75}.ai-compose>.wf-explain{margin-top:4px;margin-bottom:18px}.ai-compose .ai-context-details{margin:12px 0}.media-controls{position:relative}.media-controls .media-marker-tick{top:0!important}
+/* Give authored text the writing space; keep its library information nearby. */
+#dialog[open]:has(.library-content-form){display:flex;flex-direction:column;width:min(900px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 48px);padding:0;overflow:hidden}
+#dialog:has(.library-content-form) #dialogBody{min-width:0;min-height:0;overflow:auto;scrollbar-gutter:stable;padding:24px}
+#dialog:has(.library-content-form) #dialogActions{flex:none;gap:8px;margin:0;padding:14px 24px;border-top:1px solid var(--ui-line);background:var(--ui-panel)}
+.library-content-heading h2{margin:0;font-size:20px;line-height:1.5}.library-content-heading p{margin:6px 0 22px;font-size:12px;line-height:1.7}
+.library-content-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(288px,.55fr);gap:24px;align-items:start}
+.library-content-writing,.library-content-details{min-width:0}.library-content-details{border-left:1px solid var(--ui-line);padding-left:24px}
+#dialogBody .library-content-form label{display:block;margin:0 0 18px;font-size:12px;line-height:1.6;color:var(--ui-muted)}
+.library-content-form input,.library-content-form textarea,.library-content-form select{margin-top:6px;font-size:14px;line-height:1.7;color:var(--ui-text)}
+.library-content-form #library-title{font-size:18px;font-weight:500;line-height:1.5;min-height:44px}
+.library-content-form #library-body{min-height:300px;line-height:1.8}
+.library-content-form .destination-picker{margin:0 0 18px}.library-content-form .destination-label,.library-content-form .destination-change{font-size:12px;color:var(--ui-muted)}
+.library-content-form .destination-toggle{padding:9px 10px;gap:8px}.library-content-form .destination-current{font-size:13px}
+@media(max-width:780px){.library-content-layout{grid-template-columns:minmax(0,1fr);gap:6px}.library-content-details{border-left:0;border-top:1px solid var(--ui-line);padding:18px 0 0}.library-content-form #library-body{min-height:220px}#dialog:has(.library-content-form) #dialogBody{padding:20px}#dialog:has(.library-content-form) #dialogActions{padding:12px 20px}}
 @media(max-width:420px){.media-marker-editor{grid-template-columns:minmax(0,1fr)}.media-marker-description,.media-marker-actions,.media-marker-error{grid-column:1}.media-marker-heading{flex-wrap:wrap}.media-marker-heading strong{flex-basis:100%}.media-marker-actions{flex-wrap:wrap}}
 .hand-tool .web-frame-host::after,.space-panning .web-frame-host::after{content:"";position:absolute;inset:0;background:transparent;z-index:4;cursor:grab;pointer-events:auto}.hand-tool.document-panning .web-frame-host::after,.space-panning.document-panning .web-frame-host::after{cursor:grabbing}
 
