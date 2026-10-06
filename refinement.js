@@ -47,11 +47,11 @@
   canvas.classList.toggle('compact-actions',bounds.width<156);canvas.classList.toggle('stacked-actions',bounds.width<99);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
-  const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions')?.closest('.node');
+  const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
   // Measure before writing positions so selecting many cards does not force a layout per card.
   const obstacles=[$('canvasTools'),dock,textTools.open?textTools.querySelector('.text-size-popup'):null].map(el=>el?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
-  const placements=elements.map(el=>{const actions=el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,width=actions.offsetWidth,height=actions.offsetHeight;
+  const placements=elements.map(el=>{const actions=(!el.classList.contains('table')&&el.querySelector(':scope>.inner.live-layout>.inline-toolbar'))||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,width=actions.offsetWidth,height=actions.offsetHeight;
    const left=r.right-z-width,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
@@ -65,7 +65,7 @@
   for(const p of placements){if(!p)continue;const {actions,below,dx,dy}=p,key=[z,below,dx,dy].join('|');if(actions.dataset.position===key)continue;actions.dataset.position=key;actions.style.transform='scale('+1/z+')';actions.style.right=(-dx/z)+'px';actions.style.bottom=below?'auto':'calc(100% + '+(7-dy)/z+'px)';actions.style.top=below?'calc(100% + '+(7+dy)/z+'px)':'auto';actions.style.transformOrigin=below?'top right':'bottom right'}
  }
  const canvasBounds=new ResizeObserver(positionActions);for(const el of [canvas,$('canvasTools'),$('creationDock'),$('textSizeTools')])if(el)canvasBounds.observe(el);
- $('nodes').addEventListener('focusin',e=>{if(e.target.closest('.block-actions'))positionActions()});
+ $('nodes').addEventListener('focusin',e=>{if(e.target.closest('.block-actions,.inline-toolbar'))positionActions()});
  function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');if(actions&&!actions.querySelector('.block-read')&&n.type!=='frame'){const b=document.createElement('button');b.className='block-read';b.title='展开编辑';b.setAttribute('aria-label','展开编辑');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/></svg>';b.onclick=e=>{e.stopPropagation();readNote(n.id)};actions.prepend(b)}const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
   for(const handle of el.querySelectorAll('.table-column-resize'))bindWidth(handle,n);
  }positionActions()}
