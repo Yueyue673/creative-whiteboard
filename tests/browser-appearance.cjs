@@ -125,6 +125,46 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
       assert.equal(await page.evaluate(()=>JSON.stringify(board)), overlappingContent, 'Selection and zoom return preserve authored content and geometry');
       assert.equal(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--ui-accent')), behind);
     }
+    // Ordinary and zoom buttons belong to the same document toolbar surface;
+    // a dark toolbar must not contain unrelated browser-default white controls.
+    const jsonAsset = await (await fetch(base + '/api/assets/upload', {method:'POST',
+      headers:{'X-File-Name':'toolbar.json'}, body:JSON.stringify({title:'资料记录',notes:'原始说明'})})).json();
+    await page.evaluate(async id => {
+      await loadAssets(); board.nodes.push({id:'json-controls',type:'note',title:'toolbar.json',body:'',assetId:id,
+        x:720,y:420,w:380,h:330,color:'#ffffff'}); render();
+    },jsonAsset.id);
+    await page.locator('[data-id="json-controls"] .json-reader').waitFor();
+    const originalGeometry = await page.evaluate(() => board.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h,n.color,n.body]));
+    async function checkJSONToolbar(selector){
+      const bar=page.locator(selector+' .json-tools');await bar.locator('[data-json-mode="内容"]').waitFor({state:'visible'});assert.equal(await bar.locator('button').count(),6);
+      const style=await bar.evaluate(el=>({background:getComputedStyle(el).backgroundColor,
+        ordinary:[...el.querySelectorAll('button:not(.chosen)')].map(b=>getComputedStyle(b).backgroundColor),
+        selected:getComputedStyle(el.querySelector('.chosen')).backgroundColor}));
+      assert(style.ordinary.every(color=>color===style.background),'Ordinary mode and zoom controls follow their toolbar surface: '+JSON.stringify(style));
+      assert.notEqual(style.selected,style.background,'The chosen reading mode stays distinguishable');
+      for(const mode of ['内容','结构','原文'])
+        assert((await contrast(selector+' .json-tools [data-json-mode="'+mode+'"]')).ratio>=4.5);
+      for(const title of ['缩小 JSON 内容','恢复 JSON 至100%','放大 JSON 内容'])
+        assert((await contrast(selector+' .json-tools button[title="'+title+'"]')).ratio>=4.5);
+      await bar.locator('[data-json-mode="内容"]').focus();await page.keyboard.press('Tab');
+      const focus=await contrast(selector+' [data-json-mode="结构"]',selector+' .json-tools','outlineColor');
+      assert(focus.ratio>=3,'Keyboard focus stays visible on the document toolbar');
+      await page.keyboard.press('Enter');assert(await bar.locator('[data-json-mode="结构"]').evaluate(el=>el.classList.contains('chosen')));
+      await bar.locator('[title="放大 JSON 内容"]').click();assert.equal(await bar.locator('[title="恢复 JSON 至100%"]').innerText(),'115%');
+      await bar.locator('[title="恢复 JSON 至100%"]').click();await bar.locator('[data-json-mode="原文"]').click();
+      assert((await page.locator(selector+' pre').innerText()).includes('原始说明'));
+    }
+    for(const appearance of [{preset:'resolve',custom:{}},{preset:'paper',custom:{}},{preset:'slate',custom:{}},
+      {preset:'resolve',custom:{panel:'#ffffff'}},{preset:'paper',custom:{panel:'#0b0e13'}},{preset:'resolve',custom:{panel:'#315b70'}}]){
+      await page.evaluate(appearance=>whiteboardAppearance.apply({...appearance,note:'#fff0aa'}),appearance);
+      await checkJSONToolbar('[data-id="json-controls"] .json-reader');
+    }
+    await page.evaluate(id=>previewAsset(id),jsonAsset.id);await page.locator('#documentView.json-reader').waitFor();
+    await checkJSONToolbar('#documentView');await page.keyboard.press('Escape');
+    await page.evaluate(()=>whiteboardReading.open('json-controls'));
+    await checkJSONToolbar('#immersiveSurface .json-reader');await page.keyboard.press('Escape');
+    assert.deepEqual(await page.evaluate(()=>board.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h,n.color,n.body])),originalGeometry,
+      'Toolbar appearance, modes, zoom reset and expanded reading preserve authored content and geometry');
     await page.evaluate(() => {whiteboardAppearance.apply({preset: 'paper', custom: {panel: '#0b0e13', canvas: '#ffffff'}, note: '#fff0aa'}, true);
       showDialog('<h2>资料阅读</h2><div id="themeJSON"></div>', [['关闭', () => $('dialog').close()]]);
       renderJSONReader($('themeJSON'), {value: {说明: '保持资料可读'}, raw: '{"说明":"保持资料可读"}'});});

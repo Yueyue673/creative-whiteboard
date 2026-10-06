@@ -186,7 +186,25 @@ const {chromium}=require('playwright');
 
 
 async function verifyPopoverBounds(page,audioId){
- await page.setViewportSize({width:1600,height:900});
+ // The browser may acknowledge viewport dimensions before dispatching resize.
+ // Let the actual resize handlers finish before opening a fresh playback panel.
+ async function resizeViewport(size){
+  const same=await page.evaluate(({width,height})=>innerWidth===width&&innerHeight===height,size);
+  if(same){await page.setViewportSize(size);return}
+  await page.evaluate(({width,height})=>{
+   window.mediaResizeSettled=false;
+   const resized=()=>{
+    if(innerWidth!==width||innerHeight!==height)return;
+    window.removeEventListener('resize',resized);
+    requestAnimationFrame(()=>window.mediaResizeSettled=true);
+   };
+   window.addEventListener('resize',resized);
+  },size);
+  await page.setViewportSize(size);
+  await page.waitForFunction(()=>window.mediaResizeSettled===true);
+  await page.evaluate(()=>delete window.mediaResizeSettled);
+ }
+ await resizeViewport({width:1600,height:900});
  await page.evaluate(id=>{
   const sound={id:'bounded-sound',type:'note',title:'现场声音',body:'',assetId:id,mediaId:id,x:720,y:580,w:300,h:180,color:'#ffffff',tags:[]};
   const table={id:'bounded-table',type:'table',title:'声音对照',columns:['内容'],rows:[['']],columnWidths:[250],x:60,y:320,w:380,h:280,tags:[]};
@@ -224,7 +242,7 @@ async function verifyPopoverBounds(page,audioId){
  await page.locator('[data-id="bounded-table"] .media-time').click();await page.locator('.media-add-marker').click();await bounded();
  await page.locator('.media-marker-title').fill('格内记录');await page.keyboard.press('Escape');
  assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes[0].mediaTimeline)),ownMarkers,'The table player keeps independent marker ownership');
- await page.setViewportSize({width:460,height:430});
+ await resizeViewport({width:460,height:430});
  await page.evaluate(()=>{$('workspaceSidebar').hidden=true;view().x=0;view().y=0;view().z=.5;moveView();whiteboardMedia.open(document.querySelector('[data-id="bounded-sound"] audio'))});
  await bounded();
  const scroll=await page.locator('#mediaPopover').evaluate(el=>({height:el.clientHeight,scroll:el.scrollHeight}));
@@ -233,7 +251,7 @@ async function verifyPopoverBounds(page,audioId){
  assert(await page.locator('#mediaPopover').evaluate(el=>el.scrollTop)>0,'The replay setting is reachable by scrolling the bounded panel');
  assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
  await page.keyboard.press('Escape');
- await page.setViewportSize({width:1600,height:900});
+ await resizeViewport({width:1600,height:900});
  await page.evaluate(()=>whiteboardReading.open('bounded-sound'));
  await page.locator('#immersiveSurface .media-time').click();await bounded();
  assert.equal(await page.locator('#dialog #mediaPopover').count(),1);

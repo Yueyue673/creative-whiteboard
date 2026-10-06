@@ -42,6 +42,12 @@ const {chromium} = require('playwright');
    await arrived;
    await page.evaluate(action);
    release(); await page.evaluate(() => attachment); await page.unroute('**/api/assets/upload');
+   const imported=await page.evaluate(name=>({present:assetIndex.assets.some(a=>a.title===name),
+     names:assetIndex.assets.map(a=>a.title),toast:document.getElementById('toast').textContent}),name);
+   if(!imported.present){
+    const response=await fetch(base+'/api/assets'),catalog=await response.json();
+    assert.fail(JSON.stringify({name,imported,serverStatus:response.status,serverNames:catalog.assets.map(a=>a.title)}));
+   }
   }
   // Undoing an unrelated edit replaces the document object, but not the chosen content.
   await heldAttachment('undo-note.png', 'image/png', png, {nodeId:'note'}, () => {
