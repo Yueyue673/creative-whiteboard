@@ -99,11 +99,12 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node .wf-origin{display:block;width:100%;text-align:left;margin:10px 0;padding:8px 10px;font-size:12px;overflow-wrap:anywhere}
 .node:not(.active):not(.connector-target) .port,.node.resizable-note:not(.active) .resize{opacity:0;pointer-events:none}
 .node.active .port,.node.connector-target .port,.node.resizable-note.active .resize{opacity:1;pointer-events:auto}
-.node .cell-content .cell-item-actions{position:absolute;right:5px;top:5px;display:flex;gap:2px;margin:0;z-index:4;opacity:0;pointer-events:none}
-.node .live-layout .cell-content:hover .cell-item-actions,.node .live-layout .cell-content:focus-within .cell-item-actions{opacity:1;pointer-events:auto}
-.node .cell-content .cell-item-actions button{display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:4px;font-size:17px;background:var(--cell-control,color-mix(in srgb,var(--cell-paper,#fff0aa) 88%,#000));color:inherit}
-.node .cell-file .cell-item-actions button{background:var(--ui-raised);color:var(--ui-text)}
-.node .live-layout .cell-content [data-cell-note-field=title]{padding-right:46px}
+/* Contextual copy actions stay in the table toolbar, clear of paper text. */
+.node .inline-toolbar .cell-tools{display:flex;align-items:center;gap:2px;margin-left:auto}
+.node .inline-toolbar .cell-tools[hidden]{display:none}
+.node .inline-toolbar .cell-tools button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:4px;font-size:17px}
+.node .inline-toolbar:has(.cell-tools:not([hidden])) #inlineDone{margin-left:6px}
+.node .live-layout .cell-content.cell-target{outline:1px solid var(--ui-accent);outline-offset:1px}
 #fileContext{max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;border-radius:6px;padding:4px;min-width:210px}
 #fileContext button{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:8px 10px;min-height:32px;border-radius:3px;line-height:1.4}
 #fileContext button:focus-visible{outline:0;background:var(--ui-selected)}

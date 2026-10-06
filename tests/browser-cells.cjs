@@ -7,10 +7,10 @@ await p.evaluate(()=>{board.nodes=[{id:'n',type:'note',color:'#cde8fb',fontSize:
 await p.keyboard.press('Control+c');await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="0"][data-col="0"]').click();await p.keyboard.press('Control+v');await p.waitForFunction(()=>board.nodes.find(n=>n.id==='t').cellItems?.[0]?.[0]?.length===1);assert.equal(await p.locator('[data-cell="0,0"] [data-cell-note-field="body"]').inputValue(),'留意开头的短促声。');assert.equal(await p.locator('[data-cell="0,0"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Pasted notes keep their authored paper colour');await checkCopyFonts(p,'[data-cell="0,0"] .cell-content',24,17);await p.locator('[data-cell="0,0"] [data-cell-note-field="body"]').fill('这里改的是单元格里的副本。');assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='n').body),'留意开头的短促声。');
 // Upload a tiny valid PCM WAV and drag it from the same library payload used by the UI.
 const wav=Buffer.alloc(44+1600);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(1600,40);const response=await fetch(base+'/api/assets/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':'tap.wav'},body:wav});assert(response.ok);const audio=await response.json();await p.evaluate(()=>loadAssets());const dt=await p.evaluateHandle(id=>{const d=new DataTransfer();d.setData('application/x-creative-assets',JSON.stringify([id]));return d},audio.id);await p.locator('[data-cell="0,1"]').dispatchEvent('drop',{dataTransfer:dt});await p.waitForFunction(()=>!!document.querySelector('[data-cell="0,1"] audio'));await p.locator('[data-cell="0,1"] audio').evaluate(async el=>{await el.play();el.pause()});
-await p.evaluate(()=>{const n=board.nodes.find(n=>n.id==='t');moveTable(n,'row',0,1);moveTable(n,'column',0,1)});assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1][0].body),'这里改的是单元格里的副本。');assert.equal(await p.locator('[data-cell="1,0"] audio').count(),1);await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.equal(await p.locator('.read-layout [data-cell="1,0"] audio').count(),1);assert.equal(await p.locator('[data-cell="1,1"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Paper colour survives row/column movement and reload');await checkCopyFonts(p,'[data-cell="1,1"] .cell-content',24,17);await p.waitForTimeout(150);assert(await p.locator('.read-layout [data-cell="1,0"] > textarea').isHidden());assert(await p.locator('.read-layout [data-cell="1,0"] [data-cell-note-field="body"]').isHidden());const mediaHeight=await p.locator('.read-layout [data-cell="1,0"] .cell-content').evaluate(e=>e.getBoundingClientRect().height);assert(mediaHeight<145,'Audio should not reserve empty body space: '+mediaHeight);await p.evaluate(()=>showWorkspaceTab('manager'));if(process.env.CELLS_SCREENSHOT)await p.screenshot({path:process.env.CELLS_SCREENSHOT});await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] .cell-content').hover();await p.locator('[data-cell="1,1"] [data-cell-extract]').click();assert.equal(await p.evaluate(()=>board.nodes.length),3);assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id!=='n'&&n.id!=='t').color),'#cde8fb','Taking out a copy retains its authored colour');assert.deepEqual(await p.evaluate(()=>{const n=board.nodes.find(n=>n.id!=='n'&&n.id!=='t');return [n.titleFontSize,n.fontSize]}),[24,17],'Taking out a copy retains both authored font sizes');await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] .cell-content').hover();await p.locator('[data-cell="1,1"] [data-cell-remove]').click();assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),0);await p.evaluate(()=>undo());assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),1);
+await p.evaluate(()=>{const n=board.nodes.find(n=>n.id==='t');moveTable(n,'row',0,1);moveTable(n,'column',0,1)});assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1][0].body),'这里改的是单元格里的副本。');assert.equal(await p.locator('[data-cell="1,0"] audio').count(),1);await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.equal(await p.locator('.read-layout [data-cell="1,0"] audio').count(),1);assert.equal(await p.locator('[data-cell="1,1"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Paper colour survives row/column movement and reload');await checkCopyFonts(p,'[data-cell="1,1"] .cell-content',24,17);await p.waitForTimeout(150);assert(await p.locator('.read-layout [data-cell="1,0"] > textarea').isHidden());assert(await p.locator('.read-layout [data-cell="1,0"] [data-cell-note-field="body"]').isHidden());const mediaHeight=await p.locator('.read-layout [data-cell="1,0"] .cell-content').evaluate(e=>e.getBoundingClientRect().height);assert(mediaHeight<145,'Audio should not reserve empty body space: '+mediaHeight);await p.evaluate(()=>showWorkspaceTab('manager'));if(process.env.CELLS_SCREENSHOT)await p.screenshot({path:process.env.CELLS_SCREENSHOT});await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.cell-tools [data-cell-extract]').click();assert.equal(await p.evaluate(()=>board.nodes.length),3);assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id!=='n'&&n.id!=='t').color),'#cde8fb','Taking out a copy retains its authored colour');assert.deepEqual(await p.evaluate(()=>{const n=board.nodes.find(n=>n.id!=='n'&&n.id!=='t');return [n.titleFontSize,n.fontSize]}),[24,17],'Taking out a copy retains both authored font sizes');await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.cell-tools [data-cell-remove]').click();assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),0);await p.evaluate(()=>undo());assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),1);
 console.log('单元格：便签复制粘贴、独立编辑、音频拖入播放、行列移动、保存重载、取出和撤销通过');
 await p.evaluate(()=>{selected=new Set(['n']);openEditor('n')});await p.locator('#body').click();await p.keyboard.press('Control+End');for(let i=0;i<35;i++){await p.keyboard.insertText('这一行继续记录拍摄时观察到的细节。');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .edit-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);assert(await p.locator('.live-layout .edit-scroll').evaluate(e=>e.scrollTop)<130);
-await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="1"][data-col="1"]').click();for(let i=0;i<40;i++){await p.keyboard.insertText('继续写分镜说明');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .table-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);console.log('长文编辑：便签与表格跟随输入光标、返回开头通过');await verifyCopyTypography(p);await verifyPaperSurfaces(p,audio.id);assert.deepEqual(errors,[]);
+await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="1"][data-col="1"]').click();for(let i=0;i<40;i++){await p.keyboard.insertText('继续写分镜说明');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .table-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);console.log('长文编辑：便签与表格跟随输入光标、返回开头通过');await verifyCopyTypography(p);await verifyPaperSurfaces(p,audio.id);await verifyCopyControls(p);assert.deepEqual(errors,[]);
 }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}})().catch(e=>{console.error(e);process.exitCode=1});
 
 
@@ -146,4 +146,78 @@ async function verifyCopyTypography(page){
  assert.deepEqual(await defaultLayout(),readingLayout,'Undo restores the annotation and its separation');
  console.log('阅读层级：默认标题正文、备注间隔、常用缩放、编辑与沉浸切换、重开及清空备注后撤销通过');
  console.log('格内字号：同格多张便签各自保留标题、正文、补充和备注字号；表格调整/重置、撤销重做、沉浸编辑及保存重开通过');
+}
+
+async function verifyCopyControls(page){
+ await page.evaluate(()=>{
+  const items=[
+   {id:'first',title:'第一段画面的完整现场记录',body:'保留自己的观察。',color:'#cde8fb'},
+   {id:'second',title:'第二份记录',body:'之后再比较。',color:'#353940'},
+   {id:'third',title:'Camera and sound observations for the second take',body:'现场记录。',color:'#fff0aa',titleFontSize:20}
+  ].map(item=>({type:'note',tags:[],sizeMode:'manual',x:0,y:0,w:280,h:180,...item}));
+  const table={id:'control-table',type:'table',title:'内容对照',columns:['画面','声音'],rows:[['',''],['','']],columnWidths:[230,230],tags:[],x:120,y:90,w:560,h:600};
+  cellItemGrid(table);table.cellItems[0][0]=items.slice(0,2);table.cellItems[0][1]=[items[2]];
+  editorId=null;selected.clear();board.nodes=[table];board.edges=[];board.view={x:0,y:0,z:1};render();
+ });
+ const root='[data-id="control-table"]',first=root+' [data-cell="0,0"] [data-cell-item="0"]',second=root+' [data-cell="0,0"] [data-cell-item="1"]';
+ const originals=await page.evaluate(()=>JSON.stringify(board.nodes[0].cellItems));
+ const frame=await page.evaluate(()=>{const n=board.nodes[0];return [n.x,n.y,n.w,n.h]});
+ async function titleLayout(scope=root){
+  return page.locator(scope+' [data-cell-note-field=title]').evaluateAll(fields=>fields.map(el=>({width:el.offsetWidth,height:el.offsetHeight,padding:getComputedStyle(el).paddingRight,line:getComputedStyle(el).lineHeight})));
+ }
+ const reading=await titleLayout();
+ for(const z of [.65,1,1.35]){
+  await page.evaluate(z=>{view().z=z;moveView();openEditor('control-table')},z);
+  assert.deepEqual(await titleLayout(),reading,'Entering editing does not narrow or reflow copied titles at zoom '+z);
+  assert(await page.locator(root+' .cell-tools').isHidden(),'Copy actions start hidden until a copy is chosen');
+  await page.locator(first+' [data-cell-note-field=title]').click();
+  assert(await page.locator(root+' .cell-tools').isVisible());
+  assert.equal(await page.locator(root+' .cell-target').count(),1);
+  assert.equal(await page.locator(first).evaluate(el=>el.classList.contains('cell-target')),true);
+  await page.locator(second).hover();
+  assert.equal(await page.locator(first).evaluate(el=>el.classList.contains('cell-target')),true,'Hovering another copy does not change an action target');
+  assert.deepEqual(await titleLayout(),reading,'Focused and hovered copied titles keep their full width');
+  const colour=await page.locator(first).evaluate(el=>getComputedStyle(el).backgroundColor);
+  assert.equal(colour,'rgb(205, 232, 251)','The chosen-copy outline preserves the paper colour');
+  await page.locator('#inlineDone').click();
+  assert.deepEqual(await titleLayout(),reading,'Returning to reading keeps title wrapping');
+ }
+ await page.evaluate(()=>{view().z=1;moveView();openEditor('control-table')});
+ await page.locator(first+' [data-cell-note-field=title]').click();
+ await page.locator(second).hover();
+ for(let i=0;i<16;i++){
+  if(await page.evaluate(()=>document.activeElement?.hasAttribute('data-cell-extract')))break;
+  await page.keyboard.press('Shift+Tab');
+ }
+ assert(await page.evaluate(()=>document.activeElement?.hasAttribute('data-cell-extract')),'The copy action is reachable with real keyboard navigation');
+ assert((await page.locator(root+' [data-cell-extract]').getAttribute('aria-label')).includes('第一段画面的完整现场记录'));
+ await page.keyboard.press('Enter');
+ assert.equal(await page.evaluate(()=>board.nodes.length),2);
+ assert.equal(await page.evaluate(()=>board.nodes.find(n=>n.id!=='control-table').title),'第一段画面的完整现场记录','Keyboard extraction uses the chosen copy, not the hovered neighbour');
+ assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='control-table').cellItems)),originals);
+ await page.evaluate(()=>openEditor('control-table'));
+ await page.locator(second+' [data-cell-note-field=body]').click();
+ await page.locator(root+' [data-row="1"][data-col="1"]').click();
+ assert(await page.locator(root+' .cell-tools').isHidden(),'Clicking a plain cell clears the old copy target');
+ assert.equal(await page.locator(root+' .cell-target').count(),0);
+ await page.locator(second+' [data-cell-note-field=title]').click();
+ await page.locator(root+' .cell-tools [data-cell-remove]').click();
+ assert.deepEqual(await page.evaluate(()=>board.nodes.find(n=>n.id==='control-table').cellItems[0][0].map(n=>n.id)),['first'],'Removal affects only the chosen copy');
+ await page.evaluate(()=>{canvas.focus();undo()});
+ assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='control-table').cellItems)),originals);
+ await page.evaluate(()=>whiteboardReading.open('control-table'));
+ assert.deepEqual(await titleLayout('#immersiveSurface'),reading,'Immersive editing retains copied title wrapping');
+ await page.locator('#immersiveSurface [data-cell="0,1"] [data-cell-note-field=title]').click();
+ assert((await page.locator('#immersiveSurface .cell-tools [data-cell-remove]').getAttribute('aria-label')).includes('Camera and sound'));
+ await page.locator('#immersiveSurface .cell-tools [data-cell-remove]').click();
+ assert.equal(await page.evaluate(()=>board.nodes.find(n=>n.id==='control-table').cellItems[0][1].length),0);
+ await page.evaluate(()=>undo());
+ await page.keyboard.press('Escape');
+ assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='control-table').cellItems)),originals);
+ assert.deepEqual(await page.evaluate(()=>{const n=board.nodes.find(n=>n.id==='control-table');return [n.x,n.y,n.w,n.h]}),frame);
+ assert.equal(await page.evaluate(async()=>{change();return persist()}),true);
+ await page.reload();await page.waitForFunction(()=>board&&!loading);
+ assert.deepEqual(await titleLayout(),reading,'Reopening keeps the same title wrapping');
+ assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='control-table').cellItems)),originals);
+ console.log('格内操作：长标题在阅读编辑间不挤压，点击与键盘定位副本，悬停不误换目标，取出移除及沉浸撤销重开通过');
 }
