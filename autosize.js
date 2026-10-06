@@ -35,7 +35,7 @@
   const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el])),updates=[];
   for(const n of board.nodes){if(!automatic(n))continue;const el=elements.get(n.id),height=contentHeight(n,el);if(height!=null&&Math.abs(n.h-height)>=2)updates.push({n,el,height})}
   for(const {n,el,height} of updates){n.h=height;el.style.height=height+'px';el.style.setProperty('--handle-limit',String(Math.min(n.w,height)/40))}
-  if(updates.length){drawEdges();change()}
+  if(updates.length){drawEdges();window.whiteboardReading?.placeActions?.();change()}
  }
  function schedule(){if(!scheduled)scheduled=requestAnimationFrame(update)}
  const oldAdd=addNote;addNote=function(p=center(),data={}){oldAdd(p,{sizeMode:data.type&&data.type!=='note'?'manual':'auto',...data});schedule()};
