@@ -10,7 +10,7 @@
  const sorted=el=>(timeline(el)?.markers||[]).slice().sort((a,b)=>a.time-b.time);
  function jump(el,time,play=false){if(!Number.isFinite(el.duration)||el.duration<=0)return;el.currentTime=Math.max(0,Math.min(time,el.duration));el._captureReading?.();if(play)el.play().catch(()=>toast('无法播放，请检查原文件'))}
  function write(el,fn,checkpoint=true){if(blocked)return toast('请先处理保存冲突');if(!owner(el))return;if(checkpoint)undoPoint();fn(timeline(el,true));change();update(el);if(active?.el===el)renderPanel(active);renderOutline()}
- function open(el,id=null){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};ui.querySelector('.media-time').click();if(active)active.selected=id;decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
+ function open(el,id=null){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};ui.querySelector('.media-time').click();decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
  function update(el){
   const info=players.get(el);if(!info)return;const t=timeline(el),list=sorted(el),ready=Number.isFinite(el.duration)&&el.duration>0;
   if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=boardId+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
@@ -31,6 +31,7 @@
   if(m){s.title.value=m.title||'';s.note.value=m.note||'';s.time.value=String(Math.round(m.time*100)/100);s.start.checked=m.id===t?.startMarkerId;s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true;s.error.textContent=''}
   const row=[...s.list.children].find(row=>row.dataset.markerId===s.selected);if(row){if(keepFocus)row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'})}
   if(focus===s.resume&&s.resume.hidden)(m?s.start:s.add).focus({preventScroll:true});else if(s.editor.hidden&&s.editor.contains(focus))s.add.focus({preventScroll:true});
+  whiteboardMedia.fit();
  }
  function decorate(){
   const popup=$('mediaPopover'),el=active?.el;if(!popup||!el||popup.querySelector('.media-markers'))return;
@@ -51,7 +52,7 @@
   };
   s.start.onchange=()=>write(el,t=>t.startMarkerId=s.start.checked?s.selected:null);s.resume.onclick=()=>write(el,t=>t.startMarkerId=null);
   section.querySelector('.media-remove-marker').onclick=()=>write(el,t=>{t.markers=t.markers.filter(m=>m.id!==s.selected);if(t.startMarkerId===s.selected)t.startMarkerId=null;s.selected=t.markers[0]?.id||null});
-  renderPanel(s);update(el);const r=popup.getBoundingClientRect();popup.style.top=Math.max(12,Math.min(r.top,innerHeight-r.height-12))+'px';
+  renderPanel(s);update(el);
  }
  function mount(){
   for(const el of document.querySelectorAll('.node audio,.node video')){let info=players.get(el);const controls=el.nextElementSibling;if(!controls?.matches('.media-controls'))continue;
@@ -59,8 +60,9 @@
    update(el);
   }
  }
- document.addEventListener('click',e=>{const clock=e.target.closest('.media-time');if(clock&&!clock.closest('#mediaPopover')){const el=clock.closest('.media-controls')?.previousElementSibling;if(el?.matches('audio,video')){active={el,selected:null};queueMicrotask(decorate)}}},true);
- const observer=new MutationObserver(()=>{decorate();if(active&&!$('mediaPopover'))active=null});observer.observe(document.body,{childList:true});
+ // Decorate after the player exists, including real clicks inside a dialog.
+ document.addEventListener('creative-media-opened',e=>{const el=e.detail;if(!el?.matches?.('.node audio,.node video')||!$('mediaPopover'))return;if(active?.el!==el)active={el,selected:null};decorate()});
+ document.addEventListener('creative-media-closed',e=>{if(active?.el===e.detail)active=null});
  const oldDraw=drawNodes;drawNodes=function(){oldDraw();mount()};const oldSelect=refreshSelectionUI;refreshSelectionUI=function(){oldSelect();mount()};
  whiteboardMedia.open=el=>open(el);whiteboardMedia.markers={timeline,parseTime,jump,mount};if(board)mount();
  const beforeLoad=loadBoard;loadBoard=async function(...args){restoredOwners.clear();return beforeLoad(...args)};

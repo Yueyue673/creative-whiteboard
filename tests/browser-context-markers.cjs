@@ -178,7 +178,72 @@ const {chromium}=require('playwright');
    }finally{releaseMedia();await Promise.allSettled([...inFlight]);await p.unroute(pattern)}
   }
   console.log('时间标记：加载等待/文件暂不可用时不保存未核对的时间，名称备注可编辑，恢复后时长校验、小数秒跳转与保存重开，通过');
+  await verifyPopoverBounds(p,audio.id);
   assert.deepEqual(errors,[]);console.log('时间标记、备注、重播起点与继续播放；表格副本独立；沉浸编辑；有范围的布局/图片/快照材料与下载；导航、对齐、操作偏好，通过');
  }catch(err){if(p&&process.env.CONTEXT_SCREENSHOT_DIR){fs.mkdirSync(process.env.CONTEXT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.CONTEXT_SCREENSHOT_DIR,'failure.png')})}throw err}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));assert(path.resolve(tmp).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(tmp,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+
+async function verifyPopoverBounds(page,audioId){
+ await page.setViewportSize({width:1600,height:900});
+ await page.evaluate(id=>{
+  const sound={id:'bounded-sound',type:'note',title:'现场声音',body:'',assetId:id,mediaId:id,x:720,y:580,w:300,h:180,color:'#ffffff',tags:[]};
+  const table={id:'bounded-table',type:'table',title:'声音对照',columns:['内容'],rows:[['']],columnWidths:[250],x:60,y:320,w:380,h:280,tags:[]};
+  cellItemGrid(table);table.cellItems[0][0]=[{...clone(sound),id:'cell-bounded-sound',title:'格内声音'}];
+  board.nodes=[sound,table];board.edges=[];board.view={x:0,y:0,z:1};editorId=null;selected.clear();render();change();
+ },audioId);
+ await page.waitForFunction(()=>document.querySelector('[data-id="bounded-sound"] audio')?.readyState>=1);
+ const geometry=await page.evaluate(()=>board.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h]));
+ async function bounded(){
+  await page.waitForFunction(()=>{const r=document.querySelector('#mediaPopover')?.getBoundingClientRect();return r&&r.top>=11.5&&r.left>=11.5&&r.bottom<=innerHeight-11.5&&r.right<=innerWidth-11.5});
+ }
+ const sound=page.locator('[data-id="bounded-sound"]');
+ await sound.locator('audio').evaluate(el=>el.currentTime=2.5);
+ await sound.locator('.media-time').click();await page.waitForFunction(()=>document.querySelector('.media-add-marker'));await bounded();
+ await page.locator('.media-add-marker').click();await bounded();
+ assert(await page.locator('.media-marker-start').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight-12),'Replay controls remain on screen after the marker editor appears');
+ await page.locator('.media-marker-title').fill('第一段声音');await page.locator('.media-marker-note').fill('保留自己的声音观察。');
+ assert.equal(await page.locator('.media-marker-title').inputValue(),'第一段声音');
+ const originalTime=await page.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time);
+ await page.locator('.media-marker-time').fill('999');await page.locator('.media-marker-time').press('Tab');await bounded();
+ assert(await page.locator('.media-marker-error').isVisible());
+ assert.equal(await page.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time),originalTime,'Fitting a validation message never saves an invalid marker time');
+ await page.locator('.media-marker-time').fill('2.5');await page.locator('.media-marker-time').press('Tab');await bounded();
+ await page.locator('.media-marker-start').check();await bounded();
+ const position=await page.locator('#mediaPopover').evaluate(el=>el.getBoundingClientRect().top);
+ await page.locator('.media-marker-title').fill('第一段声音的记录');
+ assert.equal(await page.locator('#mediaPopover').evaluate(el=>el.getBoundingClientRect().top),position,'Ordinary text edits do not move the panel');
+ await page.locator('#mediaPopover .media-play').click();await page.waitForFunction(()=>!document.querySelector('[data-id="bounded-sound"] audio').paused);
+ await page.locator('.media-add-marker').click();await bounded();
+ assert(await sound.locator('audio').evaluate(el=>!el.paused&&el.currentTime>=2.5),'Adding and fitting a marker keeps playback running at its current position');
+ await page.keyboard.press('Escape');assert(await sound.locator('audio').evaluate(el=>!el.paused));
+ assert(await sound.locator('.media-time').evaluate(el=>document.activeElement===el),'Closing returns focus to the originating playback control');
+ await sound.locator('audio').evaluate(el=>el.pause());
+ const ownMarkers=await page.evaluate(()=>JSON.stringify(board.nodes[0].mediaTimeline));
+ await page.locator('[data-id="bounded-table"] .media-time').click();await page.locator('.media-add-marker').click();await bounded();
+ await page.locator('.media-marker-title').fill('格内记录');await page.keyboard.press('Escape');
+ assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes[0].mediaTimeline)),ownMarkers,'The table player keeps independent marker ownership');
+ await page.setViewportSize({width:460,height:430});
+ await page.evaluate(()=>{$('workspaceSidebar').hidden=true;view().x=0;view().y=0;view().z=.5;moveView();whiteboardMedia.open(document.querySelector('[data-id="bounded-sound"] audio'))});
+ await bounded();
+ const scroll=await page.locator('#mediaPopover').evaluate(el=>({height:el.clientHeight,scroll:el.scrollHeight}));
+ assert(scroll.scroll>scroll.height,'A short viewport provides internal scrolling rather than offscreen controls');
+ await page.locator('.media-marker-start').uncheck();await bounded();
+ assert(await page.locator('#mediaPopover').evaluate(el=>el.scrollTop)>0,'The replay setting is reachable by scrolling the bounded panel');
+ assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
+ await page.keyboard.press('Escape');
+ await page.setViewportSize({width:1600,height:900});
+ await page.evaluate(()=>whiteboardReading.open('bounded-sound'));
+ await page.locator('#immersiveSurface .media-time').click();await bounded();
+ assert.equal(await page.locator('#dialog #mediaPopover').count(),1);
+ await page.locator('.media-marker-time').fill('999');await page.locator('.media-marker-time').press('Tab');await bounded();
+ assert(await page.locator('.media-marker-error').isVisible());
+ await page.keyboard.press('Escape');await page.keyboard.press('Escape');
+ assert.deepEqual(await page.evaluate(()=>board.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h])),geometry,'Popup fitting never resizes or moves the authored cards');
+ assert.equal(await page.evaluate(async()=>{change();return persist()}),true);
+ await page.reload();await page.waitForFunction(()=>board&&!loading);
+ assert.equal(await page.evaluate(()=>Object.values(board.nodes.find(n=>n.id==='bounded-sound').mediaTimeline)[0].markers[0].note),'保留自己的声音观察。','Marker notes survive fitting and reopening');
+ assert.deepEqual(await page.evaluate(()=>board.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h])),geometry);
+ console.log('播放面板：底部新增标记、错误提示与重播设置保持可见，短窗口内滚动，普通编辑位置稳定，播放和格内副本独立，沉浸返回与重开通过');
+}
