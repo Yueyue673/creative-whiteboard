@@ -86,17 +86,36 @@ async function verifyCopyTypography(page){
  const root='[data-id="font-table"]',copies=await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='font-table').cellItems));
  const originals=await page.evaluate(()=>JSON.stringify(board.nodes.filter(n=>n.id!=='font-table')));
  const frame=await page.evaluate(()=>{const n=board.nodes.find(n=>n.id==='font-table');return [n.x,n.y,n.w,n.h]});
+ async function defaultLayout(scope=root){
+  return page.locator(scope+' [data-cell="0,1"] .cell-content').evaluate(el=>{
+   const title=el.querySelector('[data-cell-note-field=title]'),body=el.querySelector('[data-cell-note-field=body]'),annotation=el.querySelector('[data-cell-note-field=annotation]'),supplement=el.querySelector('[data-cell-note-field=userText]');
+   const t=getComputedStyle(title),b=getComputedStyle(body),a=getComputedStyle(annotation);
+   return {title:parseFloat(t.fontSize),body:parseFloat(b.fontSize),titleLine:t.lineHeight,bodyLine:b.lineHeight,annotationLine:a.lineHeight,
+    titleGap:parseFloat(t.marginBottom),annotationBorder:a.borderTopStyle,annotationGap:parseFloat(a.marginTop),annotationPadding:parseFloat(a.paddingTop),
+    separated:annotation.getBoundingClientRect().top>supplement.getBoundingClientRect().bottom};
+  });
+ }
+ const readingLayout=await defaultLayout();
+ assert(readingLayout.title>readingLayout.body,'Default title and body have distinct reading hierarchy');
+ assert(readingLayout.titleGap>0&&readingLayout.annotationGap>0&&readingLayout.annotationPadding>0&&readingLayout.separated,'Title and annotation are separated from main text');
+ assert.equal(readingLayout.annotationBorder,'solid');
+ for(const z of [.65,1,1.35]){
+  await page.evaluate(z=>{view().z=z;moveView()},z);
+  assert.deepEqual(await defaultLayout(),readingLayout,'Reading hierarchy stays consistent across board zooms');
+ }
+ await page.evaluate(()=>{view().z=1;moveView()});
  async function unchangedFonts(scope=root){
   await checkCopyFonts(page,scope+' [data-cell="0,0"] [data-cell-item="0"]',32,20);
   await checkCopyFonts(page,scope+' [data-cell="0,0"] [data-cell-item="1"]',24,16);
-  await checkCopyFonts(page,scope+' [data-cell="0,1"] .cell-content',13,13);
-  await checkCopyFonts(page,scope+' [data-cell="1,1"] .cell-content',28,13);
+  await checkCopyFonts(page,scope+' [data-cell="0,1"] .cell-content',16,14);
+  await checkCopyFonts(page,scope+' [data-cell="1,1"] .cell-content',28,14);
   assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='font-table').cellItems)),copies,'Table controls do not rewrite independent copies');
   assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.filter(n=>n.id!=='font-table'))),originals,'Originals retain their typography and text');
   assert.deepEqual(await page.evaluate(()=>{const n=board.nodes.find(n=>n.id==='font-table');return [n.x,n.y,n.w,n.h]}),frame,'Typography does not resize the manually sized table');
  }
  await unchangedFonts();
  await page.evaluate(()=>openEditor('font-table'));await unchangedFonts();
+ assert.deepEqual(await defaultLayout(),readingLayout,'Entering edit mode keeps line spacing and hierarchy');
  await page.locator('#textSizeTools > summary').click();
  await page.locator('#noteBodySize').fill('29');await page.locator('#noteBodySize').press('Tab');
  await page.locator('#noteTitleSize').fill('36');await page.locator('#noteTitleSize').press('Tab');
@@ -110,11 +129,21 @@ async function verifyCopyTypography(page){
  assert.equal(await page.evaluate(()=>board.nodes.find(n=>n.id==='font-table').fontSize),undefined);
  await page.evaluate(()=>whiteboardReading.open('font-table'));
  await unchangedFonts('#immersiveSurface');
+ assert.deepEqual(await defaultLayout('#immersiveSurface'),readingLayout,'Immersive editing keeps the cell reading hierarchy');
  const fields=await page.locator('#immersiveSurface .cell-content textarea').evaluateAll(fields=>fields.filter(e=>e.value.trim()).map(e=>({scroll:e.scrollHeight,height:e.clientHeight})));
  assert(fields.every(e=>e.scroll<=e.height+2),'Larger copied text gets enough reading/editing height: '+JSON.stringify(fields));
  await page.keyboard.press('Escape');await unchangedFonts();
  assert.equal(await page.evaluate(async()=>{change();return persist()}),true);
  await page.reload();await page.waitForFunction(()=>board&&!loading);
  await unchangedFonts();
+ assert.deepEqual(await defaultLayout(),readingLayout,'Reopening keeps the same hierarchy');
+ await page.evaluate(()=>openEditor('font-table'));
+ await page.locator(root+' [data-cell="0,1"] [data-cell-note-field=annotation]').fill('');
+ await page.locator('#inlineDone').click();
+ assert.equal(await page.locator(root+' [data-cell="0,1"] [data-cell-note-field=annotation]').count(),0,'An empty annotation leaves no separator or blank space');
+ assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.filter(n=>n.id!=='font-table'))),originals);
+ await page.evaluate(()=>{canvas.focus();undo()});await unchangedFonts();
+ assert.deepEqual(await defaultLayout(),readingLayout,'Undo restores the annotation and its separation');
+ console.log('阅读层级：默认标题正文、备注间隔、常用缩放、编辑与沉浸切换、重开及清空备注后撤销通过');
  console.log('格内字号：同格多张便签各自保留标题、正文、补充和备注字号；表格调整/重置、撤销重做、沉浸编辑及保存重开通过');
 }
