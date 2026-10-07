@@ -42,7 +42,7 @@ const {chromium}=require('playwright');
   if(process.env.REFINEMENT_SCREENSHOT_DIR){fs.mkdirSync(process.env.REFINEMENT_SCREENSHOT_DIR,{recursive:true});const views=await Promise.all([a,b].map(f=>f.evaluate(()=>clone(board.view))));await a.evaluate(()=>fit());await b.evaluate(()=>fit());await p.waitForTimeout(250);await p.screenshot({path:path.join(process.env.REFINEMENT_SCREENSHOT_DIR,'shared-sidebar.png')});await Promise.all([a,b].map((f,i)=>f.evaluate(v=>{board.view=v;moveView()},views[i])))}
   await p.locator('#shellMore>summary').click();await p.getByRole('button',{name:'外观',exact:true}).click();
   const settingsOriginals=await Promise.all([a,b].map(f=>f.evaluate(()=>JSON.stringify(board.nodes))));
-  for(const preset of ['resolve','paper','slate'])for(const [width,height] of [[1400,900],[620,760],[360,760],[230,760],[360,320]]){
+  for(const preset of ['resolve','paper','slate','sand','forest','iris'])for(const [width,height] of [[1400,900],[620,760],[360,760],[230,760],[360,320]]){
    await p.setViewportSize({width,height});await p.locator('#appearanceDialog [data-preset='+preset+']').click();
    const panel=await p.locator('#appearanceDialog').evaluate(el=>{
     const rect=e=>{const r=e.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom,width:r.width}};
@@ -50,7 +50,7 @@ const {chromium}=require('playwright');
    });
    assert(panel.dialog.x>=15&&panel.dialog.right<=width-15&&panel.heading.y>=0&&panel.footer.bottom<=height,'Heading and completion stay inside the window: '+JSON.stringify({preset,width,height,panel}));
    assert(panel.body.scroll<=panel.body.client+1,'Settings scroll vertically without hiding a theme off to the side');
-   assert.equal(panel.presets.length,3);for(const button of panel.presets){assert(Math.abs(button.y-panel.presets[0].y)<1&&button.x>=panel.body.x&&button.right<=panel.body.right+1&&button.scroll<=button.client+1,'All three preset names and previews fit in their complete row')}
+   assert.equal(panel.presets.length,6);for(const [i,button] of panel.presets.entries()){assert(Math.abs(button.y-panel.presets[Math.floor(i/3)*3].y)<1&&button.x>=panel.body.x&&button.right<=panel.body.right+1&&button.scroll<=button.client+1,'All six preset names and previews fit in their complete rows')}
    for(const input of panel.inputs)assert(input.width>30&&input.x>=panel.body.x&&input.right<=panel.body.right+1,'Every colour and sizing control has usable bounded space');
    if(width<=400)assert(panel.inputs.slice(-2).every(input=>input.width>=panel.body.client-1),'Compact windows give sizing sliders the complete settings width');
   }
@@ -61,9 +61,9 @@ const {chromium}=require('playwright');
   await p.getByRole('button',{name:'完成',exact:true}).click();assert.deepEqual(await p.evaluate(()=>appearanceCompletion),[{open:false}],'Completion immediately closes the visible settings');await p.locator('#appearanceDialog').waitFor({state:'detached'});
   await p.setViewportSize({width:1600,height:1000});await p.locator('#shellMore>summary').click();await p.getByRole('button',{name:'外观',exact:true}).click();
   assert.equal(await p.locator('#appearanceScale').inputValue(),'105');assert.equal(await p.locator('#appearanceWidth').inputValue(),'520');assert.equal(await p.locator('[data-color=canvas]').inputValue(),'#31373b');assert.equal(await p.locator('[data-color=note]').inputValue(),'#dcebc7');
-  await p.getByRole('button',{name:'恢复默认',exact:true}).click();assert.deepEqual(await p.evaluate(()=>JSON.parse(localStorage.getItem('creative-interface'))),{scale:1,width:340});assert.deepEqual(await p.evaluate(()=>whiteboardAppearance.read()),{preset:'resolve',custom:{},note:'#fff0aa'});
+  await p.getByRole('button',{name:'恢复默认',exact:true}).click();assert.deepEqual(await p.evaluate(()=>JSON.parse(localStorage.getItem('creative-interface'))),{scale:1,width:340});assert.deepEqual(await p.evaluate(()=>whiteboardAppearance.read()),{preset:'resolve',custom:{},note:'#fff0aa',pattern:'plain',gridSize:24});
   assert.deepEqual(await Promise.all([a,b].map(f=>f.evaluate(()=>JSON.stringify(board.nodes)))),settingsOriginals,'Responsive settings, custom defaults, sizing and reset preserve all authored content in both panes');
-  console.log('外观面板：三主题、窄窗口完整控件、短窗口退出、键盘调整、重开与恢复默认；两栏原文和颜色保留，通过');
+  console.log('外观面板：六主题、窄窗口完整控件、短窗口退出、键盘调整、重开与恢复默认；两栏原文和颜色保留，通过');
   await p.locator('#appearanceScale').evaluate(el=>{el.value=125;el.dispatchEvent(new Event('input'))});await library.waitForFunction(()=>getComputedStyle(document.getElementById('workspaceSidebar')).zoom==='1.25');const scaled=await library.locator('#workspaceSidebar').boundingBox(),frameSize=await p.locator('#explorerFrame').boundingBox();assert(Math.abs(scaled.width-frameSize.width)<3&&Math.abs(scaled.height-frameSize.height)<3,'Scaled explorer fits its frame '+JSON.stringify({scaled,frameSize}));await p.locator('#appearanceScale').evaluate(el=>{el.value=100;el.dispatchEvent(new Event('input'))});await p.getByRole('button',{name:'完成',exact:true}).click();
   // Real failed sources have one readable status, including after retained media
   // elements are moved into rebuilt cards or table cells. Recovery clears it.
