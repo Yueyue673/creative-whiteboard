@@ -37,7 +37,17 @@
  }
  function moveGroup(n,axis,delta,children){n[axis]+=delta;for(const item of children)item[axis]+=delta}
  function arrangement(){
-  showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div><span>水平</span><button data-align="x,start">左边对齐</button><button data-align="x,center">居中对齐</button><button data-align="x,end">右边对齐</button></div><div><span>垂直</span><button data-align="y,start">顶部对齐</button><button data-align="y,center">居中对齐</button><button data-align="y,end">底部对齐</button></div><label>内容之间的间距<input id="arrangeGap" type="number" min="0" max="500" value="'+read().gap+'"></label><div><button data-align="x,spacing">排成一行</button><button data-align="y,spacing">排成一列</button></div></div>',[['返回白板',()=>$('dialog').close()]]);
+  const icons={
+   'x,start':'<path d="M4 3v18"/><rect x="7" y="5" width="13" height="5"/><rect x="7" y="14" width="8" height="5"/>',
+   'x,center':'<path d="M12 3v18"/><rect x="5" y="5" width="14" height="5"/><rect x="8" y="14" width="8" height="5"/>',
+   'x,end':'<path d="M20 3v18"/><rect x="4" y="5" width="13" height="5"/><rect x="9" y="14" width="8" height="5"/>',
+   'y,start':'<path d="M3 4h18"/><rect x="5" y="7" width="5" height="13"/><rect x="14" y="7" width="5" height="8"/>',
+   'y,center':'<path d="M3 12h18"/><rect x="5" y="5" width="5" height="14"/><rect x="14" y="8" width="5" height="8"/>',
+   'y,end':'<path d="M3 20h18"/><rect x="5" y="4" width="5" height="13"/><rect x="14" y="9" width="5" height="8"/>',
+   'x,spacing':'<rect x="2" y="7" width="4" height="10"/><rect x="10" y="7" width="4" height="10"/><rect x="18" y="7" width="4" height="10"/>',
+   'y,spacing':'<rect x="7" y="2" width="10" height="4"/><rect x="7" y="10" width="10" height="4"/><rect x="7" y="18" width="10" height="4"/>'
+  },button=(key,name,caption)=>'<button data-align="'+key+'" aria-label="'+name+'" title="'+name+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icons[key]+'</svg><span>'+caption+'</span></button>';
+  showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div class="arrange-axis"><span>水平</span>'+button('x,start','左边对齐','左对齐')+button('x,center','水平居中对齐','居中')+button('x,end','右边对齐','右对齐')+'</div><div class="arrange-axis"><span>垂直</span>'+button('y,start','顶部对齐','顶部')+button('y,center','垂直居中对齐','居中')+button('y,end','底部对齐','底部')+'</div><label for="arrangeGap">间距<input id="arrangeGap" type="number" min="0" max="500" value="'+read().gap+'"></label><div class="arrange-spacing">'+button('x,spacing','排成一行','排成一行')+button('y,spacing','排成一列','排成一列')+'</div></div>',[['返回白板',()=>$('dialog').close()]]);
   $('dialogBody').querySelectorAll('[data-align]').forEach(b=>b.onclick=()=>{const [axis,mode]=b.dataset.align.split(','),gap=Math.max(0,Math.min(500,Number($('arrangeGap').value)||0));write({...read(),gap});arrange(axis,mode,gap)});
  }
  const guide=document.createElementNS('http://www.w3.org/2000/svg','svg');guide.id='alignmentGuides';guide.setAttribute('aria-hidden','true');canvas.append(guide);

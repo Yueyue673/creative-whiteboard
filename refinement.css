@@ -2,6 +2,20 @@
 button,summary,select{transition:none}
 #alignmentGuides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:9}#alignmentGuides line{stroke:var(--ui-canvas-focus,var(--ui-accent));stroke-width:1;stroke-dasharray:3 3}.hand-tool,.hand-tool .node,.hand-tool .inline-ui{cursor:grab!important}.canvas-gesture.hand-tool{cursor:grabbing!important}
 .navigation-settings{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:12px}.navigation-settings h3{font-size:14px;margin:0 0 10px}.navigation-settings>label{display:grid;gap:5px;font-size:12px;margin:10px 0}.navigation-settings .navigation-check{display:flex;align-items:center;gap:8px}.navigation-check input{width:auto}.navigation-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}.navigation-settings input{min-width:0}.navigation-settings p{font-size:12px;color:var(--ui-muted);line-height:1.8}.arrange-options{display:grid;gap:16px}.arrange-options>div{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrange-options>div>span{min-width:40px;font-size:13px}.arrange-options>label{display:grid;gap:6px;font-size:13px}
+/* Alignment commands stay in complete, spatially meaningful groups. */
+#dialog:has(.arrange-options){width:min(420px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);padding:24px;display:flex;flex-direction:column;overflow:hidden}
+#dialog:has(.arrange-options):not([open]){display:none}
+#dialog:has(.arrange-options) #dialogBody{min-width:0;min-height:0;overflow:auto}
+#dialog:has(.arrange-options) h2{font-size:18px;line-height:1.5;margin:0 0 20px}
+#dialog:has(.arrange-options) #dialogActions{flex:none;margin-top:16px}
+.arrange-options>.arrange-axis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.arrange-options>.arrange-axis>span{grid-column:1/-1;min-width:0;font-size:12px;line-height:1.5;color:var(--ui-muted)}
+.arrange-options button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:8px 3px;font-size:12px;line-height:1.5;white-space:nowrap}
+.arrange-options button svg{width:20px;height:20px;flex:none}
+.arrange-options>label{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.arrange-options>label input{width:96px;max-width:60%;min-width:0;padding:7px 9px}
+.arrange-options>.arrange-spacing{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+@media(max-width:650px){#dialog:has(.arrange-options){padding:16px}}
 *{scrollbar-width:thin;scrollbar-color:var(--scroll-thumb,#65676c) transparent}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
