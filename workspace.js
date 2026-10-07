@@ -606,6 +606,26 @@ function naturalConnectorSides(a,b,from=null,to=null){let best=null;for(const sa
 function connectorCurve(p,q,from,to){const va=connectorVectors[from],vb=connectorVectors[to],distance=Math.hypot(q.x-p.x,q.y-p.y),pull=Math.min(150,Math.max(24,distance*.42));const c1={x:p.x+va.x*pull,y:p.y+va.y*pull},c2={x:q.x+vb.x*pull,y:q.y+vb.y*pull};return {path:'M '+p.x+' '+p.y+' C '+c1.x+' '+c1.y+', '+c2.x+' '+c2.y+', '+q.x+' '+q.y,mid:{x:(p.x+3*c1.x+3*c2.x+q.x)/8,y:(p.y+3*c1.y+3*c2.y+q.y)/8}}}
 function connectorTarget(point,sourceId){return withConnectorGeometry(()=>{const radius=20/view().z;let best=null;for(const n of board.nodes){if(n.id===sourceId)continue;const b=connectorBounds(n),inside=point.x>=b.x&&point.x<=b.x+b.w&&point.y>=b.y&&point.y<=b.y+b.h;for(const side of connectorSides){const p=anchor(n,side),distance=Math.hypot(point.x-p.x,point.y-p.y);if(distance>radius&&!inside)continue;const score=distance+(n.type==='frame'?10000:0);if(!best||score<best.score)best={id:n.id,side,point:p,score}}}return best})}
 function clearConnectorHints(){document.querySelectorAll('.connector-target,.connector-snap').forEach(el=>el.classList.remove('connector-target','connector-snap'))}
+const connectorLabelLayouts=new WeakMap(),connectorLabelMeasure=document.createElement('canvas').getContext('2d');
+const connectorLabelSegments=typeof Intl.Segmenter==='function'?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
+function connectorLabelLines(label){
+ connectorLabelMeasure.font="12px 'Segoe UI','Microsoft YaHei',sans-serif";
+ const letters=connectorLabelSegments?[...connectorLabelSegments.segment(label)].map(part=>part.segment):Array.from(label);
+ const wrap=width=>{const lines=[];let start=0,truncated=false;
+ while(start<letters.length&&lines.length<3){let end=start,line='',space=-1;while(end<letters.length){const letter=letters[end];if(/\r|\n/.test(letter))break;if(connectorLabelMeasure.measureText(line+letter).width>width&&end>start)break;line+=letter;if(/\s/.test(letter))space=end;end++}
+  if(end<letters.length&&!/\r|\n/.test(letters[end])&&space>start){end=space+1;line=letters.slice(start,end).join('')}
+  if(lines.length===2&&end<letters.length){while(line&&connectorLabelMeasure.measureText(line.trimEnd()+'…').width>width){end--;line=letters.slice(start,end).join('')}lines.push(line.trimEnd()+'…');truncated=true;break}
+  lines.push(line.trimEnd());start=end;if(start<letters.length&&/\r|\n/.test(letters[start]))start++;while(start<letters.length&&/^[ \t]$/.test(letters[start]))start++;
+ }
+ return {lines,truncated}};
+ const layout=wrap(240);if(!layout.truncated&&layout.lines.length>1&&!/[\r\n]/.test(label)){const balanced=wrap(Math.min(240,Math.ceil(connectorLabelMeasure.measureText(label).width/layout.lines.length*1.1)));if(!balanced.truncated&&balanced.lines.length===layout.lines.length)return balanced.lines}
+ return layout.lines;
+}
+function placeConnectorLabel(text,label,point,svg,set){
+ let layout=connectorLabelLayouts.get(text);if(!layout||layout.label!==label){const lines=connectorLabelLines(label);text.replaceChildren(...lines.map(line=>{const span=svg('tspan');span.textContent=line;return span}));text.setAttribute('aria-label',label);layout={label,lines};connectorLabelLayouts.set(text,layout)}
+ set(text,'x',point.x);set(text,'y',point.y-9);[...text.children].forEach((span,i)=>{set(span,'x',point.x);set(span,'y',point.y-9-(layout.lines.length-1-i)*16)});
+}
+
 drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
  const host=$('edgePaths'),lookup=new Map(board.nodes.map(n=>[n.id,n])),existing=new Map([...host.children].filter(el=>el.dataset.edge).map(el=>[el.dataset.edge,el])),alive=new Set();
  const svg=tag=>document.createElementNS('http://www.w3.org/2000/svg',tag),set=(el,key,value)=>{const text=String(value);if(el.getAttribute(key)!==text)el.setAttribute(key,text)};
@@ -613,7 +633,7 @@ drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
   const sides=naturalConnectorSides(a,b,e.portsExplicit?e.fromSide:null,e.portsExplicit?e.toSide:null),p=anchor(a,sides.from),q=anchor(b,sides.to),curve=connectorCurve(p,q,sides.from,sides.to);
   if(!el){el=svg('g');el.dataset.edge=e.id;const hit=svg('path'),line=svg('path');hit.classList.add('connector-hit');line.classList.add('connector-line');line.setAttribute('marker-end','url(#connectorArrow)');el.append(hit,line);host.append(el)}
   el.classList.add('connector');el.classList.toggle('selected',edgeId===e.id);for(const path of el.querySelectorAll('path'))set(path,'d',curve.path);
-  let text=el.querySelector('text');if(e.label){if(!text){text=svg('text');text.setAttribute('text-anchor','middle');el.append(text)}set(text,'x',curve.mid.x);set(text,'y',curve.mid.y-9);if(text.textContent!==e.label)text.textContent=e.label}else text?.remove();
+  let text=el.querySelector('text'),title=el.querySelector('title');if(e.label){if(!text){text=svg('text');text.setAttribute('text-anchor','middle');el.append(text)}if(!title){title=svg('title');el.prepend(title)}if(title.textContent!==e.label)title.textContent=e.label;placeConnectorLabel(text,e.label,curve.mid,svg,set)}else{text?.remove();title?.remove()}
  }
  for(const [id,el] of existing)if(!alive.has(id))el.remove();
  let preview=host.querySelector('.connector-preview');if(gesture?.type==='link'){

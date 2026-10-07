@@ -406,6 +406,53 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
     assert.deepEqual(await page.evaluate(()=>board),authoredBeforeDocuments);
     await page.setViewportSize({width:1400,height:940});
     console.log('Text reading: TXT/Markdown/CSV source, inline/expanded captions, long full names, usable compact/short reader, keyboard scrolling and unchanged originals passed');
+    // Connection descriptions are source text. Longer labels must fit near
+    // their line instead of disappearing beneath the connected notes.
+    const label = '对照资料与自己的观察，说明这两段记录之间的具体联系，以及还有哪些细节需要进一步确认。';
+    await page.evaluate(label => {
+      board.nodes = [
+        {id:'label-start',type:'note',title:'一段观察',body:'保留这段原文。',x:40,y:150,w:220,h:180,sizeMode:'manual',color:'#fff0aa'},
+        {id:'label-end',type:'note',title:'另一段观察',body:'自己的记录。',x:700,y:150,w:220,h:180,sizeMode:'manual',color:'#dcebc7'}
+      ];board.edges=[{id:'reading-link',from:'label-start',to:'label-end',fromSide:'right',toSide:'left',portsExplicit:true,label}];
+      board.view={x:0,y:0,z:1};selected.clear();editorId=null;edgeId=null;history=[];future=[];render();
+    }, label);
+    const linkedNodes = await page.evaluate(() => clone(board.nodes)), originalEdge = await page.evaluate(() => clone(board.edges));
+    const connector = page.locator('[data-edge=reading-link]'), description = connector.locator('text');
+    for (const preset of ['resolve','paper','slate']) for (const zoom of [.65,1,2]) {
+      await page.evaluate(({preset,zoom})=>{whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'});board.view.z=zoom;moveView();drawEdges()}, {preset,zoom});
+      const bounds=await description.evaluate(el=>({width:el.getBBox().width,height:el.getBBox().height,lines:[...el.children].map(span=>span.textContent)}));
+      assert(bounds.width<=242&&bounds.height<=48.1&&bounds.lines.length>1&&bounds.lines.length<=3,'Long connection stays in a bounded multiline description');
+      assert.equal(bounds.lines.join(''),label,'This ordinary description stays completely readable, without losing its end');
+      assert(bounds.lines.every(line=>line.length>=6),'Avoid a two-character orphan in this three-line description');
+      assert.equal(await connector.locator('title').textContent(),label);assert.equal(await description.getAttribute('aria-label'),label);
+      assert((await contrast('[data-edge=reading-link] text','#canvas','fill')).ratio>=4.5);
+      assert.deepEqual(await page.evaluate(()=>board.nodes),linkedNodes);assert.deepEqual(await page.evaluate(()=>board.edges),originalEdge);
+    }
+    await page.evaluate(()=>{board.view.z=1;moveView();window.keptLabel=document.querySelector('[data-edge=reading-link] text');window.keptSpans=[...keptLabel.children];window.keptPath=document.querySelector('[data-edge=reading-link] .connector-line').getAttribute('d');edgeId='reading-link';drawEdges()});
+    assert(await connector.evaluate(el=>el.classList.contains('selected')));
+    assert(await page.evaluate(()=>document.querySelector('[data-edge=reading-link] text')===keptLabel&&keptSpans.every((span,i)=>span===keptLabel.children[i])&&document.querySelector('[data-edge=reading-link] .connector-line').getAttribute('d')===keptPath),'Selection retains label elements and the original line');
+    await description.dblclick();assert.equal(await page.locator('#nameInput').inputValue(),label,'Editing opens the complete source');
+    await page.getByRole('button',{name:'取消',exact:true}).click();assert.deepEqual(await page.evaluate(()=>board.edges),originalEdge);
+    const startCard=await page.locator('[data-id=label-start]').boundingBox(),labelBeforeMove=await description.boundingBox();
+    await page.keyboard.down('Control');await page.mouse.move(startCard.x+20,startCard.y+20);await page.mouse.down();await page.mouse.move(startCard.x+50,startCard.y+40,{steps:4});await page.mouse.up();await page.keyboard.up('Control');
+    const labelAfterMove=await description.boundingBox();assert(Math.abs(labelAfterMove.x-labelBeforeMove.x-15)<1&&Math.abs(labelAfterMove.y-labelBeforeMove.y-10)<1,'Dragging carries the description with the connection midpoint');
+    assert(await page.evaluate(()=>document.querySelector('[data-edge=reading-link] text')===keptLabel&&keptSpans.every((span,i)=>span===keptLabel.children[i])),'Movement reuses the already measured label');
+    await page.evaluate(()=>undo());assert.deepEqual(await page.evaluate(()=>board.nodes),linkedNodes);assert.deepEqual(await page.evaluate(()=>board.edges),originalEdge);
+    const longLabel='自己的联系 👨‍👩‍👧‍👦 与资料 <b>原文</b> & ABC123 '.repeat(14).trim();
+    await description.dblclick();await page.locator('#nameInput').fill(longLabel);await page.getByRole('button',{name:'确定',exact:true}).click();
+    assert.equal(await connector.locator('title').textContent(),longLabel);assert.equal(await description.getAttribute('aria-label'),longLabel);
+    assert.equal(await connector.locator('b').count(),0,'Markup in a label remains literal text');
+    assert(await description.evaluate(el=>el.lastElementChild.textContent.endsWith('…')&&el.children.length===3&&el.getBBox().width<=242),'Very long labels have a bounded excerpt with their whole source still available');
+    assert(await description.evaluate(el=>[...el.children].every(span=>!span.textContent.includes('👨')||span.textContent.includes('👨‍👩‍👧‍👦'))),'Wrapping preserves an emoji grapheme');
+    await description.dblclick();assert.equal(await page.locator('#nameInput').inputValue(),longLabel);await page.getByRole('button',{name:'取消',exact:true}).click();
+    await page.evaluate(()=>undo());assert.deepEqual(await page.evaluate(()=>board.edges),originalEdge);await page.evaluate(()=>redo());
+    assert.equal(await connector.locator('title').textContent(),longLabel);assert(await page.evaluate(()=>persist()));
+    const savedLinkedBoard=await page.evaluate(()=>clone(board));await page.reload();await page.waitForFunction(()=>board&&!loading&&window.whiteboardAppearance);
+    assert.deepEqual(await page.evaluate(()=>board),savedLinkedBoard,'Saving and reopening retain the full label and manual note geometry');
+    const reopened=page.locator('[data-edge=reading-link]');assert.equal(await reopened.locator('title').textContent(),longLabel);
+    await page.evaluate(()=>{board.edges[0].label='联系 ABC 123';render()});assert.equal(await reopened.locator('text tspan').count(),1,'Short descriptions remain a single line');
+    await page.evaluate(()=>{board.edges[0].label='';render()});assert.equal(await reopened.locator('text,title').count(),0,'Removing a label also removes its old source hint');
+    console.log('Connection reading: bounded balanced labels, full original hints/editing, graphemes, themes/zoom, stable selection, undo/redo and saved reopening passed');
     assert.deepEqual(errors, []);
     console.log('Appearance: readable custom panels and canvas, selection over authored content, JSON, saved preferences and unchanged note colours/geometry passed');
   } finally {
