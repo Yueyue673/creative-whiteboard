@@ -1,5 +1,10 @@
 /* Quiet, narrow scrollbars. The scrolling mechanism remains available. */
 button,summary,select{transition:none}
+/* Empty-page guidance uses the whole pane and stays calm when a split is narrow. */
+#empty{width:calc(100% - 24px);max-width:400px}
+#empty h1{font-size:clamp(18px,calc(18px + 1vw),23px);text-wrap:balance}
+#empty p{text-wrap:balance}
+#empty .empty-sheet{max-width:100%;height:auto;aspect-ratio:7/8;display:grid;place-items:center;padding:0}
 #alignmentGuides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:9}#alignmentGuides line{stroke:var(--ui-canvas-focus,var(--ui-accent));stroke-width:1;stroke-dasharray:3 3}.hand-tool,.hand-tool .node,.hand-tool .inline-ui{cursor:grab!important}.canvas-gesture.hand-tool{cursor:grabbing!important}
 .navigation-settings{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:12px}.navigation-settings h3{font-size:14px;margin:0 0 10px}.navigation-settings>label{display:grid;gap:5px;font-size:12px;margin:10px 0}.navigation-settings .navigation-check{display:flex;align-items:center;gap:8px}.navigation-check input{width:auto}.navigation-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}.navigation-settings input{min-width:0}.navigation-settings p{font-size:12px;color:var(--ui-muted);line-height:1.8}.arrange-options{display:grid;gap:16px}.arrange-options>div{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrange-options>div>span{min-width:40px;font-size:13px}.arrange-options>label{display:grid;gap:6px;font-size:13px}
 /* Alignment commands stay in complete, spatially meaningful groups. */
