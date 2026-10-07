@@ -142,6 +142,9 @@ function handleWorkspaceWheel(e){
  if(!board||document.getElementById('imageViewer')&&!document.getElementById('imageViewer').hidden)return;
  const target=e.target instanceof Element?e.target:null;
  const fontPopup=target?.closest('#textSizeTools[open]:not([hidden]) .text-size-popup');
+ if(target?.closest('#inlineMeta[open]')){
+  e.stopImmediatePropagation();if(e.ctrlKey||e.metaKey)e.preventDefault();return;
+ }
  if(fontPopup){
   e.preventDefault();e.stopImmediatePropagation();
   if(!e.ctrlKey&&!e.metaKey){const unit=e.deltaMode===1?16:e.deltaMode===2?fontPopup.clientHeight:1;fontPopup.scrollTop+=e.deltaY*unit;fontPopup.scrollLeft+=e.deltaX*unit}

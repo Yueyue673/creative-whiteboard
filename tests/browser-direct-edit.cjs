@@ -65,12 +65,46 @@ async function verifyInlineEditingStability(p){
  for(const z of [.15,.35,1,2,4])for(const edge of ['left','top','right','bottom','partial-left']){
   await p.evaluate(({fixture,z,edge})=>{board.nodes=[clone(fixture)];board.edges=[];selected=new Set([fixture.id]);editorId=null;const r=canvas.getBoundingClientRect();let x=8,y=60;if(edge==='top')y=4;if(edge==='right')x=r.width-fixture.w*z-8;if(edge==='bottom')y=r.height-16;if(edge==='partial-left')x=-fixture.w*z+20;board.view={x,y,z};render();openEditor(fixture.id)}, {fixture,z,edge});await settled();
   const original=await p.evaluate(()=>({node:clone(board.nodes[0]),view:clone(board.view)})),tools=await loc.locator('.inline-toolbar').boundingBox(),area=await p.locator('#canvas').boundingBox();assert(tools.x>=area.x+5.8&&tools.y>=area.y+5.8&&tools.x+tools.width<=area.x+area.width-5.8&&tools.y+tools.height<=area.y+area.height-5.8,'Visible writing controls at '+z+' '+edge);assert(Math.abs(tools.height-34)<.1,'Zoom retains writing control height');
-  await p.locator('#inlineDetails').click();assert(await p.locator('#inlineMeta').isVisible(),'Visible writing controls open details');await p.keyboard.press('Escape');assert(await p.locator('#inlineMeta').isHidden());assert(await p.locator('#body').isVisible());await p.locator('#inlineDone').click();assert.deepEqual(await p.evaluate(()=>({node:board.nodes[0],view:board.view})),original,'Unchanged controls preserve original placement and view');
+  await p.locator('#inlineDetails').click();assert(await p.locator('#inlineMeta').isVisible(),'Visible writing controls open details');
+  await settled();const details=await p.locator('#inlineMeta').boundingBox(),tagField=await p.locator('#tags').boundingBox();
+  assert(details.x>=area.x+5.8&&details.y>=area.y+5.8&&details.x+details.width<=area.x+area.width-5.8&&details.y+details.height<=area.y+area.height-5.8,'Source details stay inside the canvas at '+z+' '+edge+' '+JSON.stringify({details,area}));
+  assert(Math.abs(details.width-360)<.1&&tagField.height>=30,'Source fields keep usable screen dimensions at '+z+' '+edge);
+  await p.mouse.move(tagField.x+tagField.width/2,tagField.y+tagField.height/2);await p.keyboard.down('Control');await p.mouse.wheel(0,120);await p.keyboard.up('Control');await settled();assert.deepEqual(await p.evaluate(()=>board.view),original.view,'Source controls contain Ctrl-wheel at '+z+' '+edge);
+  await p.keyboard.press('Escape');assert(await p.locator('#inlineMeta').isHidden());assert(await p.locator('#body').isVisible());await p.locator('#inlineDone').click();assert.deepEqual(await p.evaluate(()=>({node:board.nodes[0],view:board.view})),original,'Unchanged controls preserve original placement and view');
  }
  await p.evaluate(fixture=>{board.nodes=[{...clone(fixture),sizeMode:'auto',fontSize:21,titleFontSize:32}];board.edges=[];board.view={x:40,y:85,z:1};selected.clear();editorId=null;render()},fixture);await settled();const automatic=await p.evaluate(()=>clone(board.nodes[0])),read=await fields();await p.evaluate(()=>openEditor('writing-card'));await settled();await sameFields(read);assert.deepEqual(await p.evaluate(()=>board.nodes[0]),automatic,'Automatic size and custom text sizes do not jump on entry');
  await p.locator('#body').fill('由作者继续输入。\n'.repeat(35));await p.waitForFunction(h=>board.nodes[0].h>h+200,automatic.h);await p.locator('#body').press('Control+End');assert(await loc.locator('.edit-scroll').evaluate(el=>el.scrollTop>0),'Continued typing scrolls the current writing area');await p.locator('#inlineDone').click();await settled();const authored=await p.evaluate(()=>clone(board.nodes[0]));await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);await settled();assert.deepEqual(await p.evaluate(()=>board.nodes[0]),authored,'Authored text, automatic size and custom fonts reopen together');
  await p.evaluate(()=>whiteboardAppearance.apply({preset:'resolve',custom:{},note:'#fff0aa'},true));
+ await verifySourcePanelEditing(p,fixture);
  console.log('便签进入和退出编辑不挤动原文；三主题、手动和自动尺寸、自定义字号、靠边与 15%—400% 缩放工具、持续输入及保存重开通过');
+}
+
+async function verifySourcePanelEditing(p,fixture){
+ const previousViewport=p.viewportSize(),sidebarHidden=await p.locator('#workspaceSidebar').evaluate(el=>el.hidden);
+ await p.setViewportSize({width:360,height:320});
+ await p.evaluate(fixture=>{$('workspaceSidebar').hidden=true;editorId=null;selected.clear();board.nodes=[clone(fixture)];board.edges=[];board.view={x:8,y:50,z:.35};history=[];future=[];render()},fixture);
+ await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ await p.evaluate(()=>openEditor('writing-card'));await p.locator('#inlineDetails').click();
+ await p.waitForFunction(()=>$('inlineMeta').style.maxHeight&&$('inlineMeta').scrollHeight>$('inlineMeta').clientHeight);
+ const popup=p.locator('#inlineMeta'),r=await popup.boundingBox(),camera=await p.evaluate(()=>clone(board.view));
+ const point={x:r.x+4,y:r.y+r.height/2};assert(await p.evaluate(({x,y})=>$('inlineMeta').contains(document.elementFromPoint(x,y)),point),'The scroll pointer is inside the visible source panel');
+ await p.mouse.move(point.x,point.y);await p.mouse.wheel(0,300);await p.waitForFunction(()=>$('inlineMeta').scrollTop>0);
+ for(const key of ['Control','Meta']){await p.keyboard.down(key);await p.mouse.wheel(0,120);await p.keyboard.up(key)}
+ assert.deepEqual(await p.evaluate(()=>board.view),camera,'Scrolling and modified wheel in source details preserve the camera');
+ await p.locator('#url').click();await p.locator('#url').fill('https://example.com/checked-source');
+ assert.deepEqual(await p.evaluate(()=>board.nodes[0]),{...fixture,url:'https://example.com/checked-source'},'Source input edits only the chosen metadata field');
+ await p.evaluate(()=>{canvas.focus();undo()});assert.deepEqual(await p.evaluate(()=>board.nodes[0]),fixture,'The metadata edit can be undone without changing content or manual size');
+ await p.evaluate(()=>openEditor('writing-card'));await p.locator('#inlineDetails').click();
+ await p.evaluate(()=>whiteboardReading.open('writing-card'));await p.locator('#immersiveSurface').waitFor();
+ if(!await p.locator('#immersiveSurface #inlineMeta').evaluate(el=>el.open))await p.locator('#immersiveDetails').click();
+ assert(await p.locator('#immersiveSurface #inlineMeta').evaluate(el=>['left','top','width','max-height'].every(key=>!el.style.getPropertyValue(key))),'Expanded editing discards transient canvas popup placement');
+ assert((await p.locator('#immersiveSurface #tags').boundingBox()).height>=30,'Expanded editing retains native field size');
+ await p.locator('#inlineMetaClose').click();await p.keyboard.press('Escape');await p.waitForFunction(()=>!whiteboardReading.isEditing());
+ assert.deepEqual(await p.evaluate(()=>board.nodes[0]),fixture,'Returning from expanded editing keeps the authored note');
+ await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);
+ assert.deepEqual(await p.evaluate(()=>board.nodes[0]),fixture,'Saved reopening contains no transient popup geometry');
+ await p.setViewportSize(previousViewport);await p.locator('#workspaceSidebar').evaluate((el,hidden)=>el.hidden=hidden,sidebarHidden);
+ console.log('说明面板：缩放后字号与输入框稳定，矮窗口滚动、Ctrl/Meta滚轮隔离、来源编辑与撤销、沉浸返回和重开通过');
 }
 
 async function verifyTableWriting(p,base){
