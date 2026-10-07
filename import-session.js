@@ -99,12 +99,25 @@
  chooseImages = function(target) {return chooseBefore(attachmentTarget(target));};
  const attachAssetsBefore = attachAssets;
  attachAssets = function(ids, target) {
-  const destination = resolveAttachment(target);
-  if (!destination) {
-   notice('原来的内容或单元格已改变，文件已保留在内容库中，可以重新放置。');
-   return false;
-  }
-  return attachAssetsBefore(ids, destination);
+  const snapshot = [...new Set(ids)], saved = attachmentTarget(target);
+  const append = () => {
+   const destination = resolveAttachment(saved);
+   if (!destination) {
+    notice('原来的内容或单元格已改变，文件已保留在内容库中，可以重新放置。');
+    return false;
+   }
+   if (snapshot.some(id => !assetById(id) || assetById(id).archived)) {
+    notice('有内容已移除，整批尚未放入。请刷新内容库后重试。');
+    return false;
+   }
+   return attachAssetsBefore(snapshot, destination);
+  };
+  if (snapshot.every(id => assetById(id))) return append();
+  // A shared-library upload may reach this cell before its catalog refresh.
+  return run(async () => {
+   try {await loadAssets();} catch (error) {notice(error.message); return false;}
+   return append();
+  });
  };
  for (const name of ['switchBoard', 'newBoard', 'confirmReload', 'saveCopy']) {
   const before = window[name];
