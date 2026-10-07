@@ -297,6 +297,15 @@ async function verifyPopoverBounds(page,audioId){
   for(const row of rowLayout.rows){assert(row.row.height>=44&&row.name.x>row.time.right&&row.name.right<=row.row.right,'Time and title have distinct readable columns')}
   assert(rowLayout.rows[0].flag.y>=rowLayout.rows[0].time.bottom&&rowLayout.rows[0].flag.right<=rowLayout.rows[0].name.x,'Replay status stays below the time instead of squeezing the title');assert.equal(rowLayout.rows[0].hint,longTitle);
   await page.locator('.media-marker-row').filter({hasText:'另一处观察'}).click();assert(Math.abs(await sound.locator('audio').evaluate(el=>el.currentTime)-3.25)<.1);await page.keyboard.press('ArrowDown');assert(Math.abs(await sound.locator('audio').evaluate(el=>el.currentTime)-5.6)<.1);await page.keyboard.press('Home');assert.equal(await page.locator('.media-marker-title').inputValue(),longTitle);assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
+  const beforeNarrow=await page.evaluate(()=>clone(board.nodes));
+  await page.keyboard.press('Escape');await resizeViewport({width:140,height:760});await page.evaluate(()=>whiteboardMedia.open(document.querySelector('[data-id="bounded-sound"] audio')));await bounded();
+  const narrowNames=await page.locator('.media-marker-row>span:nth-child(2)').evaluateAll(names=>names.map(el=>{const r=el.getBoundingClientRect(),row=el.parentElement.getBoundingClientRect();return {width:r.width,height:r.height,left:r.left,right:r.right,rowLeft:row.left,rowRight:row.right}}));
+  assert(narrowNames.every(n=>n.width>=44&&n.height>=16&&n.left>=n.rowLeft&&n.right<=n.rowRight),'Narrow panes preserve visible marker names instead of letting the time column consume them');
+  await page.locator('.media-marker-row').filter({hasText:'另一处观察'}).locator('span:nth-child(2)').click();assert(Math.abs(await sound.locator('audio').evaluate(el=>el.currentTime)-3.25)<.1);assert.equal(await page.locator('.media-marker-title').inputValue(),'另一处观察');
+  await page.keyboard.press('End');assert.equal(await page.locator('.media-marker-title').inputValue(),'继续回看');await page.keyboard.press('Home');assert.equal(await page.locator('.media-marker-title').inputValue(),longTitle);
+  assert.equal(await page.locator('#mediaPopover>header>strong').getAttribute('title'),'现场声音');assert.equal(await page.locator('#mediaPopover').getAttribute('aria-label'),'播放控件：现场声音');
+  assert.deepEqual(await page.evaluate(()=>board.nodes),beforeNarrow,'Browsing visible narrow-pane names preserves the authored media and marker data');
+  console.log('播放面板：140px 窄栏保留可见标记名称，真实点击与首尾选择、完整来源提示及原文保持，通过');
   await page.keyboard.press('Escape');await resizeViewport({width:1600,height:900});await page.evaluate(v=>{board.view=v;moveView()},readingView);await sound.locator('.media-time').click();await bounded();
   console.log('时间标记阅读：两行预览、时间与重播状态分列，完整名称和备注、窄窗口三条标记、真实跳转与键盘选择，通过');
   await page.locator('#mediaPopover .media-play').click();await page.waitForFunction(()=>!document.querySelector('[data-id="bounded-sound"] audio').paused);
@@ -307,6 +316,7 @@ async function verifyPopoverBounds(page,audioId){
  await sound.locator('audio').evaluate(el=>el.pause());
  const ownMarkers=await page.evaluate(()=>JSON.stringify(board.nodes[0].mediaTimeline));
  await page.locator('[data-id="bounded-table"] .media-time').click();await page.locator('.media-add-marker').click();await bounded();
+ assert.equal(await page.locator('#mediaPopover>header>strong').getAttribute('title'),'格内声音');assert.equal(await page.locator('#mediaPopover').getAttribute('aria-label'),'播放控件：格内声音','The expanded player identifies its independent table item rather than the table or previously opened player');
  await page.locator('.media-marker-title').fill('格内记录');await page.keyboard.press('Escape');
  assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes[0].mediaTimeline)),ownMarkers,'The table player keeps independent marker ownership');
  await resizeViewport({width:460,height:430});
@@ -316,6 +326,7 @@ async function verifyPopoverBounds(page,audioId){
  assert(scroll.scroll>scroll.height,'A short viewport provides internal scrolling rather than offscreen controls');
  await page.locator('.media-marker-start').uncheck();await bounded();
  assert(await page.locator('#mediaPopover').evaluate(el=>el.scrollTop)>0,'The replay setting is reachable by scrolling the bounded panel');
+ const pinnedHeading=await page.locator('#mediaPopover>header').evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.parentElement.getBoundingClientRect(),button=el.querySelector('.media-dismiss'),b=button.getBoundingClientRect();return r.top>=panel.top&&r.bottom<=panel.bottom&&button.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2))});assert(pinnedHeading,'Scrolling media settings keeps the source identity and close control visible');
  assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
  assert.equal(await page.locator('.media-marker-title').inputValue(),longTitle);
  assert(await page.locator('.media-marker-title').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'The long name also fits the compact viewport');
