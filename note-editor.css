@@ -1,0 +1,52 @@
+/* A quiet workbench with authored paper, deliberate type and reachable tools. */
+.node.paper-card{border-radius:7px;box-shadow:inset 0 0 0 1px #00000018,inset 0 1px 0 #ffffff35,0 3px 10px #00000024,0 1px 2px #0000001a}
+.node.paper-lined{background-image:repeating-linear-gradient(transparent 0,transparent 27px,#80808019 27px,#80808019 28px)!important;background-position:0 17px!important}
+.node.paper-grid{background-image:linear-gradient(#80808015 1px,transparent 1px),linear-gradient(90deg,#80808015 1px,transparent 1px)!important;background-size:24px 24px!important}
+.note-edit-tools{display:flex;align-items:center;gap:2px;flex:none}
+.note-edit-tools button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:28px}
+#noteColour i{display:block;width:13px;height:13px;background:var(--swatch);border:1px solid #8886;border-radius:50%}
+#noteFormat{font-family:Georgia,serif;font-size:15px;font-weight:600}
+#notePreview[aria-pressed=true]{background:var(--ui-selected)}
+.node.immersive-surface:not(.table) .inline-toolbar{display:flex!important}
+.node.immersive-surface .inline-toolbar{padding:8px 20px!important;justify-content:flex-start}
+.node.immersive-surface .inline-toolbar>#inlineImages{margin-left:auto}
+.note-tools{position:fixed;inset:auto;margin:0;padding:16px;max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-line);border-radius:12px;box-shadow:0 16px 48px #0005;font-size:13px;overscroll-behavior:contain}
+.note-tools header{display:flex;align-items:center;justify-content:space-between;background:transparent;border:0;padding:0 0 12px;height:auto;min-height:0}
+.note-tools header b{display:block!important;font-size:13px}
+.note-tools header button{width:28px;height:28px;padding:0;font-size:20px;border:0;background:transparent}
+.note-colours{display:grid;grid-template-columns:repeat(7,1fr);gap:9px;padding:4px 0 16px}
+.note-colours button{aspect-ratio:1;width:100%;padding:0;border:2px solid transparent;border-radius:50%;background:var(--swatch);box-shadow:inset 0 0 0 1px #8884}
+.note-colours button[aria-pressed=true]{outline:2px solid var(--ui-focus);outline-offset:2px}
+.note-custom-colour{display:grid;grid-template-columns:1fr 32px 88px;align-items:center;gap:8px}
+.note-custom-colour input{width:100%;min-width:0;height:32px;padding:4px 6px;font-size:12px}
+.note-custom-colour input[type=color]{padding:2px}
+.note-paper-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--ui-line);margin-top:16px;padding-top:14px}
+.note-paper-choices button[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-focus)}
+.note-format-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.note-format-grid button{font-size:12px;padding:9px 5px}
+.note-format-grid [data-format=bold]{font-weight:700}.note-format-grid [data-format=italic]{font-style:italic}.note-format-grid [data-format=strike]{text-decoration:line-through}
+.note-mode{display:flex;align-items:center;gap:8px;margin-top:16px}.note-mode input{width:auto}
+.note-external-link{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:14px;font-size:12px}.note-external-link input{grid-column:1;font-size:12px;min-width:0}.note-external-link button{grid-column:2;grid-row:2;font-size:12px;padding:6px 8px}
+.note-tools p{font-size:11px;color:var(--ui-muted);line-height:1.8;margin:12px 0 0}
+.note-link-search{display:grid;gap:7px;font-size:12px}.note-link-search input{font-size:13px;width:100%}
+.note-link-results{max-height:230px;overflow:auto;margin:8px -5px;padding:0 5px}
+.note-link-row{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;padding:9px;border:0;background:transparent;margin:2px 0}
+.note-link-row span,.note-link-row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}.note-link-row small{font-size:11px;color:var(--ui-muted)}
+.note-backlinks{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:14px;font-size:12px}.note-backlinks>div{max-height:180px;overflow:auto;margin-top:8px;color:var(--ui-muted)}
+.note-markdown{font-size:var(--body-size,14px);line-height:1.75;overflow-wrap:anywhere;user-select:text;white-space:normal;min-width:0;margin:4px 0;color:inherit}
+.note-markdown:empty{display:none}
+.note-markdown>:first-child{margin-top:0}.note-markdown>:last-child{margin-bottom:0}
+.note-markdown p{margin:0 0 .65em}.note-markdown h1,.note-markdown h2,.note-markdown h3,.note-markdown h4,.note-markdown h5,.note-markdown h6{font-weight:650;line-height:1.4;margin:1em 0 .45em;color:inherit}
+.note-markdown h1{font-size:1.6em}.note-markdown h2{font-size:1.35em}.note-markdown h3{font-size:1.15em}
+.note-markdown blockquote{margin:.6em 0;padding:.2em 0 .2em .85em;border-left:3px solid currentColor;opacity:.85}
+.note-markdown ul,.note-markdown ol{margin:.6em 0;padding-left:1.6em}.note-markdown li+li{margin-top:.2em}
+.note-markdown code{font-family:Consolas,monospace;font-size:.88em;background:#8882;padding:2px 4px;border-radius:3px}
+.note-markdown pre{margin:.75em 0;padding:12px;background:#8882;border-radius:6px;overflow:auto;white-space:pre;max-height:280px}.note-markdown pre code{padding:0;background:transparent}
+.note-markdown mark{background:#dab94b55;color:inherit;padding:1px 2px}.note-markdown hr{border:0;border-top:1px solid #8886;margin:1em 0}
+.note-markdown a,.note-wikilink{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.node .note-markdown .note-wikilink,.node .note-markdown a{pointer-events:auto!important}
+.note-wikilink{display:inline;background:transparent!important;border:0;border-radius:0;padding:0!important;font:inherit!important;line-height:inherit!important;text-align:left;white-space:normal;cursor:pointer}
+.note-markdown table{border-collapse:collapse;width:100%;margin:.7em 0;font-size:.92em}.note-markdown td,.note-markdown th{border:1px solid #8885;padding:6px;text-align:left}
+.node .note-editor-preview[hidden],.node textarea[hidden]{display:none!important}
+.note-markdown[data-markdown-field=userText]{margin-top:8px;padding-top:8px;border-top:1px solid #5553}
+@media(max-width:650px){.node.immersive-surface .inline-toolbar{padding:6px 10px!important}.note-edit-tools #noteColour span{display:none}}

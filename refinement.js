@@ -53,7 +53,7 @@
   const obstacles=[$('canvasTools'),dock,textTools.open?textTools.querySelector('.text-size-popup'):null].map(el=>el?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
   const editedTable=$('nodes').querySelector(':scope>.node.table>.inner.live-layout')?.parentElement;
   const neighbours=editedTable?[...$('nodes').children].filter(el=>el!==editedTable&&!el.classList.contains('frame')).map(el=>el.getBoundingClientRect()).filter(r=>r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom):[];
-  const placements=elements.map(el=>{const actions=el.querySelector(':scope>.inner.live-layout>.inline-toolbar')||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,width=actions.offsetWidth,height=actions.offsetHeight;
+  const placements=elements.map(el=>{const actions=el.querySelector(':scope>.inner.live-layout>.inline-toolbar')||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,style=getComputedStyle(actions),width=parseFloat(style.width)||actions.offsetWidth,height=parseFloat(style.height)||actions.offsetHeight;
    const left=r.right-z-width,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;

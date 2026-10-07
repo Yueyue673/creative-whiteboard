@@ -38,6 +38,8 @@ def valid_board(b):
   ids.add(n['id'])
   valid_media_timeline(n)
   if 'sizeMode' in n and n['sizeMode'] not in ('auto','manual'):raise ValueError('尺寸模式无效')
+  if 'textFormat' in n and n['textFormat'] not in ('plain','markdown'):raise ValueError('文字格式无效')
+  if 'paperStyle' in n and n['paperStyle'] not in ('plain','lined','grid'):raise ValueError('纸面样式无效')
   if n.get('type') not in ['note','frame','image','table']: raise ValueError('内容类型无效')
   if n.get('type')=='table':
    if not isinstance(n.get('columns'),list) or not 1<=len(n['columns'])<=100 or any(not isinstance(c,str) for c in n['columns']): raise ValueError('表格列无效')
@@ -92,8 +94,8 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    self.reply(200,raw,etag=digest(raw));return
   if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/clipboard-coordinator.js','/explorer-navigation.js','/recovery.js','/board-lifecycle.js','/library-transfer.js','/document-loading.js','/import-session.js','/library-folders.js','/library-editing.js']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
-  if p=='/vendor/html2canvas.min.js':
-   self.reply(200,(APP_ROOT/'vendor/html2canvas.min.js').read_bytes(),'text/javascript; charset=utf-8');return
+  if p in ['/vendor/html2canvas.min.js','/vendor/markdown-it.min.js','/note-editor.js','/note-editor.css']:
+   self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/css; charset=utf-8' if p.endswith('.css') else 'text/javascript; charset=utf-8');return
   if p=='/':
    self.reply(200,(APP_ROOT/'shell.html').read_bytes(),'text/html; charset=utf-8');return
   if p=='/index.html':

@@ -63,6 +63,22 @@ class ServerTest(unittest.TestCase):
         for path in ["/", "/index.html", "/workspace.js", "/workflow.js", "/workspace.css", "/shell.js", "/shell.css", "/pane.js", "/cells.js", "/experience.js", "/clipboard-coordinator.js"]:
             self.assertEqual(self.request(path)[0], 200)
         self.assertEqual(self.request("/app_paths.py")[0], 404)
+        for path in ["/note-editor.js", "/note-editor.css", "/vendor/markdown-it.min.js"]:
+            self.assertEqual(self.request(path)[0], 200)
+
+    def test_note_presentation_fields(self):
+        note = {"id": "note", "type": "note", "x": 0, "y": 0, "w": 300, "h": 200,
+                "body": "**Authored text**", "textFormat": "markdown", "paperStyle": "grid"}
+        board = {"format": "creative-board", "version": 1, "name": "notes", "nodes": [note], "edges": []}
+        status, headers, _ = self.request("/api/boards/presentation", "PUT", board, {"If-Match": "new"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(self.request("/api/boards/presentation")[2]), board)
+        for key in ["textFormat", "paperStyle"]:
+            original = note[key]
+            note[key] = "invalid"
+            self.assertEqual(self.request("/api/boards/presentation", "PUT", board, {"If-Match": headers["ETag"]})[0], 400)
+            note[key] = original
+        self.assertEqual(json.loads(self.request("/api/boards/presentation")[2]), board)
 
     def test_conflict_and_trash_restore(self):
         board = {"format": "creative-board", "version": 1, "name": "test", "folder": "", "nodes": [], "edges": []}

@@ -193,7 +193,7 @@ function applyTypography(){
  const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el]));
  for(const n of board?.nodes||[]){
   const el=elements.get(n.id);if(!el)continue;let changed=false;
-  for(const [key,selector] of [['titleFontSize','[id="title"],[data-preview-id="title"]'],['fontSize','[id="body"],[id="userText"],[id="annotation"],[data-preview-id="body"],[data-preview-id="userText"],[data-preview-id="annotation"],.edit-table textarea,.edit-table input']]){
+  for(const [key,selector] of [['titleFontSize','[id="title"],[data-preview-id="title"]'],['fontSize','[id="body"],[id="userText"],[id="annotation"],[data-preview-id="body"],[data-preview-id="userText"],[data-preview-id="annotation"],.edit-table textarea,.edit-table input,.note-markdown']]){
    for(const field of el.querySelectorAll(selector)){
     // A table owns its plain cell text, not the independent content copies inside it.
     if(!field.closest('.cell-content'))changed=applyFieldSize(field,n[key])||changed;
