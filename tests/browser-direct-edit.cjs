@@ -44,6 +44,7 @@ const {chromium}=require('playwright');
   await verifyCanvasHandles(p,{image:testImage,jsonId:json.id});
   await verifyInlineEditingStability(p);
   await verifyToolbarEdges(p);
+  await verifyTableWriting(p,base);
   await verifyImmersiveDetails(p,base);
   assert.deepEqual(errors,[]);console.log('选中内容不重排；展开编辑文字、备注、标签、来源、图片和表格；返回与重开保留；图片利用空间；普通滚轮不缩放，Ctrl缩放便签/图片/表格/JSON/HTML及跳转后网页；浅色选中文字与来源悬浮文字对比，通过');
  }catch(err){if(p&&process.env.DIRECT_EDIT_SCREENSHOT_DIR){fs.mkdirSync(process.env.DIRECT_EDIT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.DIRECT_EDIT_SCREENSHOT_DIR,'failure.png')})}throw err}
@@ -70,6 +71,33 @@ async function verifyInlineEditingStability(p){
  await p.locator('#body').fill('由作者继续输入。\n'.repeat(35));await p.waitForFunction(h=>board.nodes[0].h>h+200,automatic.h);await p.locator('#body').press('Control+End');assert(await loc.locator('.edit-scroll').evaluate(el=>el.scrollTop>0),'Continued typing scrolls the current writing area');await p.locator('#inlineDone').click();await settled();const authored=await p.evaluate(()=>clone(board.nodes[0]));await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);await settled();assert.deepEqual(await p.evaluate(()=>board.nodes[0]),authored,'Authored text, automatic size and custom fonts reopen together');
  await p.evaluate(()=>whiteboardAppearance.apply({preset:'resolve',custom:{},note:'#fff0aa'},true));
  console.log('便签进入和退出编辑不挤动原文；三主题、手动和自动尺寸、自定义字号、靠边与 15%—400% 缩放工具、持续输入及保存重开通过');
+}
+
+async function verifyTableWriting(p,base){
+ const fixture={id:'table-writing',type:'table',title:'自己的比较记录',body:'自己的补充说明。',columns:['画面','声音'],rows:[['第一段记录','现场声音'],['第二段记录','待核对']],rowIds:['r0','r1'],columnIds:['c0','c1'],cellImages:[[[],[]],[[],[]]],cellItems:[[[],[]],[[],[]]],columnWidths:[280,280],color:'#ffffff',x:0,y:0,w:650,h:340,tags:[]};
+ const data={format:'creative-board',version:1,name:'表格编辑检查',nodes:[fixture],edges:[],view:{x:20,y:100,z:1}};
+ for(const [id,value]of [['table-writing',data],['table-writing-other',{...data,name:'另一张白板',nodes:[]}]])assert((await fetch(base+'/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)})).ok);
+ await p.setViewportSize({width:1440,height:950});await p.addInitScript(()=>localStorage.setItem('creative-sidebar-state',JSON.stringify({open:false})));await p.goto(base+'/?board=table-writing');await p.waitForFunction(()=>pane(current())?.state().boardId==='table-writing'&&!pane(current()).state().loading);
+ const f=p.frames().find(f=>f.url().includes('/index.html?')&&new URL(f.url()).searchParams.get('board')==='table-writing');await f.waitForFunction(()=>board&&!loading);
+ const loc=f.locator('#nodes>[data-id=table-writing]'),settled=()=>f.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+ const fields=()=>loc.evaluate(el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('.edit-scroll>textarea,[data-column],[data-row]')].filter(e=>getComputedStyle(e).display!=='none').map(e=>{const b=e.getBoundingClientRect();return {name:e.dataset.previewId||e.id||(e.dataset.column!==undefined?'column:'+e.dataset.column:'cell:'+e.dataset.row+','+e.dataset.col),x:b.x-r.x,y:b.y-r.y,w:b.width,h:b.height,font:getComputedStyle(e).fontSize,value:e.value}})});
+ const sameFields=async before=>{const after=await fields();assert.equal(after.length,before.length);for(let i=0;i<before.length;i++){for(const key of ['name','font','value'])assert.equal(after[i][key],before[i][key],'Table editing keeps '+key);for(const key of ['x','y','w','h'])assert(Math.abs(after[i][key]-before[i][key])<.2,'Table editing keeps '+key+' '+JSON.stringify({before:before[i],after:after[i]}))}};
+ async function bounded(selector){const m=await f.locator(selector).evaluate(el=>{const box=e=>{const r=e.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom}},r=box(el);return {viewport:box(canvas),controls:[r,...[...el.querySelectorAll('button,summary')].filter(e=>e.checkVisibility()).map(box)]}});for(const r of m.controls)assert(r.left>=m.viewport.left+5.8&&r.right<=m.viewport.right-5.8&&r.top>=m.viewport.top+5.8&&r.bottom<=m.viewport.bottom-5.8,'Table controls and menu remain inside the real pane '+JSON.stringify(m))}
+ for(const width of [1440,620,280]){
+  if(width===620){await p.evaluate(()=>openBoard('table-writing-other','right'));await p.waitForFunction(()=>pane(current())?.state().boardId==='table-writing-other'&&!pane(current()).state().loading);await p.getByRole('tab',{name:'表格编辑检查',exact:true}).click()}
+  await p.setViewportSize({width,height:760});
+  for(const preset of ['resolve','paper','slate'])for(const z of [1,.5]){
+   await f.evaluate(({fixture,preset,z})=>{whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'});board.nodes=[clone(fixture)];if(preset==='slate')Object.assign(board.nodes[0],{titleFontSize:27,fontSize:17});board.edges=[];editorId=null;selected.clear();board.view={x:20,y:100,z};render()},{fixture,preset,z});await settled();const before=await fields(),original=await f.evaluate(()=>({nodes:clone(board.nodes),view:clone(board.view)}));
+   await loc.locator('[data-row="0"][data-col="0"]').dblclick({force:true,position:{x:8,y:8}});await f.locator('#title').waitFor();await settled();await sameFields(before);const editingView=await f.evaluate(()=>clone(board.view));if(width===1440)assert.deepEqual(editingView,original.view,'Entering desktop editing retains the camera');await bounded('.live-layout>.inline-toolbar');
+   await loc.locator('.table-options>summary').click();await settled();await bounded('.live-layout .table-options[open]>div');await p.keyboard.press('Escape');assert(await loc.locator('.table-options>summary').evaluate(el=>document.activeElement===el));assert(await f.locator('#tableCSV').isHidden());
+   await f.locator('#inlineDone').click();await settled();await sameFields(before);assert.deepEqual(JSON.stringify(await f.evaluate(()=>({nodes:board.nodes,view:board.view}))),JSON.stringify({nodes:original.nodes,view:editingView}),'Table controls preserve contents, fonts, manual size and the revealed editing view at '+width+' '+preset+' '+z);
+  }
+ }
+ // Selecting an embedded copy changes the contextual toolbar, without losing it in a narrow pane.
+ await f.evaluate(()=>{const n=board.nodes[0];n.cellItems[0][0]=[{id:'own-copy',type:'note',title:'自己的现场记录',body:'保留自己的观察。',color:'#cde8fb'}];board.view={x:20,y:100,z:.5};render();openEditor(n.id)});await f.locator('[data-cell-note-field=title]').click({position:{x:8,y:8}});await settled();await bounded('.live-layout>.inline-toolbar');assert(await f.locator('.cell-tools').isVisible());await f.locator('#inlineDone').click();
+ await p.setViewportSize({width:1440,height:950});await f.evaluate(()=>{board.nodes[0].cellItems[0][0]=[];whiteboardAppearance.apply({preset:'resolve',custom:{},note:'#fff0aa'});board.view={x:20,y:100,z:1};openEditor(board.nodes[0].id)});await settled();
+ await f.locator('[data-row="0"][data-col="0"]').fill('自己修改的记录');await f.locator('#tableAddRow').click();await f.locator('#tableAddColumn').click();assert.equal(await f.evaluate(()=>board.nodes[0].rows.length),3);assert.equal(await f.evaluate(()=>board.nodes[0].columns.length),3);assert.equal(await f.evaluate(()=>board.nodes[0].h),fixture.h);await f.locator('#inlineDone').click();const authored=await f.evaluate(()=>clone(board.nodes[0]));await f.evaluate(()=>persist());await f.goto(f.url());await f.waitForFunction(()=>board&&!loading);assert.deepEqual(await f.evaluate(()=>board.nodes[0]),authored,'Native table edits and row/column additions survive save and reopen');
+ console.log('表格原位编辑：三个主题、默认和自定义字号、50%/100% 缩放、桌面与窄双栏、更多菜单与 Escape 焦点、单元格副本工具、增行列及保存重开通过');
 }
 
 async function verifyImmersiveDetails(p,base){
