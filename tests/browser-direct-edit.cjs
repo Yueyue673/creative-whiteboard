@@ -46,6 +46,7 @@ const {chromium}=require('playwright');
   await verifyToolbarEdges(p);
   await verifyTableWriting(p,base);
   await verifyImmersiveDetails(p,base);
+  await verifyImageEntry(p,testImage,base);
   assert.deepEqual(errors,[]);console.log('选中内容不重排；展开编辑文字、备注、标签、来源、图片和表格；返回与重开保留；图片利用空间；普通滚轮不缩放，Ctrl缩放便签/图片/表格/JSON/HTML及跳转后网页；浅色选中文字与来源悬浮文字对比，通过');
  }catch(err){if(p&&process.env.DIRECT_EDIT_SCREENSHOT_DIR){fs.mkdirSync(process.env.DIRECT_EDIT_SCREENSHOT_DIR,{recursive:true});await p.screenshot({path:path.join(process.env.DIRECT_EDIT_SCREENSHOT_DIR,'failure.png')})}throw err}
  finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const absolute=path.resolve(tmp);assert(absolute.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(absolute,{recursive:true,force:true})}
@@ -234,4 +235,41 @@ async function verifyToolbarEdges(p){
  await prepare('top',1,{h:120,sizeMode:'auto'});await p.waitForFunction(()=>board.nodes[0].h<250);await p.evaluate(()=>{board.nodes[0].body=Array(65).fill('增长的原文。').join('\n');drawNodes()});await p.waitForFunction(()=>board.nodes[0].h>800);await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));const automatic=await p.evaluate(()=>({node:clone(board.nodes[0]),view:clone(board.view)}));const autoBox=await loc.locator('.block-actions').boundingBox();assert(autoBox.y+autoBox.height<=(await p.locator('#canvas').boundingBox()).y+(await p.locator('#canvas').boundingBox()).height-5.8,'Auto growth repositions toolbar before it leaves the viewport');assert.equal(automatic.node.sizeMode,'auto');
  await prepare('right');await p.evaluate(()=>{view().x=canvas.clientWidth-(1560-980)-15;moveView()});const original=await p.evaluate(()=>({node:clone(board.nodes[0]),view:clone(board.view)}));await p.setViewportSize({width:980,height:640});await p.waitForFunction(()=>document.querySelector('#canvas').clientWidth<800);await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await check('Viewport resize without another selection or render');assert.deepEqual(await p.evaluate(()=>({node:board.nodes[0],view:board.view})),original,'Resize observer keeps original arrangement and view');await p.setViewportSize({width:1560,height:1000});await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  console.log('靠边、部分可见和超高便签的工具栏可直接展开编辑及打开菜单；各档缩放、自动增高和窗口尺寸变化不改原文或编排，通过');
+}
+
+
+// An empty optional caption must not shrink the image when editing begins.
+async function verifyImageEntry(page,image,base){
+ await page.setViewportSize({width:1560,height:1000});await page.goto(base+'/index.html');await page.waitForFunction(()=>board&&!loading&&window.whiteboardReading);
+ if(await page.locator('#workspaceSidebar').isVisible())await page.locator('#sidebarToggle').click();
+ async function settle(){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))}
+ async function painted(){return page.locator('#nodes > [data-id="image-entry"] img').evaluate(el=>{const r=el.getBoundingClientRect(),scale=Math.min(el.clientWidth/el.naturalWidth,el.clientHeight/el.naturalHeight);return [r.x+(r.width-el.naturalWidth*scale)/2,r.y+(r.height-el.naturalHeight*scale)/2,el.naturalWidth*scale,el.naturalHeight*scale]})}
+ const card=page.locator('#nodes > [data-id="image-entry"]');
+ for(const kind of ['empty-note','empty-legacy','caption','automatic'])for(const preset of ['resolve','paper','slate']){
+  await page.evaluate(({kind,preset,image})=>{
+   whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'},true);
+   const n={id:'image-entry',type:kind==='empty-legacy'?'image':'note',title:'Light on the desk.png',body:kind==='caption'?'My original observation.':'',tags:[],color:'#ffffff',x:60,y:90,w:360,h:260,sizeMode:kind==='automatic'?'auto':'manual'};
+   if(kind==='empty-legacy')n.image=image;else n.images=[{data:image}];board.nodes=[n];board.edges=[];board.view={x:0,y:0,z:1};selected.clear();editorId=null;render();change();
+  },{kind,preset,image});
+  await page.waitForFunction(()=>document.querySelector('#nodes img')?.naturalWidth===1600);await settle();
+  const original=await page.evaluate(()=>clone(board.nodes[0])),read=await painted();
+  await card.dblclick({position:{x:70,y:25}});await settle();
+  const edit=await painted();edit.forEach((v,i)=>assert(Math.abs(v-read[i])<1.1,'Painted image stays in place on native editor entry: '+JSON.stringify({kind,preset,read,edit})));
+  if(kind==='caption')assert.equal(await card.locator('.edit-scroll > #body').inputValue(),original.body,'An authored caption remains directly editable');
+  else{
+   assert.equal(await card.locator('.edit-scroll > #body').count(),0,'An empty optional caption reserves no image space');
+   await page.locator('#inlineDetails').click();assert.equal(await page.locator('#inlineMeta #body').inputValue(),'','The existing details panel still provides caption entry');await page.locator('#inlineMetaClose').click();
+  }
+  await page.locator('#inlineDone').click();await settle();assert.deepEqual(await painted(),read);assert.deepEqual(await page.evaluate(()=>board.nodes[0]),original,'Switching mode never changes the source or manual/automatic frame');
+ }
+ // Author a caption through the existing panel, then check its normal reading/editing path.
+ const original=await page.evaluate(()=>clone(board.nodes[0]));
+ await card.dblclick({position:{x:70,y:25}});await page.locator('#inlineDetails').click();await page.locator('#inlineMeta #body').fill('My own checked observation.');await page.locator('#inlineMetaClose').click();await page.locator('#inlineDone').click();await settle();
+ assert.equal(await card.locator('[data-preview-id=body]').inputValue(),'My own checked observation.');
+ await card.dblclick({position:{x:70,y:25}});assert.equal(await card.locator('.edit-scroll > #body').inputValue(),'My own checked observation.');await page.locator('#inlineDone').click();
+ await page.locator('#canvas').click({position:{x:15,y:850}});await page.keyboard.press('Control+z');await settle();assert.deepEqual(await page.evaluate(()=>board.nodes[0]),original,'One undo restores the original caption and automatic height');
+ await card.click({position:{x:70,y:25}});await card.locator('.block-read').click();await page.locator('#immersiveDetails').click();await page.locator('#immersiveSurface #inlineMeta #body').fill('My immersive observation.');await page.keyboard.press('Escape');await settle();
+ assert.equal(await page.evaluate(()=>board.nodes[0].body),'My immersive observation.');assert.equal(await page.evaluate(()=>board.nodes[0].images[0].data),image);
+ const saved=await page.evaluate(()=>clone(board.nodes[0]));assert.equal(await page.evaluate(async()=>{change();return persist()}),true);await page.reload();await page.waitForFunction(()=>board&&!loading);await settle();assert.deepEqual(await page.evaluate(()=>board.nodes[0]),saved,'Authored caption, exact original image and chosen width reopen together');
+ console.log('图片编辑：空说明不挤小图片，普通与旧式图片、自适应尺寸和三种主题保持阅读位置；说明补写、正文编辑、撤销、沉浸及原图重开通过');
 }
