@@ -425,30 +425,39 @@ function openLocationMenu(e,buttons){
   button.onclick=()=>{const nav=original.parentElement;closeLocationMenu();original.click();if(nav.isConnected)nav.querySelector('[aria-current=location]')?.focus({preventScroll:true})};locationMenu.append(button);
  }
  locationMenu.hidden=false;
- const anchor=locationMenuOrigin.getBoundingClientRect(),box=locationMenu.getBoundingClientRect();
- locationMenu.style.left=Math.max(8,Math.min(anchor.left,innerWidth-box.width-8))+'px';locationMenu.style.top=Math.max(8,Math.min(anchor.bottom+4,innerHeight-box.height-8))+'px';
+ positionLocationMenu();
  locationMenu.querySelector('button')?.focus({preventScroll:true});
 }
+function positionLocationMenu(){
+ const anchor=locationMenuOrigin.getBoundingClientRect(),box=locationMenu.getBoundingClientRect();
+ locationMenu.style.left=Math.max(8,Math.min(anchor.left,innerWidth-box.width-8))+'px';locationMenu.style.top=Math.max(8,Math.min(anchor.bottom+4,innerHeight-box.height-8))+'px';
+}
 function compactLocation(nav){
- if(locationMenuNav===nav)closeLocationMenu();
+ if(locationMenuNav===nav&&!locationMenuOrigin?.isConnected)closeLocationMenu();
  if(!nav.clientWidth)return;
  const original=[...nav.children].filter(el=>!el.classList.contains('location-overflow-part'));
- original.forEach(el=>el.hidden=false);nav.classList.remove('compact-path');
+ const focused=document.activeElement,menuFocused=locationMenuNav===nav&&locationMenu?.contains(focused);
  let overflow=nav.querySelector('.location-overflow');
- nav.querySelectorAll('.location-overflow-part').forEach(el=>el.hidden=true);
  const buttons=original.filter(el=>el.tagName==='BUTTON');
- // Measure full labels before deciding whether they fit in the current width.
- const current=buttons.at(-1),shrink=current?.style.flexShrink;
- if(current)current.style.flexShrink='0';const naturalWidth=nav.scrollWidth;if(current)current.style.flexShrink=shrink;
- if(buttons.length>2&&naturalWidth>nav.clientWidth+1){
+ // Measure an inert copy so resize notifications never hide the focused control.
+ const measure=nav.cloneNode(true);measure.removeAttribute('id');measure.classList.remove('compact-path');measure.inert=true;measure.setAttribute('aria-hidden','true');
+ measure.querySelectorAll('.location-overflow-part').forEach(el=>el.remove());
+ [...measure.children].forEach(el=>el.hidden=false);measure.querySelector('[aria-current=location]')?.style.setProperty('flex-shrink','0');
+ Object.assign(measure.style,{position:'absolute',visibility:'hidden',pointerEvents:'none',left:'0',top:'0',width:nav.clientWidth+'px'});
+ nav.parentElement.append(measure);let naturalWidth;try{naturalWidth=measure.scrollWidth}finally{measure.remove()}
+ const compact=buttons.length>2&&naturalWidth>nav.clientWidth+1;
+ original.forEach((el,i)=>el.hidden=compact&&i>0&&i<original.length-1);nav.classList.toggle('compact-path',compact);
+ if(compact){
   if(!overflow){
    const separator=()=>{const el=document.createElement('span');el.className='location-overflow-part';el.textContent='›';el.setAttribute('aria-hidden','true');return el};
    overflow=document.createElement('button');overflow.type='button';overflow.className='location-overflow location-overflow-part';overflow.textContent='⋯';overflow.setAttribute('aria-haspopup','menu');overflow.setAttribute('aria-controls','locationMenu');overflow.setAttribute('aria-expanded','false');
    buttons.at(-1).before(separator(),overflow,separator());
   }
-  original.slice(1,-1).forEach(el=>el.hidden=true);nav.querySelectorAll('.location-overflow-part').forEach(el=>el.hidden=false);nav.classList.add('compact-path');
   const ancestors=buttons.slice(1,-1);overflow.title='查看 '+ancestors.length+' 级上级文件夹';overflow.setAttribute('aria-label',overflow.title);overflow.onclick=e=>openLocationMenu(e,ancestors);
  }
+ nav.querySelectorAll('.location-overflow-part').forEach(el=>el.hidden=!compact);
+ if(locationMenuNav===nav){if(compact)positionLocationMenu();else closeLocationMenu()}
+ if((!compact&&(focused===overflow||menuFocused))||(original.includes(focused)&&focused.hidden))buttons.at(-1)?.focus({preventScroll:true});
  original.filter(el=>el.tagName==='SPAN').forEach(el=>el.setAttribute('aria-hidden','true'));
  if(!nav._locationObserver){nav._locationObserver=new ResizeObserver(()=>compactLocation(nav));nav._locationObserver.observe(nav)}
 }
