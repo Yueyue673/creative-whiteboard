@@ -3,7 +3,7 @@
  'use strict';
  const key='creative-appearance-v1';
  const palettes={
-  resolve:{name:'深灰',bg:'#18191b',canvas:'#26272c',panel:'#212226',raised:'#303136',field:'#17181b',border:'#111214',line:'#414248',text:'#dedee1',muted:'#a0a1a7',hover:'#383a40',selected:'#41444c',accent:'#ed5945'},
+  resolve:{name:'深灰',bg:'#16181c',canvas:'#23262b',panel:'#272a30',raised:'#32363e',field:'#1c1f24',border:'#15171b',line:'#484d57',text:'#e6e8ed',muted:'#adb3bf',hover:'#3b4049',selected:'#424955',accent:'#e7b77b'},
   paper:{name:'纸白',bg:'#f8f8f6',canvas:'#eaece8',panel:'#f3f4f1',raised:'#ffffff',field:'#ffffff',border:'#d5d8d2',line:'#d5d8d2',text:'#30342f',muted:'#686f65',hover:'#e4e8e0',selected:'#dce4d5',accent:'#69805c'},
   slate:{name:'蓝灰',bg:'#19212a',canvas:'#273340',panel:'#202b36',raised:'#313f4e',field:'#18232e',border:'#121b25',line:'#455363',text:'#e1e8ef',muted:'#a6b4c3',hover:'#3a4c5d',selected:'#43586e',accent:'#85b5d8'}
  };

@@ -1,5 +1,5 @@
 /* Neutral charcoal surfaces inspired by the supplied Resolve interface reference. */
-:root{color-scheme:dark;--ui-bg:#18191b;--ui-canvas:#26272c;--ui-panel:#212226;--ui-raised:#303136;--ui-field:#17181b;--ui-border:#111214;--ui-line:#414248;--ui-text:#dedee1;--ui-muted:#a0a1a7;--ui-accent:#ed5945;--ui-hover:#383a40;--ui-selected:#41444c}
+:root{color-scheme:dark;--ui-bg:#16181c;--ui-canvas:#23262b;--ui-panel:#272a30;--ui-raised:#32363e;--ui-field:#1c1f24;--ui-border:#15171b;--ui-line:#484d57;--ui-text:#e6e8ed;--ui-muted:#adb3bf;--ui-accent:#e7b77b;--ui-hover:#3b4049;--ui-selected:#424955}
 body{background:var(--ui-bg)!important;color:var(--ui-text)!important}a{color:var(--ui-link,#95bddc)}button,input,textarea,select,summary{color:inherit}button,select,summary{background:var(--ui-raised);border-color:var(--ui-line);border-radius:4px}input,textarea{background:var(--ui-field);border-color:var(--ui-line);color:var(--ui-text)}input::placeholder,textarea::placeholder{color:var(--ui-muted)}button:hover,summary:hover{background:var(--ui-hover)}button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,select:focus-visible{outline:2px solid var(--ui-focus,var(--ui-accent));outline-offset:2px}*{scrollbar-color:#56585e transparent}::selection{background:#52627d;color:#fff}
 header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:var(--ui-text)}#shellHeader nav button:hover{background:var(--ui-hover)}#shellStatus,#status,#textSizeCount{color:var(--ui-muted)}#tabHeaders,.tabs{background:var(--ui-panel);border-color:var(--ui-border)}.tab{color:var(--ui-muted);border-radius:4px 4px 0 0}.tab[aria-current=true]{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line)}.tab-group.active-pane{box-shadow:inset 0 -2px var(--ui-accent)}.tab-group.right-group{border-color:var(--ui-border)}.tab .state{color:#f7b76d}.board-frame,#frameDeck,#workspace,#canvas{background:var(--ui-canvas)!important;background-image:none!important}#splitToggle[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-line);color:var(--ui-text)}#splitter{background:linear-gradient(90deg,transparent 3px,#111214 3px,#111214 5px,transparent 5px)}#splitter:hover,#splitter:focus-visible{background:#62646c}#rightDropTarget{background:#303136ed;color:var(--ui-text);border-color:var(--ui-accent)}.empty-pane,.empty-pane h2,#empty,#empty h1{color:var(--ui-muted)}
 #shellMore>div,#tabContext,#boardPicker,dialog,#fileContext{background:var(--ui-panel);color:var(--ui-text);border-color:var(--ui-line);border-radius:8px;box-shadow:0 12px 35px #0005}#shellMore button,#tabContext button,#boardChoices button,#fileContext button{color:var(--ui-text);background:transparent;border-color:var(--ui-line)}#shellMore button:hover,#tabContext button:hover,#boardChoices button:hover,#fileContext button:hover{background:var(--ui-hover)}#boardQuery,#newBoardName{background:var(--ui-field);border-color:var(--ui-line)}#boardChoices button small,#pickerHint{color:var(--ui-muted)}.new-board{border-color:var(--ui-line)}dialog p,dialog label,dialog small{color:var(--ui-text)}dialog::backdrop,#boardPicker::backdrop{background:#0007}#shellToast,#toast{background:#3d3f45;color:#f3f3f3;border:1px solid #606269}
@@ -180,3 +180,64 @@ body.content-transfer .node .read-layout [data-cell]{pointer-events:auto}
 #items .outline-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;font-weight:500;font-size:13px;line-height:1.6}
 #items small{font-size:12px;line-height:1.6;overflow-wrap:anywhere;margin-top:3px}
 #items .outline-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Shared studio workbench: one hierarchy for navigation, paper and tools. */
+body #shellHeader{gap:10px;padding:0 16px;border-bottom-color:var(--ui-line)}
+#shellHeader .studio-brand{display:flex;align-items:center;gap:9px;flex:none;min-width:0;padding-right:13px;border-right:1px solid var(--ui-line);font-size:14px;font-weight:600;letter-spacing:.04em;white-space:nowrap}
+#shellHeader .studio-brand svg{width:23px;height:23px;color:var(--ui-focus,var(--ui-accent));stroke-width:1.4}
+body #shellHeader .shell-icon{width:32px;height:32px;border-radius:8px;color:var(--ui-muted)}
+body #shellHeader .shell-icon:hover,body #shellHeader .shell-icon[aria-expanded=true],body #shellHeader #splitToggle[aria-pressed=true]{color:var(--ui-text);background:var(--ui-selected)}
+body #shellHeader .shell-ai{display:flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid var(--ui-line);border-radius:8px;font-size:12px;color:var(--ui-text)}
+body #shellHeader .shell-ai svg{width:16px;height:16px;flex:none}
+body #shellMore summary{border:0;border-radius:8px;background:transparent;color:var(--ui-muted)}
+body #shellMore[open] summary{background:var(--ui-selected);color:var(--ui-text)}
+body #tabHeaders{background:var(--ui-bg);border-bottom:1px solid var(--ui-line)}
+body .tab-group{padding:4px 6px 4px;gap:4px}
+body .tab-group.active-pane::after{content:none}
+body .tabs{gap:4px;background:transparent}
+body .tab{position:relative;border:1px solid transparent;border-radius:8px;margin:0;color:var(--ui-muted)}
+body .tab:hover{background:var(--ui-hover)}
+body .tab[aria-current=true]{background:var(--ui-panel);border-color:var(--ui-line);color:var(--ui-text)}
+body .tab-group.active-pane .tab[aria-current=true]{background:var(--ui-raised)}
+body .tab-group.active-pane .tab[aria-current=true]::after{content:"";position:absolute;left:10px;bottom:0;width:24px;height:2px;border-radius:2px;background:var(--ui-focus,var(--ui-accent));pointer-events:none}
+body .tab-open{padding:3px 8px 4px 10px;font-size:12px;font-weight:500;line-height:1.5}
+body .tab-close{width:23px;height:23px;line-height:23px;border-radius:5px}
+body .add-tab{height:28px;margin:0 0 0 2px;border-radius:7px;color:var(--ui-muted)}
+body #globalExplorer{border-right-color:var(--ui-line)}
+body #workspaceSidebar .workspace-tabs{margin:12px 12px 9px;padding:4px;gap:3px;background:var(--ui-bg)!important;border:1px solid var(--ui-line);border-radius:11px}
+body #workspaceSidebar .workspace-tabs button{font-size:12px;min-height:32px;border:0;border-radius:7px;color:var(--ui-muted)}
+body #workspaceSidebar .workspace-tabs button.current{background:var(--ui-raised)!important;color:var(--ui-text)!important;font-weight:600;box-shadow:0 1px 3px #0002}
+body #workspaceSidebar .clear-location{padding:9px 12px 12px}
+body #workspaceSidebar #boardSearch,body #workspaceSidebar #assetSearch,body #workspaceSidebar #search{border-radius:9px;padding:10px 11px;line-height:1.5;font-size:13px}
+body #workspaceSidebar .explorer-item,body #workspaceSidebar .asset-row,body #workspaceSidebar .asset-subfolder,body #items button{border-radius:8px}
+body #workspaceSidebar .explorer-item.selected,body #workspaceSidebar .asset-row.selected,body #items button.active{box-shadow:inset 2px 0 var(--ui-focus,var(--ui-accent))}
+body #workspaceSidebar .library-bottom-actions{gap:6px;padding-top:12px}
+body #workspaceSidebar .library-bottom-actions button{border-radius:7px;background:var(--ui-raised);font-size:12px}
+body #workspaceSidebar .library-bottom-actions button:hover{background:var(--ui-hover)}
+body #canvas #creationDock{gap:3px;padding:6px;border-radius:13px;border-color:var(--ui-line);box-shadow:0 6px 24px #0003}
+body #canvas #creationDock button{border-radius:8px;min-height:32px;font-size:12px;padding:7px 10px}
+body #canvas #creationDock #add{background:var(--ui-selected);font-weight:600}
+body #canvas #creationDock #add:hover{background:var(--ui-hover)}
+body #canvas #creationDock #undo{border-left:1px solid var(--ui-line);border-radius:0 7px 7px 0;margin-left:4px;padding-left:10px}
+body #creationDock #textSizeTools>summary{border-radius:8px;font-size:12px}
+body #canvas #canvasTools{gap:2px;padding:4px;border-radius:11px;box-shadow:0 3px 12px #0002;font-variant-numeric:tabular-nums}
+body #canvas #canvasTools button{border:0;border-radius:7px;padding:5px 8px;font-size:12px;min-height:29px}
+body #canvas #canvasTools #zoomValue{color:var(--ui-text);font-weight:600}
+body #nodes>.node:not(.frame){border-radius:10px;box-shadow:0 3px 5px #0002,0 12px 28px #0001}
+body #nodes>.node.paper-card{box-shadow:inset 0 0 0 1px #00000012,0 3px 5px #0002,0 12px 28px #0001}
+body #nodes .block-actions{border-radius:8px;background:var(--ui-panel);box-shadow:0 4px 12px #0003}
+body #nodes .block-actions button{border-radius:5px}
+body #nodes .inner.live-layout>.inline-toolbar{border-radius:9px;box-shadow:0 4px 15px #0003}
+body #selection{background:color-mix(in srgb,var(--ui-canvas-focus,var(--ui-accent)) 12%,transparent)}
+body #shellMore>div,body #tabContext,body #fileContext{border-radius:11px;padding:6px;box-shadow:0 8px 30px #0004}
+body #shellMore button,body #tabContext button,body #fileContext button{border-radius:6px;font-size:13px}
+body #boardPicker{border-radius:16px;padding:24px}
+body #boardQuery,body #newBoardName{border-radius:9px}
+body #boardChoices button{border-radius:8px;border-bottom:0;margin:3px 0;padding:12px}
+body #boardPicker .new-board button,body .empty-pane .choose-board{background:var(--ui-selected);border-color:var(--ui-line);border-radius:9px;color:var(--ui-text)}
+body .empty-pane h2{font-weight:600;font-size:22px;color:var(--ui-canvas-text,var(--ui-text))}
+body .empty-pane p{font-size:13px;line-height:1.8;margin:12px 0 20px}
+body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002}
+@media(max-width:900px){body #shellHeader{gap:7px;padding:0 10px}#shellHeader .studio-brand{padding-right:9px;font-size:13px;gap:7px}}
+@media(max-width:600px){#shellHeader .studio-brand span,body #shellHeader .shell-ai span{display:none}#shellHeader .studio-brand{padding-right:7px;border:0}body #shellHeader{gap:5px;padding:0 8px}body #shellHeader .shell-ai{width:32px;height:32px;padding:0;justify-content:center;border:0}body #shellStatus{width:88px;min-width:88px;max-width:88px;font-size:11px}body #canvas #creationDock{padding:5px;gap:2px}body #canvas #creationDock button{padding-left:8px;padding-right:8px}}
+@media(max-width:360px){body #shellStatus{width:68px;min-width:68px;max-width:68px}body #shellHeader{gap:3px}}
