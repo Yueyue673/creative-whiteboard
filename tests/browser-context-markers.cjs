@@ -274,7 +274,8 @@ async function verifyPopoverBounds(page,audioId){
  const longTitleSize=await page.locator('.media-marker-title').evaluate(el=>({height:el.clientHeight,scroll:el.scrollHeight,width:el.clientWidth,scrollWidth:el.scrollWidth}));
  assert(longTitleSize.height>shortTitleHeight+15,'A long marker name grows instead of hiding its ending in a single line');
  assert(longTitleSize.scroll<=longTitleSize.height+1&&longTitleSize.scrollWidth<=longTitleSize.width+1,'The complete ordinary long name is visible without horizontal scrolling');
- assert(await page.locator('.media-marker-row>span:nth-child(2)').evaluate(el=>el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1),'The list wraps the full marker name');
+  const preview=await page.locator('.media-marker-row>span:nth-child(2)').evaluate(el=>({text:el.textContent,hint:el.title,height:el.clientHeight,line:parseFloat(getComputedStyle(el).lineHeight),width:el.clientWidth,scroll:el.scrollWidth}));
+  assert.equal(preview.text,longTitle);assert.equal(preview.hint,longTitle);assert(preview.height<=preview.line*2+1&&preview.scroll<=preview.width+1,'The list keeps a bounded preview and the complete original name');
  await page.locator('.media-marker-title').fill('第一段声音的记录');await bounded();
  assert.equal(await page.locator('.media-marker-title').evaluate(el=>el.clientHeight),shortTitleHeight,'Shortening the name restores its compact field');
  // Long uninterrupted names and the maximum accepted title still wrap within
@@ -286,8 +287,19 @@ async function verifyPopoverBounds(page,audioId){
  assert(maximumTitle.scrollWidth<=maximumTitle.width+1);
  await page.locator('.media-marker-title').fill(longTitle);await bounded();
  assert.equal(await page.evaluate(()=>Object.values(board.nodes[0].mediaTimeline)[0].markers[0].time),originalTime,'Resizing the name does not alter the time');
- assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
- await page.locator('#mediaPopover .media-play').click();await page.waitForFunction(()=>!document.querySelector('[data-id="bounded-sound"] audio').paused);
+  assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
+  // Browsing several markers must stay compact while their authored names are
+  // still available in the complete field and native title hint.
+  for(const [time,title]of [[3.25,'另一处观察'],[5.6,'继续回看']]){await sound.locator('audio').evaluate((el,time)=>el.currentTime=time,time);await page.locator('.media-add-marker').click();await page.locator('.media-marker-title').fill(title)}
+  const readingView=await page.evaluate(()=>clone(board.view));await resizeViewport({width:360,height:760});await page.evaluate(()=>whiteboardMedia.open(document.querySelector('[data-id="bounded-sound"] audio')));await bounded();
+  const rowLayout=await page.locator('.media-marker-list').evaluate(list=>{const box=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom,height:r.height}};return {list:box(list),client:list.clientHeight,scroll:list.scrollHeight,rows:[...list.querySelectorAll('.media-marker-row')].map(row=>({row:box(row),time:box(row.children[0]),name:box(row.children[1]),flag:box(row.children[2]),hint:row.children[1].title}))}});
+  assert.equal(rowLayout.rows.length,3);assert(rowLayout.scroll<=rowLayout.client+2,'Three markers remain browsable together with a long first name');
+  for(const row of rowLayout.rows){assert(row.row.height>=44&&row.name.x>row.time.right&&row.name.right<=row.row.right,'Time and title have distinct readable columns')}
+  assert(rowLayout.rows[0].flag.y>=rowLayout.rows[0].time.bottom&&rowLayout.rows[0].flag.right<=rowLayout.rows[0].name.x,'Replay status stays below the time instead of squeezing the title');assert.equal(rowLayout.rows[0].hint,longTitle);
+  await page.locator('.media-marker-row').filter({hasText:'另一处观察'}).click();assert(Math.abs(await sound.locator('audio').evaluate(el=>el.currentTime)-3.25)<.1);await page.keyboard.press('ArrowDown');assert(Math.abs(await sound.locator('audio').evaluate(el=>el.currentTime)-5.6)<.1);await page.keyboard.press('Home');assert.equal(await page.locator('.media-marker-title').inputValue(),longTitle);assert.equal(await page.locator('.media-marker-note').inputValue(),'保留自己的声音观察。');
+  await page.keyboard.press('Escape');await resizeViewport({width:1600,height:900});await page.evaluate(v=>{board.view=v;moveView()},readingView);await sound.locator('.media-time').click();await bounded();
+  console.log('时间标记阅读：两行预览、时间与重播状态分列，完整名称和备注、窄窗口三条标记、真实跳转与键盘选择，通过');
+  await page.locator('#mediaPopover .media-play').click();await page.waitForFunction(()=>!document.querySelector('[data-id="bounded-sound"] audio').paused);
  await page.locator('.media-add-marker').click();await bounded();
  assert(await sound.locator('audio').evaluate(el=>!el.paused&&el.currentTime>=2.5),'Adding and fitting a marker keeps playback running at its current position');
  await page.keyboard.press('Escape');assert(await sound.locator('audio').evaluate(el=>!el.paused));
