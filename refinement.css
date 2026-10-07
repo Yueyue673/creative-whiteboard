@@ -48,7 +48,11 @@ button,summary,select{transition:none}
 #canvas.compact-tools #creationDock>#textSizeTools[open]:not([hidden]){display:block;position:absolute;left:50%;top:0;width:0;height:0}
 #canvas.compact-tools #textSizeTools>summary{display:none}
 #canvas.compact-tools #creationDock .text-size-popup{position:absolute;bottom:12px;left:0;right:auto;transform:translateX(-50%);width:min(240px,calc(100vw - 16px));min-width:0;max-height:calc(100dvh - 88px);box-sizing:border-box;overflow:auto;padding:12px;overflow-wrap:anywhere}
-#canvas.compact-tools .text-size-popup label{display:grid;gap:4px;min-width:0}
+#creationDock .text-size-popup label{display:grid;grid-template-columns:minmax(0,1fr) 80px;gap:12px;min-width:0}
+#creationDock .text-size-popup input{box-sizing:border-box;width:100%;min-width:0;font-variant-numeric:tabular-nums;text-align:right}
+#creationDock #textSizeCount[hidden]{display:none}
+#creationDock #textSizeCount:not([hidden]){display:block;color:var(--ui-muted)}
+#canvas.compact-tools .text-size-popup label{grid-template-columns:minmax(0,1fr);gap:4px}
 #canvas.compact-tools .text-size-popup input{box-sizing:border-box;width:100%;min-width:0;padding:6px}
 @media(max-width:110px){#canvas.compact-tools #creationDock .text-size-popup{padding:6px}#canvas.compact-tools .text-size-popup input{appearance:textfield}#canvas.compact-tools .text-size-popup input::-webkit-inner-spin-button{display:none}#canvas.compact-tools #creationDock .text-size-popup button{white-space:normal;overflow-wrap:anywhere;padding:6px 2px}}
 .node.active:not(:has(.live-layout)) [data-preview-id=title]{padding-right:0}
