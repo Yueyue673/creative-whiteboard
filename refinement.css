@@ -38,6 +38,7 @@ button,summary,select{transition:none}
 /* One calm row of tools, even when the shared workspace is split into narrow panes. */
 #canvas #creationMore{display:none}
 #canvas.compact-tools #creationDock{flex-wrap:nowrap}
+#canvas #creationDock:has(#textSizeTools[open]:not([hidden])){z-index:12}
 #canvas.compact-tools #creationMore{display:block;font-size:18px;line-height:1;padding:4px 8px;min-width:32px}
 #canvas.compact-tools #creationDock>#import,#canvas.compact-tools #creationDock>#undo,#canvas.compact-tools #creationDock>#redo,#canvas.compact-tools #creationDock>#collectToLibrary,#canvas.compact-tools #creationDock>#textSizeTools{display:none}
 #canvas.tiny-tools #creationDock>#add,#canvas.tiny-tools #creationDock>#addTable{display:none}

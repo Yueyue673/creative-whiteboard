@@ -105,6 +105,9 @@ const {chromium}=require('playwright');
   const catalogBeforePath=fs.readFileSync(path.join(tmp,'素材目录.json'),'utf8');
   const contentBeforePath=await shared.evaluate(()=>JSON.stringify({nodes:board.nodes,edges:board.edges}));
   await shared.evaluate(folder=>enterAssetFolder(folder),layoutFolder);
+  // The shared sidebar can receive its final layout/ResizeObserver after the
+  // navigation call; inspect its painted path rather than the intermediate one.
+  await shared.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const pathMetrics=await shared.locator('#assetBreadcrumbs').evaluate(nav=>{
    const current=nav.querySelector('[aria-current=location]'),root=nav.querySelector('[data-acrumb=""]'),r=nav.getBoundingClientRect(),c=current.getBoundingClientRect();
    return {height:nav.closest('.clear-location').getBoundingClientRect().height,rootVisible:!!root.getBoundingClientRect().width,currentVisible:c.width>20&&c.left>=r.left&&c.right<=r.right+1,path:current.dataset.acrumb,title:nav.title};
