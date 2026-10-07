@@ -112,6 +112,7 @@ button,summary,select{transition:none}
 @media(max-width:650px){#dialog:has(.media-preview){padding:16px}}
 /* Source text gets a reading surface; only the original preview text scrolls. */
 .file-text-preview>small{font-size:12px;line-height:1.6;color:var(--ui-muted);overflow-wrap:anywhere}
+.node.table .cell-content .file-text-preview pre{max-height:160px;font-size:13px;line-height:1.7}
 #dialog:has(.text-file-preview){width:min(920px,calc(100vw - 32px));max-width:calc(100vw - 32px);height:min(760px,88dvh);max-height:calc(100dvh - 32px);padding:24px;display:flex;flex-direction:column;overflow:hidden}
 #dialog:has(.text-file-preview):not([open]){display:none}
 #dialog:has(.text-file-preview) #dialogBody{display:flex;flex:1;min-width:0;min-height:0}

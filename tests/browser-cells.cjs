@@ -10,7 +10,7 @@ const wav=Buffer.alloc(44+1600);wav.write('RIFF');wav.writeUInt32LE(wav.length-8
 await p.evaluate(()=>{const n=board.nodes.find(n=>n.id==='t');moveTable(n,'row',0,1);moveTable(n,'column',0,1)});assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1][0].body),'这里改的是单元格里的副本。');assert.equal(await p.locator('[data-cell="1,0"] audio').count(),1);await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.equal(await p.locator('.read-layout [data-cell="1,0"] audio').count(),1);assert.equal(await p.locator('[data-cell="1,1"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Paper colour survives row/column movement and reload');await checkCopyFonts(p,'[data-cell="1,1"] .cell-content',24,17);await p.waitForTimeout(150);assert(await p.locator('.read-layout [data-cell="1,0"] > textarea').isHidden());assert(await p.locator('.read-layout [data-cell="1,0"] [data-cell-note-field="body"]').isHidden());const mediaHeight=await p.locator('.read-layout [data-cell="1,0"] .cell-content').evaluate(e=>e.getBoundingClientRect().height);assert(mediaHeight<145,'Audio should not reserve empty body space: '+mediaHeight);await p.evaluate(()=>showWorkspaceTab('manager'));if(process.env.CELLS_SCREENSHOT)await p.screenshot({path:process.env.CELLS_SCREENSHOT});await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.cell-tools [data-cell-extract]').click();assert.equal(await p.evaluate(()=>board.nodes.length),3);assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id!=='n'&&n.id!=='t').color),'#cde8fb','Taking out a copy retains its authored colour');assert.deepEqual(await p.evaluate(()=>{const n=board.nodes.find(n=>n.id!=='n'&&n.id!=='t');return [n.titleFontSize,n.fontSize]}),[24,17],'Taking out a copy retains both authored font sizes');await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.cell-tools [data-cell-remove]').click();assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),0);await p.evaluate(()=>undo());assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),1);
 console.log('单元格：便签复制粘贴、独立编辑、音频拖入播放、行列移动、保存重载、取出和撤销通过');
 await p.evaluate(()=>{selected=new Set(['n']);openEditor('n')});await p.locator('#body').click();await p.keyboard.press('Control+End');for(let i=0;i<35;i++){await p.keyboard.insertText('这一行继续记录拍摄时观察到的细节。');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .edit-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);assert(await p.locator('.live-layout .edit-scroll').evaluate(e=>e.scrollTop)<130);
-await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="1"][data-col="1"]').click();for(let i=0;i<40;i++){await p.keyboard.insertText('继续写分镜说明');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .table-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);console.log('长文编辑：便签与表格跟随输入光标、返回开头通过');await verifyCopyTypography(p);await verifyPaperSurfaces(p,audio.id);await verifyCopyControls(p);assert.deepEqual(errors,[]);
+await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="1"][data-col="1"]').click();for(let i=0;i<40;i++){await p.keyboard.insertText('继续写分镜说明');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .table-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);console.log('长文编辑：便签与表格跟随输入光标、返回开头通过');await verifyCopyTypography(p);await verifyPaperSurfaces(p,audio.id);await verifyCopyControls(p);await verifyCellTextPreviews(p,base);assert.deepEqual(errors,[]);
 }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}})().catch(e=>{console.error(e);process.exitCode=1});
 
 
@@ -220,4 +220,80 @@ async function verifyCopyControls(page){
  assert.deepEqual(await titleLayout(),reading,'Reopening keeps the same title wrapping');
  assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='control-table').cellItems)),originals);
  console.log('格内操作：长标题在阅读编辑间不挤压，点击与键盘定位副本，悬停不误换目标，取出移除及沉浸撤销重开通过');
+}
+
+
+// File excerpts are original, read-only text alongside an independently editable copy.
+async function verifyCellTextPreviews(page,base){
+ const files=[
+  {name:'observation.txt',text:'A brief sound at the first position.\nA softer sound at the second position.',body:'My comparison.'},
+  {name:'long-observations.md',text:Array.from({length:40},(_,i)=>`Observation ${i+1}: paper movement and the recorded sound.`).join('\n'),body:''},
+  {name:'positions.csv',text:'position,observation\nfirst,brief\nsecond,soft',body:'Check these positions again.'},
+  {name:'read-unavailable.txt',text:'This original file remains available.',body:'My note remains editable.'}
+ ];
+ for(const file of files){
+  const response=await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':encodeURIComponent(file.name)},body:Buffer.from(file.text)});
+  assert(response.ok);file.asset=await response.json();
+ }
+ const failedURL=base+'/api/media/'+files[3].asset.id;
+ await page.route(failedURL,route=>route.fulfill({status:503,body:'Temporary read failure'}));
+ await page.evaluate(async files=>{
+  await loadAssets();
+  const table={id:'source-table',type:'table',title:'Original files and my notes',columns:['Source'],rows:files.map(()=>['']),x:40,y:110,w:700,h:670,tags:[],sizeMode:'manual'};
+  cellItemGrid(table);
+  files.forEach((file,i)=>table.cellItems[i][0]=[{id:'file-copy-'+i,type:'note',title:file.name,body:file.body,assetId:file.asset.id,color:'#ffffff',tags:[],images:[],x:0,y:0,w:340,h:240}]);
+  editorId=null;selected.clear();board.nodes=[table];board.edges=[];board.view={x:0,y:0,z:1};render();change();
+ },files);
+ const card=page.locator('#nodes > [data-id="source-table"]');
+ await page.waitForFunction(()=>document.querySelectorAll('#nodes > [data-id="source-table"] .file-text-preview pre').length===3);
+ await page.waitForFunction(()=>document.querySelector('#nodes > [data-id="source-table"] [data-cell="3,0"] .file-text-preview').textContent.includes('503'));
+ // Opening the existing editor initialises its usual cell-image grid before the baseline.
+ await card.dblclick({position:{x:90,y:25}});await page.locator('#inlineDone').click();
+ const original=await page.evaluate(()=>clone(board.nodes[0]));
+ for(const preset of ['resolve','paper','slate']){
+  await page.evaluate(preset=>whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'},true),preset);
+  for(const editing of [false,true]){
+   if(editing)await card.dblclick({position:{x:90,y:25}});else if(await page.locator('#inlineDone').count())await page.locator('#inlineDone').click();
+   await page.waitForFunction(()=>document.querySelectorAll('#nodes > [data-id="source-table"] .file-text-preview pre').length===3);
+   for(let i=0;i<3;i++){
+    const preview=card.locator(`[data-cell="${i},0"] .file-text-preview`);
+    assert.equal(await preview.locator('pre').textContent(),files[i].text);
+    assert((await preview.locator('small').textContent()).startsWith('原文件预览 · '));
+    assert((await preview.locator('pre').evaluate(el=>el.clientHeight))<=160,'A long original never consumes an unbounded cell height');
+    assert.equal(await preview.locator('textarea,input,[contenteditable=true]').count(),0,'The source preview has no editable fields');
+   }
+   const failed=card.locator('[data-cell="3,0"]');
+   assert((await failed.locator('.file-text-preview').textContent()).includes('503'));
+   assert.equal(await failed.locator('.cell-file a').getAttribute('href'),'/api/media/'+files[3].asset.id);
+   assert.equal(await failed.locator('[data-cell-note-field=body]').inputValue(),files[3].body,'A failed preview retains the separate authored note');
+   assert.deepEqual(await page.evaluate(()=>board.nodes[0]),original,'Reading and editing retain the original copies and manual table frame');
+  }
+ }
+ await page.evaluate(()=>whiteboardAppearance.apply({preset:'resolve',custom:{},note:'#fff0aa'},true));
+ const long=card.locator('[data-cell="1,0"] .file-text-preview pre');await long.scrollIntoViewIfNeeded();
+ const r=await long.boundingBox(),camera=await page.evaluate(()=>clone(board.view));
+ await page.mouse.move(r.x+r.width/2,r.y+r.height/2);await page.mouse.wheel(0,170);
+ await page.waitForFunction(()=>document.querySelector('#nodes > [data-id="source-table"] [data-cell="1,0"] .file-text-preview pre').scrollTop>0);
+ assert.deepEqual(await page.evaluate(()=>board.view),camera,'Ordinary source scrolling leaves the whiteboard camera unchanged');
+ const body=card.locator('[data-cell="0,0"] [data-cell-note-field=body]');
+ await body.fill('My checked comparison.');await body.blur();
+ assert.equal(await page.evaluate(()=>board.nodes[0].cellItems[0][0][0].body),'My checked comparison.');
+ assert.equal(await card.locator('[data-cell="0,0"] .file-text-preview pre').textContent(),files[0].text);
+ await page.locator('#canvas').click({position:{x:15,y:850}});await page.keyboard.press('Control+z');
+ assert.deepEqual(await page.evaluate(()=>board.nodes[0]),original,'One undo restores only the authored note');
+ await card.click({position:{x:90,y:25}});await card.locator('.block-read').click();
+ await page.locator('#immersiveSurface').waitFor();
+ await page.waitForFunction(()=>document.querySelectorAll('#immersiveSurface .file-text-preview pre').length===3);
+ assert.equal(await page.locator('#immersiveSurface [data-cell="0,0"] .file-text-preview pre').textContent(),files[0].text);
+ await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.getElementById('dialog').open);
+ assert.deepEqual(await page.evaluate(()=>board.nodes[0]),original);
+ assert.equal(await page.evaluate(async()=>{change();return persist()}),true);
+ await page.unroute(failedURL);await page.reload();await page.waitForFunction(()=>board&&!loading);
+ assert.deepEqual(await page.evaluate(()=>board.nodes[0]),original,'Saved reopening retains all independent notes and manual geometry');
+ await page.waitForFunction(()=>document.querySelectorAll('#nodes > [data-id="source-table"] .file-text-preview pre').length===4);
+ for(let i=0;i<files.length;i++){
+  assert.equal(await page.locator(`#nodes > [data-id="source-table"] [data-cell="${i},0"] .file-text-preview pre`).textContent(),files[i].text);
+  assert.equal(await(await fetch(base+'/api/media/'+files[i].asset.id)).text(),files[i].text,'Previewing and editing never change original bytes');
+ }
+ console.log('表格原文：文本、Markdown、CSV 的只读预览与个人说明分清楚，三种主题、滚动、沉浸、撤销、读取失败和保存重开通过');
 }
