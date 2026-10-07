@@ -11,6 +11,7 @@ const {chromium}=require('playwright');
   await p.goto(base+'/?board=a');await p.waitForFunction(()=>pane(current())?.state().boardId==='a'&&!pane(current()).state().loading);await p.locator('#openBoards').click();await p.waitForFunction(()=>whiteboardWorkspace.explorer());const library=p.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');
   await library.evaluate(async()=>{await showWorkspaceTab('assetPane');const next=clone(assetIndex);next.assets.push({id:'observations',title:'二十条现场观察',folder:'',path:'',mime:bundleMime,size:0,tags:[],notes:'作者原文。',bundle:{nodes:Array.from({length:20},(_,i)=>({id:'piece-'+i,type:'note',title:'观察 '+i,body:'自己写下的第 '+i+' 条观察。',annotation:'这段备注也保留。',x:(i%4)*350,y:Math.floor(i/4)*220,w:300,h:170,color:'#fff0aa',tags:[]})),edges:[{id:'original-link',from:'piece-0',to:'piece-1',label:'同一场景'}]}});await saveAssets(next);renderAssets()});
   const original=await library.evaluate(()=>clone(assetById('observations')));
+  await verifyFreshFileDrag(p,library,base);
   await p.locator('.tab-close').click();await p.waitForFunction(()=>model.tabs.length===0);
   await library.locator('[data-asset=observations]').dblclick();await library.locator('[data-piece=piece-7]').check();await library.getByRole('button',{name:'添加选中内容',exact:true}).click();
   await p.locator('#boardPicker').waitFor({state:'visible',timeout:4000});
@@ -42,3 +43,30 @@ const {chromium}=require('playwright');
   assert.deepEqual(errors,[]);
  }finally{if(browser)await browser.close();proc.kill();await new Promise(r=>proc.once('exit',r));const resolved=path.resolve(tmp);assert(resolved.startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(resolved,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+async function verifyFreshFileDrag(page,library,base){
+ const target=page.frames().find(f=>f.parentFrame()&&new URL(f.url()).searchParams.get('board')==='a');
+ const original=await target.evaluate(()=>clone(board.nodes));
+ const upload=async name=>{const chooserReady=page.waitForEvent('filechooser');await library.locator('#assetUpload').click();const chooser=await chooserReady;await chooser.setFiles({name,mimeType:'text/plain',buffer:Buffer.from('原始记录。\n保留作者的观察。')});await library.waitForFunction(name=>assetIndex.assets.some(a=>a.title===name),name);return library.evaluate(name=>clone(assetIndex.assets.find(a=>a.title===name)),name)};
+ const drag=async(asset,select=true)=>{
+  const row=library.locator('[data-asset="'+asset.id+'"]');if(select)await row.click();const a=await row.boundingBox(),c=await target.locator('#canvas').boundingBox();
+  await page.mouse.move(a.x+a.width*.55,a.y+a.height*.35);await page.mouse.down();await page.mouse.move(a.x+a.width*.55+12,a.y+a.height*.35+4,{steps:4});await page.mouse.move(c.x+c.width*.6,c.y+c.height*.5,{steps:12});await page.mouse.up();
+ };
+ const first=await upload('新导入的现场记录.txt');await drag(first);await target.waitForFunction(id=>board.nodes.some(n=>n.assetId===id),first.id);
+ assert.equal(await target.evaluate(id=>board.nodes.find(n=>n.assetId===id).title,first.id),first.title);assert.equal(await library.evaluate(id=>assetById(id).folder,first.id),first.folder);
+ await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,original.length);await page.keyboard.press('Control+Shift+z');await target.waitForFunction(id=>board.nodes.some(n=>n.assetId===id),first.id);await target.evaluate(()=>persist());
+ const saved=await(await fetch(base+'/api/boards/a')).json();assert(saved.nodes.some(n=>n.assetId===first.id));await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,original.length);await target.evaluate(()=>persist());
+ const next=await upload('稍后读取的补充记录.txt'),before=await target.evaluate(()=>clone(board.nodes));
+ const fail=route=>route.request().method()==='GET'&&route.request().frame()===target?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'模拟目录暂时不可读'})}):route.continue();
+ await page.route('**/api/assets',fail);await drag(next);await target.waitForFunction(()=>document.getElementById('toast').textContent.includes('模拟目录暂时不可读'));assert.deepEqual(await target.evaluate(()=>board.nodes),before,'A failed catalog refresh does not partially place a just-imported file');assert.deepEqual(await library.evaluate(()=>[...assetSelected]),[next.id]);await page.unroute('**/api/assets',fail);
+ await drag(next);await target.waitForFunction(id=>board.nodes.some(n=>n.assetId===id),next.id);await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,before.length);await target.evaluate(()=>persist());assert.deepEqual(await target.evaluate(()=>board.nodes),original);
+ // A newer file removed in another window cannot turn a selected batch into a partial insertion.
+ const third=await upload('另一个窗口中的观察.txt'),catalogResponse=await fetch(base+'/api/assets'),catalog=await catalogResponse.json();
+ assert((await fetch(base+'/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':catalogResponse.headers.get('ETag')},body:JSON.stringify({...catalog,assets:catalog.assets.filter(a=>a.id!==third.id)})})).ok);
+ await library.locator('[data-asset="'+first.id+'"]').click();await library.locator('[data-asset="'+third.id+'"]').click({modifiers:['Control']});await drag(third,false);
+ await target.waitForFunction(()=>document.getElementById('toast').textContent.includes('有内容已移除，整批尚未添加'));assert.deepEqual(await target.evaluate(()=>board.nodes),original);assert.deepEqual(await library.evaluate(()=>[...assetSelected]),[first.id,third.id]);
+ const removed=await fetch(base+'/api/assets');assert((await fetch(base+'/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':removed.headers.get('ETag')},body:JSON.stringify(catalog)})).ok);
+ await drag(third,false);await target.waitForFunction(ids=>ids.every(id=>board.nodes.some(n=>n.assetId===id)),[first.id,third.id]);assert.equal(await target.evaluate(()=>board.nodes.length),original.length+2);
+ await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,original.length);await target.evaluate(()=>persist());assert.deepEqual(await target.evaluate(()=>board.nodes),original);
+ console.log('新文件真实拖放：文件选择器导入后直接跨栏添加，读取失败或部分原件移除时保留整批和选择，重试、撤销重做与持久保存，通过');
+}

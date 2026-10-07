@@ -25,7 +25,14 @@
  }
  placeAssets=async function(ids,p){
   const destination=window.whiteboardExplorer?parent.whiteboardLibraryTransfer?.destination():undefined;
-  const assets=[...new Set(ids)].map(assetById).filter(a=>a&&!a.archived),items=[];
+  const unique=[...new Set(ids)],target=board,targetId=boardId;
+  // Shared-library uploads can precede a canvas pane's catalog refresh.
+  if(unique.some(id=>!assetById(id))){
+   try{await loadAssets()}catch(e){toast(e.message);return false}
+   if(!window.whiteboardExplorer&&(board!==target||boardId!==targetId||loading)){toast('原白板状态已改变，内容尚未添加。请重新放置。');return false}
+  }
+  const assets=unique.map(assetById).filter(a=>a&&!a.archived),items=[];
+  if(assets.length!==unique.length){toast('有内容已移除，整批尚未添加。请刷新内容库后重试。');return false}
   for(let i=0;i<assets.length;i+=8){
    const batch=await Promise.all(assets.slice(i,i+8).map(async a=>{
     const bundle=itemBundle(a),ratio=await imageRatio(a);
