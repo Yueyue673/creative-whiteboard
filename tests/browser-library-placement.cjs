@@ -52,8 +52,9 @@ async function verifyFreshFileDrag(page,library,base){
   const row=library.locator('[data-asset="'+asset.id+'"]');if(select)await row.click();const a=await row.boundingBox(),c=await target.locator('#canvas').boundingBox();
   await page.mouse.move(a.x+a.width*.55,a.y+a.height*.35);await page.mouse.down();await page.mouse.move(a.x+a.width*.55+12,a.y+a.height*.35+4,{steps:4});await page.mouse.move(c.x+c.width*.6,c.y+c.height*.5,{steps:12});await page.mouse.up();
  };
- const first=await upload('新导入的现场记录.txt');await drag(first);await target.waitForFunction(id=>board.nodes.some(n=>n.assetId===id),first.id);
+ const first=await upload('新导入的现场声音观察与动作对照记录-第二次.txt');await drag(first);await target.waitForFunction(id=>board.nodes.some(n=>n.assetId===id),first.id);
  assert.equal(await target.evaluate(id=>board.nodes.find(n=>n.assetId===id).title,first.id),first.title);assert.equal(await library.evaluate(id=>assetById(id).folder,first.id),first.folder);
+ await verifyTextCardSize(page,target,first.id);
  await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,original.length);await page.keyboard.press('Control+Shift+z');await target.waitForFunction(id=>board.nodes.some(n=>n.assetId===id),first.id);await target.evaluate(()=>persist());
  const saved=await(await fetch(base+'/api/boards/a')).json();assert(saved.nodes.some(n=>n.assetId===first.id));await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,original.length);await target.evaluate(()=>persist());
  const next=await upload('稍后读取的补充记录.txt'),before=await target.evaluate(()=>clone(board.nodes));
@@ -69,4 +70,16 @@ async function verifyFreshFileDrag(page,library,base){
  await drag(third,false);await target.waitForFunction(ids=>ids.every(id=>board.nodes.some(n=>n.assetId===id)),[first.id,third.id]);assert.equal(await target.evaluate(()=>board.nodes.length),original.length+2);
  await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(n=>board.nodes.length===n,original.length);await target.evaluate(()=>persist());assert.deepEqual(await target.evaluate(()=>board.nodes),original);
  console.log('新文件真实拖放：文件选择器导入后直接跨栏添加，读取失败或部分原件移除时保留整批和选择，重试、撤销重做与持久保存，通过');
+}
+
+async function verifyTextCardSize(page,target,assetId){
+ await target.waitForFunction(id=>{const n=board.nodes.find(n=>n.assetId===id),el=n&&document.querySelector('#nodes > [data-id="'+n.id+'"]'),area=el?.querySelector('.edit-scroll'),pre=el?.querySelector('.file-text-preview pre');return n?.sizeMode==='auto'&&pre?.textContent==='原始记录。\n保留作者的观察。'&&area.scrollHeight<=area.clientHeight+2},assetId);
+ const initial=await target.evaluate(id=>clone(board.nodes.find(n=>n.assetId===id)),assetId),row=target.locator('#nodes > [data-id="'+initial.id+'"]');
+ assert(await row.evaluate(el=>{const a=el.querySelector('.edit-scroll').getBoundingClientRect(),p=el.querySelector('.file-text-preview pre').getBoundingClientRect(),link=el.querySelector('[data-file-link]').getBoundingClientRect();return p.top>=a.top&&p.bottom<=a.bottom+1&&link.bottom<=a.bottom+1}),'Long file names do not hide the bounded source preview or source action');
+ const handle=await row.locator('[data-resize-direction=se]').boundingBox();await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down();await page.mouse.move(handle.x+handle.width/2+60,handle.y+handle.height/2+45,{steps:6});await page.mouse.up();await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='manual',initial.id);
+ const manual=await target.evaluate(id=>clone(board.nodes.find(n=>n.id===id)),initial.id);assert(manual.w>initial.w+40&&manual.h>initial.h+30);
+ await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='auto',initial.id);await page.keyboard.press('Control+Shift+z');await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='manual',initial.id);assert.deepEqual(await target.evaluate(id=>board.nodes.find(n=>n.id===id),initial.id),manual);
+ const r=await row.boundingBox();await page.mouse.click(r.x+60,r.y+20);await row.getByLabel('内容操作',{exact:true}).click();await target.getByRole('menuitem',{name:'自动适应内容',exact:true}).click();await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='auto',initial.id);assert.equal(await target.evaluate(id=>board.nodes.find(n=>n.id===id).w,initial.id),manual.w,'Restoring auto height preserves the chosen width');
+ await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='manual',initial.id);await page.keyboard.press('Control+z');await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='auto',initial.id);assert.equal(await target.evaluate(id=>board.nodes.find(n=>n.id===id).w,initial.id),initial.w);
+ console.log('新文本文件默认显示正文与来源，真实拖动固定尺寸、撤销重做及恢复自适应保留手动宽度，通过');
 }
