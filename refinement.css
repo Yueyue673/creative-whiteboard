@@ -139,7 +139,37 @@ button,summary,select{transition:none}
 .ai-layout-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.ai-layout-pair>div{min-width:0}.ai-layout-pair small{display:block;font-size:12px;color:var(--ui-muted);margin-bottom:5px}.ai-layout-pair svg{display:block;width:100%;height:190px;background:var(--ui-canvas);border:1px solid var(--ui-line);border-radius:5px}.ai-layout-pair text{font-size:13px;fill:#25262a}
 .ai-bridge{font-size:12px;border-top:1px solid var(--ui-line);padding-top:10px;margin-top:8px;color:var(--ui-muted)}.ai-bridge code{font-size:11px;overflow-wrap:anywhere}.ai-bridge button{margin-top:8px;font-size:12px}
 #aiCopyTask,#aiReviewReply{background:var(--ui-selected);border-color:var(--ui-line);color:var(--ui-text)}
-#appearanceDialog{padding:24px;width:min(510px,90vw);border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-raised);color:var(--ui-text);box-shadow:0 20px 70px #0005}#appearanceDialog::backdrop{background:#0006}.appearance-heading{display:flex;align-items:center;justify-content:space-between}.appearance-heading h2{font-size:20px;margin:0}.appearance-heading button{border:0;background:transparent;font-size:25px;padding:0 5px}#appearanceDialog>p{font-size:13px;color:var(--ui-muted);margin:10px 0 18px}.appearance-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.appearance-presets button{background:transparent;padding:7px;border:1px solid var(--ui-line);border-radius:6px;font-size:13px}.appearance-presets button[aria-pressed=true]{border-color:var(--ui-accent);box-shadow:0 0 0 1px var(--ui-accent)}.appearance-presets span{height:58px;display:flex;gap:8px;align-items:center;justify-content:center;border:1px solid;border-radius:4px;margin-bottom:7px}.appearance-presets i{display:block;width:25px;height:30px;border-radius:2px}.appearance-colors{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:22px 0}.appearance-colors label{display:flex;align-items:center;justify-content:space-between;font-size:13px}.appearance-colors input{width:42px;height:28px;padding:2px;border:1px solid var(--ui-line);border-radius:4px;cursor:pointer}.appearance-size{display:grid;gap:16px;padding:16px 0;border-top:1px solid var(--ui-line)}.appearance-size label{display:grid;grid-template-columns:80px 1fr 45px;gap:12px;align-items:center;font-size:13px}.appearance-size input{width:100%;accent-color:var(--ui-accent)}.appearance-size output{text-align:right;color:var(--ui-muted)}#appearanceDialog footer{display:flex;justify-content:space-between;gap:10px;padding-top:14px}#appearanceDialog footer button{font-size:13px;padding:7px 12px}
+/* Settings scroll between their persistent heading and exit actions. */
+#appearanceDialog{padding:24px;width:min(510px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-raised);color:var(--ui-text);box-shadow:0 20px 70px #0005}
+#appearanceDialog:not([open]){display:none}
+#appearanceDialog::backdrop{background:#0006}
+.appearance-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;margin:0}
+.appearance-heading h2{font-size:18px;line-height:1.5;margin:0}
+.appearance-heading button{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:none;border:0;background:transparent;font-size:24px;padding:0}
+.appearance-body{min-width:0;min-height:0;overflow:auto;padding:14px 0 0}
+.appearance-body>p{font-size:13px;line-height:1.6;color:var(--ui-muted);margin:0 0 18px}
+.appearance-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.appearance-presets button{min-width:0;background:transparent;padding:6px;border:1px solid var(--ui-line);border-radius:6px;font-size:13px}
+.appearance-presets button[aria-pressed=true]{border-color:var(--ui-accent);box-shadow:0 0 0 1px var(--ui-accent)}
+.appearance-presets span{height:58px;display:flex;gap:6px;align-items:center;justify-content:center;border:1px solid;border-radius:4px;margin-bottom:7px;padding:3px}
+.appearance-presets i{display:block;flex:1;min-width:0;max-width:25px;height:30px;border-radius:2px}
+.appearance-colors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:20px 0}
+.appearance-colors label{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;font-size:13px}
+.appearance-colors input{width:42px;height:32px;flex:none;padding:2px;border:1px solid var(--ui-line);border-radius:4px;cursor:pointer}
+.appearance-size{display:grid;gap:16px;padding:16px 0 0;border-top:1px solid var(--ui-line)}
+#appearanceDialog .appearance-size label{display:grid;grid-template-columns:75px minmax(0,1fr) 45px;gap:12px;align-items:center;min-width:0;font-size:13px}
+.appearance-size input{width:100%;min-width:0;margin:0;accent-color:var(--ui-accent)}
+.appearance-size output{text-align:right;color:var(--ui-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+#appearanceDialog .navigation-settings>label:not(.navigation-check){grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center}
+#appearanceDialog .navigation-settings>label:not(.navigation-check) input{grid-column:1/-1;grid-row:2;width:100%;margin:0}
+#appearanceDialog .navigation-settings output{grid-column:2;grid-row:1;text-align:right;color:var(--ui-muted);font-variant-numeric:tabular-nums}
+#appearanceDialog footer{display:flex;flex:none;justify-content:space-between;gap:10px;padding-top:18px}
+#appearanceDialog footer button{min-height:36px;font-size:13px;padding:7px 12px}
+#appearanceDone{font-weight:600}
+@media(max-width:650px){#appearanceDialog{padding:16px}}
+@media(max-width:400px){#appearanceDialog .appearance-size label{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}#appearanceDialog .appearance-size input{grid-column:1/-1;grid-row:2}#appearanceDialog .appearance-size output{grid-column:2;grid-row:1}}
+@media(max-width:300px){.appearance-colors{grid-template-columns:minmax(0,1fr)}#appearanceDialog .navigation-settings>div{grid-template-columns:minmax(0,1fr)}}
+
 :root[data-ui-tone=light]{color-scheme:light}:root[data-ui-tone=light] .node.theme-surface{color-scheme:light}:root[data-ui-tone=light] .tab[aria-current=true],:root[data-ui-tone=light] .chosen,:root[data-ui-tone=light] #workspaceSidebar .selected{color:var(--ui-text)!important}:root[data-ui-tone=light] .json-reader a{color:var(--ui-link,#345e8b)}:root[data-ui-tone=light] .wf-warning{background:#fff0cc;color:#72561e}
 @media(max-width:650px){.ai-layout-pair{grid-template-columns:1fr}.appearance-size label{grid-template-columns:75px 1fr 40px}}
 .node audio.canvas-media{display:none!important}.node video.canvas-media{display:block;width:100%;max-width:100%;margin-bottom:0}
