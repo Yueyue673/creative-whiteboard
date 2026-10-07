@@ -51,13 +51,15 @@
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
   // Measure before writing positions so selecting many cards does not force a layout per card.
   const obstacles=[$('canvasTools'),dock,textTools.open?textTools.querySelector('.text-size-popup'):null].map(el=>el?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
+  const editedTable=$('nodes').querySelector(':scope>.node.table>.inner.live-layout')?.parentElement;
+  const neighbours=editedTable?[...$('nodes').children].filter(el=>el!==editedTable&&!el.classList.contains('frame')).map(el=>el.getBoundingClientRect()).filter(r=>r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom):[];
   const placements=elements.map(el=>{const actions=el.querySelector(':scope>.inner.live-layout>.inline-toolbar')||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),below=r.top-bounds.top<42,width=actions.offsetWidth,height=actions.offsetHeight;
    const left=r.right-z-width,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
-    const start=clamp({x,y}),choices=[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
-    for(const b of obstacles)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));
-    const free=choices.filter(p=>!obstacles.some(b=>overlap(p,b,5.8)));free.sort((a,b)=>Number(overlap(a,r))-Number(overlap(b,r))||(a.x-left)**2+(a.y-top)**2-(b.x-left)**2-(b.y-top)**2);
+    const avoid=el===editedTable?[...obstacles,...neighbours]:obstacles,start=clamp({x,y}),choices=[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
+    for(const b of avoid)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));
+    const free=choices.filter(p=>!avoid.some(b=>overlap(p,b,5.8)));free.sort((a,b)=>Number(overlap(a,r))-Number(overlap(b,r))||(a.x-left)**2+(a.y-top)**2-(b.x-left)**2-(b.y-top)**2);
     ({x,y}=free[0]||start);
    }
    return {actions,below,dx:x-left,dy:y-top};
