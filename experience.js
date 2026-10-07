@@ -9,7 +9,7 @@
   if(a.mime?.startsWith('video/'))return {w:420,h:header + 420 * 9 / 16 + 36 + notes};
   if(a.mime?.startsWith('image/'))return {w:360,h:header + Math.min(560, 318 / Math.max(.15, ratio)) + notes};
   if(documentKind(a))return {w:580,h:440};
-  // Reserve the bounded text preview and source action before batch placement.
+  // Reserve the bounded preview while the original text is unavailable.
   if(isTextAsset(a))return {w:340,h:header + 360 + notes};
   return {w:340,h:Math.max(150,header + 70 + notes)};
  };
@@ -23,6 +23,22 @@
   return bundle;
  };
  const imageRatios=new Map();
+ async function textFrame(a,bundle,deadline){
+  const n=bundle.nodes[0],remaining=deadline-Date.now();
+  if(a.mime===bundleMime||!isTextAsset(a)||documentKind(a)||remaining<=0||!window.whiteboardSizing)return;
+  let timer;
+  const preview=await Promise.race([getTextPreview(a),new Promise(resolve=>timer=setTimeout(()=>resolve(null),remaining))]);clearTimeout(timer);
+  if(!preview||preview.error)return;
+  // Measure only the new copy, using the same reading layout as the canvas.
+  const host=document.createElement('div');host.inert=true;host.setAttribute('aria-hidden','true');
+  Object.assign(host.style,{position:'fixed',left:'-100000px',top:'0',visibility:'hidden',pointerEvents:'none'});
+  const template=document.createElement('template');template.innerHTML=noteMarkup(n);const el=template.content.firstElementChild;
+  const content=el.querySelector('[data-text-preview]'),summary=document.createElement('small'),pre=document.createElement('pre');
+  summary.textContent=preview.summary+(preview.truncated?' · 仅显示前段，可打开原文件查看全部':'');pre.textContent=preview.text||'文件为空';content.replaceChildren(summary,pre);
+  host.append(el);document.body.append(host);
+  try{growContentFields(host);const height=whiteboardSizing.measure(n,el);if(height!=null)n.h=height}
+  finally{host.remove()}
+ }
  function imageRatio(a){
   if(!a.mime?.startsWith('image/'))return Promise.resolve(null);
   if(imageRatios.has(a.id))return imageRatios.get(a.id);
@@ -42,12 +58,14 @@
   }
   const assets=unique.map(assetById).filter(a=>a&&!a.archived),items=[];
   if(assets.length!==unique.length){toast('有内容已移除，整批尚未添加。请刷新内容库后重试。');return false}
+  const previewDeadline=Date.now()+3000;
   for(let i=0;i<assets.length;i+=8){
    const batch=await Promise.all(assets.slice(i,i+8).map(async a=>{
     const bundle=itemBundle(a),ratio=await imageRatio(a);
-    if(ratio)Object.assign(bundle.nodes[0],fileFrame(a,ratio));return {asset:a,bundle};
+    if(ratio)Object.assign(bundle.nodes[0],fileFrame(a,ratio));await textFrame(a,bundle,previewDeadline);return {asset:a,bundle};
    }));items.push(...batch);
   }
+  if(!window.whiteboardExplorer&&(board!==target||boardId!==targetId||loading)){toast('原白板状态已改变，内容尚未添加。请重新放置。');return false}
   return commitLibraryBatch(items,p,destination);
  };
  const baseTable=addTableFromMatrix;

@@ -12,6 +12,7 @@ const {chromium}=require('playwright');
   await library.evaluate(async()=>{await showWorkspaceTab('assetPane');const next=clone(assetIndex);next.assets.push({id:'observations',title:'二十条现场观察',folder:'',path:'',mime:bundleMime,size:0,tags:[],notes:'作者原文。',bundle:{nodes:Array.from({length:20},(_,i)=>({id:'piece-'+i,type:'note',title:'观察 '+i,body:'自己写下的第 '+i+' 条观察。',annotation:'这段备注也保留。',x:(i%4)*350,y:Math.floor(i/4)*220,w:300,h:170,color:'#fff0aa',tags:[]})),edges:[{id:'original-link',from:'piece-0',to:'piece-1',label:'同一场景'}]}});await saveAssets(next);renderAssets()});
   const original=await library.evaluate(()=>clone(assetById('observations')));
   await verifyFreshFileDrag(p,library,base);
+  await verifyBatchPreviewSpacing(p,library);
   await p.locator('.tab-close').click();await p.waitForFunction(()=>model.tabs.length===0);
   await library.locator('[data-asset=observations]').dblclick();await library.locator('[data-piece=piece-7]').check();await library.getByRole('button',{name:'添加选中内容',exact:true}).click();
   await p.locator('#boardPicker').waitFor({state:'visible',timeout:4000});
@@ -82,4 +83,22 @@ async function verifyTextCardSize(page,target,assetId){
  const r=await row.boundingBox();await page.mouse.click(r.x+60,r.y+20);await row.getByLabel('内容操作',{exact:true}).click();await target.getByRole('menuitem',{name:'自动适应内容',exact:true}).click();await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='auto',initial.id);assert.equal(await target.evaluate(id=>board.nodes.find(n=>n.id===id).w,initial.id),manual.w,'Restoring auto height preserves the chosen width');
  await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='manual',initial.id);await page.keyboard.press('Control+z');await target.waitForFunction(id=>board.nodes.find(n=>n.id===id).sizeMode==='auto',initial.id);assert.equal(await target.evaluate(id=>board.nodes.find(n=>n.id===id).w,initial.id),initial.w);
  console.log('新文本文件默认显示正文与来源，真实拖动固定尺寸、撤销重做及恢复自适应保留手动宽度，通过');
+}
+
+async function verifyBatchPreviewSpacing(page,library){
+ const target=page.frames().find(f=>f.parentFrame()&&new URL(f.url()).searchParams.get('board')==='a'),original=await target.evaluate(()=>clone(board.nodes));
+ const files=Array.from({length:6},(_,i)=>({name:i===4?'连续现场声音观察与纸张动作对照的原始记录-第二次.md':'批量原文-'+i+'.txt',mimeType:'text/plain',buffer:Buffer.from(i===5?Array.from({length:40},(_,r)=>'第 '+r+' 行原始观察。').join('\n'):'现场观察。\n保留原文。')}));
+ const chooserReady=page.waitForEvent('filechooser');await library.locator('#assetUpload').click();await(await chooserReady).setFiles(files);await library.waitForFunction(names=>names.every(name=>assetIndex.assets.some(a=>a.title===name)),files.map(f=>f.name));
+ const ids=await library.evaluate(names=>names.map(name=>assetIndex.assets.find(a=>a.title===name).id),files.map(f=>f.name));
+ for(let i=0;i<ids.length;i++)await library.locator('[data-asset="'+ids[i]+'"]').click(i?{modifiers:['Control']}:{});
+ await page.keyboard.press('Control+Enter');await target.waitForFunction(ids=>ids.every(id=>board.nodes.some(n=>n.assetId===id)),ids);
+ await target.waitForFunction(ids=>ids.every(id=>{const n=board.nodes.find(n=>n.assetId===id),el=n&&document.querySelector('#nodes > [data-id="'+n.id+'"]'),a=el?.querySelector('.edit-scroll');return el?.querySelector('.file-text-preview pre')&&a.scrollHeight<=a.clientHeight+2}),ids);
+ const placed=await target.evaluate(ids=>clone(board.nodes.filter(n=>ids.includes(n.assetId))),ids),ys=[...new Set(placed.map(n=>n.y))].sort((a,b)=>a-b);
+ assert.equal(ys.length,2);assert.equal(ys[1]-Math.max(...placed.filter(n=>n.y===ys[0]).map(n=>n.y+n.h)),70,'New short-source rows retain the normal batch gap after their previews load');
+ for(let i=0;i<ids.length;i++){const n=placed.find(n=>n.assetId===ids[i]);assert.equal(await target.locator('#nodes > [data-id="'+n.id+'"] .file-text-preview pre').textContent(),files[i].buffer.toString())}
+ assert(await target.evaluate(()=>!document.querySelector('[aria-hidden=true] .file-text-preview pre')),'Offscreen measurement leaves no duplicate source controls');
+ await target.locator('#canvas').click({position:{x:12,y:20}});await page.keyboard.press('Control+z');await target.waitForFunction(count=>board.nodes.length===count,original.length);assert.deepEqual(await target.evaluate(()=>board.nodes),original);
+ await page.keyboard.press('Control+Shift+z');await target.waitForFunction(ids=>ids.every(id=>board.nodes.some(n=>n.assetId===id)),ids);assert.deepEqual(await target.evaluate(ids=>board.nodes.filter(n=>ids.includes(n.assetId)),ids),placed);
+ await page.keyboard.press('Control+z');await target.waitForFunction(count=>board.nodes.length===count,original.length);await target.evaluate(()=>persist());assert.deepEqual(await target.evaluate(()=>board.nodes),original);
+ console.log('批量短长原文按实际预览编排，保留正常行距、完整来源、一次撤销重做与原有内容，通过');
 }
