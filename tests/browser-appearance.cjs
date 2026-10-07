@@ -14,7 +14,7 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     browser = await chromium.launch({headless: true, executablePath: process.env.CHROME_PATH || undefined});
-    const page = await browser.newPage({viewport: {width: 1400, height: 940}}), errors = [];
+    const context=await browser.newContext({viewport: {width: 1400, height: 940}}),page=await context.newPage(),errors=[];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base + '/index.html'); await page.waitForFunction(() => board && !loading && window.whiteboardAppearance);
     await page.evaluate(async () => {
@@ -22,6 +22,66 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
         x: 50, y: 90, w: 380, h: 240, color: '#fff0aa'}]; render();
       await showWorkspaceTab('assetPane');
     });
+    // A named style must round-trip all its preferences without editing the board,
+    // and changes in another window must not be overwritten by a stale dialog.
+    const originalNotes=await page.evaluate(()=>JSON.stringify(board.nodes));
+    await page.evaluate(()=>whiteboardAppearance.open());
+    assert.equal(await page.locator('.appearance-presets [data-preset]').count(),6);
+    for(const preset of ['sand','forest','iris']){
+      await page.locator('[data-preset="'+preset+'"]').click();
+      assert.equal(await page.evaluate(()=>whiteboardAppearance.read().preset),preset);
+    }
+    await page.locator('[data-hex="canvas"]').fill('#253147');await page.locator('[data-hex="canvas"]').press('Enter');
+    await page.locator('[data-hex="panel"]').fill('#172336');await page.locator('[data-hex="panel"]').press('Enter');
+    await page.locator('[data-hex="note"]').fill('#ead8b9');await page.locator('[data-hex="note"]').press('Enter');
+    await page.locator('[data-pattern="grid"]').click();
+    await page.locator('#appearanceGrid').fill('40');await page.locator('#appearanceGrid').dispatchEvent('input');
+    await page.locator('#appearanceScale').fill('110');await page.locator('#appearanceScale').dispatchEvent('input');
+    await page.locator('#appearanceWidth').fill('410');await page.locator('#appearanceWidth').dispatchEvent('input');
+    await page.locator('#appearanceName').fill('自己的夜间工作台');await page.locator('#appearanceName').press('Enter');
+    const savedStyle=await page.evaluate(()=>({appearance:whiteboardAppearance.read(),ui:JSON.parse(localStorage.getItem('creative-interface'))}));
+    assert.equal(await page.locator('[data-saved-preset]').count(),1);
+    await page.locator('#appearanceName').fill('自己的夜间工作台');await page.locator('#appearanceSave').click();
+    assert((await page.locator('.appearance-message').innerText()).includes('名称已存在'));
+    assert.equal(await page.locator('[data-saved-preset]').count(),1,'An accidental duplicate cannot replace a saved choice');
+    await page.locator('[data-preset="paper"]').click();await page.locator('#appearanceReset').click();
+    assert.equal(await page.locator('[data-saved-preset]').count(),1,'Resetting appearance keeps the user preset collection');
+    await page.locator('[data-saved-preset]').click();
+    assert.deepEqual(await page.evaluate(()=>({appearance:whiteboardAppearance.read(),ui:JSON.parse(localStorage.getItem('creative-interface'))})),savedStyle);
+    await page.locator('#appearanceDone').click();
+    const another=await page.context().newPage();await another.goto(base+'/index.html');await another.waitForFunction(()=>board&&!loading&&window.whiteboardAppearance);
+    assert.deepEqual(await another.evaluate(()=>({appearance:whiteboardAppearance.read(),ui:JSON.parse(localStorage.getItem('creative-interface'))})),savedStyle,'A reopened page retains the whole saved style');
+    await page.evaluate(()=>whiteboardAppearance.open());
+    await another.evaluate(()=>whiteboardAppearance.open());await another.locator('[data-preset="forest"]').click();
+    await page.waitForFunction(()=>document.querySelector('[data-preset="forest"]').getAttribute('aria-pressed')==='true');
+    await page.locator('[data-pattern="dots"]').click();
+    assert.equal(await page.evaluate(()=>whiteboardAppearance.read().preset),'forest','A later setting keeps the current palette received from another window');
+    await page.locator('[data-hex="canvas"]').fill('#xyz');await page.locator('[data-hex="canvas"]').press('Enter');
+    await page.locator('#appearanceName').fill('未完成颜色');await page.locator('#appearanceSave').click();
+    assert.equal(await page.locator('[data-saved-preset]').count(),1,'Invalid colour drafts cannot become named styles');
+    assert.equal(await page.evaluate(()=>whiteboardAppearance.read().custom.canvas),undefined);
+    await page.locator('[data-preset="sand"]').click();await page.locator('#appearanceRevert').click();
+    assert.deepEqual(await page.evaluate(()=>({appearance:whiteboardAppearance.read(),ui:JSON.parse(localStorage.getItem('creative-interface'))})),savedStyle,'The experiment can return to the appearance at opening');
+    await page.locator('[aria-label="移除预设：自己的夜间工作台"]').click();
+    assert.equal(await page.locator('[data-saved-preset]').count(),0);await page.getByRole('button',{name:'撤销移除',exact:true}).click();
+    assert.equal(await page.locator('[data-saved-preset]').count(),1);
+    await another.locator('#appearanceName').fill('<img src=x onerror=alert(1)>');await another.locator('#appearanceSave').click();
+    await page.waitForFunction(()=>document.querySelectorAll('[data-saved-preset]').length===2);
+    assert.equal(await page.locator('.appearance-saved-list img').count(),0,'Author-entered preset names are text, never HTML');
+    await page.locator('#appearanceDone').click();await another.close();
+    const shell=await context.newPage();await shell.goto(base+'/');await shell.waitForFunction(()=>window.whiteboardAppearance&&document.querySelector('.board-frame'));
+    await shell.evaluate(()=>whiteboardAppearance.open());await shell.locator('[data-preset="paper"]').click();await shell.locator('[data-saved-preset]').first().click();
+    const pane=shell.frames().find(f=>f.url().includes('/index.html?pane=1&board='));assert(pane);
+    await pane.waitForFunction(()=>document.documentElement.dataset.appearance==='iris'&&document.documentElement.dataset.canvasPattern==='grid');
+    assert.deepEqual(await pane.evaluate(()=>({appearance:whiteboardAppearance.read(),ui:JSON.parse(localStorage.getItem('creative-interface'))})),savedStyle,'A shell style choice reaches its actual board pane with size preferences intact');
+    await shell.close();
+    await page.evaluate(()=>{board.view={x:37,y:-29,z:.5};moveView()});
+    assert.deepEqual(await page.locator('#canvas').evaluate(el=>({size:getComputedStyle(el).backgroundSize,position:getComputedStyle(el).backgroundPosition})),{size:'20px 20px, 20px 20px',position:'37px -29px, 37px -29px'},'The grid moves and scales in world coordinates');
+    await page.evaluate(()=>{board.view.z=.15;moveView()});
+    assert.equal(await page.locator('#canvas').evaluate(el=>parseFloat(getComputedStyle(el).backgroundSize)),12,'Low zoom thins the marks to avoid a dense pattern');
+    assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes)),originalNotes,'Presets and canvas marks never recolour, resize or edit authored notes');
+    await page.evaluate(()=>{whiteboardAppearance.apply({preset:'resolve',custom:{},note:'#fff0aa'},true);board.view={x:0,y:0,z:1};moveView();localStorage.removeItem('creative-interface')});
+    console.log('Appearance presets: named styles, safe custom colours, reopen, multi-window edits, reset, revert, removal undo and anchored canvas patterns passed.');
     async function contrast(selector, backgroundSelector, foregroundProperty = 'color', pseudo = null) {
       return page.locator(selector).first().evaluate((element, {backgroundSelector, foregroundProperty, pseudo}) => {
         const rgb = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
@@ -85,7 +145,7 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
       assert((await contrast('.connector-snap', '#canvas', 'borderColor')).ratio >= 3, 'The active connection endpoint stays visible');
       await page.evaluate(() => document.querySelector('.connector-snap').classList.remove('connector-snap'));
     }
-    for (const preset of ['resolve', 'paper', 'slate']) {
+    for (const preset of ['resolve', 'paper', 'slate','sand','forest','iris']) {
       await page.evaluate(preset => whiteboardAppearance.apply({preset, custom: {}, note: '#fff0aa'}), preset);
       assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--ui-canvas-focus')),
         await page.evaluate(preset => whiteboardAppearance.palettes[preset].accent, preset), 'Existing preset selection colours remain unchanged');

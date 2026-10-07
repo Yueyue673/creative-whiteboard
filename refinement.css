@@ -276,3 +276,43 @@ button,summary,select{transition:none}
 #nodes>.node>.port.left{left:-1px}#nodes>.node>.port.right{left:calc(100% + 1px)}#nodes>.node>.port.top{top:-1px}#nodes>.node>.port.bottom{top:calc(100% + 1px)}
 #nodes>.node.resizable-note>.resize{right:-10px;bottom:-10px;transform:scale(min(var(--canvas-control-scale,1),var(--handle-limit,1)));transform-origin:50% 50%}
 #nodes>.node.resizable-note>.corner-nw{left:-10px;top:-10px;right:auto;bottom:auto}#nodes>.node.resizable-note>.corner-ne{right:-10px;top:-10px;bottom:auto}#nodes>.node.resizable-note>.corner-sw{left:-10px;bottom:-10px;right:auto}
+
+/* Presets remain a quick choice; individual tuning and saved styles are optional. */
+#appearanceDialog .appearance-body h3{font-size:13px;line-height:1.6;margin:0 0 10px;font-weight:600}
+#appearanceDialog .appearance-presets{gap:10px}
+#appearanceDialog .appearance-presets button{padding:7px;border-radius:9px}
+#appearanceDialog .appearance-presets span{height:64px;gap:5px;border-radius:5px}
+#appearanceDialog .appearance-presets i:last-child{height:12px;max-width:12px;align-self:flex-end;margin-bottom:7px;border-radius:50%}
+#appearanceDialog .appearance-saved{padding:20px 0;border-bottom:1px solid var(--ui-line)}
+#appearanceDialog .appearance-saved p,#appearanceDialog .appearance-pattern p{margin:4px 0 12px;font-size:12px;line-height:1.6;color:var(--ui-muted)}
+.appearance-saved-list{display:grid;gap:6px;margin-bottom:10px;max-height:180px;overflow:auto}
+.appearance-saved-list>small{color:var(--ui-muted);font-size:12px;padding:4px 0}
+.appearance-saved-list>div{display:flex;min-width:0;gap:4px}
+.appearance-saved-list button:first-child{flex:1;min-width:0;display:flex;align-items:center;gap:9px;text-align:left;overflow-wrap:anywhere;border-radius:6px;font-size:13px}
+.appearance-saved-list button:first-child::before{content:'';width:20px;height:20px;flex:none;border-radius:5px;background:var(--saved-canvas);border:2px solid var(--saved-accent)}
+.appearance-saved-list button[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-focus)}
+.appearance-saved-list button:last-child{width:36px;flex:none;font-size:18px;padding:0}
+.appearance-save-row{display:flex;gap:8px;min-width:0}
+.appearance-save-row input{flex:1;min-width:0;width:0;font-size:13px}
+.appearance-save-row button{flex:none;font-size:12px;padding:6px 10px}
+.appearance-message{color:var(--ui-muted);font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.appearance-message:not(:empty){padding-top:8px}.appearance-message button{margin-left:8px;font-size:12px;padding:3px 7px}
+#appearanceDialog .appearance-custom{padding-top:16px}
+#appearanceDialog .appearance-custom>summary{font-size:13px;padding:8px 0;border:0;background:transparent;list-style:none}
+#appearanceDialog .appearance-custom>summary::before{content:'›';display:inline-block;width:16px}
+#appearanceDialog .appearance-custom[open]>summary::before{transform:rotate(90deg);transform-origin:5px 50%}
+#appearanceDialog .appearance-colors{gap:12px;margin:12px 0 20px}
+#appearanceDialog .appearance-colors label{display:grid;grid-template-columns:38px minmax(0,1fr);gap:5px 8px}
+#appearanceDialog .appearance-colors label>span{grid-column:1/-1}
+#appearanceDialog .appearance-colors input[type=color]{width:38px;height:34px}
+#appearanceDialog .appearance-colors input[type=text]{width:100%;min-width:0;height:34px;padding:5px 7px;cursor:text;font-size:12px;font-family:Consolas,monospace}
+#appearanceDialog [aria-invalid=true]{outline:2px solid var(--ui-focus);outline-offset:1px}
+.appearance-pattern{padding-bottom:14px}
+.appearance-pattern>div{display:flex;gap:6px;margin-bottom:12px}
+.appearance-pattern button{flex:1;min-width:0;font-size:13px;padding:6px}
+.appearance-pattern button[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-focus)}
+#appearanceDialog .appearance-pattern label{display:grid;grid-template-columns:75px minmax(0,1fr) 45px;gap:12px;align-items:center;font-size:13px}
+.appearance-pattern input{width:100%;min-width:0;margin:0;accent-color:var(--ui-accent)}
+.appearance-pattern output{color:var(--ui-muted);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+#appearanceDialog footer{flex-wrap:wrap}#appearanceDone{margin-left:auto}
+@media(max-width:400px){#appearanceDialog .appearance-pattern label{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}.appearance-pattern input{grid-column:1/-1;grid-row:2}.appearance-pattern output{grid-column:2;grid-row:1}.appearance-save-row{flex-wrap:wrap}.appearance-save-row input{flex-basis:100%;width:100%}.appearance-save-row button{width:100%}}
