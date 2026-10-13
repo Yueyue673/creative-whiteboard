@@ -5,23 +5,73 @@
  canvas.addEventListener('click',e=>{const action=e.target.closest('.table-options button');if(action)action.closest('details').open=false});
  let immersion=null;
  function canvasBlock(id){return [...$('nodes').children].find(el=>el.dataset.id===id)}
- function restoreEditor(){if(!immersion)return;const inner=immersion.surface.querySelector('.inner');if(inner)canvasBlock(immersion.id)?.prepend(inner)}
+ // Author positions belong to these exact board/node objects, never to saved content.
+ const positions=new WeakMap(),authorFields=new Set(['title','body','userText','annotation','url','tags']);let restoringPosition=false,watchedField=null,watchedScope=null,watchedWidth=0;
+ function ownsPosition(state){return state&&board===state.board&&boardId===state.boardId&&board.nodes.find(n=>n.id===state.node.id)===state.node}
+ function rememberPosition(field,scope){
+  if(restoringPosition||!field?.isConnected||!authorFields.has(field.id)||!field.matches('textarea,input'))return;
+  const n=board?.nodes.find(n=>n.id===editorId),root=field.closest('.inner');if(!n||!root||root.closest('.node')?.dataset.id!==n.id||scope&&!ownsPosition(scope))return;
+  const previous=positions.get(n),mode=field.closest('.immersive-surface')?'expanded':'canvas',area=root.querySelector('.edit-scroll'),details=root.querySelector('#inlineMeta');
+  const state={board,boardId,node:n,field:field.id,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,detailsOpen:!!details?.open,scrolls:previous?.field===field.id?{...previous.scrolls}:{}};
+  state.scrolls[mode]={width:field.clientWidth,area:area?.scrollTop||0,details:details?.scrollTop||0,top:field.scrollTop,left:field.scrollLeft};positions.set(n,state);return state;
+ }
+ function activePosition(){const active=rememberPosition(document.activeElement),root=immersion?.surface||$('nodes').querySelector(':scope>.node>.inner.live-layout')?.parentElement,n=board?.nodes.find(n=>n.id===root?.dataset.id),state=n&&positions.get(n),details=root?.querySelector('#inlineMeta');if(ownsPosition(state)&&details?.isConnected)state.detailsOpen=details.open;return active}
+ function caretLine(field,offset){
+  if(field.tagName!=='TEXTAREA')return {top:0,height:field.clientHeight};
+  const s=getComputedStyle(field),mirror=document.createElement('div'),marker=document.createElement('span');
+  Object.assign(mirror.style,{position:'fixed',left:'0',top:'0',visibility:'hidden',pointerEvents:'none',width:field.clientWidth+'px',boxSizing:'border-box',whiteSpace:'pre-wrap',overflowWrap:'break-word'});
+  for(const key of ['fontFamily','fontSize','fontStyle','fontWeight','lineHeight','letterSpacing','wordSpacing','textTransform','textIndent','textAlign','direction','tabSize','paddingTop','paddingRight','paddingBottom','paddingLeft','wordBreak'])mirror.style[key]=s[key];
+  mirror.textContent=field.value.slice(0,offset);marker.textContent='\u200b';mirror.append(marker);document.body.append(mirror);
+  try{return {top:marker.offsetTop,height:parseFloat(s.lineHeight)||parseFloat(s.fontSize)*1.5}}finally{mirror.remove()}
+ }
+ function revealPosition(field){
+  const line=caretLine(field,field.selectionDirection==='backward'?field.selectionStart:field.selectionEnd),r=field.getBoundingClientRect(),scale=r.height/(field.offsetHeight||r.height||1),area=field.closest('#inlineMeta')||field.closest('.edit-scroll');if(!area||!scale)return;
+  const a=area.getBoundingClientRect(),top=r.top+(field.clientTop+line.top-field.scrollTop)*scale,bottom=top+line.height*scale,margin=Math.min(24*scale,a.height/4);
+  if(top<a.top+margin)area.scrollTop-=(a.top+margin-top)/scale;else if(bottom>a.bottom-margin)area.scrollTop+=(bottom-a.bottom+margin)/scale;
+ }
+ const writingResize=new ResizeObserver(()=>{
+  const field=watchedField,scope=watchedScope;if(!field?.isConnected||document.activeElement!==field||!ownsPosition(scope)){writingResize.disconnect();watchedField=watchedScope=null;return}
+  if(Math.abs(field.clientWidth-watchedWidth)<1)return;watchedWidth=field.clientWidth;growContentFields(field.closest('.node'));revealPosition(field);rememberPosition(field,scope);
+ });
+ function watchPosition(field,scope){writingResize.disconnect();watchedField=field;watchedScope=scope;watchedWidth=field.clientWidth;writingResize.observe(field)}
+ function restorePosition(state){
+  if(!ownsPosition(state)||editorId!==state.node.id)return;
+  const root=immersion?.node===state.node?immersion.surface:canvasBlock(state.node.id);if(!root||$('dialog').open&&!root.closest('#dialog'))return;
+  const field=root.querySelector('#'+state.field);if(!field||field.value!==state.value)return;
+  const area=root.querySelector('.edit-scroll'),details=root.querySelector('#inlineMeta'),mode=root.closest('.immersive-surface')?'expanded':'canvas',scroll=state.scrolls[mode];
+  if(details?.contains(field)&&!state.detailsOpen)return;
+  restoringPosition=true;
+  try{
+   if(details)details.open=state.detailsOpen;growContentFields(root);
+   if(scroll&&Math.abs(scroll.width-field.clientWidth)<1){if(area)area.scrollTop=scroll.area;if(details)details.scrollTop=scroll.details;field.scrollTop=scroll.top;field.scrollLeft=scroll.left}
+   field.focus({preventScroll:true});field.setSelectionRange(state.start,state.end,state.direction);revealPosition(field);
+  }finally{restoringPosition=false}
+ }
+ const bindBeforePosition=bindInline;
+ bindInline=function(){bindBeforePosition();const n=board?.nodes.find(n=>n.id===editorId),scope={board,boardId,node:n};if(!n)return;const root=canvasBlock(n.id)?.querySelector('.inner');if(!root)return;
+  for(const field of root.querySelectorAll('textarea,input'))if(authorFields.has(field.id))for(const name of ['focusin','focusout','select','input','keyup','pointerup'])field.addEventListener(name,()=>{rememberPosition(field,scope);if(name==='focusin')watchPosition(field,scope);else if(name==='focusout'&&watchedField===field){writingResize.disconnect();watchedField=watchedScope=null}});
+  for(const area of root.querySelectorAll('.edit-scroll,#inlineMeta'))area.addEventListener('scroll',()=>{const current=positions.get(n);if(!current)return;const field=root.querySelector('#'+current.field);if(field)rememberPosition(field,scope)});
+  const details=root.querySelector('#inlineMeta');details?.addEventListener('toggle',()=>{if(!details.isConnected||!ownsPosition(scope))return;const state=positions.get(n);if(state)state.detailsOpen=details.open});
+ };
+ const openBeforePosition=openEditor;
+ openEditor=function(id){activePosition();openBeforePosition(id);const n=board?.nodes.find(n=>n.id===id);if(n)restorePosition(positions.get(n))};
+ function restoreEditor(){if(!immersion||!ownsPosition(immersion))return;const inner=immersion.surface.querySelector('.inner');if(inner)canvasBlock(immersion.id)?.prepend(inner)}
  function bindImmersiveDetails(){
   const session=immersion,details=session?.surface.querySelector('#inlineMeta'),trigger=$('immersiveDetails');if(!details||!trigger)return;
   trigger.setAttribute('aria-expanded',String(details.open));
   details.ontoggle=()=>{if(immersion!==session)return;trigger.setAttribute('aria-expanded',String(details.open));growContentFields(session.surface);if(!details.open&&details.contains(document.activeElement))trigger.focus({preventScroll:true})};
  }
- function finishImmersion(session=immersion){if(!session||immersion!==session)return;restoreEditor();immersion=null;$('dialog').classList.remove('reading-dialog','immersive-dialog');editorId=null;drawNodes();renderOutline();const area=canvasBlock(session.id)?.querySelector('.edit-scroll');if(area)area.scrollTop=session.originalScroll;canvas.focus({preventScroll:true})}
+ function finishImmersion(session=immersion){if(!session||immersion!==session)return;activePosition();restoreEditor();immersion=null;$('dialog').classList.remove('reading-dialog','immersive-dialog');if(!ownsPosition(session))return;editorId=null;drawNodes();renderOutline();const area=canvasBlock(session.id)?.querySelector('.edit-scroll');if(area)area.scrollTop=session.originalScroll;canvas.focus({preventScroll:true})}
  const previousDialog=showDialog;showDialog=function(...args){if(immersion){finishImmersion();$('dialog').close()}return previousDialog(...args)};
- function expandEditor(){if(!immersion)return;const el=canvasBlock(immersion.id),inner=el?.querySelector('.inner');if(!inner)return;immersion.surface.className=el.className.replace(/\bactive\b/g,'')+' reading-sheet immersive-surface';immersion.surface.style.background=el.style.background;for(const key of ['--paper-ink','--paper-caption'])immersion.surface.style.setProperty(key,el.style.getPropertyValue(key));immersion.surface.style.setProperty('--body-size',(board.nodes.find(n=>n.id===immersion.id)?.fontSize||16)+'px');immersion.surface.style.setProperty('--title-size',(board.nodes.find(n=>n.id===immersion.id)?.titleFontSize||24)+'px');const toolbar=inner.querySelector(':scope>.inline-toolbar');if(toolbar){for(const key of ['transform','right','bottom','top','transform-origin'])toolbar.style.removeProperty(key);delete toolbar.dataset.position}const details=inner.querySelector(':scope>#inlineMeta');if(details)for(const key of ['left','top','width','max-height'])details.style.removeProperty(key);immersion.surface.replaceChildren(inner);if($('inlineDone'))$('inlineDone').onclick=()=>$('dialog').close();growContentFields(immersion.surface);bindImmersiveDetails()}
+ function expandEditor(){if(!immersion||!ownsPosition(immersion))return;const el=canvasBlock(immersion.id),inner=el?.querySelector('.inner');if(!inner)return;immersion.surface.className=el.className.replace(/\bactive\b/g,'')+' reading-sheet immersive-surface';immersion.surface.style.background=el.style.background;for(const key of ['--paper-ink','--paper-caption'])immersion.surface.style.setProperty(key,el.style.getPropertyValue(key));immersion.surface.style.setProperty('--body-size',(board.nodes.find(n=>n.id===immersion.id)?.fontSize||16)+'px');immersion.surface.style.setProperty('--title-size',(board.nodes.find(n=>n.id===immersion.id)?.titleFontSize||24)+'px');const toolbar=inner.querySelector(':scope>.inline-toolbar');if(toolbar){for(const key of ['transform','right','bottom','top','transform-origin'])toolbar.style.removeProperty(key);delete toolbar.dataset.position}const details=inner.querySelector(':scope>#inlineMeta');if(details)for(const key of ['left','top','width','max-height'])details.style.removeProperty(key);immersion.surface.replaceChildren(inner);if($('inlineDone'))$('inlineDone').onclick=()=>$('dialog').close();growContentFields(immersion.surface);bindImmersiveDetails()}
  function readNote(id){
   const n=board?.nodes.find(n=>n.id===id);if(!n||n.type==='frame')return;if(blocked)return toast('请先处理保存冲突');if(immersion){finishImmersion();$('dialog').close()}
   const originalScroll=canvasBlock(id)?.querySelector('.edit-scroll')?.scrollTop||0;
   openEditor(id);
   showDialog('<div class="immersive-heading"><span>展开编辑</span><div><button id="immersiveDetails" aria-controls="inlineMeta" aria-expanded="false">补充与来源</button><button id="immersiveReturn">返回白板 <small>Esc</small></button></div></div><article class="reading-sheet node immersive-surface" id="immersiveSurface"></article>',[]);
-  const dialog=$('dialog');dialog.classList.add('reading-dialog','immersive-dialog');immersion={id,surface:$('immersiveSurface'),originalScroll};immersion.surface.dataset.id=id;const session=immersion;
+  const dialog=$('dialog');dialog.classList.add('reading-dialog','immersive-dialog');immersion={id,board,boardId,node:n,surface:$('immersiveSurface'),originalScroll};immersion.surface.dataset.id=id;const session=immersion;
   $('immersiveReturn').onclick=()=>dialog.close();$('immersiveDetails').onclick=()=>{$('inlineMeta').open=!$('inlineMeta').open;growContentFields()};expandEditor();
-  onDialogDismiss(()=>finishImmersion(session));
+  restorePosition(positions.get(n));onDialogDismiss(()=>finishImmersion(session));
  }
  const originalFit=whiteboardExperience.fitBlock;
  whiteboardExperience.fitBlock=function(id){const el=canvasBlock(id),n=board.nodes.find(n=>n.id===id),area=el?.querySelector('.edit-scroll'),gallery=area?.querySelector(':scope>.single-image'),img=gallery?.querySelector('img');if(!n||!img?.naturalWidth)return originalFit(id);const style=getComputedStyle(area),width=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),other=[...area.children].filter(c=>c!==gallery&&getComputedStyle(c).display!=='none').reduce((sum,c)=>{const s=getComputedStyle(c);return sum+c.offsetHeight+parseFloat(s.marginTop||0)+parseFloat(s.marginBottom||0)},0);undoPoint();n.h=Math.ceil(Math.max(120,Math.min(5000,width*img.naturalHeight/img.naturalWidth+other+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+10)));drawNodes();change()};
@@ -89,7 +139,7 @@
  function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');if(actions&&!actions.querySelector('.block-read')&&n.type!=='frame'){const b=document.createElement('button');b.className='block-read';b.title='展开编辑';b.setAttribute('aria-label','展开编辑');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/></svg>';b.onclick=e=>{e.stopPropagation();readNote(n.id)};actions.prepend(b)}const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
   for(const handle of el.querySelectorAll('.table-column-resize'))bindWidth(handle,n);
  }const toolbar=$('nodes').querySelector(':scope>.node.table>.inner.live-layout>.inline-toolbar');if(toolbar!==tableToolbar){if(tableToolbar)canvasBounds.unobserve(tableToolbar);tableToolbar=toolbar;if(tableToolbar)canvasBounds.observe(tableToolbar)}positionActions()}
- const draw=drawNodes;drawNodes=function(){restoreEditor();draw();mount();expandEditor()};const select=refreshSelectionUI;refreshSelectionUI=function(){select();mount()};
+ const draw=drawNodes;drawNodes=function(){const position=activePosition();restoreEditor();draw();mount();expandEditor();if(position)restorePosition(position)};const select=refreshSelectionUI;refreshSelectionUI=function(){select();mount()};
  const previousMove=moveView;moveView=function(){previousMove();positionActions()};
  const layout=tableLayout;tableLayout=function(n){const widths=n.columns.map((_,i)=>Math.max(100,Math.min(900,n.columnWidths?.[i]||160))),width=38+widths.reduce((a,b)=>a+b,0);const explicit=n.columnWidths?.length===n.columns.length;return layout(n).replace(/style="min-width:[^"]+"/,'style="min-width:'+(explicit?width:38+n.columns.length*140)+'px;width:'+(explicit?width+'px':'100%')+'"').replace('<thead>','<colgroup><col style="width:38px">'+widths.map(w=>explicit?'<col style="width:'+w+'px">':'<col>').join('')+'</colgroup><thead>').replace(/(<th data-col-target="(\d+)"[^>]*>)/g,'$1<span class="table-column-resize inline-ui" data-width-column="$2" aria-label="调整列宽"></span>')};
  function bindWidth(handle,n){if(handle.dataset.bound)return;handle.dataset.bound='true';let start=null;handle.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();undoPoint();const heads=[...handle.closest('table').querySelectorAll('thead th[data-col-target]')];n.columnWidths=n.columns.map((_,i)=>n.columnWidths?.[i]||heads[i].offsetWidth);start={x:e.clientX,width:n.columnWidths[+handle.dataset.widthColumn],z:handle.closest('.immersive-surface')?1:view().z};handle.setPointerCapture(e.pointerId);handle.classList.add('resizing')};handle.onpointermove=e=>{if(!start)return;e.preventDefault();const i=+handle.dataset.widthColumn;n.columnWidths[i]=Math.max(100,Math.min(900,start.width+(e.clientX-start.x)/start.z));const table=handle.closest('table'),width=38+n.columnWidths.reduce((a,b)=>a+b,0);table.querySelectorAll('col')[i+1].style.width=n.columnWidths[i]+'px';table.style.width=table.style.minWidth=width+'px';growContentFields(table)};const end=()=>{if(!start)return;start=null;handle.classList.remove('resizing');change()};handle.onpointerup=end;handle.onpointercancel=end;handle.onlostpointercapture=end;handle.ondblclick=e=>{e.stopPropagation();undoPoint();n.columnWidths=n.columns.map((_,i)=>i===+handle.dataset.widthColumn?160:n.columnWidths?.[i]||160);drawNodes();change()}}
