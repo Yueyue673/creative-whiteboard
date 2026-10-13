@@ -50,3 +50,12 @@
 .node .note-editor-preview[hidden],.node textarea[hidden]{display:none!important}
 .note-markdown[data-markdown-field=userText]{margin-top:8px;padding-top:8px;border-top:1px solid #5553}
 @media(max-width:650px){.node.immersive-surface .inline-toolbar{padding:6px 10px!important}.note-edit-tools #noteColour span{display:none}}
+
+/* Paper in the existing free canvas; author colours and measured geometry remain intact. */
+body #nodes>.node.paper-card{border-radius:4px;box-shadow:inset 0 0 0 1px #00000012,0 3px 9px #00000020}
+body #nodes>.node.paper-card [data-preview-id=title],body #nodes>.node.paper-card .read-layout>h3{font-family:Georgia,"Noto Serif SC","SimSun",serif;font-weight:500;letter-spacing:.015em}
+.space-card-label{position:absolute;top:10px;left:12px;display:none;transform:scale(var(--space-label-scale,1));transform-origin:top left;width:max-content;min-width:0;min-height:36px;padding:5px 8px!important;border:0!important;border-radius:3px!important;background:transparent!important;color:var(--paper-ink,inherit)!important;font-size:13px!important;line-height:1.5!important;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;z-index:2;cursor:pointer}
+.space-card-label[hidden]{display:none!important}
+#canvas.space-overview #nodes>.node.paper-card:not(:has(.live-layout))>.inner{visibility:hidden;pointer-events:none}
+#canvas.space-overview #nodes>.node>.space-card-label:not([hidden]){display:block}
+@media(pointer:coarse){.space-card-label{min-height:44px}}
