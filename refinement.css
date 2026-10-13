@@ -17,7 +17,7 @@ button,summary,select{transition:none}
 #dialog:has(.arrange-options){width:min(420px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);padding:24px;display:flex;flex-direction:column;overflow:hidden}
 #dialog:has(.arrange-options):not([open]){display:none}
 #dialog:has(.arrange-options) #dialogBody{min-width:0;min-height:0;overflow:auto}
-#dialog:has(.arrange-options) h2{font-size:18px;line-height:1.5;margin:0 0 20px}
+#dialog:has(.arrange-options) h2{font-size:18px;font-weight:500;line-height:1.5;margin:0 0 16px}
 #dialog:has(.arrange-options) #dialogActions{flex:none;margin-top:16px}
 .arrange-options>.arrange-axis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .arrange-options>.arrange-axis>span{grid-column:1/-1;min-width:0;font-size:12px;line-height:1.5;color:var(--ui-muted)}
@@ -26,7 +26,21 @@ button,summary,select{transition:none}
 .arrange-options>label{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .arrange-options>label input{width:96px;max-width:60%;min-width:0;padding:7px 9px}
 .arrange-options>.arrange-spacing{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.arrange-options{gap:12px}
+.arrange-options>.arrange-axis button,.arrange-options>.arrange-spacing button{flex-direction:row;gap:8px;min-height:44px;padding:8px 3px}
+.arrange-options>.arrange-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:-8px}
+.arrange-presets button{min-height:32px;padding:6px 2px;font-size:11px;background:transparent}
+.arrange-presets button[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-focus,var(--ui-accent))}
+.arrange-options button.previewing{background:var(--ui-selected)}
+.arrange-preview{margin:0;padding-top:12px;border-top:1px solid var(--ui-line);min-width:0}
+.arrange-preview>svg{display:block;width:100%;height:108px;background:var(--ui-canvas);border:1px solid color-mix(in srgb,var(--ui-line) 65%,transparent);border-radius:5px;color:var(--ui-canvas-text,var(--ui-text))}
+.arrange-preview rect{fill:color-mix(in srgb,currentColor 8%,transparent);stroke:currentColor;stroke-width:1;stroke-opacity:.65}
+.arrange-preview .preview-frame rect{fill:none;stroke-dasharray:3 3}
+.arrange-preview .preview-member rect{stroke-opacity:.35;fill:color-mix(in srgb,currentColor 5%,transparent)}
+.arrange-preview text{font-family:inherit;font-size:12px;fill:currentColor;stroke:none}
+.arrange-preview figcaption{font-size:12px;line-height:1.6;color:var(--ui-muted);margin-top:8px;min-height:20px;overflow-wrap:anywhere}
 @media(max-width:650px){#dialog:has(.arrange-options){padding:16px}}
+@media(max-width:280px){.arrange-options>.arrange-axis button{flex-direction:column;gap:4px;min-height:56px}.arrange-options>.arrange-spacing button{flex-direction:column;gap:4px}.arrange-presets button{font-size:10px}}
 *{scrollbar-width:thin;scrollbar-color:var(--scroll-thumb,#65676c) transparent}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}

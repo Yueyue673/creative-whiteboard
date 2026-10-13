@@ -53,10 +53,10 @@ const {chromium}=require('playwright');
   }
   await p.setViewportSize({width:360,height:320});
   const exit=await arrangePanel.getByRole('button',{name:'返回白板',exact:true}).boundingBox();assert(exit.y>=0&&exit.y+exit.height<=320,'The return action stays visible in a short window');
-  const commands=[['左边对齐','x','start'],['水平居中对齐','x','center'],['右边对齐','x','end'],['顶部对齐','y','start'],['垂直居中对齐','y','center'],['底部对齐','y','end'],['排成一行','x','spacing'],['排成一列','y','spacing']];
+  const commands=[['左边对齐','x','start'],['水平居中对齐','x','center'],['右边对齐','x','end'],['顶部对齐','y','start'],['垂直居中对齐','y','center'],['底部对齐','y','end'],['横向等距排列','x','spacing'],['纵向等距排列','y','spacing']];
   for(const [name,axis,mode]of commands){
    await p.evaluate(nodes=>{board.nodes=clone(nodes);selected=new Set(nodes.map(n=>n.id));history=[];future=[];render()},arranging);
-   await arrangePanel.getByLabel('间距',{exact:true}).fill('36');await arrangePanel.getByRole('button',{name,exact:true}).click();
+   await arrangePanel.getByRole('button',{name:'返回白板',exact:true}).click(); await p.setViewportSize({width:1400,height:900}); await p.locator('[data-id=arrange-first]').getByRole('button',{name:'内容操作',exact:true}).click(); await p.getByRole('menuitem',{name:'对齐与间距…',exact:true}).click(); await arrangePanel.getByLabel('间距',{exact:true}).fill('36');await arrangePanel.getByRole('button',{name,exact:true}).click();
    const changed=await p.evaluate(()=>clone(board.nodes)),size=axis==='x'?'w':'h',low=Math.min(...arranging.map(n=>n[axis])),high=Math.max(...arranging.map(n=>n[axis]+n[size]));
    for(const [i,node]of changed.entries()){
     const expected=mode==='start'?low:mode==='end'?high-node[size]:mode==='center'?(low+high-node[size])/2:i?arranging[0][axis]+arranging[0][size]+36:arranging[0][axis];
@@ -84,7 +84,7 @@ const {chromium}=require('playwright');
   const groupedBefore=await p.evaluate(()=>clone(board));
   await p.locator('[data-id="first-group"] h3').click({button:'right'});
   await p.getByRole('menuitem',{name:'对齐与间距…',exact:true}).click();
-  await p.locator('#arrangeGap').fill('32');await p.getByRole('button',{name:'排成一行',exact:true}).click();
+  await p.locator('#arrangeGap').fill('32');await p.getByRole('button',{name:'横向等距排列',exact:true}).click();
   const groupedAfter=await p.evaluate(()=>clone(board));
   for(const [groupId,contentId] of [['first-group','first-content'],['second-group','second-content'],['third-group','third-content']]){
    const groupBefore=groupedBefore.nodes.find(n=>n.id===groupId),groupAfter=groupedAfter.nodes.find(n=>n.id===groupId);
