@@ -53,9 +53,28 @@
 
 /* Paper in the existing free canvas; author colours and measured geometry remain intact. */
 body #nodes>.node.paper-card{border-radius:4px;box-shadow:inset 0 0 0 1px #00000012,0 3px 9px #00000020}
-body #nodes>.node.paper-card [data-preview-id=title],body #nodes>.node.paper-card .read-layout>h3{font-family:Georgia,"Noto Serif SC","SimSun",serif;font-weight:500;letter-spacing:.015em}
+body #nodes>.node.paper-card [data-preview-id=title],body #nodes>.node.paper-card .read-layout>h3,.node.paper-card #title{font-family:Georgia,"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;font-weight:500;letter-spacing:.015em}
+body #nodes>.node.paper-card>.inner.live-layout .edit-scroll>#title{font-family:Georgia,"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;font-weight:500;letter-spacing:.015em}
 .space-card-label{position:absolute;top:10px;left:12px;display:none;transform:scale(var(--space-label-scale,1));transform-origin:top left;width:max-content;min-width:0;min-height:36px;padding:5px 8px!important;border:0!important;border-radius:3px!important;background:transparent!important;color:var(--paper-ink,inherit)!important;font-size:13px!important;line-height:1.5!important;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;z-index:2;cursor:pointer}
 .space-card-label[hidden]{display:none!important}
 #canvas.space-overview #nodes>.node.paper-card:not(:has(.live-layout))>.inner{visibility:hidden;pointer-events:none}
 #canvas.space-overview #nodes>.node>.space-card-label:not([hidden]){display:block}
 @media(pointer:coarse){.space-card-label{min-height:44px}}
+
+/* Keep the tools quieter than the page and align focused writing with its tools. */
+.node .inline-toolbar .note-edit-tools{gap:4px;padding-right:8px;margin-right:4px;border-right:1px solid color-mix(in srgb,var(--ui-line) 65%,transparent)}
+.node .inline-toolbar .note-edit-tools button{min-height:28px;border-color:transparent;background:transparent;border-radius:4px}
+.node .inline-toolbar .note-edit-tools button:hover{background:var(--ui-hover)}
+.node .inline-toolbar #notePreview[aria-pressed=true]{background:var(--ui-selected);color:var(--ui-text)}
+body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transparent;background:var(--ui-selected);font-weight:500}
+.node.immersive-surface .inline-toolbar{padding:8px max(24px,calc((100% - 704px)/2))!important;border-bottom-color:color-mix(in srgb,var(--ui-line) 65%,transparent)}
+.node.immersive-surface .inline-toolbar .note-edit-tools{border-right:0;margin-right:0;padding-right:0}
+.immersive-surface .edit-scroll{padding:32px max(24px,calc((100% - 704px)/2));scrollbar-gutter:auto}
+.note-tools{border-radius:8px;border-color:color-mix(in srgb,var(--ui-line) 75%,var(--ui-panel));box-shadow:0 8px 28px #0004}
+.note-tools header{padding-bottom:16px}
+.note-tools header b{font-weight:500;letter-spacing:.025em}
+.note-paper-choices{gap:8px;padding-top:16px}
+.note-paper-choices button{padding:8px 6px;border-radius:5px;background:transparent}
+.note-paper-choices button:hover{background:var(--ui-hover)}
+.note-paper-choices button[aria-pressed=true]{background:var(--ui-selected)}
+@media(max-width:650px){.node.immersive-surface .inline-toolbar{padding:8px 20px!important}.immersive-surface .edit-scroll{padding:24px 20px}}
