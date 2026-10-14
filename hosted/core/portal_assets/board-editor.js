@@ -26,13 +26,17 @@ parser.renderer.rules.link_open = (tokens,index,options,env,self) => {
 let board = null, selected = null, creating = context.create, saveTimer, selectedRecovery = null, recoveryEpoch = 0, editorError = '';
 let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='';
 const ownHistory=new OwnHistory();
-const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling;
+const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling;
 function syncHistoryControls(){
   const narrow=narrowEditor.matches&&!$('inspector').hidden,host=narrow?$('inspectorHistory'):historyHome;
   for(const[id,label,icon]of [['undo','撤销','↶'],['redo','重做','↷']]){
     const button=$(id);if(button.parentElement!==host){if(narrow)host.append(button);else host.insertBefore(button,historyAnchor);}
     button.textContent=narrow?icon+' '+label:icon;
   }
+  // The narrow inspector covers the canvas toolbar. Keep the same permission-
+  // bound library button available while writing, without duplicate controls.
+  const media=$('showMedia');
+  if(media.parentElement!==host){if(narrow)host.append(media);else host.insertBefore(media,mediaAnchor);}
   $('inspectorHistory').hidden=!narrow;
 }
 narrowEditor.addEventListener('change',syncHistoryControls);

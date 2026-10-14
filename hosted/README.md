@@ -66,13 +66,33 @@ Accepted saves wait for active composition/gestures before adopting a result.
 Undo applies the inverse of this page's own operation to the current originals.
 Independent peer fields and appended nodes survive; a later overlapping edit
 refuses Undo without popping its history entry. In small windows the same existing
-Undo/Redo buttons move into the sticky editor heading, where the inspector no
-longer covers them; closing or widening returns them to the canvas toolbar.
+Undo/Redo and library buttons move into the sticky editor heading, where the
+inspector no longer covers them. The same account-bound library button remains
+available while writing a note, frame or table; closing or widening returns
+each single original control to its canvas position. A real 390px/320px
+whole-editor HTTPS check reproduced the covered library entry before this
+change and verified actual clicks after scrolling, lookup, preview, exit and
+reopening afterward. The note input remains unchanged; the library retains
+its submitted lookup on reopening. This does not claim physical-device testing.
 Updates use a polite status line without moving keyboard focus, informed by
 [W3C status messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html)
 and [focus visibility](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
 These are implementation choices checked with real operations, not an
 accessibility certification.
+
+Additional isolated whole-page localhost HTTPS acceptance now covers saved-text
+results opening the fixed-workspace board with original manual geometry,
+registered metadata lookup beyond the first forty items and original pagination,
+static HTML layout in the full editor with opaque-origin isolation and blocked
+author scripts/external requests, exact original download, both narrow widths,
+real viewer access and refusal of foreign-workspace identities. Logging in as
+another actual member of the same workspace pauses the old original-account
+library and clears its results/preview while preserving note input. These six
+distinct behavior groups were completed across focused fixtures, not one
+uninterrupted suite. Stored board/history rows and registered original hashes
+remain unchanged. The temporary service/browser close afterward. A verified
+local certificate probe accompanies the browser's local certificate exception;
+external DNS/TLS, physical devices and deployment remain unaccepted.
 
 Unsupported JavaScript number representations stop editing before lossy conversion;
 the exact originally returned JSON remains exportable. This includes unsafe
