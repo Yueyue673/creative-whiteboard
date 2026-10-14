@@ -249,3 +249,19 @@ body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);bo
 body>header:not(#shellHeader)>button{background:transparent;border-color:transparent;border-radius:5px}
 body>header:not(#shellHeader)>button:hover{background:var(--ui-hover)}
 body>header:not(#shellHeader)>#boards{background:transparent;border-color:transparent;font-weight:500}
+/* Short actions keep their shape; a long document name yields the spare space. */
+body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details{flex:none;white-space:nowrap}
+body>header:not(#shellHeader)>#boards{flex:1 1 auto;min-width:48px;text-overflow:ellipsis}
+body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summary{min-height:32px;white-space:nowrap}
+@media(max-width:650px){
+ body>header:not(#shellHeader){gap:4px;padding:0 8px}
+ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summary{font-size:12px;padding:6px;line-height:1.5}
+ body>header:not(#shellHeader)>#sidebarToggle{width:32px;font-size:19px;padding:0}
+ body>header:not(#shellHeader)>#boards{flex:1 1 0;max-width:none;width:0;font-size:13px;padding:6px 0}
+}
+@media(max-width:600px){
+ body #shellHeader nav,body #shellHeader .shell-icon,body #shellHeader .shell-ai,body #shellHeader #shellMore{flex:none}
+ body #shellHeader #shellStatus{min-width:0;flex:1 1 auto}
+}
+/* Leave room for the existing save/failure status at the largest interface size. */
+@media(max-width:360px){body #shellHeader .studio-brand{display:none}}
