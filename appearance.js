@@ -3,6 +3,7 @@
  'use strict';
  const key='creative-appearance-v1';
  const collectionKey='creative-appearance-presets-v1';
+ const overviewPresets={compact:{name:'紧凑',at:30,font:10},balanced:{name:'均衡',at:45,font:12},readable:{name:'易读',at:60,font:16}};
  const palettes={
   resolve:{name:'深灰',bg:'#16181c',canvas:'#23262b',panel:'#272a30',raised:'#32363e',field:'#1c1f24',border:'#15171b',line:'#484d57',text:'#e6e8ed',muted:'#adb3bf',hover:'#3b4049',selected:'#424955',accent:'#e7b77b'},
   paper:{name:'纸白',bg:'#f8f8f6',canvas:'#eaece8',panel:'#f3f4f1',raised:'#ffffff',field:'#ffffff',border:'#d5d8d2',line:'#d5d8d2',text:'#30342f',muted:'#686f65',hover:'#e4e8e0',selected:'#dce4d5',accent:'#69805c'},
@@ -17,7 +18,8 @@
   p=p&&typeof p==='object'?p:{};const custom={};
   for(const role of ['canvas','panel','accent'])if(valid(p.custom?.[role]))custom[role]=p.custom[role].toLowerCase();
   return {preset:Object.hasOwn(palettes,p.preset)?p.preset:'resolve',custom,note:valid(p.note)?p.note.toLowerCase():'#fff0aa',
-   pattern:['plain','dots','grid'].includes(p.pattern)?p.pattern:'plain',gridSize:bounded(p.gridSize??24,12,64,24)};
+   pattern:['plain','dots','grid'].includes(p.pattern)?p.pattern:'plain',gridSize:bounded(p.gridSize??24,12,64,24),
+   overviewMode:['smart','original'].includes(p.overviewMode)?p.overviewMode:'smart',overviewAt:Math.round(bounded(p.overviewAt??45,15,75,45)),overviewFont:Math.round(bounded(p.overviewFont??12,9,18,12))};
  }
  function read(){try{return normalise(JSON.parse(localStorage.getItem(key)||'{}'))}catch{return normalise()}}
  function interfacePrefs(){try{const ui=JSON.parse(localStorage.getItem('creative-interface')||'{}');return {scale:bounded(ui?.scale??1,.8,1.25,1),width:bounded(ui?.width??340,260,520,340)}}catch{return {scale:1,width:340}}}
@@ -71,14 +73,20 @@
   for(const [k,v] of Object.entries(palette))if(k!=='name')root.style.setProperty('--ui-'+k,v);
   root.dataset.appearance=preset;root.dataset.uiTone=tone;root.dataset.canvasPattern=p.pattern;root.style.setProperty('--ui-scheme',tone);root.style.colorScheme=tone;
   root.style.setProperty('--ui-grid',mix(palette.canvas,inkFor(palette.canvas),.16));activeGridSize=p.gridSize;positionPattern();
-  if(save)localStorage.setItem(key,JSON.stringify(p));if(typeof colors!=='undefined')colors[0]=p.note;
+  window.dispatchEvent(new CustomEvent('creative-overview-preferences',{detail:{mode:p.overviewMode,at:p.overviewAt,font:p.overviewFont}}));
+  if(typeof colors!=='undefined')colors[0]=p.note;
+  if(save)try{localStorage.setItem(key,JSON.stringify(p))}catch{return false}return true;
  }
  if(typeof moveView==='function'){const move=moveView;moveView=function(...args){const result=move(...args);positionPattern();return result}}
  function open(){
+  const focused=document.activeElement,source=typeof board==='undefined'?null:board,sourceId=typeof boardId==='undefined'?null:boardId,node=source?.nodes?.find(n=>n.id===focused?.closest('.node')?.dataset.id);
+  const returning=focused?.matches('textarea,input[type=text],input:not([type])')&&typeof focused.selectionStart==='number'?{value:focused.value,start:focused.selectionStart,end:focused.selectionEnd,direction:focused.selectionDirection,top:focused.scrollTop,left:focused.scrollLeft}:null;
   const previous=document.getElementById('appearanceDialog');if(previous){previous.disposeAppearance?.();previous.remove()}const d=document.createElement('dialog');d.id='appearanceDialog';
   d.innerHTML='<form method="dialog" class="appearance-heading"><h2>外观</h2><button aria-label="关闭外观设置">×</button></form><div class="appearance-body"><p>先选一种感觉，再调成自己的工作台。已有内容保持原色与尺寸。</p><h3>配色预设</h3><div class="appearance-presets"></div><section class="appearance-saved"><h3>我的预设</h3><p>保存颜色、画布底纹、界面大小与侧栏宽度，仅保存在当前浏览器。</p><div class="appearance-saved-list"></div><div class="appearance-save-row"><input id="appearanceName" aria-label="预设名称" maxlength="40" placeholder="给当前外观起个名字"><button type="button" id="appearanceSave">保存当前外观</button></div><div class="appearance-message" role="status" aria-live="polite"></div></section><details class="appearance-custom" open><summary>继续自定义</summary><div class="appearance-colors"></div><section class="appearance-pattern"><h3>画布底纹</h3><div role="group" aria-label="画布底纹"><button type="button" data-pattern="plain">纯色</button><button type="button" data-pattern="dots">点阵</button><button type="button" data-pattern="grid">细网格</button></div><label>底纹间距<input id="appearanceGrid" type="range" min="12" max="64" step="4"><output></output></label><p>底纹跟随画布移动与缩放，帮助定位，不改变内容位置或吸附方式。</p></section><div class="appearance-size"><label>界面大小<input id="appearanceScale" type="range" min="80" max="125" step="5"><output></output></label><label>侧栏宽度<input id="appearanceWidth" type="range" min="260" max="520" step="10"><output></output></label></div></details></div><footer><button type="button" id="appearanceReset">恢复默认</button><button type="button" id="appearanceRevert" title="还原打开设置时的外观；已保存的预设保留">还原本次调整</button><button type="button" id="appearanceDone">完成</button></footer>';
-  document.body.append(d);let p=read();const opening={appearance:read(),ui:interfacePrefs()},presets=d.querySelector('.appearance-presets');
-  const message=(text,undo)=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent='撤销移除';b.onclick=undo;box.append(b)}};
+  d.querySelector('.appearance-saved p').textContent='保存颜色、画布底纹、缩略显示、界面大小与侧栏宽度，仅保存在当前浏览器。';
+  const overview=document.createElement('section');overview.className='appearance-pattern appearance-overview';overview.innerHTML='<h3>缩远后的便签</h3><div role="group" aria-label="缩略显示方式"><button type="button" data-overview-mode="smart">名称导航</button><button type="button" data-overview-mode="original">原样缩小</button></div><label>阅读预设<select id="appearanceOverviewPreset" aria-label="概览阅读预设">'+Object.entries(overviewPresets).map(([id,p])=>'<option value="'+id+'">'+p.name+'</option>').join('')+'<option value="custom" disabled>自定义</option></select></label><details class="appearance-custom"><summary>精细调整</summary><label>开始概览<input id="appearanceOverviewAt" aria-label="开始概览的比例" type="range" min="15" max="75" step="1"><output></output></label><label>文字上限<input id="appearanceOverviewFont" aria-label="概览文字上限" type="range" min="9" max="18" step="1"><output></output></label></details><p>名称导航在缩远时显示名称；原样缩小保留纸面原貌。概览会按纸面空间缩小文字，已有内容、字号、位置和尺寸保持原样。</p>';d.querySelector('.appearance-size').before(overview);
+  document.body.append(d);let p=read();const opening={appearance:read(),ui:interfacePrefs()},presets=d.querySelector('.appearance-presets'),owns=()=>d.isConnected&&d.open&&document.getElementById('appearanceDialog')===d;
+  const message=(text,undo)=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent='撤销移除';b.onclick=()=>{if(owns())undo()};box.append(b)}};
   for(const [id,v]of Object.entries(palettes)){
    const b=document.createElement('button');b.type='button';b.dataset.preset=id;
    b.innerHTML='<span style="background:'+v.canvas+';border-color:'+v.line+'"><i style="background:#fff0aa"></i><i style="background:'+v.raised+'"></i><i style="background:'+v.accent+'"></i></span>'+v.name;
@@ -92,9 +100,9 @@
     choose.dataset.savedPreset=row.id;choose.textContent=row.name;choose.title=row.name;choose.setAttribute('aria-label','应用预设：'+row.name);
     const palette=theme(row.appearance).palette;choose.style.setProperty('--saved-canvas',palette.canvas);choose.style.setProperty('--saved-accent',palette.accent);
     choose.setAttribute('aria-pressed',String(JSON.stringify(normalise(p))===JSON.stringify(row.appearance)&&JSON.stringify(interfacePrefs())===JSON.stringify(row.ui)));
-    choose.onclick=()=>{p=normalise(row.appearance);applyInterface(row.ui);update();message('已应用“'+row.name+'”。')};
+    choose.onclick=()=>{if(!owns())return;p=normalise(row.appearance);applyInterface(row.ui);if(update()!==false)message('已应用“'+row.name+'”。')};
     remove.textContent='×';remove.setAttribute('aria-label','移除预设：'+row.name);
-    remove.onclick=()=>{try{localStorage.setItem(collectionKey,JSON.stringify(savedPresets().filter(r=>r.id!==row.id)));refreshSaved();d.querySelector('#appearanceName').focus();message('已移除“'+row.name+'”，当前外观保留。',()=>{
+    remove.onclick=()=>{if(!owns())return;try{localStorage.setItem(collectionKey,JSON.stringify(savedPresets().filter(r=>r.id!==row.id)));refreshSaved();d.querySelector('#appearanceName').focus();message('已移除“'+row.name+'”，当前外观保留。',()=>{
       try{const current=savedPresets();if(current.length>=24){message('已满 24 个预设，请先移除一个。');return}if(!current.some(r=>r.id===row.id))localStorage.setItem(collectionKey,JSON.stringify([...current,row]));refreshSaved();message('已恢复“'+row.name+'”。')}catch{message('浏览器无法保存预设，请检查存储空间。')}
      })}catch{message('浏览器无法保存预设，请检查存储空间。')}};item.append(choose,remove);list.append(item);
    }
@@ -116,21 +124,39 @@
    input.oninput=()=>change(input.value);hex.onchange=()=>{if(!valid(hex.value)){hex.setAttribute('aria-invalid','true');message('颜色值请填写 # 和六位十六进制数字，例如 #335566。');return}hex.removeAttribute('aria-invalid');change(hex.value.toLowerCase())};
    hex.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();hex.dispatchEvent(new Event('change'))}};label.append(caption,input,hex);d.querySelector('.appearance-colors').append(label);
   }
-  function labels(){for(const [id,unit]of [['appearanceScale','%'],['appearanceWidth',' px'],['appearanceGrid',' px']]){const input=d.querySelector('#'+id);input.nextElementSibling.textContent=input.value+unit}}
+  function labels(){for(const [id,unit]of [['appearanceScale','%'],['appearanceWidth',' px'],['appearanceGrid',' px'],['appearanceOverviewAt','%'],['appearanceOverviewFont',' px']]){const input=d.querySelector('#'+id);input.nextElementSibling.textContent=input.value+unit}}
   function update(save=true){
-   p=normalise(p);apply(p,save);presets.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.preset===p.preset&&!Object.keys(p.custom).length)));
+   if(!owns())return false;p=normalise(p);const saved=apply(p,save);presets.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.preset===p.preset&&!Object.keys(p.custom).length)));
    for(const input of d.querySelectorAll('[data-color]')){const id=input.dataset.color,value=id==='note'?p.note:p.custom[id]||palettes[p.preset][id];input.value=value;const hex=d.querySelector('[data-hex="'+id+'"]');if(document.activeElement!==hex||!hex.hasAttribute('aria-invalid')){hex.value=value;hex.removeAttribute('aria-invalid')}}
    d.querySelectorAll('[data-pattern]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pattern===p.pattern)));d.querySelector('#appearanceGrid').value=p.gridSize;d.querySelector('#appearanceGrid').disabled=p.pattern==='plain';
+   d.querySelectorAll('[data-overview-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.overviewMode===p.overviewMode)));
+   d.querySelector('#appearanceOverviewAt').value=p.overviewAt;d.querySelector('#appearanceOverviewFont').value=p.overviewFont;
+   for(const id of ['appearanceOverviewPreset','appearanceOverviewAt','appearanceOverviewFont'])d.querySelector('#'+id).disabled=p.overviewMode==='original';
+   d.querySelector('#appearanceOverviewPreset').value=Object.keys(overviewPresets).find(id=>overviewPresets[id].at===p.overviewAt&&overviewPresets[id].font===p.overviewFont)||'custom';
    const ui=interfacePrefs();d.querySelector('#appearanceScale').value=Math.round(ui.scale*100);d.querySelector('#appearanceWidth').value=ui.width;labels();refreshSaved();
+   if(!saved)message('浏览器无法保存这次外观；当前预览仍可使用，重新打开可能还原。');else if(save&&d.querySelector('.appearance-message').textContent.startsWith('浏览器无法保存这次外观'))message('');return saved;
   }
   d.querySelectorAll('[data-pattern]').forEach(b=>b.onclick=()=>{p.pattern=b.dataset.pattern;update()});
-  d.querySelector('#appearanceGrid').oninput=e=>{p.gridSize=Number(e.target.value);apply(p,true);labels();refreshSaved()};
+  d.querySelector('#appearanceGrid').oninput=e=>{p.gridSize=Number(e.target.value);update()};
+  d.querySelectorAll('[data-overview-mode]').forEach(b=>b.onclick=()=>{p.overviewMode=b.dataset.overviewMode;update()});
+  d.querySelector('#appearanceOverviewPreset').onchange=e=>{const choice=overviewPresets[e.target.value];if(!choice)return;p.overviewAt=choice.at;p.overviewFont=choice.font;update()};
+  d.querySelector('#appearanceOverviewAt').oninput=e=>{p.overviewAt=Number(e.target.value);update()};d.querySelector('#appearanceOverviewFont').oninput=e=>{p.overviewFont=Number(e.target.value);update()};
   const sizing=()=>{applyInterface({scale:Number(d.querySelector('#appearanceScale').value)/100,width:Number(d.querySelector('#appearanceWidth').value)});labels();refreshSaved()};d.querySelector('#appearanceScale').oninput=d.querySelector('#appearanceWidth').oninput=sizing;
   d.querySelector('#appearanceReset').onclick=()=>{p=normalise();applyInterface({scale:1,width:340});update()};
-  d.querySelector('#appearanceRevert').onclick=()=>{p=normalise(opening.appearance);applyInterface(opening.ui);update();message('已还原打开设置时的外观。')};
+  d.querySelector('#appearanceRevert').onclick=()=>{p=normalise(opening.appearance);applyInterface(opening.ui);if(update()!==false)message('已还原打开设置时的外观。')};
   d.querySelector('#appearanceDone').onclick=()=>d.close();
   const storage=e=>{if([key,'creative-interface'].includes(e.key)){p=read();update(false)}else if(e.key===collectionKey)refreshSaved()};window.addEventListener('storage',storage);
-  d.disposeAppearance=()=>window.removeEventListener('storage',storage);d.addEventListener('close',()=>{d.disposeAppearance();d.remove()},{once:true});update();d.showModal();
+  d.disposeAppearance=()=>window.removeEventListener('storage',storage);d.addEventListener('close',()=>{
+   d.disposeAppearance();d.remove();
+   // Native dialog focus return can collapse a textarea's selected text.
+   // Restore only this still-current field; never replay text or another document's position.
+   if(!returning||!focused.isConnected||focused.value!==returning.value||source!==(typeof board==='undefined'?null:board)||sourceId!==(typeof boardId==='undefined'?null:boardId)||node&&source.nodes.find(n=>n.id===node.id)!==node)return;
+   if([...document.querySelectorAll('dialog[open]')].some(dialog=>!dialog.contains(focused))||document.activeElement!==focused&&document.activeElement!==document.body)return;
+   focused.focus({preventScroll:true});focused.setSelectionRange(returning.start,returning.end,returning.direction);focused.scrollTop=returning.top;focused.scrollLeft=returning.left;
+  },{once:true});
+  // Native pickers can finish after a dialog closes; an old control owns no later preview.
+  for(const el of d.querySelectorAll('button,input,select'))for(const name of ['onclick','oninput','onchange','onkeydown']){const action=el[name];if(action)el[name]=function(...args){if(owns())return action.apply(this,args)}}
+  d.showModal();update(false);
  }
  // Storage notifications can arrive after a later choice. Read the latest
  // value, and never broadcast a received older preference back to other panes.

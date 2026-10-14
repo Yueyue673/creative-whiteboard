@@ -253,6 +253,9 @@
 (() => {
  'use strict';
  const elements=new WeakMap();let lastLevel=null,lastZ=null,lastBoard=null,lastEditor=null;
+ const normalisePreferences=p=>({mode:p?.mode==='original'?'original':'smart',at:Math.max(15,Math.min(75,Number(p?.at??45)||45)),font:Math.max(9,Math.min(18,Number(p?.font??12)||12))});
+ const appearance=window.whiteboardAppearance?.read?.();let preferences=normalisePreferences({mode:appearance?.overviewMode,at:appearance?.overviewAt,font:appearance?.overviewFont});
+ window.addEventListener('creative-overview-preferences',event=>{preferences=normalisePreferences(event.detail);distance(true)});
  const fullName=document.createElement('aside');fullName.id='spaceTitlePreview';fullName.className='space-title-preview';fullName.hidden=true;fullName.setAttribute('aria-hidden','true');fullName.innerHTML='<p></p><small>点击查看原便签</small>';canvas.append(fullName);let peekButton=null,dismissedName=null;
  function hideName(){fullName.hidden=true;fullName.querySelector('p').textContent='';peekButton=null}
  function showName(button,n,source,sourceId){
@@ -295,12 +298,12 @@
   if(!force&&lastZ===view().z&&lastBoard===board&&lastEditor===editorId)return;
   hideName();
   lastZ=view().z;lastBoard=board;lastEditor=editorId;
-  const overview=view().z<.45;
+  const overview=preferences.mode==='smart'&&view().z<preferences.at/100;
   if(lastLevel!==overview){canvas.classList.toggle('space-overview',overview);lastLevel=overview}
   const scale=String(1/view().z);if($('nodes').style.getPropertyValue('--space-label-scale')!==scale)$('nodes').style.setProperty('--space-label-scale',scale);
   const nodes=new Map(board.nodes.map(n=>[n.id,n]));
   for(const el of $('nodes').children){const button=elements.get(el),n=nodes.get(el.dataset.id);if(button&&n){
-   button.hidden=!overview||editorId===el.dataset.id;const width=Math.max(1,(n.w-24)*view().z),height=Math.max(1,(n.h-12)*view().z),baseFont=Math.max(9,Math.min(12,width/7)),font=height>=26.3?Math.max(9,Math.min(baseFont,(height-2)/2.7)):baseFont,lines=Math.max(1,Math.min(3,Math.floor((height-2)/(font*1.35)+1e-6)));
+   button.hidden=!overview||editorId===el.dataset.id;const width=Math.max(1,(n.w-24)*view().z),height=Math.max(1,(n.h-12)*view().z),baseFont=Math.max(9,Math.min(preferences.font,width/7)),font=height>=26.3?Math.max(9,Math.min(baseFont,(height-2)/2.7)):baseFont,lines=Math.max(1,Math.min(3,Math.floor((height-2)/(font*1.35)+1e-6)));
    if(button.style.maxWidth!==width+'px')button.style.maxWidth=width+'px';
    for(const [key,value]of [['--space-label-height',height+'px'],['--space-label-font',font+'px'],['--space-title-lines',String(lines)]])if(button.style.getPropertyValue(key)!==value)button.style.setProperty(key,value);
   }}
@@ -308,7 +311,7 @@
  const previousDraw=drawNodes;drawNodes=function(){previousDraw();mount()};
  const previousSelect=refreshSelectionUI;refreshSelectionUI=function(){previousSelect();mount()};
  const previousView=moveView;moveView=function(){previousView();distance()};
- window.whiteboardSpace={open,mount};if(board)mount();
+ window.whiteboardSpace={open,mount,preferences:()=>({...preferences})};if(board)mount();
 })();
 
 // Named camera positions belong to this browser, not to the author's board content.
