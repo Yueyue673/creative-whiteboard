@@ -212,6 +212,9 @@ button,summary,select{transition:none}
 #appearanceDialog .navigation-settings>label:not(.navigation-check){grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center}
 #appearanceDialog .navigation-settings>label:not(.navigation-check) input{grid-column:1/-1;grid-row:2;width:100%;margin:0}
 #appearanceDialog .navigation-settings output{grid-column:2;grid-row:1;text-align:right;color:var(--ui-muted);font-variant-numeric:tabular-nums}
+#appearanceDialog .navigation-settings>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+#appearanceDialog .navigation-settings>div>label{min-width:0}
+#appearanceDialog .navigation-settings>div input{width:100%;box-sizing:border-box}
 #appearanceDialog footer{display:flex;flex:none;justify-content:space-between;gap:10px;padding-top:18px}
 #appearanceDialog footer button{min-height:36px;font-size:13px;padding:7px 12px}
 #appearanceDone{font-weight:600}
