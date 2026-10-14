@@ -121,3 +121,10 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 
 /* On a touch screen, the paper's heading is a drag surface; text can still scroll. */
 @media(any-pointer:coarse){body #nodes>.node>.inner.read-layout [data-preview-id=title][readonly]{touch-action:none;pointer-events:auto}}
+
+/* Overview ink stays within authored paper; its full name is a temporary readout. */
+#canvas.space-overview #nodes>.node>.space-card-label:not([hidden]){display:block;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;line-height:1.35!important;font-size:var(--space-label-font,12px)!important;padding:1px 3px!important;min-height:min(36px,var(--space-label-height,36px));max-height:var(--space-label-height,36px)}
+.space-card-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--space-title-lines,2);overflow:hidden;pointer-events:none}
+.space-card-label:focus-visible{outline:2px solid var(--ui-focus);outline-offset:1px}
+.space-title-preview{position:absolute;z-index:115;display:flex;flex-direction:column;box-sizing:border-box;pointer-events:none;padding:12px 14px;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 4px 16px #0003;overflow:hidden}
+.space-title-preview[hidden]{display:none!important}.space-title-preview p{margin:0;min-height:0;overflow:hidden;font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.space-title-preview small{display:block;flex:none;margin-top:8px;font-size:11px;line-height:1.5;color:var(--ui-muted)}

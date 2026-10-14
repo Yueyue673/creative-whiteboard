@@ -253,6 +253,17 @@
 (() => {
  'use strict';
  const elements=new WeakMap();let lastLevel=null,lastZ=null,lastBoard=null,lastEditor=null;
+ const fullName=document.createElement('aside');fullName.id='spaceTitlePreview';fullName.className='space-title-preview';fullName.hidden=true;fullName.setAttribute('aria-hidden','true');fullName.innerHTML='<p></p><small>点击查看原便签</small>';canvas.append(fullName);let peekButton=null,dismissedName=null;
+ function hideName(){fullName.hidden=true;fullName.querySelector('p').textContent='';peekButton=null}
+ function showName(button,n,source,sourceId){
+  const el=button.parentElement;if(button===dismissedName||source!==board||sourceId!==boardId||!board.nodes.includes(n)||loading||blocked||gesture||button.hidden||!el?.isConnected||el.parentElement!==$('nodes')||elements.get(el)!==button||!canvas.classList.contains('space-overview')||$('dialog').open)return;
+  const bounds=canvas.getBoundingClientRect(),r=button.getBoundingClientRect(),width=Math.max(1,Math.min(320,bounds.width-16));
+  dismissedName=null;peekButton=button;fullName.querySelector('p').textContent=label(n);fullName.style.width=width+'px';fullName.style.maxHeight=Math.max(1,Math.min(240,bounds.height-16))+'px';fullName.hidden=false;
+  const height=fullName.offsetHeight,left=Math.max(8,Math.min(r.left-bounds.left,bounds.width-width-8)),below=r.bottom-bounds.top+8,above=r.top-bounds.top-height-8;
+  fullName.style.left=left+'px';fullName.style.top=Math.max(8,Math.min(below+height<=bounds.height-8?below:above,bounds.height-height-8))+'px';
+ }
+ canvas.addEventListener('pointerdown',hideName,true);window.addEventListener('blur',hideName);window.addEventListener('resize',hideName);window.addEventListener('creative-board-loading',hideName);
+ window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!fullName.hidden&&!gesture){event.preventDefault();event.stopImmediatePropagation();dismissedName=peekButton;hideName()}},true);
  function label(n){const title=String(n.title||'').trim();return title||String(n.body||'').trim().split(/\r?\n/)[0]||(n.type==='table'?'空白表格':'空白便签')}
  function open(id){
   const n=board?.nodes.find(n=>n.id===id);if(!n||loading)return;
@@ -262,6 +273,7 @@
   const field=$('body')||$('title');field?.focus({preventScroll:true});
  }
  function mount(){
+  hideName();
   if(!board)return;
   const lookup=new Map(board.nodes.map(n=>[n.id,n]));
   for(const el of $('nodes').children){
@@ -269,20 +281,29 @@
    if(!el.classList.contains('paper-card')){elements.get(el)?.remove();elements.delete(el);continue}
    let button=elements.get(el);
    if(!button){button=document.createElement('button');button.type='button';button.className='space-card-label inline-ui';button.onclick=e=>{e.stopPropagation();open(el.dataset.id)};el.append(button);elements.set(el,button)}
-   const text=label(n);if(button.textContent!==text)button.textContent=text;
-   button.title=text;button.setAttribute('aria-label','定位并编辑：'+text);
+   const text=label(n);if(button.textContent!==text||!button.querySelector('.space-card-name')){const name=document.createElement('span');name.className='space-card-name';name.textContent=text;button.replaceChildren(name)}
+   button.removeAttribute('title');button.setAttribute('aria-label','定位并编辑：'+text);
+   const source=board,sourceId=boardId;
+   button.onpointerenter=event=>{if(event.pointerType==='mouse'||event.pointerType==='pen')showName(button,n,source,sourceId)};
+   button.onpointermove=event=>{if(fullName.hidden&&(event.pointerType==='mouse'||event.pointerType==='pen'))showName(button,n,source,sourceId)};
+   button.onpointerleave=()=>{if(dismissedName===button)dismissedName=null;if(document.activeElement!==button)hideName()};button.onfocus=()=>{dismissedName=null;showName(button,n,source,sourceId)};button.onblur=hideName;
   }
   distance(true);
  }
  function distance(force=false){
   if(!board)return;
   if(!force&&lastZ===view().z&&lastBoard===board&&lastEditor===editorId)return;
+  hideName();
   lastZ=view().z;lastBoard=board;lastEditor=editorId;
   const overview=view().z<.45;
   if(lastLevel!==overview){canvas.classList.toggle('space-overview',overview);lastLevel=overview}
   const scale=String(1/view().z);if($('nodes').style.getPropertyValue('--space-label-scale')!==scale)$('nodes').style.setProperty('--space-label-scale',scale);
-  const widths=new Map(board.nodes.map(n=>[n.id,n.w]));
-  for(const el of $('nodes').children){const button=elements.get(el);if(button){button.hidden=!overview||editorId===el.dataset.id;const width=Math.max(1,((widths.get(el.dataset.id)||300)-24)*view().z)+'px';if(button.style.maxWidth!==width)button.style.maxWidth=width}}
+  const nodes=new Map(board.nodes.map(n=>[n.id,n]));
+  for(const el of $('nodes').children){const button=elements.get(el),n=nodes.get(el.dataset.id);if(button&&n){
+   button.hidden=!overview||editorId===el.dataset.id;const width=Math.max(1,(n.w-24)*view().z),height=Math.max(1,(n.h-12)*view().z),baseFont=Math.max(9,Math.min(12,width/7)),font=height>=26.3?Math.max(9,Math.min(baseFont,(height-2)/2.7)):baseFont,lines=Math.max(1,Math.min(3,Math.floor((height-2)/(font*1.35)+1e-6)));
+   if(button.style.maxWidth!==width+'px')button.style.maxWidth=width+'px';
+   for(const [key,value]of [['--space-label-height',height+'px'],['--space-label-font',font+'px'],['--space-title-lines',String(lines)]])if(button.style.getPropertyValue(key)!==value)button.style.setProperty(key,value);
+  }}
  }
  const previousDraw=drawNodes;drawNodes=function(){previousDraw();mount()};
  const previousSelect=refreshSelectionUI;refreshSelectionUI=function(){previousSelect();mount()};
