@@ -1,10 +1,16 @@
-// Appearance belongs to the workspace, never to the stored content.
+// Appearance is a browser preference, never authored content.
 (() => {
  'use strict';
  const key='creative-appearance-v1';
  const collectionKey='creative-appearance-presets-v1';
  const navigationKey='creative-navigation-v1',navigationDefaults={snap:true,zoomSpeed:1,nudge:1,bigNudge:10,gap:32};
  const overviewPresets={compact:{name:'紧凑',at:30,font:10},balanced:{name:'均衡',at:45,font:12},readable:{name:'易读',at:60,font:16}};
+ const paperTypefaces={
+  original:{name:'原有搭配'},
+  clear:{name:'清晰',family:'system-ui,"Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif'},
+  book:{name:'书页',family:'Georgia,"Noto Serif CJK SC","Songti SC",SimSun,serif'},
+  mono:{name:'等宽',family:'ui-monospace,Consolas,"Noto Sans Mono CJK SC","Sarasa Mono SC","Microsoft YaHei",monospace'}
+ };
  const palettes={
   resolve:{name:'深灰',bg:'#16181c',canvas:'#23262b',panel:'#272a30',raised:'#32363e',field:'#1c1f24',border:'#15171b',line:'#484d57',text:'#e6e8ed',muted:'#adb3bf',hover:'#3b4049',selected:'#424955',accent:'#e7b77b'},
   paper:{name:'纸白',bg:'#f8f8f6',canvas:'#eaece8',panel:'#f3f4f1',raised:'#ffffff',field:'#ffffff',border:'#d5d8d2',line:'#d5d8d2',text:'#30342f',muted:'#686f65',hover:'#e4e8e0',selected:'#dce4d5',accent:'#69805c'},
@@ -23,7 +29,7 @@
   p=p&&typeof p==='object'?p:{};const custom={};
   for(const role of ['canvas','panel','accent'])if(valid(p.custom?.[role]))custom[role]=p.custom[role].toLowerCase();
   return {preset:Object.hasOwn(palettes,p.preset)?p.preset:'resolve',custom,note:valid(p.note)?p.note.toLowerCase():'#fff0aa',
-   pattern:['plain','dots','grid'].includes(p.pattern)?p.pattern:'plain',gridSize:bounded(p.gridSize??24,12,64,24),
+   pattern:['plain','dots','grid'].includes(p.pattern)?p.pattern:'plain',gridSize:bounded(p.gridSize??24,12,64,24),paperTypeface:Object.hasOwn(paperTypefaces,p.paperTypeface)?p.paperTypeface:'original',
    overviewMode:['smart','original'].includes(p.overviewMode)?p.overviewMode:'smart',overviewAt:Math.round(bounded(p.overviewAt??45,15,75,45)),overviewFont:Math.round(bounded(p.overviewFont??12,9,18,12))};
  }
  function read(){try{return normalise(JSON.parse(localStorage.getItem(key)||'{}'))}catch{return normalise()}}
@@ -78,6 +84,10 @@
   for(const [k,v] of Object.entries(palette))if(k!=='name')root.style.setProperty('--ui-'+k,v);
   root.dataset.appearance=preset;root.dataset.uiTone=tone;root.dataset.canvasPattern=p.pattern;root.style.setProperty('--ui-scheme',tone);root.style.colorScheme=tone;
   root.style.setProperty('--ui-grid',mix(palette.canvas,inkFor(palette.canvas),.16));activeGridSize=p.gridSize;positionPattern();
+  const typographyChanged=(root.dataset.paperTypeface||'original')!==p.paperTypeface;root.dataset.paperTypeface=p.paperTypeface;
+  const family=paperTypefaces[p.paperTypeface].family;
+  for(const role of ['body','heading'])if(family)root.style.setProperty('--paper-'+role+'-family',family);else root.style.removeProperty('--paper-'+role+'-family');
+  if(typographyChanged){if(typeof fitContentLayouts==='function')fitContentLayouts();window.whiteboardSizing?.invalidate?.();}
   window.dispatchEvent(new CustomEvent('creative-overview-preferences',{detail:{mode:p.overviewMode,at:p.overviewAt,font:p.overviewFont}}));
   if(typeof colors!=='undefined')colors[0]=p.note;
   if(save)try{localStorage.setItem(key,JSON.stringify(p))}catch{return false}return true;
@@ -89,7 +99,9 @@
   const previous=document.getElementById('appearanceDialog');if(previous){previous.disposeAppearance?.();previous.remove()}const d=document.createElement('dialog');d.id='appearanceDialog';
   d.innerHTML='<form method="dialog" class="appearance-heading"><h2>外观</h2><button aria-label="关闭外观设置">×</button></form><div class="appearance-body"><p>先选一种感觉，再调成自己的工作台。已有内容保持原色与尺寸。</p><h3>配色预设</h3><div class="appearance-presets"></div><section class="appearance-saved"><h3>我的预设</h3><p>保存颜色、画布底纹、界面大小与侧栏宽度，仅保存在当前浏览器。</p><div class="appearance-saved-list"></div><div class="appearance-save-row"><input id="appearanceName" aria-label="预设名称" maxlength="40" placeholder="给当前外观起个名字"><button type="button" id="appearanceSave">保存当前外观</button></div><div class="appearance-message" role="status" aria-live="polite"></div></section><details class="appearance-custom" open><summary>继续自定义</summary><div class="appearance-colors"></div><section class="appearance-pattern"><h3>画布底纹</h3><div role="group" aria-label="画布底纹"><button type="button" data-pattern="plain">纯色</button><button type="button" data-pattern="dots">点阵</button><button type="button" data-pattern="grid">细网格</button></div><label>底纹间距<input id="appearanceGrid" type="range" min="12" max="64" step="4"><output></output></label><p>底纹跟随画布移动与缩放，帮助定位，不改变内容位置或吸附方式。</p></section><div class="appearance-size"><label>界面大小<input id="appearanceScale" type="range" min="80" max="125" step="5"><output></output></label><label>侧栏宽度<input id="appearanceWidth" type="range" min="260" max="520" step="10"><output></output></label></div></details></div><footer><button type="button" id="appearanceReset">恢复默认</button><button type="button" id="appearanceRevert" title="还原打开设置时的外观；已保存的预设保留">还原本次调整</button><button type="button" id="appearanceDone">完成</button></footer>';
   d.querySelector('.appearance-heading h2').textContent='外观与操作';d.querySelector('#appearanceRevert').title='还原打开设置时的外观与操作偏好；已保存的预设保留';
-  d.querySelector('.appearance-saved p').textContent='保存颜色、画布底纹、缩略显示、界面大小、侧栏宽度与操作偏好，仅保存在当前浏览器。';
+  d.querySelector('.appearance-body>p').textContent='先选一种感觉，再调成自己的工作台。已有原文与内容配色保留，自动便签仍随内容适应。';
+   d.querySelector('.appearance-saved p').textContent='保存颜色、画布底纹、纸面字体、缩略显示、界面大小、侧栏宽度与操作偏好，仅保存在当前浏览器。';
+   const typography=document.createElement('section');typography.className='appearance-pattern appearance-typography';typography.innerHTML='<h3>纸面字体</h3><label>阅读搭配<select id="appearancePaperTypeface">'+Object.entries(paperTypefaces).map(([id,row])=>'<option value="'+id+'">'+row.name+'</option>').join('')+'</select></label><p>标题和正文一起切换，按钮与代码保持原样。文字、字号、位置和手动尺寸保留；自动便签仍随内容适应。字体由当前设备提供。</p>';d.querySelector('.appearance-size').before(typography);
   const overview=document.createElement('section');overview.className='appearance-pattern appearance-overview';overview.innerHTML='<h3>缩远后的便签</h3><div role="group" aria-label="缩略显示方式"><button type="button" data-overview-mode="smart">名称导航</button><button type="button" data-overview-mode="original">原样缩小</button></div><label>阅读预设<select id="appearanceOverviewPreset" aria-label="概览阅读预设">'+Object.entries(overviewPresets).map(([id,p])=>'<option value="'+id+'">'+p.name+'</option>').join('')+'<option value="custom" disabled>自定义</option></select></label><details class="appearance-custom"><summary>精细调整</summary><label>开始概览<input id="appearanceOverviewAt" aria-label="开始概览的比例" type="range" min="15" max="75" step="1"><output></output></label><label>文字上限<input id="appearanceOverviewFont" aria-label="概览文字上限" type="range" min="9" max="18" step="1"><output></output></label></details><p>名称导航在缩远时显示名称；原样缩小保留纸面原貌。概览会按纸面空间缩小文字，已有内容、字号、位置和尺寸保持原样。</p>';d.querySelector('.appearance-size').before(overview);
   const navigation=document.createElement('section');navigation.className='navigation-settings';navigation.innerHTML='<h3>白板操作</h3><label class="navigation-check"><input id="navSnap" type="checkbox">拖动时显示对齐参考线并吸附</label><label>缩放速度<input id="navZoom" type="range" min="30" max="200" step="10"><output></output></label><div><label>方向键移动<input id="navNudge" required type="number" min="0.1" max="100" step="0.1"></label><label>Shift＋方向键<input id="navBigNudge" required type="number" min="1" max="500" step="any"></label></div><p>右键或空格＋拖动移动画布；Ctrl＋滚轮缩放；H 切到手形工具，V 切回选择。Shift＋拖动限制方向，Alt＋拖动创建副本。拖动时按 Ctrl 可临时关闭吸附。</p><p class="navigation-message" role="status" aria-live="polite"></p>';d.querySelector('.appearance-body').append(navigation);
   document.body.append(d);let p=read();const opening={appearance:read(),ui:interfacePrefs(),navigation:navigationPrefs()},presets=d.querySelector('.appearance-presets'),owns=()=>d.isConnected&&d.open&&document.getElementById('appearanceDialog')===d;
@@ -147,6 +159,7 @@
    if(!owns())return false;p=normalise(p);const saved=apply(p,save);presets.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.preset===p.preset&&!Object.keys(p.custom).length)));
    for(const input of d.querySelectorAll('[data-color]')){const id=input.dataset.color,value=id==='note'?p.note:p.custom[id]||palettes[p.preset][id];input.value=value;const hex=d.querySelector('[data-hex="'+id+'"]');if(document.activeElement!==hex||!hex.hasAttribute('aria-invalid')){hex.value=value;hex.removeAttribute('aria-invalid')}}
    d.querySelectorAll('[data-pattern]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pattern===p.pattern)));d.querySelector('#appearanceGrid').value=p.gridSize;d.querySelector('#appearanceGrid').disabled=p.pattern==='plain';
+   d.querySelector('#appearancePaperTypeface').value=p.paperTypeface;
    d.querySelectorAll('[data-overview-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.overviewMode===p.overviewMode)));
    d.querySelector('#appearanceOverviewAt').value=p.overviewAt;d.querySelector('#appearanceOverviewFont').value=p.overviewFont;
    for(const id of ['appearanceOverviewPreset','appearanceOverviewAt','appearanceOverviewFont'])d.querySelector('#'+id).disabled=p.overviewMode==='original';
@@ -156,6 +169,7 @@
   }
   d.querySelectorAll('[data-pattern]').forEach(b=>b.onclick=()=>{p.pattern=b.dataset.pattern;update()});
   d.querySelector('#appearanceGrid').oninput=e=>{p.gridSize=Number(e.target.value);update()};
+   d.querySelector('#appearancePaperTypeface').onchange=e=>{p.paperTypeface=e.target.value;update()};
   d.querySelectorAll('[data-overview-mode]').forEach(b=>b.onclick=()=>{p.overviewMode=b.dataset.overviewMode;update()});
   d.querySelector('#appearanceOverviewPreset').onchange=e=>{const choice=overviewPresets[e.target.value];if(!choice)return;p.overviewAt=choice.at;p.overviewFont=choice.font;update()};
   d.querySelector('#appearanceOverviewAt').oninput=e=>{p.overviewAt=Number(e.target.value);update()};d.querySelector('#appearanceOverviewFont').oninput=e=>{p.overviewFont=Number(e.target.value);update()};

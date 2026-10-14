@@ -330,6 +330,10 @@ button,summary,select{transition:none}
 #appearanceDialog .appearance-colors label>span{grid-column:1/-1}
 #appearanceDialog .appearance-colors input[type=color]{width:38px;height:34px}
 #appearanceDialog .appearance-colors input[type=text]{width:100%;min-width:0;height:34px;padding:5px 7px;cursor:text;font-size:12px;font-family:Consolas,monospace}
+#appearanceDialog .appearance-typography label{display:grid;grid-template-columns:1fr minmax(0,1fr);align-items:center;gap:12px}#appearanceDialog .appearance-typography select{min-width:0;width:100%;min-height:36px;padding:5px 7px;font:inherit;color:var(--ui-text);background:var(--ui-field);border:1px solid var(--ui-line);border-radius:4px}
+/* Existing embedded paper modules retain their original CSS and script. */
+html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card :is([data-preview-id="title"],.read-layout>h3,#title){font-family:var(--paper-heading-family)!important}
+html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card :is([data-preview-id="body"],[data-preview-id="userText"],[data-preview-id="annotation"],.note-markdown,#body,#userText,#annotation){font-family:var(--paper-body-family)!important}
 #appearanceDialog [aria-invalid=true]{outline:2px solid var(--ui-focus);outline-offset:1px}
 .appearance-pattern{padding-bottom:14px}
 .appearance-pattern>div{display:flex;gap:6px;margin-bottom:12px}
