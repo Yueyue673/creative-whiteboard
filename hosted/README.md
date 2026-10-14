@@ -1329,18 +1329,38 @@ filename and matching size do not prove content integrity, and an unregistered
 file does not prove absence of references. Every report and finding has
 `deletionSafe: false`; other members' private references are never examined.
 
+Registered originals are now reconciled against completed direct-directory
+listings, so an absent original produces `registeredMissing` without deleting
+its registration or pretending that an empty report is healthy. Missing known
+media/workspace/storage directories are distinguished from an unsafe or
+uninspected ancestor: the latter produces `registeredUninspected`, not absence.
+Derived registered paths are neither opened nor statted through skipped links.
+An unsafe original file, including a hardlinked or nonregular entry, also
+remains uninspected. `registeredFilesChecked` and
+`registeredPresenceCoverageComplete` describe this presence check only, with
+the same record/entry/time/detail limits. Original-content hashes and reference
+safety are still outside this command. A file added during the check causes
+the changed-directory verification to refuse a report instead of accepting a
+stale missing finding. A same-ID copy in another workspace cannot conceal the
+missing original in its registered workspace.
+If the registration pass runs out of budget before that final verification,
+its absence conclusions and their hidden-detail counts are discarded; earlier
+bounded entry inventory is explicitly incomplete.
+
 The existing lease may create its persistent coordination file if absent;
 application files and database records are not changed. The lease coordinates
 cooperating hosted processes, not arbitrary administrative filesystem writers.
 Native Windows/Linux path and locking acceptance remains required before
 deployment. A complete backup remains a separate operation.
 
-Local checks: 12 new cases pass; 2 actual hard-link/junction cases are explicitly
-skipped because this sandbox denies their creation. Link/reparse refusal is
-checked with metadata fixtures, without presenting them as native acceptance.
-An actual separate-process audit is refused while a runtime lease is held.
-Three actual production-settings CLI groups on an independent synthetic store
-check classification/redaction, missing confirmation/unknown deletion arguments
-and unchanged database, model rows, quota and every file hash. No hosted browser
-or public endpoint is added, and no schema or backup format changes are needed.
-The command remains staged, unreleased and undeployed.
+Local checks: all 21 affected cases pass, including seven registered-presence
+regressions and actual native Windows hardlink/junction refusal checks. Earlier
+sandbox-only link skips were resolved using the same isolated fixtures with
+permission to create native test links. An actual separate-process audit is
+refused while a runtime lease is held. Three actual production-settings CLI
+groups on an independent synthetic store check a missing registered original,
+a real hardlinked registered original, classification/redaction, missing
+confirmation/unknown deletion arguments and unchanged database, all model rows,
+quota and every retained file hash. No hosted browser or public endpoint is
+added, and no schema or backup format changes are needed. This is draft
+development code; it remains unmerged and undeployed.

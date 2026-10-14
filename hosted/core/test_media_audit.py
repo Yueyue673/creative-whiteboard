@@ -22,7 +22,7 @@ from .media import checked_storage
 from .models import ConflictDraft, DocumentRevision, MediaAsset, UploadReservation, WorkspaceDocument
 from .scope import WorkspaceScope
 from .services import APIError
-from .media_audit import audit_media, Inventory
+from .media_audit import audit_media, Inventory, AuditLimit
 
 
 class MediaAuditTests(TestCase):
@@ -131,6 +131,124 @@ class MediaAuditTests(TestCase):
         self.assertEqual(result["counts"]["registeredMedia"], 1)
         self.assertFalse(result["contentIntegrityChecked"])
         self.assertFalse(result["deletionSafe"])
+
+    def test_missing_registered_original_is_visible_without_removing_its_record(self):
+        asset = self.committed()
+        path = checked_storage(self.scope, "media", asset.pk)
+        path.unlink()  # Only this newly created synthetic original is removed.
+        before = list(MediaAsset.objects.values())
+        with CaptureQueriesContext(connection) as queries:
+            result = self.run_audit()
+        self.assertEqual(result["counts"].get("registeredMissing", 0), 1, result)
+        self.assertTrue(result["registeredPresenceCoverageComplete"])
+        self.assertEqual(result["registeredFilesChecked"], 1)
+        self.assertEqual(result["findings"][0]["storageId"], str(asset.pk))
+        self.assertIsNone(result["findings"][0]["bytes"])
+        self.assertFalse(result["findings"][0]["deletionSafe"])
+        self.assertNotIn(asset.filename, json.dumps(result))
+        self.assertEqual(list(MediaAsset.objects.values()), before)
+        self.assertFalse(path.exists())
+        self.assertFalse(any(row["sql"].lstrip().upper().startswith(("UPDATE", "DELETE", "INSERT")) for row in queries.captured_queries))
+
+    def test_missing_known_area_workspace_and_storage_directory_each_report_registered_original(self):
+        asset = self.committed()
+        path = checked_storage(self.scope, "media", asset.pk)
+        path.unlink()
+        parents = [path.parent, self.scope.storage_root() / "incoming", self.scope.storage_root(), self.scope.storage_root().parent]
+        for directory in parents:
+            directory.rmdir()  # These fixture directories are empty; no recursion.
+            result = self.run_audit()
+            self.assertEqual(result["counts"]["registeredMissing"], 1)
+            self.assertEqual(result["counts"]["registeredUninspected"], 0)
+            self.assertTrue(result["registeredPresenceCoverageComplete"])
+            self.assertTrue(MediaAsset.objects.filter(pk=asset.pk).exists())
+
+    def test_registered_original_in_unsafe_area_is_uninspected_not_missing_and_no_target_stat(self):
+        asset = self.committed()
+        area = checked_storage(self.scope, "media", asset.pk).parent
+        original = Path.lstat
+        seen = []
+        def reparse(path, *args, **kwargs):
+            seen.append(path)
+            if path != area:
+                return original(path, *args, **kwargs)
+            value = original(path)
+            fields = {key:getattr(value, key) for key in ("st_mode", "st_size", "st_mtime_ns", "st_ctime_ns", "st_dev", "st_ino", "st_nlink")}
+            return SimpleNamespace(**fields, st_file_attributes=getattr(value, "st_file_attributes", 0) | 0x400)
+        with patch.object(Path, "lstat", reparse):
+            result = self.run_audit()
+        self.assertEqual(result["counts"]["registeredMissing"], 0)
+        self.assertEqual(result["counts"]["registeredUninspected"], 1)
+        self.assertFalse(result["registeredPresenceCoverageComplete"])
+        self.assertNotIn(area / (asset.pk.hex + ".blob"), seen)
+        self.assertEqual((area / (asset.pk.hex + ".blob")).read_bytes(), self.raw)
+
+    def test_registered_nonregular_original_is_uninspected_and_different_workspace_copy_does_not_hide_absence(self):
+        asset = self.committed()
+        path = checked_storage(self.scope, "media", asset.pk)
+        path.unlink()
+        copied = checked_storage(WorkspaceScope(self.personal, "owner"), "media", asset.pk, create=True)
+        copied.write_bytes(self.raw)
+        result = self.run_audit()
+        self.assertEqual(result["counts"]["registeredMissing"], 1)
+        self.assertEqual(result["counts"]["misplacedIdentity"], 1)
+        self.assertEqual(copied.read_bytes(), self.raw)
+        path.mkdir()
+        result = self.run_audit()
+        self.assertEqual(result["counts"]["registeredMissing"], 0)
+        self.assertEqual(result["counts"]["registeredUninspected"], 1)
+        self.assertFalse(result["registeredPresenceCoverageComplete"])
+        self.assertTrue(path.is_dir())
+
+    def test_registered_absence_created_late_refuses_report_without_overwriting_created_original(self):
+        asset = self.committed()
+        path = checked_storage(self.scope, "media", asset.pk)
+        path.unlink()
+        original = Inventory.expected_finding
+        def recreate(audit, *args, **kwargs):
+            original(audit, *args, **kwargs)
+            path.write_bytes(b"Synthetic late original")
+        with patch.object(Inventory, "expected_finding", recreate), self.assertRaises(APIError) as caught:
+            self.run_audit()
+        self.assertEqual(caught.exception.status, 409)
+        self.assertEqual(path.read_bytes(), b"Synthetic late original")
+
+    def test_registered_report_limits_keep_presence_incomplete_and_details_omission_explicit(self):
+        asset = self.committed()
+        path = checked_storage(self.scope, "media", asset.pk)
+        path.unlink()
+        with patch("core.media_audit.MAX_FINDINGS", 0):
+            result = self.run_audit()
+        self.assertEqual(result["counts"]["registeredMissing"], 1)
+        self.assertEqual(result["hiddenFindings"], 1)
+        self.assertEqual(result["findings"], [])
+        self.assertTrue(result["registeredPresenceCoverageComplete"])
+        with patch("core.media_audit.MAX_ENTRIES", 0):
+            result = self.run_audit()
+        self.assertFalse(result["enumerationComplete"])
+        self.assertFalse(result["registeredPresenceCoverageComplete"])
+        self.assertEqual(result["registeredFilesChecked"], 0)
+        self.assertEqual(result["counts"]["registeredMissing"], 0)
+
+    def test_registration_pass_budget_never_publishes_unverified_absence_or_hidden_counts(self):
+        asset = self.committed()
+        checked_storage(self.scope, "media", asset.pk).unlink()
+        self.orphan()
+        original = Inventory.expected_finding
+        def exhausted(audit, *args, **kwargs):
+            original(audit, *args, **kwargs)
+            raise AuditLimit
+        for cap in [0, 500]:
+            with patch("core.media_audit.MAX_FINDINGS", cap), patch.object(Inventory, "expected_finding", exhausted):
+                result = self.run_audit()
+            self.assertEqual(result["registeredFilesChecked"], 1)
+            self.assertEqual(result["counts"]["registeredMissing"], 0)
+            self.assertEqual(result["counts"]["registeredUninspected"], 0)
+            self.assertFalse(result["registeredPresenceCoverageComplete"])
+            self.assertFalse(result["enumerationComplete"])
+            self.assertEqual(result["limitReason"], "budget")
+            self.assertEqual(result["hiddenFindings"], 1 if cap == 0 else 0)
+            self.assertTrue(all(row["category"] not in ("registeredMissing", "registeredUninspected") for row in result["findings"]))
 
     def test_unknown_workspace_area_and_nested_directories_never_traversed(self):
         self.committed()

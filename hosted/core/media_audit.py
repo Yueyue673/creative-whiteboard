@@ -46,8 +46,9 @@ class Inventory:
             raise APIError("原存储范围无法核对，未盘点其他目录", 503)
         self.deadline = time.monotonic() + MAX_SECONDS
         self.records, self.entries, self.checked, self.uninspected = 0, 0, {}, 0
-        self.counts = {key: 0 for key in ("registeredMedia", "registeredSizeMismatch", "reservedFiles", "unregisteredFiles", "misplacedIdentity", "unknownEntries", "unsafeEntries")}
-        self.findings, self.hidden = [], 0
+        self.listings, self.observed_media, self.registered_checked = {}, {}, 0
+        self.counts = {key: 0 for key in ("registeredMedia", "registeredSizeMismatch", "registeredMissing", "registeredUninspected", "reservedFiles", "unregisteredFiles", "misplacedIdentity", "unknownEntries", "unsafeEntries")}
+        self.findings, self.hidden, self.expected_hidden = [], 0, 0
 
     def tick(self):
         if time.monotonic() > self.deadline:
@@ -79,16 +80,22 @@ class Inventory:
             raise APIError("原存储目录无法安全盘点，未进入其他位置", 503)
         self.lease.verify()
         # Fixed depth only. Unknown directories and links are never recursed.
+        names = set()
         with os.scandir(path) as stream:
             for entry in stream:
                 self.tick()
                 if self.entries >= MAX_ENTRIES:
                     raise AuditLimit
                 self.entries += 1
+                names.add(entry.name)
                 self.details(path)
                 child = path / entry.name
                 yield child, self.details(child)
         self.details(path)
+        # Absence can only be inferred from a fully finished direct listing.
+        # No derived registered path is opened or statted through an unknown
+        # directory or link to infer that its original is missing.
+        self.listings[path] = names
 
     def finding(self, path, details, category, workspace=None, area=None, identifier=None):
         self.counts[category] += 1
@@ -105,6 +112,29 @@ class Inventory:
             self.findings.append(row)
         else:
             self.hidden += 1
+
+    def registered_presence(self, workspace, identifier):
+        path = self.root
+        for name in ("workspaces", workspace.hex, "media", identifier.hex + ".blob"):
+            self.tick()
+            if path not in self.listings:
+                return "registeredUninspected"
+            if name not in self.listings[path]:
+                return "registeredMissing"
+            path = path / name
+        return None if self.observed_media.get((workspace, identifier)) else "registeredUninspected"
+
+    def expected_finding(self, workspace, identifier, category):
+        path = self.root / "workspaces" / workspace.hex / "media" / (identifier.hex + ".blob")
+        self.counts[category] += 1
+        row = {"entryToken": hmac.new(settings.SECRET_KEY.encode(), os.fsencode(path.relative_to(self.root)), hashlib.sha256).hexdigest(),
+               "category": category, "workspace": str(workspace), "area": "media",
+               "storageId": str(identifier), "bytes": None, "deletionSafe": False}
+        if len(self.findings) < MAX_FINDINGS:
+            self.findings.append(row)
+        else:
+            self.hidden += 1
+            self.expected_hidden += 1
 
     def verify(self, snapshots):
         self.lease.verify()
@@ -164,6 +194,8 @@ def audit_media(lease):
                         match = FILES[area.name].fullmatch(entry.name)
                         identifier = uuid.UUID(match[1]) if match else None
                         key = (workspace, identifier)
+                        if area.name == "media" and identifier is not None:
+                            audit.observed_media[key] = not redirected(details) and stat.S_ISREG(details.st_mode) and details.st_nlink == 1
                         if redirected(details) or not stat.S_ISREG(details.st_mode) or details.st_nlink != 1:
                             category = "unsafeEntries"
                         elif identifier is None:
@@ -179,6 +211,12 @@ def audit_media(lease):
                         else:
                             category = "unregisteredFiles"
                         audit.finding(entry, details, category, workspace, area.name, identifier)
+        for workspace, identifier in assets:
+            audit.tick()
+            category = audit.registered_presence(workspace, identifier)
+            audit.registered_checked += 1
+            if category is not None:
+                audit.expected_finding(workspace, identifier, category)
         # Re-read snapshots with the same independent record bound, not a doubled
         # budget that would mark every store near its maximum as incomplete.
         audit.records = 0
@@ -187,11 +225,19 @@ def audit_media(lease):
     except AuditLimit:
         reason = "budget"
         lease.verify()
+        # Expected absence requires the final directory/registration check.
+        # Keep the earlier bounded entry inventory, but do not publish a missing
+        # conclusion from an unfinished, potentially changed registration pass.
+        audit.findings = [row for row in audit.findings if row["category"] not in ("registeredMissing", "registeredUninspected")]
+        audit.hidden -= audit.expected_hidden
+        audit.counts["registeredMissing"] = audit.counts["registeredUninspected"] = 0
     except (OSError, ValueError):
         raise APIError("存储条目无法核对或在盘点中改变，请重新盘点；未修改原文件", 503) from None
     return {"format": "creative-media-inventory-v1", "enumerationComplete": complete, "limitReason": reason,
             "entriesChecked": audit.entries, "counts": audit.counts, "findings": audit.findings,
             "hiddenFindings": audit.hidden, "uninspectedSubtrees": audit.uninspected,
+             "registeredFilesChecked": audit.registered_checked,
+             "registeredPresenceCoverageComplete": complete and not audit.counts["registeredUninspected"],
             "referenceSafetyChecked": False, "contentIntegrityChecked": False, "deletionSafe": False,
             "limits": {"records": MAX_RECORDS, "entries": MAX_ENTRIES, "findings": MAX_FINDINGS, "seconds": MAX_SECONDS},
-            "notice": "只读盘点，未删除、修复或重新登记任何文件。未登记不等于无用；没有检查内容完整性或白板、历史和任何成员私有输入中的关联。未知目录和链接未深入，受限结果不代表完整范围。"}
+             "notice": "只读盘点，未删除、修复或重新登记任何文件。文件缺失只依据已完整检查并复核的原目录；登记范围未完成复核时不列缺失结论。无法安全检查的登记原件单独列出，不能当作缺失。未登记不等于无用；没有检查内容完整性或白板、历史和任何成员私有输入中的关联。未知目录和链接未深入，受限结果不代表完整范围。"}
