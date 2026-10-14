@@ -96,3 +96,6 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .node .note-text-scroll{pointer-events:auto!important;touch-action:pan-x pan-y;scrollbar-width:thin}
 .note-text-scroll:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
 .note-markdown .note-text-scroll{scrollbar-color:#8887 transparent}
+
+/* Column names can contain authored line breaks, just like their cells. */
+.node.table .edit-table th textarea[data-column]{padding:10px 23px;min-height:40px;resize:none;overflow:hidden;font:inherit;border:0}
