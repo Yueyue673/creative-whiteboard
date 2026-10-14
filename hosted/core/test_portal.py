@@ -68,6 +68,7 @@ class PortalTests(TestCase):
 
     def test_only_explicit_portal_assets_are_served(self):
         for name, content_type in [('portal.js', 'text/javascript'), ('portal.css', 'text/css'),
+                                   ('space-reading.js', 'text/javascript'),
                                    ('paper-reading.js', 'text/javascript'), ('paper-reading.css', 'text/css'),
                                    ('workspace-search.js', 'text/javascript'),
                                    ('account-panel.js', 'text/javascript'), ('account-panel.css', 'text/css'),

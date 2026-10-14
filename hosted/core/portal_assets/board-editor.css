@@ -26,3 +26,8 @@
 /* Keep the current metadata result with its confirmation actions. */
 .metadata-actions{z-index:1}.metadata-actions>#metadataState{flex-basis:100%;margin:0 0 2px;font-size:12px;line-height:1.6;overflow-wrap:anywhere;color:var(--ink)}
 @media(max-width:680px){#metadataDialog{scroll-padding-bottom:220px}#metadataForm textarea:focus-visible,#metadataForm select:focus-visible{scroll-margin-bottom:220px}}
+
+/* Projected name ink remains inside the original card and cannot steal a hit. */
+.space-card-label{display:none;position:absolute;left:8px;top:6px;transform-origin:0 0;pointer-events:none;user-select:none;padding:0 1px;margin:0;font:var(--distance-font,12px)/1.35 var(--paper-reading-family,system-ui);white-space:pre-wrap;overflow-wrap:anywhere;overflow:hidden;color:inherit;box-sizing:border-box}
+#canvas.space-overview :is(.note-card,.table-card)>:not(.space-card-label){visibility:hidden;pointer-events:none}
+#canvas.space-overview .space-card-label:not([hidden]){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--distance-lines,3)}

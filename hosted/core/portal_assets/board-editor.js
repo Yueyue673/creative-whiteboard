@@ -9,6 +9,7 @@ import {TableEditor,tableCard} from './board-tables.js';
 import {MediaCues} from './media-cues.js';
 import {OwnHistory,valueEqual,validateLiveBoard} from './board-reconciliation.js';
 import {PaperReading} from './paper-reading.js';
+import {DistanceReading} from './space-reading.js';
 
 const $ = id => document.getElementById(id);
 const context = Object.freeze(JSON.parse($('board-context').textContent));
@@ -58,6 +59,7 @@ const frames=new FrameEditor({board:()=>board,node:()=>selectedNode()?.type==='f
 const tables=new TableEditor({scope,colours,raw:()=>rawBoard(),download,mediaAPI:()=>mediaAPI,canReadMedia:()=>mediaAllowed,select:id=>selectNode(id),node:()=>selectedNode()?.type==='table'?selectedNode():null,canEdit:stateCanEdit,canBrowse:()=>canBrowseReferences(),endGroup:()=>{inputGroup=null;},
  change:(next,group)=>{checkpoint(group);Object.assign(selectedNode(),next);commit();},remove:id=>{checkpoint();board.nodes=board.nodes.filter(n=>n.id!==id);board.edges=board.edges.filter(e=>e.from!==id&&e.to!==id);selectNode(null);commit();}});
 const canBrowseReferences = () => board && ['ready','readonly','offline','conflict'].includes(session.state.status);
+const distanceReading=new DistanceReading({canvas:$('canvas'),cards:$('cards'),board:()=>board,zoom:()=>view.z,height:displayedHeight,mode:()=>document.documentElement.dataset.spaceReading,canRead:canBrowseReferences});
 const paperReading=new PaperReading({scope,canRead:canBrowseReferences,canApply:()=>!board||!gesture&&!composing,onApply:refreshReadingLayout,capture:captureReadingPlace,restore:restoreReadingPlace,afterClose:releaseAdoption});
 function refreshReadingLayout(){if(!board)return;if(gesture||composing){readingLayoutPending=true;return;}readingLayoutPending=false;const focus=document.activeElement?.matches('#cards>.card')?document.activeElement.dataset.node:null;drawCanvas(false);if(focus&&!document.querySelector('dialog[open]'))[...$('cards').children].find(el=>el.dataset.node===focus)?.focus({preventScroll:true});}
 function captureReadingPlace(field=document.activeElement){
@@ -104,8 +106,14 @@ function applyView() {
   $('world').style.transform = `translate(${view.x}px,${view.y}px) scale(${view.z})`;
   $('canvas').style.setProperty('--control-scale',String(Math.min(1e6,1/view.z)));
   $('zoomValue').textContent = (view.z<.01?(view.z*100).toFixed(2):Math.round(view.z*100))+'%';
+  distanceReading.schedule();
 }
-function displayedHeight(node){return node.type==='note'&&node.sizeMode==='auto'?(displayedNoteHeights.get(node.id)??node.h):node.h;}
+function displayedHeight(node){
+  const height=node.type==='note'&&node.sizeMode==='auto'?(displayedNoteHeights.get(node.id)??node.h):node.h;
+  // Existing short manual paper still paints at the card's 96px minimum.
+  // Names, connections and Fit follow that view without normalizing author data.
+  return ['note','table'].includes(node.type)?Math.max(96,height):height;
+}
 function fit(nodes = board?.nodes) {
   if(!nodes?.length){view={x:48,y:55,z:1};applyView();return;}
   const rect=$('canvas').getBoundingClientRect();
@@ -146,6 +154,7 @@ async function performSave() {
 
 function refreshState() {
   const state=session.state, editable=stateCanEdit();
+  distanceReading.schedule();
   paperReading.sync();
   references.sync();refreshReferenceReturn();
   spatialViews.sync();

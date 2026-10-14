@@ -338,6 +338,36 @@ metadata and reviewed directory forms are described below. Directory moves, safe
 removal and complete media lifecycle controls remain unfinished. This library
 is neither realtime collaboration nor a deployed cloud service.
 
+### Distance reading in the original canvas (staged)
+
+Below 45% zoom, the existing note and table cards show a wrapped name view at
+9–12 projected pixels. The literal original title is used; an untitled note uses
+its first nonblank authored body line, and empty cards use an explicit empty
+label. Names have at most three lines within their own projected card, retain the
+complete text in the native title and card name, and open the original inspector
+through the same point or Enter operation. They do not invent or rewrite content.
+At closer zoom the original paper returns. Current protected media stays mounted
+and retains its explicit playback state; media cards and frame boundaries keep
+their existing view.
+
+The existing Reading dialog can switch back to original paper, restore the
+opening choice or return to defaults. Only the fixed original account/workspace
+browser preference records the font and `smart`/`paper` mode; old font-only values
+retain their font and use adaptive names. Other accounts/spaces do not inherit
+the choice, and refused storage remains an explicitly temporary preview. Gesture
+and composition boundaries defer incoming changes without rebuilding captured
+cards or rewriting active inspector input. Rendering is batched per animation
+frame and preserves actual automatic-paper height and original geometry/versions.
+Existing short manual notes/tables use their already displayed 96px minimum for
+names, connection centres and Fit; their smaller authored dimensions stay intact.
+
+Using visible original names for navigation follows the recognition principle
+in [NN/G's recognition-versus-recall guidance](https://www.nngroup.com/articles/recognition-and-recall/).
+Native projected-font, paint/hit bounds, neighbouring selection and before/after
+screenshots determine this implementation's usable limits; extreme zoom may show
+only paper shapes. This is not per-note authored typography, synchronized/named
+hosted appearances, physical-device/IME acceptance or deployment.
+
 ### Author-controlled metadata form (staged)
 
 The library now offers an explicit title, notes, individual tags and existing
