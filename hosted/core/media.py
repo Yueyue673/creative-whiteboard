@@ -244,6 +244,11 @@ def update_asset(scope, account, identifier, data, expected):
         if asset_etag(asset) != expected:
             return {"saved": False, "preserveDraft": True, "draftSaved": False, "error": "素材信息已被修改，本次输入未写入，请保留当前输入"}, asset
         folder_location(workspace.pk, data.get("folderId", asset.folder_id))
+        # Confirming the exact existing fields is a read under the same lock,
+        # identity and version checks. It must not invalidate another author's
+        # precondition, touch timestamps, or consume capacity for a non-change.
+        if all(getattr(asset, "folder_id" if key == "folderId" else key) == value for key, value in data.items()):
+            return {"saved": True}, asset
         for key, value in data.items():
             setattr(asset, "folder_id" if key == "folderId" else key, value)
         asset.byte_size = metadata_size(asset)

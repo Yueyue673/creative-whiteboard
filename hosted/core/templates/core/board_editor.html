@@ -109,15 +109,14 @@
 <dialog id="metadataDialog" aria-labelledby="metadataHeading">
   <div class="panel-heading"><div><span class="eyebrow">为素材留下线索</span><h2 id="metadataHeading">说明与位置</h2></div><button id="closeMetadata" aria-label="关闭说明编辑，保留输入">×</button></div>
   <p id="metadataTarget" class="caption"></p>
-  <p class="caption">原文件保持原样。填写后确认保存；关闭会保留这页输入，重开页面前请保存或导出。</p>
+  <p class="caption">原文件保持原样。填写后确认保存，也可按 Ctrl/⌘+S 保存这份说明；关闭保留这页输入，重开页面前请保存或导出。</p>
   <form id="metadataForm">
     <label>素材名称<textarea id="metadataTitle" rows="1" maxlength="1000" required></textarea></label>
     <label>自己的说明<textarea id="metadataNotes" rows="4" maxlength="65536"></textarea></label>
     <div class="metadata-tag-heading"><span id="metadataTagsLabel">标签</span><button id="addMetadataTag" type="button" class="quiet">＋ 添加标签</button></div><div id="metadataTags" aria-labelledby="metadataTagsLabel"></div>
     <label>存放位置<select id="metadataFolder"><option value="">资料库根目录</option></select><small>选择后确认保存，原文件编号保持不变。</small></label>
-    <p id="metadataState" role="status" aria-live="polite"></p>
     <section id="metadataComparison" class="metadata-comparison" hidden><h3>刚刚读取的服务器版本</h3><label>名称、说明、标签与位置<textarea id="metadataCurrent" rows="7" readonly></textarea></label><p>核对完整内容后，才可把自己的整份输入保存到这个版本；双方内容不会自动合并。</p><button id="useMetadataVersion" type="button">使用这版作为保存依据</button></section>
-    <div class="metadata-actions"><button id="saveMetadata" type="submit" class="primary">确认保存说明</button><button id="checkMetadataVersion" type="button">核对服务器版本</button><button id="exportMetadata" type="button">导出我的输入</button><button id="discardMetadata" type="button" class="quiet">放弃这页修改</button></div>
+    <div class="metadata-actions"><p id="metadataState" role="status" aria-live="polite"></p><button id="saveMetadata" type="submit" class="primary">确认保存说明</button><button id="checkMetadataVersion" type="button">核对服务器版本</button><button id="exportMetadata" type="button">导出我的输入</button><button id="discardMetadata" type="button" class="quiet">放弃这页修改</button></div>
   </form>
 </dialog>
 <noscript>请启用 JavaScript 后使用空间编辑。</noscript>

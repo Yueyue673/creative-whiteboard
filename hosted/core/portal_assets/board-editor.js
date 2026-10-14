@@ -468,6 +468,12 @@ $('applyRecovery').onclick=()=>{
 };
 document.addEventListener('keydown',event=>{
   if(event.isComposing)return;
+  // A modal owns its command. Native field undo remains local; an explicitly
+  // reviewed operation must never save the canvas behind the active window.
+  if(document.querySelector('dialog[open]')){
+    if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s')event.preventDefault();
+    return;
+  }
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();performSave();}
   if((event.ctrlKey||event.metaKey)&&document.activeElement===$('noteBody')&&['b','i'].includes(event.key.toLowerCase())){event.preventDefault();format(event.key.toLowerCase()==='b'?'bold':'italic');}
   if(event.key==='Escape'&&!['paperReadingDialog','viewDialog','referenceDialog','recoveryDialog','mediaDialog','metadataDialog','foldersDialog','browserRecoveryDialog','workspaceArchiveDialog','archiveCleanupDialog','accountDialog','cellNotesDialog','mediaCueDialog','tablePasteDialog'].some(id=>$(id).open)){spatialViews.closePanel();$('closeInspector').click();$('closeOutline').click();}

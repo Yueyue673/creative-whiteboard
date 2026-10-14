@@ -363,6 +363,17 @@ another intervening edit still conflicts. Missing destinations retain their old
 stable ID until explicitly replaced, and permission/account changes pause writes
 while keeping the author's own form available for copying/export.
 
+Ctrl/Command+S in the open metadata form confirms that form only; other modal
+windows do not send canvas save commands. Native text undo and Escape remain
+local to the active window. A closed form or detached tag row cannot replace
+retained input through a late DOM event; continuing restores the retained fields.
+Save feedback shares the sticky confirmation area, so its current result remains
+visible above the actions on both desktop and short narrow windows.
+An exact unchanged PATCH still verifies the original account, current editor,
+workspace, folder and version, but preserves the asset row, timestamp and ETag.
+It therefore does not consume extra quota or invalidate another author's basis.
+Stale equal fields still require conflict review; this is not automatic merging.
+
 The form has reachable exits and confirmation actions on narrow viewports. Media
 players remain mounted when their description is saved. Metadata input recovery across reload, registered-file
 lifecycle and real-time collaboration remain unfinished. Local synthetic HTTPS

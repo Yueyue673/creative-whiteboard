@@ -10,6 +10,11 @@ export class BoardMetadata {
     this.#api=api;this.#scope=Object.freeze({...scope});this.#saved=saved;
     $('closeMetadata').onclick=()=>$('metadataDialog').close();
     $('metadataDialog').addEventListener('close',()=>{this.#generation++;this.controls();});
+    $('metadataDialog').addEventListener('keydown',event=>{
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){
+        event.preventDefault();event.stopPropagation();if(!event.isComposing&&$('metadataDialog').open)this.save();
+      }
+    });
     $('resumeMetadata').onclick=()=>this.open();
     $('metadataForm').onsubmit=event=>{event.preventDefault();this.save();};
     for(const [id,key] of [['metadataTitle','title'],['metadataNotes','notes']])$(id).oninput=()=>{
@@ -27,7 +32,7 @@ export class BoardMetadata {
   }
   get dirty(){return !!this.#draft&&exact(this.#draft.data)!==exact(this.#draft.base);}
   get pending(){return this.#busy||this.dirty||['uncertain','conflict'].includes(this.#phase)&&!!this.#draft;}
-  canType(){return !!this.#draft&&this.#read&&this.#edit&&this.#phase!=='paused';}
+  canType(){return $('metadataDialog').open&&!!this.#draft&&this.#read&&this.#edit&&this.#phase!=='paused';}
   sync(read,edit){
     if(this.#read&&!read){this.#generation++;this.#candidate=null;this.#phase='paused';this.message('原账号或素材访问已暂停，你的说明仍在这页，可复制或导出。');}
     if(this.#edit&&!edit&&this.#draft){this.#candidate=null;this.#phase='paused';this.message('编辑权限已暂停，你的说明仍保留；核对权限后再继续。');}
@@ -65,16 +70,18 @@ export class BoardMetadata {
     $('metadataFolder').value=id;
   }
   tags(){
+    const draft=this.#draft;
     $('metadataTags').replaceChildren();
     this.#draft.data.tags.forEach((tag,index)=>{
       const row=document.createElement('div');row.className='metadata-tag-row';
       const input=document.createElement('textarea');input.rows=Math.min(4,Math.max(1,tag.split(/\r\n|\r|\n/).length));input.maxLength=100;input.value=tag;input.setAttribute('aria-label','标签 '+(index+1));
       // Read existing values from the draft until an actual edit; never normalize
       // embedded line breaks, empty labels or duplicates simply by opening.
-      input.oninput=()=>{if(this.canType()){this.#draft.data.tags[index]=input.value;input.rows=Math.min(4,Math.max(1,input.value.split(/\r\n|\r|\n/).length));this.changed();}};
+      const current=()=>this.canType()&&this.#draft===draft&&row.parentElement===$('metadataTags')&&input.parentElement===row;
+      input.oninput=()=>{if(current()){draft.data.tags[index]=input.value;input.rows=Math.min(4,Math.max(1,input.value.split(/\r\n|\r|\n/).length));this.changed();}};
       const remove=document.createElement('button');remove.type='button';remove.textContent='移除';remove.setAttribute('aria-label','移除标签 '+(index+1));
-      remove.onclick=()=>{if(this.canType()){
-        this.#draft.data.tags.splice(index,1);this.tags();this.changed();
+      remove.onclick=()=>{if(current()){
+        draft.data.tags.splice(index,1);this.tags();this.changed();
         const inputs=$('metadataTags').querySelectorAll('textarea');(inputs[Math.min(index,inputs.length-1)]||$('addMetadataTag')).focus();
       }};
       row.append(input,remove);$('metadataTags').append(row);
@@ -83,11 +90,11 @@ export class BoardMetadata {
   render(){
     const draft=this.#draft;
     $('metadataTarget').textContent='原文件：'+draft.original.filename+' · 素材 '+draft.original.id;
-    $('metadataTitle').value=draft.data.title;$('metadataNotes').value=draft.data.notes;this.tags();
+    $('metadataTitle').value=draft.data.title;$('metadataNotes').value=draft.data.notes;$('metadataFolder').value=draft.data.folderId;this.tags();
   }
   async open(id){
     if(this.#draft&&(this.pending||id===undefined||id===this.#draft.original.id)){
-      if(!$('metadataDialog').open)$('metadataDialog').showModal();
+      if(!$('metadataDialog').open){this.render();$('metadataDialog').showModal();}
       if(id&&id!==this.#draft.original.id)this.message('先处理这份未完成的说明；它仍属于上方标明的原素材。');
       this.controls();return;
     }
