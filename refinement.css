@@ -141,8 +141,15 @@ button,summary,select{transition:none}
 .node .table-scroll{scrollbar-gutter:stable}
 .node.table .edit-table{table-layout:fixed;width:100%}.node.table .edit-table textarea,.node.table .edit-table input{min-width:0}
 .node.table .edit-table th{position:relative}
-.table-column-resize{position:absolute;top:0;bottom:0;right:-3px;width:7px;cursor:col-resize;z-index:5;touch-action:none;pointer-events:auto}
-.table-column-resize:hover,.table-column-resize.resizing{background:var(--ui-accent);opacity:.55}
+.table-column-resize{position:absolute;top:0;bottom:0;right:0;width:calc(12px * var(--canvas-control-scale,1));cursor:col-resize;z-index:5;touch-action:none;pointer-events:auto}
+.node.table th[data-col-target]{position:relative}
+.node:not(.active):not(.immersive-surface) .table-column-resize,.node:not(.table) .table-column-resize,.node.table table table .table-column-resize{display:none}
+.table-column-resize::before{content:'';position:absolute;top:0;bottom:0;right:0;width:calc(2px * var(--canvas-control-scale,1));background:var(--ui-accent);opacity:0;pointer-events:none}
+.table-column-resize:hover,.table-column-resize.resizing,.table-column-resize:focus-visible{opacity:1}
+.table-column-resize:hover::before,.table-column-resize.resizing::before,.table-column-resize:focus-visible::before{opacity:.7}
+.table-column-resize:focus-visible{outline:2px solid var(--ui-accent);outline-offset:2px}
+.table-column-resize::after{content:attr(data-width-text);position:absolute;top:6px;right:calc(10px * var(--canvas-control-scale,1));white-space:nowrap;font:11px/1.5 var(--font-ui,system-ui);color:var(--ui-text);background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:4px;padding:3px 6px;pointer-events:none;display:none;transform:scale(var(--canvas-control-scale,1));transform-origin:right top}
+.table-column-resize.resizing::after,.table-column-resize:focus-visible::after{display:block}
 .node .cell-content .cell-images img{max-height:220px;object-fit:contain}
 .node .cell-content audio{height:34px}
 .node .playback-state{font-size:12px;line-height:1.5;color:inherit;opacity:.8}.node .playback-state.playback-problem{opacity:1}.node .playback-state:not(.playback-problem){display:none}
