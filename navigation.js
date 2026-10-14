@@ -187,3 +187,85 @@
  window.addEventListener('blur',cancelRightClick);
  window.whiteboardNavigation={read,write,fitSelection,arrange};
 })();
+
+// Two fingers navigate the canvas; a remaining finger never turns into a card drag.
+(() => {
+ 'use strict';
+ const contacts=new Map(),finished=new Set(),navigationClicks=new Set();let first=null,pinch=null,draining=false;
+ const surface=target=>{
+  if(!target?.closest?.('#canvas'))return false;
+  if(target.closest('.read-layout [data-preview-id=title][readonly]'))return true;
+  return !target.closest('input,textarea,select,button,a,[contenteditable=true],.inline-ui,audio,video,iframe,#canvasTools,#creationDock,#textSizeTools');
+ };
+ const ready=()=>board&&!loading&&!blocked&&!document.querySelector('dialog[open]');
+ const owns=state=>state&&state.source===board&&state.id===boardId&&!loading;
+ const point=event=>({x:event.clientX,y:event.clientY,surface:!!surface(event.target)});
+ const stop=event=>{event.preventDefault();event.stopImmediatePropagation()};
+ const forget=id=>{finished.delete(id);finished.add(id);while(finished.size>32)finished.delete(finished.values().next().value)};
+ const changed=(a,b)=>['x','y','z'].some(key=>Math.abs(a[key]-b[key])>1e-7);
+ function release(){for(const id of contacts.keys())if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id)}
+ function clear(){for(const [id,p] of contacts)if(p.surface)forget(id);contacts.clear();first=pinch=null;draining=false;document.body.classList.remove('touch-navigation')}
+ function cancel(){
+  const state=pinch;if(owns(state)){const moved=changed(view(),state.view);board.view=clone(state.view);moveView();if(moved)change(true)}
+  // Mark IDs before releasing capture, so late events cannot affect another gesture.
+  for(const [id,p] of contacts)if(p.surface)forget(id);release();clear();
+ }
+ function begin(){
+  if(!owns(first)||!ready())return false;
+  const old=first,priorView=clone(old.view),priorSelection=new Set(old.selected);
+  cancelBeforeTouch();
+  // Ordinary drag cancellation may restore a cloned board. Adopt that same destination.
+  if(boardId!==old.id||loading)return false;
+  board.view=priorView;selected=priorSelection;refreshSelectionUI();moveView();first={...old,source:board};
+  const pair=[...contacts.entries()].slice(0,2);draining=true;
+  for(const [id,p] of contacts)if(p.surface)navigationClicks.add(id);while(navigationClicks.size>32)navigationClicks.delete(navigationClicks.values().next().value);
+  if(pair.every(([,p])=>p.surface)){
+   const [a,b]=pair.map(([,p])=>p),x=(a.x+b.x)/2,y=(a.y+b.y)/2;
+   pinch={source:board,id:boardId,ids:pair.map(([id])=>id),view:clone(view()),distance:Math.max(4,Math.hypot(a.x-b.x,a.y-b.y)),anchor:worldPoint(x,y)};
+   for(const id of pinch.ids)try{canvas.setPointerCapture(id)}catch{}
+   document.body.classList.add('touch-navigation');
+  }
+  return true;
+ }
+ window.addEventListener('pointerdown',event=>{
+  if(event.pointerType!=='touch')return;finished.delete(event.pointerId);navigationClicks.delete(event.pointerId);contacts.set(event.pointerId,point(event));
+  if(contacts.size===1){first=surface(event.target)&&ready()?{source:board,id:boardId,view:clone(view()),selected:new Set(selected)}:null;return}
+  if(!pinch&&!draining){if(!begin())draining=true}
+  if(surface(event.target))navigationClicks.add(event.pointerId);while(navigationClicks.size>32)navigationClicks.delete(navigationClicks.values().next().value);
+  if(pinch||surface(event.target))stop(event);
+ },true);
+ window.addEventListener('pointermove',event=>{
+  if(event.pointerType!=='touch')return;
+  if(finished.has(event.pointerId)){stop(event);return}
+  const previous=contacts.get(event.pointerId);if(!previous)return;contacts.set(event.pointerId,{...previous,x:event.clientX,y:event.clientY});
+  if(pinch){
+   if(!owns(pinch)||!ready()){cancel();stop(event);return}
+   const [a,b]=pinch.ids.map(id=>contacts.get(id));if(!a||!b){stop(event);return}
+   const bounds=canvas.getBoundingClientRect(),z=Math.max(.15,Math.min(32,pinch.view.z*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance));
+   board.view={...pinch.view,x:(a.x+b.x)/2-bounds.left-pinch.anchor.x*z,y:(a.y+b.y)/2-bounds.top-pinch.anchor.y*z,z};moveView();stop(event);
+  }else if(draining&&previous.surface)stop(event);
+ },true);
+ function end(event){
+  if(event.pointerType!=='touch')return;
+  if(finished.has(event.pointerId)){stop(event);return}
+  const p=contacts.get(event.pointerId);if(!p)return;
+  const navigating=!!pinch||draining;
+  if(pinch&&event.type==='pointercancel'){cancel();stop(event);return}
+  if(pinch&&pinch.ids.includes(event.pointerId)){
+   if(owns(pinch)&&changed(view(),pinch.view))change(true);pinch=null;draining=true;document.body.classList.remove('touch-navigation');
+  }
+  if(p.surface)forget(event.pointerId);contacts.delete(event.pointerId);
+  if(!contacts.size){first=null;draining=false}
+  if(navigating&&p.surface)stop(event);
+ }
+ for(const name of ['pointerup','pointercancel'])window.addEventListener(name,end,true);
+ window.addEventListener('click',event=>{if(event.pointerType==='touch'&&navigationClicks.has(event.pointerId))stop(event)},true);
+ window.addEventListener('lostpointercapture',event=>{if(event.pointerType==='touch'&&(pinch||draining||finished.has(event.pointerId)))stop(event)},true);
+ const cancelBeforeTouch=cancelCanvasGesture;cancelCanvasGesture=function(){
+  const navigating=!!pinch||draining;if(navigating){cancel();return true}
+  const result=cancelBeforeTouch();if(contacts.size)clear();return result;
+ };
+ window.addEventListener('keydown',event=>{if(event.key==='Escape'&&(pinch||draining)){stop(event);cancel()}},true);
+ window.addEventListener('blur',()=>{if(pinch||draining)cancel();else clear()});
+ window.addEventListener('creative-board-loading',()=>{if(pinch||draining)cancel();else clear()});
+})();
