@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 const text=(tag,value,className)=>{const item=document.createElement(tag);item.textContent=value;if(className)item.className=className;return item;};
 
 export class BoardLibrary {
-  #query=''; #matches=new Map();
+  #query=''; #matches=new Map(); #selectionReady=false; #listReady=false;
   #api; #insert; #metadata; #folders; #read=false; #edit=false; #epoch=0; #previewEpoch=0; #refreshing=false; #referencesEpoch=0; #checkingReferences=false; #scope; #selected=null; #file=null; #uploading=false; #uncertain=false; #next=null; #items=new Map(); #singleLimit=Infinity;
   constructor(api,insert,scope){
     this.#api=api;this.#insert=insert;this.#scope=Object.freeze({...scope});
@@ -19,7 +19,7 @@ export class BoardLibrary {
       if(this.#query)$('mediaMessage').textContent='素材说明已改变，请刷新核对查找结果。';
       if(this.#selected?.id===asset.id){this.#selected=asset;this.caption(asset);}
     });
-    $('editMetadata').onclick=()=>{if(this.#selected)this.#metadata.open(this.#selected.id);};
+    $('editMetadata').onclick=()=>{if(this.#read&&this.#selectionReady&&!this.#refreshing&&$('mediaDialog').open&&this.#selected)this.#metadata.open(this.#selected.id);};
     $('showMedia').onclick=()=>this.open();$('closeMedia').onclick=()=>this.close();
     $('mediaDialog').addEventListener('cancel',event=>{event.preventDefault();this.close();});
     $('mediaDialog').addEventListener('close',()=>{if(!$('mediaDialog').open)this.clearMedia();});
@@ -47,25 +47,29 @@ export class BoardLibrary {
     this.#metadata.sync(read,edit);
     this.#folders.sync(read,edit);
     if(stopped){
-      this.#epoch++;this.#previewEpoch++;this.#refreshing=false;this.clearReferences();this.#items.clear();this.#matches.clear();this.#selected=null;
+      this.#epoch++;this.#previewEpoch++;this.#refreshing=false;this.#selectionReady=false;this.#listReady=false;this.clearReferences();this.#items.clear();this.#matches.clear();this.#selected=null;
       stopMedia($('mediaDialog'));$('mediaPreview').replaceChildren();$('mediaItems').replaceChildren();
       $('mediaDetails').hidden=true;$('mediaMessage').textContent='素材访问已暂停，请在新页面核对登录与权限。';
     }
     if(stopped||withdrawn){this.#api.cancel();if(this.#uploading)this.#uncertain=true;}
     this.controls();
   }
-  clearMedia(){this.#epoch++;this.#previewEpoch++;this.#refreshing=false;this.clearReferences();stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();}
+  clearMedia(){this.#epoch++;this.#previewEpoch++;this.#refreshing=false;this.#selectionReady=false;this.clearReferences();stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();}
   close(){this.clearMedia();$('mediaDialog').close();}
   controls(){
     $('mediaSearch').disabled=$('searchMedia').disabled=$('clearMediaSearch').disabled=!this.#read;
     $('showMedia').disabled=!this.#read;$('refreshMedia').disabled=!this.#read||this.#refreshing;$('moreMedia').disabled=!this.#read||this.#refreshing;
     $('mediaItems').setAttribute('aria-busy',String(this.#refreshing));
-    for(const button of $('mediaItems').children)button.disabled=!this.#read||this.#refreshing;
+    for(const button of $('mediaItems').children)button.disabled=!this.#read||this.#refreshing||!this.#listReady;
     $('mediaFile').disabled=$('uploadFolder').disabled=!this.#edit||this.#uploading||this.#refreshing;
     $('uploadMedia').disabled=!this.#edit||!this.#file||this.#uploading||this.#refreshing;
     $('cancelUpload').hidden=!this.#uploading;
-    $('insertMedia').disabled=!this.#edit||!this.#selected||this.#refreshing;
-    $('findMediaReferences').disabled=!this.#read||!this.#selected||this.#checkingReferences||this.#refreshing;
+    const unavailable=!this.#read||!this.#selected||!this.#selectionReady||this.#refreshing;
+    $('insertMedia').disabled=!this.#edit||unavailable;
+    $('editMetadata').disabled=unavailable;
+    $('downloadMedia').setAttribute('aria-disabled',String(unavailable));
+    for(const button of $('mediaPreview').querySelectorAll('button'))button.disabled=unavailable||button.dataset.unavailable==='true';
+    $('findMediaReferences').disabled=unavailable||this.#checkingReferences;
     $('moreMedia').hidden=!this.#next;
     $('mediaReadOnly').hidden=this.#edit;
   }
@@ -114,17 +118,22 @@ export class BoardLibrary {
     const oldFolder=$('uploadFolder').value,cursor=more?this.#next:null;
     if(more&&!cursor)return;
     this.#refreshing=true;this.clearReferences();this.controls();
+    if(oldSelection)$('mediaSelectionState').textContent='正在核对当前预览…';
     $('mediaMessage').textContent=query?'正在查找“'+query+'”…':'正在读取这个工作区的素材…';
-    if(!more){this.#next=null;this.#matches.clear();this.#items.clear();$('mediaItems').replaceChildren();stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();this.#selected=null;$('mediaDetails').hidden=true;this.controls();}
     try{
       await this.#api.access();
-      const [reply,folders,quota]=await Promise.all([query?this.#api.search(query):this.#api.list(cursor),this.#api.folders(),this.#api.quota()]);
+      // A filtered page is not an absence check. Recheck the selected original
+      // separately, in the same fixed account/workspace, before enabling actions.
+      const [reply,folders,quota,current]=await Promise.all([query?this.#api.search(query):this.#api.list(cursor),this.#api.folders(),this.#api.quota(),
+        oldSelection?this.#api.read(oldSelection.id).catch(error=>{if(error.status===404)return null;throw error;}):null]);
       const list=query?{items:reply.items.map(row=>row.asset),next:null}:reply;
       await this.#api.access();if(epoch!==this.#epoch||!this.#read)return;
-      if(!more){this.#items.clear();$('mediaItems').replaceChildren();}
+      if(!more){this.#items.clear();this.#matches.clear();}
       if(query)for(const row of reply.items)this.#matches.set(row.asset.id,row);
       for(const asset of list.items)this.#items.set(asset.id,asset);
-      this.#next=list.next;this.drawList();
+      if(current&&this.#items.has(current.id))this.#items.set(current.id,current);
+      if(oldSelection&&!current){this.#items.delete(oldSelection.id);this.#matches.delete(oldSelection.id);}
+      this.#listReady=true;this.#next=list.next;this.drawList();
       this.#singleLimit=quota.singleUploadLimitBytes;
       $('uploadFolder').replaceChildren(new Option('资料库根目录',''));
       for(const folder of folders)$('uploadFolder').append(new Option(folder.name,folder.id));
@@ -137,13 +146,24 @@ export class BoardLibrary {
         (quota.workspacePendingBytes?` · 另有 ${bytesLabel(quota.workspacePendingBytes)} 待确认`:'')+` · 单文件上限 ${bytesLabel(quota.singleUploadLimitBytes)}`;
       $('mediaMessage').textContent=query?'“'+query+'” · '+this.#items.size+' 个结果'+(reply.coverage==='limited'?' · 本次只检查了部分素材；没有结果也不代表不存在。清除查找后仍可继续翻看列表。':this.#items.size?' · 点击查看原素材':' · 可以换个线索，或清除查找'):
         this.#items.size?this.#items.size+' 个素材已显示'+(this.#next?' · 可继续加载':''):'这里还没有素材，放入自己的文件即可开始。';
-      if(!more)this.#selected=oldSelection;
-      if(this.#selected){
-        const asset=this.#items.get(this.#selected.id);
-        if(asset)this.select(asset,false);else{stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();this.#selected=null;$('mediaDetails').hidden=true;}
+      this.#refreshing=false;
+      if(current)this.select(current,false);
+      else if(oldSelection){
+        this.#previewEpoch++;stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();this.#selected=null;this.#selectionReady=false;$('mediaDetails').hidden=true;
+        $('mediaMessage').textContent+=' · 原预览素材已无法读取，请重新选择。';
       }
       this.controls();
-    }catch(error){if(epoch===this.#epoch)$('mediaMessage').textContent=error.message;}
+    }catch(error){if(epoch===this.#epoch){
+      if([401,403].includes(error.status)||error.code==='account_changed')this.sync(false,false);
+      else{
+        this.#selectionReady=false;this.#listReady=false;this.#previewEpoch++;
+        // Keep the user's place and prior result list, but do not continue an
+        // unconfirmed player or fetch from an unconfirmed preview control.
+        for(const player of $('mediaPreview').querySelectorAll('audio,video'))player.pause();
+        if(oldSelection)$('mediaSelectionState').textContent='当前预览未确认；播放已暂停，请刷新核对后继续。';
+      }
+      $('mediaMessage').textContent=error.message;
+    }}
     finally{if(epoch===this.#epoch){this.#refreshing=false;this.controls();}}
   }
   drawList(){
@@ -154,19 +174,25 @@ export class BoardLibrary {
       button.append(text('span',({image:'▧',audio:'♫',video:'▷',attachment:'↧'})[asset.kind],'media-symbol'),
         text('strong',asset.title||asset.filename),text('span',bytesLabel(asset.size)+' · '+(asset.folder||'根目录'),'media-item-caption'));
       const match=this.#matches.get(asset.id);if(match)button.append(text('span',match.context+' · '+match.excerpt,'media-search-match'));
-      button.disabled=!this.#read||this.#refreshing;button.onclick=()=>{if(!this.#refreshing)this.select(asset);};$('mediaItems').append(button);
+      button.disabled=!this.#read||this.#refreshing||!this.#listReady;button.onclick=()=>{if(button.parentElement===$('mediaItems')&&this.#listReady&&!this.#refreshing)this.select(asset);};$('mediaItems').append(button);
     }
   }
   select(asset,reveal=true){
-    this.#previewEpoch++;
+    if(!this.#read||!this.#listReady||this.#refreshing||!$('mediaDialog').open)return;
+    const old=this.#selected,same=old&&['id','contentHash','size','mime','mediaURL'].every(key=>old[key]===asset[key])&&$('mediaPreview').children.length>0;
     this.clearReferences();
-    this.#selected=asset;stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();$('mediaPreview').dataset.kind=asset.kind;$('mediaDetails').hidden=false;
+    this.#selected=asset;this.#selectionReady=true;$('mediaDetails').hidden=false;
     this.caption(asset);
-    const html=canPreviewHTML(asset),preview=text('button',html?'查看HTML静态排版':asset.kind==='attachment'?'此文件只提供下载':'打开'+({image:'图片',audio:'音频',video:'视频'})[asset.kind]);
-    preview.disabled=asset.kind==='attachment'&&!html;preview.onclick=()=>this.preview(asset);$('mediaPreview').append(preview);
+    $('mediaSelectionState').textContent=this.#items.has(asset.id)?'当前预览':'当前预览 · 不在这页结果中；仍可继续查看和使用。';
+    if(!same){
+      this.#previewEpoch++;stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();$('mediaPreview').dataset.kind=asset.kind;
+      const html=canPreviewHTML(asset),preview=text('button',html?'查看HTML静态排版':asset.kind==='attachment'?'此文件只提供下载':'打开'+({image:'图片',audio:'音频',video:'视频'})[asset.kind]);
+      preview.dataset.unavailable=String(asset.kind==='attachment'&&!html);preview.onclick=()=>this.preview(this.#selected);$('mediaPreview').append(preview);
+    }
     $('downloadMedia').href=asset.mediaURL;$('downloadMedia').download=asset.filename;
     $('downloadMedia').onclick=async event=>{
       event.preventDefault();const epoch=this.#epoch;
+      if(!this.#read||!this.#selectionReady||this.#refreshing||!$('mediaDialog').open)return;
       try{await this.#api.access();await this.#api.read(asset.id);if(epoch!==this.#epoch||!this.#read)return;
         const link=document.createElement('a');link.href=this.#api.url(asset.id);link.download=asset.filename;document.body.append(link);link.click();link.remove();
       }catch(error){$('mediaMessage').textContent=error.message;}
@@ -184,7 +210,7 @@ export class BoardLibrary {
     $('mediaReferenceRows').replaceChildren();$('mediaReferenceCounts').replaceChildren();$('mediaReferenceState').textContent='';this.controls();
   }
   async references(){
-    if(!this.#read||!this.#selected||this.#checkingReferences)return;
+    if(!this.#read||!this.#selectionReady||!this.#selected||this.#checkingReferences||this.#refreshing||!$('mediaDialog').open)return;
     const asset=this.#selected,epoch=++this.#referencesEpoch;
     this.#checkingReferences=true;$('mediaReferences').hidden=false;$('mediaReferenceTarget').textContent=asset.title||asset.filename;
     $('findMediaReferences').setAttribute('aria-expanded','true');$('findMediaReferences').textContent='重新检查关联';
@@ -226,15 +252,16 @@ export class BoardLibrary {
     finally{if(epoch===this.#referencesEpoch){this.#checkingReferences=false;this.controls();}}
   }
   async preview(asset){
-    const epoch=this.#epoch,token=++this.#previewEpoch;
-    const valid=()=>epoch===this.#epoch&&token===this.#previewEpoch&&this.#read&&this.#selected?.id===asset.id&&$('mediaDialog').open;
+    if(!asset||!this.#read||!this.#selectionReady||this.#refreshing||this.#selected?.id!==asset.id||!$('mediaDialog').open)return;
+    const token=++this.#previewEpoch;
+    const valid=()=>token===this.#previewEpoch&&this.#read&&this.#selectionReady&&this.#selected?.id===asset.id&&$('mediaDialog').open;
     stopMedia($('mediaPreview'));$('mediaPreview').textContent='正在核对素材…';
     try{
       await this.#api.access();const current=await this.#api.read(asset.id);
       if(!valid())return;
       if(canPreviewHTML(current)){
         const plan=await this.#api.htmlPreview(current);if(!valid())return;
-        const frame=htmlPreviewFrame(plan,current.title||current.filename,()=>{if(valid())this.close();}),hint=text('p','静态排版预览。'+(plan.omittedMarkup?'部分内容已略过，':'')+'交互、链接与外部资源不会运行；原文件保留，可下载完整查看。','static-html-caption');
+        const frame=htmlPreviewFrame(plan,current.title||current.filename,()=>this.close()),hint=text('p','静态排版预览。'+(plan.omittedMarkup?'部分内容已略过，':'')+'交互、链接与外部资源不会运行；原文件保留，可下载完整查看。','static-html-caption');
         frame.onload=async()=>{if(!valid())return;try{await this.#api.access();const fresh=await this.#api.read(current.id);
           if(!valid())return;if(fresh.contentHash!==plan.contentHash)throw Error('原文件已改变，请重新核对预览。');
         }catch(error){if(valid()){this.#previewEpoch++;stopMedia($('mediaPreview'));$('mediaPreview').textContent=error.message;}}};
@@ -265,7 +292,7 @@ export class BoardLibrary {
     finally{this.#uploading=false;this.controls();}
   }
   async insert(){
-    if(!this.#edit||!this.#selected||this.#refreshing)return;const asset=this.#selected,epoch=this.#epoch;
+    if(!this.#edit||!this.#selectionReady||!this.#selected||this.#refreshing||!$('mediaDialog').open)return;const asset=this.#selected,epoch=this.#epoch;
     $('insertMedia').disabled=true;
     try{await this.#api.access(true);const current=await this.#api.read(asset.id);
       if(epoch!==this.#epoch||!this.#edit)return;this.#insert(current);this.close();

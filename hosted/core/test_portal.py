@@ -128,6 +128,7 @@ class PortalTests(TestCase):
             for secret in [value['name'], value['nodes'][0]['body'], self.shared.name, self.owner.display_name]:
                 self.assertNotIn(secret, text)
             self.assertIn('board-editor.js', text)
+            self.assertIn('id="mediaSelectionState" class="caption" role="status" aria-live="polite"', text)
             self.assertNotIn('unsafe-inline', response['Content-Security-Policy'])
             self.assertIn("img-src 'self'", response['Content-Security-Policy'])
             self.assertIn("media-src 'self'", response['Content-Security-Policy'])

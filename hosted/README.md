@@ -1445,3 +1445,44 @@ confirmation/unknown deletion arguments and unchanged database, all model rows,
 quota and every retained file hash. No hosted browser or public endpoint is
 added, and no schema or backup format changes are needed. This is draft
 development code; it remains unmerged and undeployed.
+
+### Keep the current library preview through list changes (development)
+
+Refreshing, loading another page, submitting a search or selecting the same
+registered original keeps its existing image, audio/video player or static
+HTML frame mounted. The controller compares the original ID, content hash,
+size, MIME type and fixed-account media URL. Metadata-only updates change the
+caption in place. Changing the selected source, closing the library or losing
+original-account access still stops and clears it. Playback is never started
+automatically.
+
+A selected original outside the current forty-item page or search results is
+read separately through the existing scoped API. It is labelled as the current
+preview, outside this page's results; it is not inserted into those results.
+Successful reads also recheck the original account/workspace access. A failed
+read keeps the prior visible list and selection, pauses audio/video and disables
+unconfirmed selection/preview/use/download actions. Explicit refresh enables
+them after successful rechecking, without replaying a paused player. An actual
+missing registration clears the selection; an empty filtered page does not.
+Late reads and detached old list buttons cannot reopen a closed preview.
+
+The static HTML frame's existing opaque-origin Escape bridge can still close
+the library after a failed list read. The bridge itself continues to require
+the mounted source frame and its exact message type; no content or workspace
+write is added. This applies the clear-exit principle in
+[NN/G's user control and freedom heuristic](https://www.nngroup.com/articles/user-control-and-freedom/)
+to the original library while keeping result changes separate from the user's
+explicit playback choice.
+
+Local checks use the actual library controller for seven asynchronous cases
+and the existing shell test for original scope and the visible preview status.
+Independent synthetic localhost HTTPS checks reproduce the former interruption
+and verify eleven distinct native behaviors across the main nine groups and two
+focused image/download/viewer groups. These include a real explicitly played
+WAV, paging beyond forty items, peer metadata changes, search, failed connections,
+late responses, 320px layout, static HTML Escape and an actual account switch.
+Original board/history/submission rows and all 45 synthetic file hashes remain
+unchanged; only the intentionally edited peer metadata record changes in the
+main fixture. This is not new file deletion/recovery tooling, physical-device
+acceptance, public certificate verification or a deployment. The hosted branch
+remains draft, unmerged and undeployed.
