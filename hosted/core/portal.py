@@ -22,6 +22,7 @@ ASSETS = {
     "workspace-search.js": "text/javascript",
     "board-transport.js": "text/javascript", "board-drafts.js": "text/javascript",
     "board-session.js": "text/javascript",
+    "board-reconciliation.js": "text/javascript",
     "board-editor.js": "text/javascript", "board-editor.css": "text/css",
     "markdown-it.js": "text/javascript",
     "board-media.js": "text/javascript", "board-library.js": "text/javascript",

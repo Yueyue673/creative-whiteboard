@@ -32,7 +32,10 @@
     <div class="canvas-caption"><span id="nodeCount">正在读取…</span><span>拖动空白平移 · 滚轮缩放</span></div>
   </section>
   <aside id="inspector" class="inspector" hidden aria-label="专注编辑便签">
-    <div class="panel-heading"><div><span id="inspectorEyebrow" class="eyebrow">你的原文</span><h2 id="inspectorTitle">专注这一张</h2></div><div class="inspector-heading-actions"><button id="showViewsFromNote" aria-expanded="false" data-reference-read>视角</button><button id="closeInspector" aria-label="关闭便签编辑">×</button></div></div>
+    <div class="inspector-header">
+      <div class="panel-heading"><div><span id="inspectorEyebrow" class="eyebrow">你的原文</span><h2 id="inspectorTitle">专注这一张</h2></div><div class="inspector-heading-actions"><button id="showViewsFromNote" aria-expanded="false" data-reference-read>视角</button><button id="closeInspector" aria-label="关闭便签编辑">×</button></div></div>
+      <div id="inspectorHistory" class="inspector-history" hidden></div>
+    </div>
     <button id="returnReference" class="reference-return" hidden data-reference-read></button>
     <div id="noteFields">
     <label>标题<input id="noteTitle" placeholder="标题由你来写"></label>

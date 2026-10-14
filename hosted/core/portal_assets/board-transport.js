@@ -1,4 +1,5 @@
 /* This page owns one immutable destination. A newer cookie is never an identity. */
+import {validateLiveBoard} from './board-reconciliation.js';
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const KEY = /^[A-Za-z0-9_-]{1,100}$/;
 const ETAG = /^"[a-f0-9]{64}"$/;
@@ -34,11 +35,11 @@ export class BoardTransport {
   get base() { return `/w/${this.#scope.workspace}/api/`; }
   get boardURL() { return this.base + 'boards/' + this.#scope.key; }
 
-  async #request(path, method = 'GET', raw, expected, timeoutMs = 30000) {
+  async #request(path, method = 'GET', raw, expected, timeoutMs = 30000, live = false) {
     const headers = {'Accept': 'application/json', 'X-Creative-Account': String(this.#scope.account)};
     if (method !== 'GET') headers['X-CSRFToken'] = csrf();
     if (raw !== undefined) headers['Content-Type'] = 'application/json';
-    if (expected !== undefined) headers['If-Match'] = expected;
+    if (expected !== undefined) headers[method==='GET'?'If-None-Match':'If-Match'] = expected;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -49,13 +50,22 @@ export class BoardTransport {
       } catch {
         throw new BoardError('连接中断或等待超时，输入仍在当前页面；请检查连接后再试。', 0, 'offline');
       }
-      let value;
-      try { value = await response.json(); }
+      const scopeHeaders = () => {
+        const role=response.headers.get('X-Creative-Role');
+        if(response.headers.get('X-Creative-Account')!==String(this.#scope.account)||response.headers.get('X-Creative-Workspace')!==this.#scope.workspace||response.headers.get('X-Creative-Board')!==this.#scope.key||!['owner','editor','viewer'].includes(role))throw new BoardError('共同编辑返回的所属信息无法核对，原输入保留。',0,'protocol');
+        return role;
+      };
+      if(live && response.status===304){
+        if(method!=='GET'||!validETag(expected)||response.headers.get('ETag')!==expected)throw new BoardError('共同编辑版本无法核对。',0,'protocol');
+        return {unchanged:true,etag:expected,role:scopeHeaders()};
+      }
+      let value, originalRaw;
+      try { originalRaw=await response.text(); value = JSON.parse(originalRaw); }
       catch {
         throw new BoardError('服务器没有返回可核对的结果，请保留输入后再检查。', response.status, 'protocol');
       }
       if (!response.ok) throw new BoardError(value?.error || '操作未完成，请保留当前输入。', response.status, value?.code || 'request_failed', value);
-      return {value, etag: response.headers.get('ETag')};
+      return {value, originalRaw, etag: response.headers.get('ETag'),...(live?{role:scopeHeaders()}:{})};
     } finally { clearTimeout(timeout); }
   }
 
@@ -82,6 +92,23 @@ export class BoardTransport {
     const result = await this.#request(this.boardURL, 'PUT', raw, expected);
     if (result.value?.saved !== true || !validETag(result.etag))
       throw new BoardError('保存结果无法核对，输入仍保留；请在新页面检查服务器版本。', 0, 'protocol');
+    return result;
+  }
+
+  async readLatest(expected) {
+    if(!validETag(expected))throw new TypeError('缺少原白板版本');
+    const result=await this.#request(this.boardURL+'/live','GET',undefined,expected,10000,true);
+    if(!validETag(result.etag))throw new BoardError('共同编辑缺少可核对的版本。',0,'protocol');
+    if(!result.unchanged)try{validateLiveBoard(result.value,result.originalRaw);}catch(error){throw new BoardError(error.message,0,'protocol',{originalRaw:result.originalRaw});}
+    return result;
+  }
+
+  async reconcile(raw, expected) {
+    if(!validETag(expected))throw new TypeError('缺少原白板版本');
+    const board=validateLiveBoard(JSON.parse(raw),raw);
+    const result=await this.#request(this.boardURL+'/reconcile','POST',JSON.stringify({baseETag:expected,board}),undefined,30000,true);
+    if(result.value?.saved!==true||typeof result.value.merged!=='boolean'||!validETag(result.etag))throw new BoardError('接续保存结果无法核对，原输入仍保留。',0,'protocol');
+    try{validateLiveBoard(result.value.board,result.originalRaw);}catch(error){throw new BoardError('这次已收到保存确认，但完整白板未核对；请保留当前输入。',0,'protocol',{accepted:true});}
     return result;
   }
 }

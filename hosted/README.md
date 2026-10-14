@@ -25,7 +25,7 @@ It is not a deployment authorization or evidence of external HTTPS, full device
 support, safe file cleanup or real-time merging. Actual Linux/container workflow
 results are required; desktop Linux tests do not substitute for hosted checks.
 
-## Original-value reconciliation (server foundation; editor integration pending)
+## Original-value reconciliation and limited editor collaboration (development)
 
 An explicit `POST /w/<workspace>/api/boards/<key>/reconcile` accepts only
 `{"baseETag": "the original strong tag", "board": <the complete author input>}`.
@@ -49,10 +49,43 @@ submission's new nodes. A stale no-op creates no revision or false author update
 A successful response is the authoritative combined board. An editor must adopt
 or safely rebase that full result before its next save; keeping the old local
 snapshot with the new ETag would overwrite the other author's changes. The
-current spatial editor does **not** call this endpoint yet. Live receiving,
-foreground input/gesture preservation, per-page camera and safe collaborative
-Undo are still required. This endpoint is not a realtime transport, character
-CRDT, full concurrent table editing or deployed collaboration.
+spatial editor now calls this endpoint for existing boards. After acknowledgement,
+it rechecks identity/membership, adopts the full result and rebases subsequent
+local typing only when original-value groups remain independent. An overlap after
+acknowledgement keeps later input and its old recovery base; it does not label that
+later input saved or automatically retry a failed write.
+
+Clean visible pages check `GET /boards/<key>/live` approximately every 2.5 seconds.
+Conditional replies include the fixed original account/workspace/board and fresh
+role even when the version is unchanged. Dirty input, composition, a captured
+gesture and pending modal operations defer receiving. Changes to the clean focused
+note wait until the author leaves that field; unrelated note updates preserve its
+caret and selection. Local camera/navigation do not follow another page's view.
+Accepted saves wait for active composition/gestures before adopting a result.
+
+Undo applies the inverse of this page's own operation to the current originals.
+Independent peer fields and appended nodes survive; a later overlapping edit
+refuses Undo without popping its history entry. In small windows the same existing
+Undo/Redo buttons move into the sticky editor heading, where the inspector no
+longer covers them; closing or widening returns them to the canvas toolbar.
+Updates use a polite status line without moving keyboard focus, informed by
+[W3C status messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html)
+and [focus visibility](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
+These are implementation choices checked with real operations, not an
+accessibility certification.
+
+Unsupported JavaScript number representations stop editing before lossy conversion;
+the exact originally returned JSON remains exportable. This includes unsafe
+integers, excessive decimal precision and integral decimal tokens whose integer
+type would otherwise change. Recovery input has the same guard.
+
+This is bounded original-value collaboration, with periodic reads rather than a
+push transport. It is not character CRDT merging, full concurrent table editing,
+hardware input-method/device acceptance or deployed collaboration. Isolated native
+Windows Chromium HTTPS operations use synthetic accounts and data; browser TLS
+errors are ignored only for that temporary local certificate. They do not prove
+external-domain HTTPS or actual multi-device acceptance. Independent trusted-CA
+preflight and Linux/container recovery checks are separate.
 
 The related no-op guard now compares canonical JSON bytes, so opaque Boolean,
 integer and decimal changes are actually stored instead of Python equality

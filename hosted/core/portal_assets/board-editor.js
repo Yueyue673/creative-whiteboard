@@ -7,11 +7,12 @@ import {SpatialViews,fitRegion} from './board-views.js';
 import {FrameEditor,frameCard,framePatch} from './board-frames.js';
 import {TableEditor,tableCard} from './board-tables.js';
 import {MediaCues} from './media-cues.js';
+import {OwnHistory,valueEqual,validateLiveBoard} from './board-reconciliation.js';
 
 const $ = id => document.getElementById(id);
 const context = Object.freeze(JSON.parse($('board-context').textContent));
 const scope = Object.freeze({account: context.account.id, workspace: context.workspace, key: context.key});
-const session = new BoardSession(scope);
+const session = new BoardSession(scope,{reconcile:true,onAdopt:adoptCanonical,canReceive:canReceiveCanonical,waitForAdoption});
 const destination = `/w/${scope.workspace}/b/${scope.key}/`;
 const colours = [['#f0d79e','麦纸'],['#e7bbc5','玫瑰'],['#bed5c5','苔绿'],['#c9c2e8','雾紫'],['#bcd2df','雨蓝'],['#e8e5dc','素白'],['#343943','石墨']];
 const parser = window.markdownit({html: false, linkify: false, typographer: false, breaks: true});
@@ -23,7 +24,21 @@ parser.renderer.rules.link_open = (tokens,index,options,env,self) => {
   return linkOpen(tokens,index,options,env,self);
 };
 let board = null, selected = null, creating = context.create, saveTimer, selectedRecovery = null, recoveryEpoch = 0, editorError = '';
-let view = {x: 48, y: 55, z: 1}, undoStack = [], redoStack = [], historyBytes = 0, inputGroup = null;
+let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='';
+const ownHistory=new OwnHistory();
+const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling;
+function syncHistoryControls(){
+  const narrow=narrowEditor.matches&&!$('inspector').hidden,host=narrow?$('inspectorHistory'):historyHome;
+  for(const[id,label,icon]of [['undo','撤销','↶'],['redo','重做','↷']]){
+    const button=$(id);if(button.parentElement!==host){if(narrow)host.append(button);else host.insertBefore(button,historyAnchor);}
+    button.textContent=narrow?icon+' '+label:icon;
+  }
+  $('inspectorHistory').hidden=!narrow;
+}
+narrowEditor.addEventListener('change',syncHistoryControls);
+new MutationObserver(syncHistoryControls).observe($('inspector'),{attributes:true,attributeFilter:['hidden']});
+syncHistoryControls();
+const adoptionWaiters=new Set();
 const stateCanEdit = () => board && ['ready','offline','conflict'].includes(session.state.status);
 const selectedNode=()=>board?.nodes.find(node=>node.id===selected);
 const editableInspector=()=>['note','frame','table'].includes(selectedNode()?.type);
@@ -85,23 +100,22 @@ function zoom(factor, clientX, clientY) {
 }
 function checkpoint(group = null) {
   if(!stateCanEdit() || (group && inputGroup===group))return;
-  const raw=rawBoard(); if(undoStack.at(-1)!==raw){undoStack.push(raw);historyBytes+=new TextEncoder().encode(raw).length;}
-  while(undoStack.length>30 || (historyBytes>24*1024*1024 && undoStack.length>1))historyBytes-=new TextEncoder().encode(undoStack.shift()).length;
-  redoStack=[];inputGroup=group;
+  ownHistory.begin(board);inputGroup=group;historyMessage='';
 }
 function scheduleSave() {
   clearTimeout(saveTimer);
-  if(!editorError && session.state.status==='ready' && session.state.dirty)saveTimer=setTimeout(()=>performSave(),1000);
+  if(!gesture&&!composing&&!editorError && session.state.status==='ready' && session.state.dirty)saveTimer=setTimeout(()=>performSave(),1000);
 }
 function commit(draw = true) {
   if(!stateCanEdit())return;
+  ownHistory.record(board);
   try { session.updateRaw(rawBoard()).catch(()=>{}); editorError=''; }
   catch(error){editorError=error.message+' 当前输入仍在页面，可导出；缩减内容后再保存。';clearTimeout(saveTimer);}
-  if(draw)drawCanvas();refreshState();scheduleSave();
+  if(draw)drawCanvas(true);refreshState();scheduleSave();
 }
 async function performSave() {
   clearTimeout(saveTimer);
-  if(!board || editorError || !['ready','offline'].includes(session.state.status))return;
+  if(!board ||gesture||composing|| editorError || !['ready','offline'].includes(session.state.status))return;
   try {
     const result=await session.save();
     if(creating && result.saved){creating=false;$('createPanel').hidden=true;history.replaceState(null,'',destination);}
@@ -119,20 +133,21 @@ function refreshState() {
   if(mediaAllowed&&!canRead){mediaEpoch++;for(const entry of mediaCards.values()){stopMedia(entry.card);entry.card.remove();}mediaCards.clear();}
   mediaAllowed=canRead;library.sync(canRead,Boolean(editable)&&state.status==='ready');
   if(resumed)drawCanvas();
-  $('saveState').textContent=editorError || state.message || (state.status==='readonly'?'只读 · 原文可以查看与导出':state.saving?'正在保存…':state.dirty?'修改仍在当前页面':board?'已保存':'正在打开…');
+  $('saveState').textContent=historyMessage || editorError || state.message || (state.status==='readonly'?'只读 · 原文可以查看与导出':state.saving?'正在保存…':state.dirty?'修改仍在当前页面':board?'已保存':'正在打开…');
   $('saveState').dataset.stopped=String(Boolean(editorError)||['paused','readonly','conflict','offline'].includes(state.status));
-  $('localState').textContent=editorError?'较早的浏览器副本不包含这次超限输入，请先导出当前原文。':state.local==='stored'&&state.dirty?'浏览器副本已保留':state.local==='pending'?'正在保留浏览器副本…':state.localError || '';
+  const localText=editorError?'较早的浏览器副本不包含这次超限输入，请先导出当前原文。':state.local==='stored'&&state.dirty?'浏览器副本已保留':state.local==='pending'?'正在保留浏览器副本…':state.localError || state.liveMessage || '';
+  if($('localState').textContent!==localText)$('localState').textContent=localText;
   $('boardName').readOnly=!editable;
   $('addNote').disabled=!editable;$('addFrame').disabled=!editable;$('addTable').disabled=!editable;
   $('saveBoard').disabled=!board || Boolean(editorError) || !['ready','offline'].includes(state.status) || state.saving || !state.dirty;
   $('saveBoard').textContent=state.saving?'保存中':'保存';
   $('exportBoard').disabled=!state.raw;
-  $('undo').disabled=!editable || !undoStack.length;$('redo').disabled=!editable || !redoStack.length;
+  $('undo').disabled=!editable || !ownHistory.undoEntries.length;$('redo').disabled=!editable || !ownHistory.redoEntries.length;
   for(const input of $('inspector').querySelectorAll('input,textarea')){
     if(['text','number'].includes(input.type)||input.tagName==='TEXTAREA')input.readOnly=!editable;
     else input.disabled=!editable;
   }
-  for(const button of $('inspector').querySelectorAll('button,select'))if(button.id!=='closeInspector')button.disabled=button.hasAttribute('data-reference-read')?!canBrowseReferences():!editable;
+  for(const button of $('inspector').querySelectorAll('button,select'))if(!['closeInspector','undo','redo'].includes(button.id))button.disabled=button.hasAttribute('data-reference-read')?!canBrowseReferences():!editable;
   $('noteHeight').readOnly=!editable || activeNode()?.sizeMode==='auto';frames.sync();tables.sync();cues.sync();
   $('applyRecovery').disabled=!editable;
   if(['paused','readonly','conflict','offline'].includes(state.status))clearTimeout(saveTimer);
@@ -205,7 +220,7 @@ function mediaCard(node){
   };
   return card;
 }
-function drawCanvas() {
+function drawCanvas(allowResize=false) {
   if(!board)return;let resized=false;
   referenceIndex.update(board);
   const cards=$('cards');
@@ -236,7 +251,8 @@ function drawCanvas() {
     card.style.height=node.type==='note'&&node.sizeMode==='auto'?'auto':node.h+'px';if(card.parentNode!==cards)cards.append(card);
     if(node.type==='note'&&node.sizeMode==='auto'){
       const height=clamp(card.offsetHeight,96,20000);card.style.height=height+'px';
-      if(stateCanEdit()&&node.h!==height){node.h=height;resized=true;}
+      const before=ownHistory.pending?.before.nodes.find(item=>item.id===node.id);
+      if(allowResize&&ownHistory.pending&&(!before||!valueEqual(before,node))&&stateCanEdit()&&node.h!==height){node.h=height;resized=true;}
     }
     card.onkeydown=event=>{if(event.target===card&&event.key==='Enter'){event.preventDefault();selectNode(node.id);}};
   }
@@ -345,8 +361,9 @@ function format(kind) {
 }
 for(const button of document.querySelectorAll('[data-format]')){button.onpointerdown=event=>event.preventDefault();button.onclick=()=>format(button.dataset.format);}
 function travelHistory(redo) {
-  if(!stateCanEdit())return;const source=redo?redoStack:undoStack,target=redo?undoStack:redoStack;if(!source.length)return;
-  target.push(rawBoard());board=JSON.parse(source.pop());historyBytes=undoStack.reduce((sum,raw)=>sum+new TextEncoder().encode(raw).length,0);inputGroup=null;
+  if(!stateCanEdit())return;
+  let next;try{next=ownHistory.apply(board,redo);}catch{historyMessage='这部分又被修改，未撤销或重做后来的内容。';refreshState();return;}if(!next)return;
+  board=next;inputGroup=null;historyMessage='';
   $('boardName').value=board.name;commit();if(editableInspector())selectNode(selected);else{$('inspector').hidden=true;selected=null;}
 }
 $('undo').onclick=()=>travelHistory(false);$('redo').onclick=()=>travelHistory(true);
@@ -390,8 +407,12 @@ function finishGesture(event) {
   if(gesture.kind!=='pinch'&&!gesture.moved&&gesture.node)selectNode(gesture.node.id);
   if(['node','resize'].includes(gesture.kind)&&gesture.moved)drawOutline();
   gesture=null;
+  releaseAdoption();scheduleSave();
+  if(renderPending)renderCanonical();
 }
 $('canvas').onpointerup=finishGesture;$('canvas').onpointercancel=finishGesture;
+$('canvas').onlostpointercapture=finishGesture;
+window.addEventListener('blur',()=>{if(gesture){pointers.clear();gesture=null;releaseAdoption();scheduleSave();if(renderPending)renderCanonical();}});
 $('cards').addEventListener('keydown',event=>{const grip=event.target.closest('[data-frame-resize]');if(!grip||!stateCanEdit()||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;const node=selectedNode();if(node?.id!==grip.dataset.frameResize||node.type!=='frame')return;event.preventDefault();const amount=event.shiftKey?10:1,patch=event.key==='ArrowLeft'?{w:Math.max(80,node.w-amount)}:event.key==='ArrowRight'?{w:Math.min(999000,node.w+amount)}:event.key==='ArrowUp'?{h:Math.max(80,node.h-amount)}:{h:Math.min(999000,node.h+amount)};if(frames.change(patch)){frames.geometry();$('cards').querySelector('[data-frame-resize]')?.focus({preventScroll:true});}});
 
 function download(raw,name='whiteboard') {
@@ -409,7 +430,7 @@ function showRecoveryRow(label,raw,description) {
 $('openRecovery').onclick=async()=>{
   const epoch=++recoveryEpoch;selectedRecovery=null;$('recoveryList').replaceChildren();$('recoveryPreviewLabel').hidden=$('applyRecovery').hidden=true;$('recoveryMessage').textContent='正在核对原账号与工作区…';$('recoveryDialog').showModal();
   const conflict=session.state.conflict;
-  if(conflict)showRecoveryRow('这次提交但未应用的输入',conflict.submittedRaw,conflict.draftSaved?'服务器也保留了这次提交的副本；后来继续写的内容请使用当前页面导出。':'服务器没有确认另外保存这次输入，请保留浏览器副本或导出。');
+  if(conflict)showRecoveryRow(conflict.accepted?'收到保存确认后仍待核对的输入':'这次提交但未应用的输入',conflict.submittedRaw,conflict.accepted?'刚才一次已收到保存确认；完整结果或后来输入还未合并，请保留当前页面导出。':conflict.draftSaved?'服务器也保留了这次提交的副本；后来继续写的内容请使用当前页面导出。':'服务器没有确认另外保存这次输入，请保留浏览器副本或导出。');
   try{
     const rows=await session.recoverableDrafts();if(epoch!==recoveryEpoch||!$('recoveryDialog').open)return;
     for(const row of rows){const value=JSON.parse(row.raw);showRecoveryRow(value.name||'未命名输入',row.raw,new Date(row.updatedAt).toLocaleString('zh-CN')+' · 当前浏览器保留');}
@@ -419,6 +440,7 @@ $('openRecovery').onclick=async()=>{
 $('closeRecovery').onclick=()=>$('recoveryDialog').close();$('recoveryDialog').addEventListener('close',()=>{recoveryEpoch++;selectedRecovery=null;});
 $('applyRecovery').onclick=()=>{
   if(!selectedRecovery||!stateCanEdit()||!confirm('用这份完整输入替换当前页面的白板内容？可撤销；若可以保存，会按当前服务器版本保存。'))return;
+  try{validateLiveBoard(JSON.parse(selectedRecovery),selectedRecovery);}catch(error){$('recoveryMessage').textContent=error.message+' 请先导出这份原文。';return;}
   checkpoint();board=JSON.parse(selectedRecovery);$('boardName').value=board.name;selected=null;$('inspector').hidden=true;commit();$('recoveryDialog').close();fit();
 };
 document.addEventListener('keydown',event=>{
@@ -431,6 +453,61 @@ function checkAccess(){if(board)session.checkAccess();}
 window.addEventListener('focus',checkAccess);window.addEventListener('creative-account-check',checkAccess);window.addEventListener('pageshow',event=>{if(event.persisted)checkAccess();});document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAccess();});
 try{const channel=new BroadcastChannel('creative-account-session');channel.onmessage=event=>{if(event.data?.type==='changed')checkAccess();};}catch{}
 window.addEventListener('beforeunload',event=>{if(cues.pending||tables.pending||spatialViews.pending||library.pending||editorError || session.state.dirty || (creating&&$('newBoardName').value)){event.preventDefault();event.returnValue='';}});
+
+document.addEventListener('compositionstart',()=>{composing=true;});
+document.addEventListener('compositionend',()=>{composing=false;releaseAdoption();scheduleSave();if(renderPending)renderCanonical();});
+$('localState').setAttribute('role','status');$('localState').setAttribute('aria-live','polite');
+
+function canReceiveCanonical(next){
+  if(!board||creating||gesture||composing||viewRestorePending||cues.pending||tables.pending||spatialViews.pending||library.pending||document.querySelector('dialog[open]'))return false;
+  const active=document.activeElement;
+  if(next&&active?.matches('input,textarea,select')&&($('inspector').contains(active)||active===$('boardName'))){
+    if(active===$('boardName'))return board.name===next.name;
+    return valueEqual(selectedNode(),next.nodes.find(node=>node.id===selected));
+  }
+  return true;
+}
+async function waitForAdoption(){while(gesture||composing)await new Promise(resolve=>adoptionWaiters.add(resolve));}
+function releaseAdoption(){if(gesture||composing)return;for(const resolve of adoptionWaiters)requestAnimationFrame(()=>requestAnimationFrame(resolve));adoptionWaiters.clear();}
+function adoptCanonical(raw){
+  const next=validateLiveBoard(JSON.parse(raw));
+  if(!board)return false;
+  // Keep objects used by a captured pointer gesture; draw only after it ends.
+  const existing=new Map(board.nodes.map(node=>[node.id,node]));
+  next.nodes=next.nodes.map(node=>{
+    const current=existing.get(node.id);if(!current||current.type!==node.type)return node;
+    for(const key of Object.keys(current))if(!Object.hasOwn(node,key))delete current[key];
+    for(const [key,value]of Object.entries(node))Object.defineProperty(current,key,{value,writable:true,configurable:true,enumerable:true});
+    return current;
+  });
+  for(const key of Object.keys(board))if(!Object.hasOwn(next,key))delete board[key];
+  for(const [key,value]of Object.entries(next))Object.defineProperty(board,key,{value,writable:true,configurable:true,enumerable:true});
+  ownHistory.boundary();inputGroup=null;renderPending=true;
+  queueMicrotask(()=>{if(!gesture&&!composing)renderCanonical();});return true;
+}
+function renderCanonical(){
+  if(!renderPending||gesture||composing||!board)return;renderPending=false;
+  const focus=document.activeElement,field=focus?.id,range=focus?.matches('input[type="text"],input:not([type]),textarea')?[focus.selectionStart,focus.selectionEnd,focus.selectionDirection,focus.scrollTop]:null;
+  const focusValue=focus?.value,tablePlace=tables.capture();
+  const selectedId=selected,hidden=$('inspector').hidden,scroll=$('inspector').scrollTop;
+  const focusedNode=focus?.closest('[data-node]')?.dataset.node;
+  const inspectorValues=[...$('inspector').querySelectorAll('input,textarea,select')].map(input=>[input.id,input.value]);
+  const node=selectedNode();
+  drawCanvas();$('boardName').value=board.name;
+  // Updating an unrelated note keeps the original field and range in place.
+  if(node&&!hidden){selectNode(selectedId);for(const[id,value]of inspectorValues){const input=$(id);if(input&&input.value===value&&field===id&&range){input.setSelectionRange(range[0],range[1],range[2]);input.scrollTop=range[3];}}$('inspector').scrollTop=scroll;}
+  else if(!node){selected=null;$('inspector').hidden=true;}
+  if(selectedNode()?.type==='table')tables.restore(tablePlace,!hidden);
+  if(field&&$(field)?.value===focusValue&&range){$(field).setSelectionRange(range[0],range[1],range[2]);$(field).scrollTop=range[3];}
+  if(field&&$(field)&&!$(field).closest('[hidden]'))$(field).focus({preventScroll:true});
+  else if(focusedNode){$('cards').querySelector(`[data-node="${CSS.escape(focusedNode)}"]`)?.focus({preventScroll:true});}
+  refreshState();
+}
+async function receiveOthers(){
+  try{if(!document.hidden&&board&&!creating&&!editorError)await session.syncRemote();}
+  finally{setTimeout(receiveOthers,2500);}
+}
+setTimeout(receiveOthers,2500);
 
 async function start() {
   const transport=new BoardTransport(scope);

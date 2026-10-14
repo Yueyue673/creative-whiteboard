@@ -2,7 +2,7 @@ import json
 from functools import wraps
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 
 from .cleanup import apply_cleanup, keep_count, preview_cleanup
 from .documents import change_board_state, document_etag, find_document, put_document, remove_conflict, usage
@@ -107,7 +107,26 @@ def reconcile(request, workspace_id, key):
     result, etag = reconcile_board(request.workspace_scope, request.user, key, data["board"], data["baseETag"])
     response = JsonResponse(result, status=200 if result["saved"] else 409, json_dumps_params={"ensure_ascii": False})
     response["ETag"] = etag
+    return live_scope_response(request, key, response)
+
+
+def live_scope_response(request, key, response):
+    response["X-Creative-Account"] = str(request.user.pk)
+    response["X-Creative-Workspace"] = str(request.workspace_scope.workspace.pk)
+    response["X-Creative-Board"] = key
+    response["X-Creative-Role"] = request.workspace_scope.role
     return response
+
+
+@data_endpoint(("GET", "HEAD"))
+def live_board(request, workspace_id, key):
+    document = find_document(workspace_id, "board", key)
+    if document is None:
+        raise APIError("白板不存在或已放入回收站，请保留当前输入", 404)
+    tag = document_etag(document)
+    response = HttpResponse(status=304) if request.headers.get("If-None-Match") == tag else reply_value(document.value, tag)
+    response["ETag"] = tag
+    return live_scope_response(request, key, response)
 
 
 @data_endpoint(("POST",))

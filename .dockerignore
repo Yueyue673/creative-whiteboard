@@ -68,6 +68,7 @@
 !hosted/core/portal_assets/board-media.js
 !hosted/core/portal_assets/board-metadata.js
 !hosted/core/portal_assets/board-session.js
+!hosted/core/portal_assets/board-reconciliation.js
 !hosted/core/portal_assets/board-table-paste.js
 !hosted/core/portal_assets/board-tables.css
 !hosted/core/portal_assets/board-tables.js
