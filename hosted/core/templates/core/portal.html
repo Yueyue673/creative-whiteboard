@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>创作白板 · 工作区</title>
+  <link rel="stylesheet" href="/portal-assets/portal.css">
+  <link rel="stylesheet" href="/portal-assets/browser-recovery.css">
+  <link rel="stylesheet" href="/portal-assets/workspace-archive.css">
+  <link rel="stylesheet" href="/portal-assets/account-panel.css">
+  <script defer src="/portal-assets/portal.js"></script>
+  <script defer src="/portal-assets/workspace-search.js"></script>
+  <script type="module" src="/portal-assets/workspace-recovery.js"></script>
+  <script type="module" src="/portal-assets/workspace-archive.js"></script>
+  <script type="module" src="/portal-assets/account-panel.js"></script>
+</head>
+<body>
+{{ bootstrap|json_script:"portal-context" }}
+<header class="masthead">
+  <a class="brand" href="/" aria-label="创作白板首页"><span class="brand-mark" aria-hidden="true">◈</span><span>创作白板<small>CREATIVE WHITEBOARD</small></span></a>
+  <div class="account"><button id="openAccount" class="quiet" hidden aria-label="账号与登录"><span id="accountName"></span></button><button id="logout" class="quiet" hidden>退出登录</button></div>
+</header>
+<main>
+  <div id="status" role="status" aria-live="polite" hidden></div>
+  <aside id="paused" class="paused" hidden>
+    <strong id="pausedTitle">这个页面已暂停</strong><p id="pausedText"></p><a href="/" target="_blank" rel="noopener">在新页面打开当前账号 ↗</a>
+  </aside>
+  <section id="auth" class="auth-layout" hidden>
+    <div class="intro"><span class="eyebrow">属于你的创作空间</span><h1>从这里，<br>回到你的想法。</h1><p>私有工作区留给自己。共享工作区，留给你邀请的人。</p><div class="spatial-study" aria-hidden="true"><i></i><i></i><i></i><b></b></div></div>
+    <div class="panel auth-panel">
+      <div class="section-head"><h2 id="authTitle">登录</h2><span class="tag">邀请制内测</span></div>
+      <div class="segmented" id="authTabs"><button id="loginTab" type="button" aria-pressed="true">已有账号</button><button id="registerTab" type="button" aria-pressed="false">受邀注册</button></div>
+      <form id="authForm">
+        <label>邮箱<input id="email" name="email" type="email" autocomplete="username" maxlength="254" required></label>
+        <label id="nameField" hidden>你的名字<input id="displayName" name="name" autocomplete="nickname" maxlength="80"></label>
+        <label>密码<div class="password-row"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required><button id="showPassword" class="quiet" type="button" aria-pressed="false">显示</button></div></label>
+        <label id="authTokenField" hidden>邀请码<input id="authToken" name="token" autocomplete="off" maxlength="43" spellcheck="false"><small>使用邀请中的邮箱；新密码至少 12 位。</small></label>
+        <button id="authSubmit" class="primary" type="submit">登录</button>
+        <p class="caption" id="authHint">没有账号时，需要工作区所有者先发给你邀请。</p>
+      </form>
+      <details id="accountRecoveryHelp" class="account-recovery-help"><summary>忘记密码？</summary><p class="caption">联系这项服务的服务器管理员，核实身份后恢复登录。恢复会退出这个账号的旧登录，白板、素材和成员权限保留。</p></details>
+    </div>
+  </section>
+  <section id="home" hidden>
+    <div class="page-heading"><div><span class="eyebrow">你的工作区</span><h1>创作，有自己的位置。</h1><p>选择一个空间继续，或和别人建立一个新的共享空间。</p></div><button id="refreshHome" class="quiet">刷新列表</button></div>
+    <div id="workspaceList" class="workspace-grid" aria-label="工作区列表"></div>
+    <div class="home-actions">
+      <form id="createForm" class="panel"><h2>新建共享工作区</h2><p class="caption">创建后由你邀请成员、决定谁能编辑。</p><label>工作区名称<input id="workspaceName" name="name" maxlength="100" required placeholder="自己为这个空间命名"></label><button class="primary" type="submit">创建共享工作区</button></form>
+      <form id="acceptForm" class="panel"><h2>接受邀请</h2><p class="caption">邀请只对指定邮箱有效，不会分享你的私有空间。</p><label>邀请码<input id="acceptToken" name="token" maxlength="43" required spellcheck="false" autocomplete="off"></label><button class="quiet" type="submit">加入工作区</button></form>
+    </div>
+  </section>
+  <section id="workspace" hidden>
+    <a class="back-link" href="/">← 所有工作区</a>
+    <div class="page-heading"><div><span class="eyebrow" id="workspaceKind"></span><h1 id="workspaceTitle"></h1><p id="workspaceDescription"></p></div><span class="tag" id="workspaceRole"></span></div>
+    <section class="board-shelf">
+      <div class="section-head"><h2>这个空间的白板</h2><div class="shelf-actions"><button id="showWorkspaceRecovery" class="quiet" hidden>浏览器输入</button><button id="showWorkspaceArchive" class="quiet" hidden>版本与空间</button><button id="refreshBoards" class="quiet">刷新</button><a id="newBoard" class="shelf-new" hidden>新建白板 ↗</a></div></div>
+      <form id="workspaceSearch" class="workspace-search" role="search" aria-label="查找这个空间的白板">
+        <label for="workspaceSearchQuery">找回一段想法</label>
+        <div class="workspace-search-controls"><input id="workspaceSearchQuery" type="search" placeholder="记得的一句话，或白板名称" autocomplete="off" spellcheck="false" aria-describedby="workspaceSearchHint"><button id="submitWorkspaceSearch" class="quiet" type="submit">查找</button><button id="clearWorkspaceSearch" class="quiet" type="button" hidden>清除</button></div>
+        <p id="workspaceSearchHint" class="caption">查找已保存的名称、便签、表格和连线文字。不含历史、回收站、待恢复输入或素材文件内容。</p>
+      </form>
+      <p id="workspaceSearchState" class="search-state" role="status" aria-live="polite" hidden></p>
+      <div id="workspaceSearchResults" class="search-results" aria-label="匹配白板，链接在新页面打开" hidden></div>
+      <div id="boardList" class="workspace-grid"><p class="empty">正在读取白板…</p></div>
+    </section>
+    <div class="workspace-body">
+      <section class="panel members-panel"><div class="section-head"><h2>一起在这里的人</h2><button id="refreshMembers" class="quiet">刷新</button></div><div id="memberList" aria-label="成员列表"><p class="empty">正在读取成员…</p></div></section>
+      <section id="invitePanel" class="panel" hidden>
+        <h2>邀请一个人</h2><p class="caption">链接由你亲自发送。对方接受前，你可以撤回。</p>
+        <form id="inviteForm"><label>对方邮箱<input id="inviteEmail" name="email" type="email" autocomplete="off" maxlength="254" required></label><label>权限<select name="role" id="inviteRole"><option value="editor">可编辑</option><option value="viewer">只读</option></select></label><button class="primary" type="submit">生成邀请链接</button></form>
+        <div id="issuedInvite" class="issued" hidden><label>这次生成的邀请链接<textarea id="inviteLink" rows="3" readonly spellcheck="false" aria-describedby="inviteCopyHint"></textarea></label><button id="copyInvite" class="quiet" type="button">复制链接</button><p class="caption" id="inviteCopyHint">请现在复制保存；离开页面后无法再次查看原链接。</p></div>
+        <div class="invitation-history"><h3>已发出的邀请</h3><div id="invitationList" aria-label="邀请记录"><p class="empty">正在读取邀请…</p></div></div>
+      </section>
+      <aside id="privatePanel" class="panel private-panel" hidden><span class="large-symbol" aria-hidden="true">◇</span><h2>给自己的空间</h2><p>这里属于你，不能邀请其他成员。需要一起创作时，可以回到首页新建共享工作区。</p></aside>
+    </div>
+  </section>
+  {% include "core/browser_recovery.html" %}
+  {% include "core/workspace_archive.html" %}
+  <noscript><p class="panel">请启用 JavaScript 后使用登录与工作区界面。</p></noscript>
+</main>
+<footer>开发预览 · 完整编辑与实时协作仍在完善。</footer>
+{% include "core/account_panel.html" %}
+</body>
+</html>

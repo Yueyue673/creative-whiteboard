@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark"><title>创作白板 · 空间编辑</title>
+  <link rel="stylesheet" href="/portal-assets/board-editor.css">
+  <link rel="stylesheet" href="/portal-assets/media-cues.css">
+  <link rel="stylesheet" href="/portal-assets/browser-recovery.css">
+  <link rel="stylesheet" href="/portal-assets/workspace-archive.css">
+  <link rel="stylesheet" href="/portal-assets/account-panel.css">
+  <link rel="stylesheet" href="/portal-assets/note-references.css">
+  <link rel="stylesheet" href="/portal-assets/board-views.css">
+  <link rel="stylesheet" href="/portal-assets/board-frames.css">
+  <link rel="stylesheet" href="/portal-assets/board-tables.css">
+  <link rel="stylesheet" href="/portal-assets/board-cell-notes.css">
+  <script defer src="/portal-assets/markdown-it.js"></script>
+  <script type="module" src="/portal-assets/board-editor.js"></script>
+  <script type="module" src="/portal-assets/workspace-recovery.js"></script>
+  <script type="module" src="/portal-assets/workspace-archive.js"></script>
+  <script type="module" src="/portal-assets/account-panel.js"></script>
+</head>
+<body>
+{{ bootstrap|json_script:"board-context" }}
+<header class="editor-header"><a id="backWorkspace" class="workspace-link" aria-label="返回原工作区">◈ <span id="spaceName">工作区</span></a><div class="document-identity"><input id="boardName" aria-label="白板名称" maxlength="1000" placeholder="由你为白板命名" readonly><span id="accountLabel"></span></div><button id="openAccount" hidden aria-label="账号与登录">账号</button><button id="saveBoard" disabled>保存</button></header>
+<main class="studio">
+  <section class="canvas-shell" aria-label="白板空间">
+    <button id="returnReferenceCanvas" class="reference-return canvas-return" hidden data-reference-read></button>
+    <div id="canvas" tabindex="0" aria-label="白板画布：拖动空白平移，滚轮缩放"><div id="world"><svg id="edges" aria-hidden="true"></svg><div id="cards"></div></div><div id="emptyCanvas" class="empty-canvas" hidden><span aria-hidden="true">▱</span><h1>留白，也是一种开始。</h1><p>添加一张空白便签，写下属于你的第一个字。</p></div></div>
+    <div class="canvas-tools"><button id="addNote" disabled>＋ 便签</button><button id="addFrame" disabled>＋ 分区</button><button id="addTable" disabled>＋ 表格</button><button id="showMedia" disabled>素材</button><button id="showOutline" aria-expanded="false">目录</button><button id="showViews" aria-expanded="false" disabled>视角</button><button id="undo" aria-label="撤销" disabled>↶</button><button id="redo" aria-label="重做" disabled>↷</button><span class="tool-divider"></span><button id="zoomOut" aria-label="缩小">−</button><button id="fitView">全览</button><button id="zoomIn" aria-label="放大">＋</button><output id="zoomValue">100%</output></div>
+    <nav id="viewJourney" class="view-journey" hidden aria-label="浏览保存的视角"><button id="viewPrevious" aria-label="上一个视角">←</button><div class="view-journey-title" aria-live="polite"><strong id="viewJourneyName"></strong><span id="viewJourneyCount"></span></div><button id="viewNext" aria-label="下一个视角">→</button><button id="exitViews">退出浏览</button></nav>
+    <aside id="outline" class="outline" hidden><div class="panel-heading"><h2>空间里的内容</h2><button id="closeOutline" aria-label="关闭目录">×</button></div><div id="outlineItems"></div></aside>
+    <div class="canvas-caption"><span id="nodeCount">正在读取…</span><span>拖动空白平移 · 滚轮缩放</span></div>
+  </section>
+  <aside id="inspector" class="inspector" hidden aria-label="专注编辑便签">
+    <div class="panel-heading"><div><span id="inspectorEyebrow" class="eyebrow">你的原文</span><h2 id="inspectorTitle">专注这一张</h2></div><div class="inspector-heading-actions"><button id="showViewsFromNote" aria-expanded="false" data-reference-read>视角</button><button id="closeInspector" aria-label="关闭便签编辑">×</button></div></div>
+    <button id="returnReference" class="reference-return" hidden data-reference-read></button>
+    <div id="noteFields">
+    <label>标题<input id="noteTitle" placeholder="标题由你来写"></label>
+    <div class="format-bar" aria-label="选中文字后应用格式"><button data-format="bold" aria-label="粗体"><b>B</b></button><button data-format="italic" aria-label="斜体"><i>I</i></button><button data-format="strike" aria-label="删除线"><s>S</s></button><button data-format="code" aria-label="行内代码">代码</button><button data-format="heading" aria-label="标题">H</button><button data-format="quote" aria-label="引用">引用</button><button data-format="bullet" aria-label="无序列表">• 列表</button><button data-format="number" aria-label="有序列表">1.</button><button data-format="task" aria-label="任务列表">☐</button><button data-format="fence" aria-label="代码块">代码块</button></div>
+    <label class="body-label">正文<textarea id="noteBody" rows="7" placeholder="写下你自己认同的内容"></textarea></label>
+    <div class="reference-tools"><label class="inline-choice"><input type="checkbox" id="markdownMode">按 Markdown 显示</label><button id="insertReference">链接内容</button></div>
+    <details id="noteReferences"><summary id="referenceSummary">关联原文</summary><p class="reference-scope">当前白板 · 已写明的引用 · 原文片段</p><h3 id="referenceOutgoingTitle">这张引用了</h3><div id="referenceOutgoing"></div><h3 id="referenceIncomingTitle">谁引用了这一张</h3><div id="referenceIncoming"></div><p id="referenceMessage" role="status"></p></details>
+    <section id="noteCueContext" hidden><span class="eyebrow">关联的时刻</span><p id="noteCueSource"></p><div class="cue-actions"><button id="openNoteCue" data-reference-read>回到原片段</button><button id="removeNoteCue">解除时间关联</button></div></section>
+    <details><summary>补充原文</summary><label>自己的说明<textarea id="noteUserText" rows="3"></textarea></label><label>备注<textarea id="noteAnnotation" rows="3"></textarea></label></details>
+    <details open><summary>纸面与颜色</summary><div id="swatches" class="swatches" aria-label="便签配色"></div><label class="colour-line">自定义颜色<input type="color" id="noteColour"><input type="text" id="noteHex" maxlength="7" aria-label="便签颜色值" placeholder="#f0d79e"></label><div class="two-columns"><label>纸面<select id="paperStyle"><option value="plain">素纸</option><option value="lined">横线</option><option value="grid">方格</option></select></label><label>字号<input type="number" id="noteFont" min="10" max="40" step="1"></label></div></details>
+    <details><summary>尺寸</summary><label>适应方式<select id="sizeMode"><option value="auto">随内容自动长高</option><option value="manual">手动尺寸</option></select></label><div class="two-columns"><label>宽度<input type="number" id="noteWidth" min="100" max="2400"></label><label>高度<input type="number" id="noteHeight" min="80" max="2400"></label></div></details>
+    <button id="deleteNote" class="danger">移除这张便签</button>
+    </div>
+    <div id="frameFields" hidden>
+      <p class="caption">用边界整理思路。里面的内容仍各自保留，移动与拉伸只改变分区。</p>
+      <label>分区名称<input id="frameTitle" placeholder="由你命名"></label>
+      <label>区域说明<textarea id="frameBody" rows="3" placeholder="留下你自己的说明"></textarea></label>
+      <details open><summary>边界与颜色</summary><div id="frameSwatches" class="swatches" aria-label="分区边框配色"></div><label class="colour-line">自定义边框<input type="color" id="frameColour"><input type="text" id="frameHex" maxlength="7" aria-label="分区颜色值" placeholder="#8da6bc"></label></details>
+      <details open><summary>尺寸与留白</summary><div class="two-columns"><label>宽度<input id="frameWidth" type="number" min="80" max="999000" step="any" required></label><label>高度<input id="frameHeight" type="number" min="80" max="999000" step="any" required></label></div><label>围住内容时的留白<select id="framePadding"><option value="12">紧凑 · 12</option><option value="24" selected>适中 · 24</option><option value="48">舒展 · 48</option></select></label><p id="frameContentCount"></p><div class="frame-actions"><button id="fitFrameContents">贴合边界内的内容</button><button id="fitFrameAll">围住这张白板的全部内容</button></div></details>
+      <details><summary>精确位置</summary><div class="two-columns"><label>横坐标<input id="frameX" type="number" min="-999000" max="999000" step="any" required></label><label>纵坐标<input id="frameY" type="number" min="-999000" max="999000" step="any" required></label></div></details>
+      <p id="frameState" role="status" aria-live="polite"></p><button id="deleteFrame" class="danger">只移除这个分区</button>
+    </div>
+    <div id="tableFields" hidden>
+      <label>表格名称<input id="tableTitle" placeholder="由你命名"></label>
+      <button id="cellNoteResume" hidden data-reference-read>继续未应用的便签原文</button>
+      <details><summary>自己的说明</summary><label>说明原文<textarea id="tableBody" rows="3"></textarea></label></details>
+      <p class="caption">直接填写自己的单元格文字。复制多格内容后粘贴，会先预览落点与覆盖范围。Ctrl+Enter 到下一行，Ctrl+Shift+Enter 到上一行。</p>
+      <div class="table-axis-actions"><button id="tableAddRow">＋ 空白行</button><button id="tableAddColumn">＋ 空白列</button><button id="tablePaste" data-reference-read>批量粘贴表格内容</button></div>
+      <div class="table-pages">
+      <div class="table-pagination" aria-label="表格行分页"><button id="tableRowsPrevious" data-reference-read aria-label="前20行">↑</button><output id="tableRowsRange"></output><button id="tableRowsNext" data-reference-read aria-label="后20行">↓</button></div>
+      <div class="table-pagination" aria-label="表格列分页"><button id="tableColumnsPrevious" data-reference-read aria-label="前6列">←</button><output id="tableColumnsRange"></output><button id="tableColumnsNext" data-reference-read aria-label="后6列">→</button></div>
+      </div>
+      <div id="tableGridScroll" tabindex="0" aria-label="表格文字编辑区，较宽时可以横向滚动"><table id="tableGrid"></table></div>
+      <p id="tableCellLocation" role="status"></p>
+      <details id="tableOrganize"><summary>整理当前行列</summary><p id="tableStructureState" class="caption"></p><div class="table-axis-actions"><span>当前行</span><button data-table-order="-1" data-axis="row" aria-label="当前行往上移">↑</button><button data-table-order="1" data-axis="row" aria-label="当前行往下移">↓</button><button id="tableRemoveRow">移除行</button></div><div class="table-axis-actions"><span>当前列</span><button data-table-order="-1" data-axis="column" aria-label="当前列往前移">←</button><button data-table-order="1" data-axis="column" aria-label="当前列往后移">→</button><button id="tableRemoveColumn">移除列</button></div><label>当前列宽<input id="tableColumnWidth" type="number" min="100" max="900" step="any" required></label></details>
+      <details><summary>表格尺寸</summary><div class="two-columns"><label>宽度<input id="tableWidth" type="number" min="80" max="999000" step="any" required></label><label>高度<input id="tableHeight" type="number" min="80" max="999000" step="any" required></label></div></details>
+      <p id="tableState" role="status" aria-live="polite"></p><button id="deleteTable" class="danger">从白板移除这个表格</button>
+    </div>
+  </aside>
+  <aside id="viewsPanel" hidden aria-labelledby="viewsHeading"><div class="panel-heading"><h2 id="viewsHeading">留住常用视角</h2><button id="closeViews" aria-label="关闭视角">×</button></div><p id="viewPanelState"></p><div id="viewItems" class="view-items"></div><div class="view-panel-actions"><button id="saveView">＋ 保存视角</button><button id="startViews" disabled>按顺序浏览</button></div></aside>
+</main>
+<dialog id="tablePasteDialog" aria-labelledby="tablePasteHeading" aria-describedby="tablePasteHint"><div class="panel-heading"><h2 id="tablePasteHeading">让内容落在合适的格里</h2><button id="closeTablePaste" aria-label="关闭粘贴预览，原文留在此页">×</button></div><p id="tablePasteContext"></p><p id="tablePasteHint">先核对落点，再应用。关闭后可继续；尚未应用的原文只留在这页，刷新或退出前请导出。第一行也作为内容，原列名保留。</p><label>粘贴自己的表格内容<textarea id="tablePasteSource" rows="4" maxlength="1048576" spellcheck="false"></textarea></label><label>分隔方式<select id="tablePasteDelimiter"><option value="&#9;">表格软件复制的内容 · 制表符</option><option value=",">CSV 原文 · 逗号</option></select></label><p id="tablePasteSummary"></p><div class="table-paste-scroll" tabindex="0" aria-label="粘贴前后预览，较宽时可横向滚动"><table id="tablePastePreview"></table></div><p id="tablePasteState" role="status" aria-live="polite"></p><div class="table-paste-actions"><button id="applyTablePaste" disabled>应用到原表格</button><button id="tablePasteSingle" hidden>保持为单格原文</button><button id="exportTablePaste">导出粘贴原文</button><button id="discardTablePaste">放弃这次粘贴</button></div></dialog>
+<dialog id="viewDialog" aria-labelledby="viewDialogTitle"><div class="panel-heading"><h2 id="viewDialogTitle">保存一个视角</h2><button id="closeViewDialog" aria-label="关闭视角设置">×</button></div><form id="viewForm"><label>给这个视角起个名字<input id="viewName" maxlength="160" autocomplete="off" required placeholder="由你命名"></label><label id="replaceViewLabel" class="inline-choice" hidden><input id="replaceView" type="checkbox">同时更新定位范围</label><label id="viewSourceLabel">保存哪里<select id="viewSource"><option value="current">当前画面</option><option value="node">所选内容</option><option value="all">整个白板</option></select></label><p id="viewFormState" role="status"></p><section id="viewChanges" hidden><p>刚核对的页面列表</p><pre id="viewCurrentNames"></pre><button id="reviewViewChanges" type="button">按这个列表重新核对</button></section><div class="view-form-actions"><button id="moveViewUp" type="button" hidden>往前移</button><button id="moveViewDown" type="button" hidden>往后移</button><button id="removeView" type="button" hidden>移除视角</button><button id="discardViewDraft" type="button">放弃填写</button><button id="submitView" type="submit">保存视角</button></div></form></dialog>
+<dialog id="referenceDialog" aria-labelledby="referenceTitle"><div class="panel-heading"><h2 id="referenceTitle">链接到白板里的内容</h2><button id="closeReferences" aria-label="关闭关联内容">×</button></div><p id="referenceHint"></p><label>找一块内容<input id="referenceSearch" type="search" maxlength="160" autocomplete="off" placeholder="按标题筛选"></label><div id="referenceChoices"></div><p id="referenceChoiceState" role="status"></p></dialog>
+<dialog id="cellNotesDialog" aria-labelledby="cellNotesHeading"><div class="panel-heading"><div><span class="eyebrow">单元格里的原文</span><h2 id="cellNotesHeading">单独展开，安心编辑</h2></div><button id="closeCellNotes" aria-label="关闭单元格内容，未应用输入留在此页">×</button></div><p id="cellNotesContext"></p>
+  <section id="cellNotesListPane"><p class="caption">文字与格式可以单独编辑。图片和音视频可展开查看；原单元格与文件引用保持。</p><div id="cellNotesList"></div><div class="cell-note-pages"><button id="cellNotesPrevious" aria-label="前12项">←</button><output id="cellNotesPage"></output><button id="cellNotesNext" aria-label="后12项">→</button></div><button id="addCellNote">＋ 添加空白便签</button></section>
+  <section id="cellMediaPane" hidden aria-labelledby="cellMediaTitle"><button id="cellMediaBack">返回此格内容</button><h3 id="cellMediaTitle"></h3><p id="cellMediaContext" class="caption"></p><div id="cellMediaPreview" class="cell-media-preview"></div><p id="cellMediaDetails" class="caption"></p><p id="cellMediaState" role="status" aria-live="polite"></p><div class="cell-media-actions"><button id="retryCellMedia">重新核对素材</button><a id="downloadCellMedia" hidden>下载原文件 ↧</a></div></section>
+  <section id="cellNoteEditor" hidden><button id="cellNoteBack">返回此格内容</button><div class="cell-note-layout"><section><label>便签标题<input id="cellNoteTitle" placeholder="由你命名"></label><div class="format-bar" aria-label="选中原文后应用格式"><button data-cell-note-format="bold" aria-label="粗体"><b>B</b></button><button data-cell-note-format="italic" aria-label="斜体"><i>I</i></button><button data-cell-note-format="strike" aria-label="删除线"><s>S</s></button><button data-cell-note-format="code">代码</button><button data-cell-note-format="heading">H</button><button data-cell-note-format="quote">引用</button><button data-cell-note-format="bullet">• 列表</button><button data-cell-note-format="number">1.</button><button data-cell-note-format="task">☐</button><button data-cell-note-format="fence">代码块</button></div><label>自己的正文<textarea id="cellNoteBody" rows="7"></textarea></label><label class="inline-choice"><input id="cellNoteMarkdown" type="checkbox">按 Markdown 显示</label><details><summary>补充原文</summary><label>自己的说明<textarea id="cellNoteUserText" rows="3"></textarea></label><label>备注<textarea id="cellNoteAnnotation" rows="3"></textarea></label></details><details><summary>纸面、颜色与字号</summary><div id="cellNoteSwatches" class="swatches" aria-label="嵌入便签配色"></div><label>颜色值<input id="cellNoteHex" maxlength="7" pattern="#[a-fA-F0-9]{6}" required></label><div class="two-columns"><label>纸面<select id="cellNotePaper"><option value="plain">素纸</option><option value="lined">横线</option><option value="grid">方格</option></select></label><label>字号<input id="cellNoteFont" type="number" min="10" max="40" step="any" required></label></div></details></section><section><p class="cell-note-preview-caption">预览 · 保留手动尺寸与原有文件引用</p><div id="cellNotePreview"></div></section></div><p id="cellNoteDraftState" role="status"></p><div class="cell-note-actions"><button id="applyCellNote">应用到原单元格</button><button id="exportCellNote">导出这份原文</button><button id="discardCellNote">明确放弃输入</button></div></section><p id="cellNoteState" role="status" aria-live="polite"></p>
+</dialog>
+<section id="createPanel" class="create-cover" hidden><form id="createBoardForm" class="create-sheet"><span class="eyebrow">一个新的创作空间</span><h1>名字，由你决定。</h1><p>新白板是空白的，每张便签的内容都由你写。</p><label>白板名称<input id="newBoardName" maxlength="1000" required autocomplete="off"></label><button id="createBoardButton" class="primary">创建空白白板</button><a id="cancelCreate">返回工作区</a><p id="createError" role="status"></p></form></section>
+<footer class="save-strip"><div><strong id="saveState" role="status" aria-live="polite">正在打开…</strong><span id="localState"></span></div><div class="recovery-actions"><button id="openRecovery">恢复输入</button><button id="exportBoard" disabled>导出原文</button><a id="latestBoard" target="_blank" rel="noopener">在新页面检查 ↗</a></div></footer>
+<dialog id="recoveryDialog"><div class="panel-heading"><h2>保留下来的输入</h2><button id="closeRecovery" aria-label="关闭输入恢复">×</button></div><p>浏览器副本只在当前浏览器。查看或导出不会替换白板；应用前请核对原文。</p><button id="showWorkspaceRecovery" hidden>查看整个工作区的浏览器输入</button><button id="showWorkspaceArchive" hidden>查看服务器版本与回收站</button><div id="recoveryList"></div><p id="recoveryMessage" role="status"></p><label id="recoveryPreviewLabel" hidden>这份完整原文<textarea id="recoveryPreview" rows="10" readonly></textarea></label><button id="applyRecovery" hidden>应用到当前白板（可撤销）</button></dialog>
+{% include "core/browser_recovery.html" %}
+{% include "core/workspace_archive.html" %}
+<dialog id="mediaDialog" aria-labelledby="mediaHeading"><div class="panel-heading"><div><span class="eyebrow">原工作区的资料库</span><h2 id="mediaHeading">素材，进入你的空间。</h2></div><button id="closeMedia" aria-label="关闭素材库">×</button></div>
+  <p>保留你的原文件。先选择或上传，再决定放到白板哪里；音视频不会自动播放。</p>
+  <div class="media-library-layout"><section><form id="mediaSearchForm" class="media-search" role="search"><label for="mediaSearch">找一份素材</label><div class="media-search-controls"><input id="mediaSearch" type="search" maxlength="240" autocomplete="off" placeholder="名称、说明或标签" aria-describedby="mediaSearchHint"><button id="searchMedia" type="submit">查找</button><button id="clearMediaSearch" type="button" class="quiet">清除</button></div><p id="mediaSearchHint">查找此工作区登记的素材信息，不读取原文件内容。</p></form><div class="media-list-heading"><span id="mediaMessage" role="status" aria-live="polite">正在读取…</span><button id="refreshMedia">刷新</button></div><div id="mediaItems" class="media-items"></div><button id="moreMedia" hidden>继续加载</button></section>
+  <section class="media-upload"><div id="mediaDrop" class="media-drop"><label>放入自己的文件<input id="mediaFile" type="file"></label><p>也可以把一个文件拖到这里</p><strong id="chosenMedia"></strong></div><label>上传位置<select id="uploadFolder"><option value="">资料库根目录</option></select></label><p id="mediaQuota"></p><p id="mediaReadOnly" hidden>当前只有阅读权限，可以查看与下载。</p><div class="media-upload-actions"><button id="uploadMedia" disabled>确认上传</button><button id="cancelUpload" hidden>取消等待</button></div><progress id="uploadProgress" max="100" value="0" hidden aria-label="文件发送进度"></progress><p id="uploadState" role="status" aria-live="polite"></p></section></div>
+  <button id="resumeMetadata" class="quiet" hidden>继续未完成的素材说明</button>
+  <div class="folder-entry"><button id="manageFolders" class="quiet">管理目录</button><button id="resumeFolders" class="quiet" hidden>继续未完成的目录操作</button><small>按自己的线索组织资料</small></div>
+  <section id="mediaDetails" class="media-details" hidden><div><h3 id="mediaTitle"></h3><p id="mediaInfo"></p><p id="mediaNotes" class="plain-text"></p><div id="mediaTags" class="media-tags"></div></div><div id="mediaPreview"></div><div class="media-detail-actions"><button id="insertMedia">放到白板</button><button id="editMetadata" class="quiet">编辑说明与位置</button><button id="findMediaReferences" class="quiet" aria-expanded="false" aria-controls="mediaReferences">查找关联</button><a id="downloadMedia">下载原文件 ↧</a></div>
+    <section id="mediaReferences" class="media-references" aria-labelledby="mediaReferenceHeading" hidden>
+      <div class="media-reference-heading"><div><h4 id="mediaReferenceHeading">这个文件，出现在哪里。</h4><p id="mediaReferenceTarget"></p></div><button id="hideMediaReferences" class="quiet">收起</button></div>
+      <p id="mediaReferenceState" role="status"></p><div id="mediaReferenceCounts" class="media-reference-counts"></div>
+      <ul id="mediaReferenceRows" class="media-reference-rows" aria-label="可查看记录中的素材关联"></ul>
+      <p class="media-reference-boundary">只检查服务器保存的记录。尚未保存的页面输入、其他成员的私人待恢复稿不在显示范围；没找到关联也不能据此删除文件。历史和回收站里的关联仅供核对，不会把旧内容放回白板。</p>
+    </section>
+  </section>
+</dialog>
+<dialog id="metadataDialog" aria-labelledby="metadataHeading">
+  <div class="panel-heading"><div><span class="eyebrow">为素材留下线索</span><h2 id="metadataHeading">说明与位置</h2></div><button id="closeMetadata" aria-label="关闭说明编辑，保留输入">×</button></div>
+  <p id="metadataTarget" class="caption"></p>
+  <p class="caption">原文件保持原样。填写后确认保存；关闭会保留这页输入，重开页面前请保存或导出。</p>
+  <form id="metadataForm">
+    <label>素材名称<textarea id="metadataTitle" rows="1" maxlength="1000" required></textarea></label>
+    <label>自己的说明<textarea id="metadataNotes" rows="4" maxlength="65536"></textarea></label>
+    <div class="metadata-tag-heading"><span id="metadataTagsLabel">标签</span><button id="addMetadataTag" type="button" class="quiet">＋ 添加标签</button></div><div id="metadataTags" aria-labelledby="metadataTagsLabel"></div>
+    <label>存放位置<select id="metadataFolder"><option value="">资料库根目录</option></select><small>选择后确认保存，原文件编号保持不变。</small></label>
+    <p id="metadataState" role="status" aria-live="polite"></p>
+    <section id="metadataComparison" class="metadata-comparison" hidden><h3>刚刚读取的服务器版本</h3><label>名称、说明、标签与位置<textarea id="metadataCurrent" rows="7" readonly></textarea></label><p>核对完整内容后，才可把自己的整份输入保存到这个版本；双方内容不会自动合并。</p><button id="useMetadataVersion" type="button">使用这版作为保存依据</button></section>
+    <div class="metadata-actions"><button id="saveMetadata" type="submit" class="primary">确认保存说明</button><button id="checkMetadataVersion" type="button">核对服务器版本</button><button id="exportMetadata" type="button">导出我的输入</button><button id="discardMetadata" type="button" class="quiet">放弃这页修改</button></div>
+  </form>
+</dialog>
+<noscript>请启用 JavaScript 后使用空间编辑。</noscript>
+<dialog id="mediaCueDialog" aria-labelledby="mediaCueHeading"><div class="panel-heading"><div><span class="eyebrow">便签与原素材的交汇</span><h2 id="mediaCueHeading">回到这一刻</h2></div><button id="closeMediaCue" aria-label="关闭片段，回到原位置">×</button></div><p id="mediaCueSource"></p><output id="mediaCueTime" aria-label="便签记录的时间"></output><p id="mediaCueNote"></p><div id="mediaCuePlayer"></div><p id="mediaCueState" role="status" aria-live="polite"></p><a id="mediaCueDownload" hidden>下载原文件 ↧</a></dialog>
+<dialog id="foldersDialog" aria-labelledby="foldersHeading">
+  <div class="panel-heading"><div><span class="eyebrow">给资料一个位置</span><h2 id="foldersHeading">目录，随思路展开。</h2></div><button id="closeFolders" aria-label="关闭目录管理，保留输入">×</button></div>
+  <p class="caption">名称由你填写。先核对影响范围，再保存；关闭保留这页操作，重开页面前请保存或导出。</p>
+  <details class="folder-tree-panel"><summary>当前核对依据里的目录</summary><div id="folderTree" class="folder-tree"></div></details>
+  <p id="folderLoading" class="caption" role="status" aria-live="polite">正在读取目录…</p>
+  <form id="folderForm" hidden>
+    <div class="two-columns"><label>想做什么<select id="folderKind"><option value="create">创建空目录</option><option value="rename">修改目录名称</option><option value="remove">移除目录范围</option></select></label><label><span id="folderTargetLabelText">放在哪个目录下</span><select id="folderTarget"><option value="">资料库根目录</option></select></label></div>
+    <label id="folderNameLabel">目录名称<input id="folderName" maxlength="1000" autocomplete="off" placeholder="由你命名"></label>
+    <p id="folderState" role="status" aria-live="polite"></p>
+    <button id="prepareFolders" type="submit">核对操作范围</button>
+    <section id="folderReview" class="folder-review" hidden><h3>这次会改变的位置</h3><ul id="folderChanges"></ul><p id="folderReviewNote"></p><button id="saveFolders" type="button" class="primary">确认保存这项操作</button></section>
+    <section id="folderComparison" class="folder-comparison" hidden><h3>刚刚读取的服务器目录</h3><div id="folderCurrentTree" class="folder-tree"></div><p>保留你填写的操作，以这个目录重新核对。其他设备新增的位置会保留；不会直接重试旧目录，也不会自动保存。</p><button id="useFolderVersion" type="button">以这版重新核对操作</button></section>
+    <div class="folder-actions"><button id="inspectFolders" type="button">查看服务器目录</button><button id="exportFolders" type="button">导出我的操作</button><button id="discardFolders" type="button" class="quiet">放弃这页操作</button></div>
+  </form>
+</dialog>
+{% include "core/account_panel.html" %}
+</body>
+</html>

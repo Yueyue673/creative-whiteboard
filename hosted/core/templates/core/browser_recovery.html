@@ -1,0 +1,11 @@
+<dialog id="browserRecoveryDialog" aria-labelledby="browserRecoveryHeading">
+  <header class="browser-recovery-heading"><div><span class="eyebrow">当前浏览器 · 原账号与工作区</span><h2 id="browserRecoveryHeading">把没来得及保存的想法找回来。</h2></div><button id="closeBrowserRecovery" data-browser-recovery-safe aria-label="关闭浏览器输入">×</button></header>
+  <p class="browser-recovery-caption">这里是当前浏览器保留的输入，包括已删除白板留下的副本。查看与导出不会重建或替换服务器白板；浏览器可能清除这些副本，请把需要的内容另存。</p>
+  <div class="browser-recovery-toolbar"><p id="browserRecoveryState" role="status" aria-live="polite"></p><button id="refreshBrowserRecovery">刷新副本</button></div>
+  <div class="browser-recovery-layout"><section aria-label="输入副本列表"><div id="browserRecoveryList"></div></section><section class="browser-recovery-preview">
+    <p id="browserRecoveryEmpty">选择一份输入，先读一读。</p>
+    <div id="browserRecoverySelected" hidden><h3 id="browserRecoveryTitle"></h3><p id="browserRecoveryInfo" class="browser-recovery-caption"></p><label>这份完整原文<textarea id="browserRecoveryRaw" readonly rows="12" spellcheck="false"></textarea></label><div class="browser-recovery-export"><button id="exportBrowserRecovery" data-browser-recovery-safe>导出这份原文</button><a id="checkBrowserRecoveryBoard" target="_blank" rel="noopener">在新页面检查原白板 ↗</a></div>
+      <details id="browserRecoveryCleanup"><summary>处理这份浏览器副本</summary><p>只移除这一份浏览器副本，服务器白板不变。其他标签仍在编辑的原文会留在页面；继续修改会生成新副本。</p><label class="browser-recovery-confirm"><input id="ackBrowserRecovery" type="checkbox">我已核对这份原文，需要的内容已另存，同意移除这份副本。</label><button id="removeBrowserRecovery" disabled>移除已核对的这一份</button></details>
+    </div>
+  </section></div>
+</dialog>

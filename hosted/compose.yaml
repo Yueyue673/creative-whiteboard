@@ -1,0 +1,61 @@
+name: creative-whiteboard-hosted
+x-runtime: &runtime
+  image: creative-whiteboard-hosted:development
+  build:
+    context: ..
+    dockerfile: hosted/Dockerfile
+  user: "10001:10001"
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 768m
+  cpus: 0.75
+  pids_limit: 128
+  stop_grace_period: 100s
+  tmpfs:
+    - /tmp:rw,nosuid,noexec,size=64m,mode=1777
+  secrets: [hosted_key]
+  environment:
+    CREATIVE_BOARD_HOSTED_SECRET_FILE: /run/secrets/hosted_key
+    CREATIVE_BOARD_HOSTED_DATA_DIR: /data
+    CREATIVE_BOARD_HOSTED_HOSTS: ${HOSTED_DOMAIN:?Set the exact hosted domain}
+    CREATIVE_BOARD_HOSTED_ORIGINS: https://${HOSTED_DOMAIN:?Set the exact hosted domain}
+    CREATIVE_BOARD_HOSTED_TRUST_PROXY: "1"
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+services:
+  app:
+    <<: *runtime
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${HOSTED_PORT:-18880}:8000"
+    volumes:
+      - type: bind
+        source: ${HOSTED_DATA_DIR:?Set an existing independent data directory}
+        target: /data
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, python, deployment/healthcheck.py]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+  ops:
+    <<: *runtime
+    profiles: [operations]
+    restart: "no"
+    command: [check]
+    volumes:
+      - type: bind
+        source: ${HOSTED_DATA_DIR:?Set an existing independent data directory}
+        target: /data
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${HOSTED_BACKUP_DIR:?Set an existing independent backup directory}
+        target: /backups
+        bind: {create_host_path: false}
+secrets:
+  hosted_key:
+    file: ${HOSTED_SECRET_PATH:?Set an existing operator-only secret file}
