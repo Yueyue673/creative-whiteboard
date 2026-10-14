@@ -162,4 +162,8 @@
  // value, and never broadcast a received older preference back to other panes.
  window.addEventListener('storage',e=>{if(e.key===key)apply(read());if(e.key==='creative-interface'&&typeof applyInterfacePrefs==='function')applyInterfacePrefs(readInterfacePrefs(),false)});
  apply(read());window.whiteboardAppearance={open,read,apply,palettes};
+ // The earlier workflow menu captured its old sizing function. Resolve the
+ // current appearance entry when clicked so standalone boards use it too.
+ const menu=document.getElementById('menu'),legacy=menu&&[...menu.querySelectorAll('button')].find(b=>b.textContent==='界面大小');
+ if(legacy){legacy.textContent='外观';legacy.onclick=()=>{menu.open=false;window.whiteboardAppearance.open()}}
 })();
