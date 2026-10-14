@@ -78,3 +78,11 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .note-paper-choices button:hover{background:var(--ui-hover)}
 .note-paper-choices button[aria-pressed=true]{background:var(--ui-selected)}
 @media(max-width:650px){.node.immersive-surface .inline-toolbar{padding:8px 20px!important}.immersive-surface .edit-scroll{padding:24px 20px}}
+
+/* A single contextual way back after following an authored link. */
+.note-reference-return{position:absolute;top:58px;left:12px;z-index:110;display:flex;align-items:stretch;max-width:min(320px,calc(100% - 24px));border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 3px 12px #0003}
+.note-reference-return[hidden]{display:none!important}.note-reference-return button{border:0;background:transparent;color:inherit;min-height:44px;padding:7px 10px;border-radius:6px}
+#noteReferenceBack{display:flex;gap:10px;align-items:center;min-width:0;text-align:left;flex:1}#noteReferenceBack>span:last-child{display:flex;min-width:0;flex-direction:column;gap:1px}#noteReferenceBack small{font-size:10px;line-height:1.4;color:var(--ui-muted)}#noteReferenceBack b{font-size:12px;line-height:1.5;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#noteReferenceDismiss{font-size:17px;flex:none;min-width:36px;border-left:1px solid var(--ui-line);border-radius:0 6px 6px 0}.note-reference-return button:hover{background:var(--ui-hover)}.note-reference-return button:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.immersive-heading:has(.reference-in-editor){flex-wrap:wrap;gap:8px}.note-reference-return.reference-in-editor{position:relative;top:auto;left:auto;z-index:auto;flex-basis:100%;max-width:100%;box-shadow:none}
+/* Dialog text uses workbench ink; authored previews use the same ink as their fields. */
+#dialog .note-editor-preview :where(*){color:inherit}

@@ -33,6 +33,63 @@
   return html;
  };
  let panel=null,owner=null,field=null,range=null,preview=false,colourCheckpoint=null;
+ // Reference browsing keeps ephemeral author positions, never a content copy to apply.
+ const referenceTrail=[];let referenceEpoch=0,referenceReturning=false,referenceBar=null;
+ function captureReferencePlace(id){
+  const n=board?.nodes.find(node=>node.id===id);if(!n||n.type!=='note'||loading||blocked)return null;
+  const root=document.getElementById('immersiveSurface')?.dataset.id===id?document.getElementById('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===id);
+  const focused=document.activeElement,source=focused?.matches('textarea,input[type=text],input:not([type])')&&root?.contains(focused)?focused:field?.isConnected&&root?.contains(field)?field:null,area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
+  return {board:boardId,id,name:n.title||'未命名便签',view:{x:view().x,y:view().y,z:view().z},selected:[...selected],mode:editorId===id?(root?.id==='immersiveSurface'?'expanded':'canvas'):'read',preview:editorId===id&&preview,width:canvas.clientWidth,height:canvas.clientHeight,
+   field:source?{id:source.id,value:source.value.length<=512*1024?source.value:null,start:source.selectionStart,end:source.selectionEnd,direction:source.selectionDirection,top:source.scrollTop,left:source.scrollLeft}:null,scroll:area?.scrollTop||0,details:!!details?.open,detailsScroll:details?.scrollTop||0};
+ }
+ function syncReferenceReturn(){
+  const place=referenceTrail.at(-1);
+  if(!place&&!referenceBar)return;
+  if(!referenceBar){
+   referenceBar=document.createElement('div');referenceBar.id='noteReferenceReturn';referenceBar.className='note-reference-return inline-ui';
+   referenceBar.innerHTML='<button type="button" id="noteReferenceBack"><span aria-hidden="true">↶</span><span><small>返回刚才</small><b></b></span></button><button type="button" id="noteReferenceDismiss" aria-label="结束这次关联浏览">×</button>';canvas.append(referenceBar);
+   referenceBar.querySelector('#noteReferenceBack').onclick=returnReference;
+   referenceBar.querySelector('#noteReferenceDismiss').onclick=()=>{referenceEpoch++;referenceTrail.length=0;syncReferenceReturn();canvas.focus({preventScroll:true});};
+   for(const name of ['pointerdown','click'])referenceBar.addEventListener(name,event=>event.stopPropagation());
+  }
+  const dialog=document.getElementById('dialog'),heading=dialog?.open&&dialog.classList.contains('immersive-dialog')?dialog.querySelector('.immersive-heading'):null,host=heading||canvas;
+  if(referenceBar.parentElement!==host)host.append(referenceBar);referenceBar.classList.toggle('reference-in-editor',Boolean(heading));
+  referenceBar.hidden=!place||place.destination!==boardId||loading||blocked;
+  const button=referenceBar.querySelector('#noteReferenceBack');button.disabled=referenceReturning;referenceBar.querySelector('#noteReferenceDismiss').disabled=referenceReturning;
+  if(place){button.querySelector('b').textContent=place.name;button.title='返回刚才的便签：'+place.name;button.setAttribute('aria-label','返回刚才的便签：'+place.name);}
+ }
+ async function closeReferenceEditor(){
+  const dialog=document.getElementById('dialog');if(!dialog?.open)return;
+  if(!dialog.classList.contains('immersive-dialog'))throw Error('请先关闭当前窗口，再查看关联便签。');
+  await new Promise(resolve=>{dialog.addEventListener('close',resolve,{once:true});dialog.close();});
+ }
+ async function returnReference(){
+  const place=referenceTrail.at(-1);if(!place||referenceReturning||loading||blocked||place.destination!==boardId)return;
+  const epoch=++referenceEpoch;referenceReturning=true;syncReferenceReturn();
+  try{
+   closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch)return;
+   if(place.board!==boardId){await switchBoard(place.board);if(epoch!==referenceEpoch||boardId!==place.board)return;}
+   if(loading||blocked)return;
+   const n=board.nodes.find(node=>node.id===place.id);
+   if(!n||n.type!=='note'){referenceTrail.pop();syncReferenceReturn();toast('原便签已经移走、删除或改变类型，未还原旧内容。');return;}
+   editorId=null;selected=new Set(place.selected.filter(id=>board.nodes.some(node=>node.id===id)));Object.assign(board.view,place.view);
+   if(place.width!==canvas.clientWidth||place.height!==canvas.clientHeight){const z=Math.min(place.view.z,Math.max(.03,Math.min((canvas.clientWidth-40)/n.w,(canvas.clientHeight-140)/n.h)));Object.assign(board.view,{z,x:(canvas.clientWidth-n.w*z)/2-n.x*z,y:(canvas.clientHeight-n.h*z)/2-n.y*z});}
+   drawNodes();renderOutline();moveView();
+   if(place.mode==='expanded')whiteboardReading.open(n.id);else if(place.mode==='canvas')openEditor(n.id);
+   const root=document.getElementById('immersiveSurface')?.dataset.id===n.id?document.getElementById('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===n.id),area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
+   if(details){details.open=place.details;details.scrollTop=place.detailsScroll;}
+   if(place.preview&&editorId===n.id&&root?.querySelector('#notePreview'))togglePreview(root.querySelector('#notePreview'),n,root.querySelector('.inner'));
+   if(area)area.scrollTop=place.scroll;
+   const input=place.field&&root?.querySelector('#'+CSS.escape(place.field.id));
+   if(input&&place.field.value!==null&&input.value===place.field.value){
+    input.setSelectionRange(place.field.start,place.field.end,place.field.direction);input.scrollTop=place.field.top;input.scrollLeft=place.field.left;
+    if(!input.hidden&&(!details?.contains(input)||place.details)){input.focus({preventScroll:true});remember(input);}else root.querySelector('#notePreview')?.focus({preventScroll:true});
+   }else if(place.mode==='read')canvas.focus({preventScroll:true});
+   else{(root?.querySelector('#notePreview')||root?.querySelector('#body')||canvas).focus({preventScroll:true});if(place.field)toast('已回到当前原文；内容已有变化，未套用旧的光标位置。');}
+   referenceTrail.pop();syncReferenceReturn();
+  }catch(error){toast('暂时无法返回：'+error.message);}
+  finally{referenceReturning=false;syncReferenceReturn();}
+ }
  const paperChoices=[['plain','素面'],['lined','横线'],['grid','方格']];
  const swatches=[['#fff0aa','奶油黄'],['#f5dccb','杏桃'],['#eadcf2','淡紫'],['#cde8fb','雾蓝'],['#dbecc7','草绿'],['#e7e2da','暖灰'],['#ffffff','工作台灰']];
  function closePanel(){panel?.remove();panel=null;owner=null;colourCheckpoint=null}
@@ -49,6 +106,7 @@
    el.style.background=n.color;const paper=paperSurface(n);el.classList.toggle('theme-surface',contentSurfaceClass(n)==='theme-surface');el.classList.toggle('theme-dark',!!paper?.dark);
    for(const [key,value]of [['--paper-ink',paper?.ink],['--paper-caption',paper?.caption]])value?el.style.setProperty(key,value):el.style.removeProperty(key);
    for(const style of ['plain','lined','grid'])el.classList.toggle('paper-'+style,(n.paperStyle||'plain')===style);
+   for(const preview of el.querySelectorAll('.note-editor-preview')){const source=preview.previousElementSibling;if(source?.matches('textarea'))preview.style.color=getComputedStyle(source).color;}
   }
   change();
  }
@@ -86,7 +144,7 @@
  }
  function togglePreview(trigger,n,root){
   preview=!preview;trigger.setAttribute('aria-pressed',String(preview));trigger.textContent=preview?'继续编辑':'预览';
-  root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.innerHTML=n.textFormat==='markdown'?rendered(el.value):'<p>'+esc(el.value).replace(/\n/g,'<br>')+'</p>'});window.whiteboardSizing?.invalidate(root);
+  root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.style.color=getComputedStyle(el).color;view.innerHTML=n.textFormat==='markdown'?rendered(el.value):'<p>'+esc(el.value).replace(/\n/g,'<br>')+'</p>'});if(!preview)growContentFields(root);window.whiteboardSizing?.invalidate(root);
  }
  function references(n){if(n.textFormat!=='markdown')return [];const refs=[];for(const key of ['body','userText','annotation'])for(const block of parser.parse(String(n[key]||''),{}))for(const token of block.children||[])if(token.type==='whiteboard_link')refs.push(token.content.split('|')[0]);return refs}
  function resolveReference(value,records,sourceBoard=boardId){
@@ -102,18 +160,21 @@
   for(let start=0;start<list.length;start+=4)await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();for(const node of data.nodes||[])if(node.type!=='frame')records.push({board:b.id,name:data.name,node})}catch{incomplete=true}}));
   return {records,incomplete};
  }
- async function jumpReference(row){
-  closePanel();if(document.getElementById('dialog')?.classList.contains('immersive-dialog'))document.getElementById('dialog').close();
-  if(row.board!==boardId){await switchBoard(row.board);if(boardId!==row.board)return}
+ async function jumpReference(row,place=null,epoch=++referenceEpoch){
+  if(loading||blocked||epoch!==referenceEpoch)return;
+  closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch||place&&place.board!==boardId)return;
+  if(row.board!==boardId){await switchBoard(row.board);if(epoch!==referenceEpoch||boardId!==row.board)return}
   const n=board.nodes.find(n=>n.id===row.node.id);if(!n)return toast('这块内容已经移走或删除');
   editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();board.view.x=rect.width/2-(n.x+n.w/2)*view().z;board.view.y=rect.height/2-(n.y+n.h/2)*view().z;moveView();canvas.focus({preventScroll:true});
+  if(place&&(place.board!==boardId||place.id!==n.id)){referenceTrail.push({...place,destination:boardId});while(referenceTrail.length>12||referenceTrail.reduce((size,p)=>size+(p.field?.value?.length||0)*2,0)>4*1024*1024)referenceTrail.shift();}
+  syncReferenceReturn();
  }
  async function openLinks(trigger,n){
   const box=popup(trigger,n,'links');if(!box)return;box.setAttribute('aria-label','双向链接');box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><p role="status">正在读取可关联的内容…</p>';box.querySelector('button').onclick=closePanel;show(trigger);
   const sourceBoard=boardId;let result;try{result=await allNotes()}catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message;return}if(panel!==box||boardId!==sourceBoard||!board.nodes.includes(n))return;
   const records=result.records,backlinks=records.filter(row=>references(row.node).some(ref=>{const target=resolveReference(ref,records,row.board);return target?.board===sourceBoard&&target.node.id===n.id}));
   box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><label class="note-link-search">链接到<input type="search" placeholder="搜索便签与白板" aria-label="搜索关联内容"></label><div class="note-link-results"></div><div class="note-backlinks"><b>引用这块内容 · '+backlinks.length+'</b><div></div></div>'+(result.incomplete?'<p role="status">部分白板暂时无法读取，引用列表可能不完整。</p>':'');box.querySelector('header button').onclick=closePanel;
-  const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=row.node.title||'未命名';location.textContent=row.name;b.append(title,location);b.onclick=()=>{if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!field?.isConnected)return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||row.node.title||'未命名',safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length);closePanel()}else jumpReference(row)};return b};
+  const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=row.node.title||'未命名';location.textContent=row.name;b.append(title,location);b.onclick=()=>{if(boardId!==sourceBoard||!board.nodes.includes(n))return;if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!field?.isConnected)return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||row.node.title||'未命名',safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length);closePanel()}else jumpReference(row,captureReferencePlace(n.id)).catch(error=>toast('暂时无法打开关联：'+error.message))};return b};
   const list=box.querySelector('.note-link-results'),search=box.querySelector('input');let limit=30;
   const filter=()=>{list.replaceChildren();const query=search.value.toLocaleLowerCase(),matches=records.filter(row=>(row.board!==sourceBoard||row.node.id!==n.id)&&(row.node.title+' '+row.name).toLocaleLowerCase().includes(query));for(const row of matches.slice(0,limit))list.append(rowButton(row,true));if(matches.length>limit){const more=document.createElement('button');more.type='button';more.textContent='显示更多 · '+(matches.length-limit);more.onclick=()=>{limit+=30;filter()};list.append(more)}if(!matches.length){const empty=document.createElement('p');empty.textContent='没有匹配的内容';list.append(empty)}};
   search.oninput=()=>{limit=30;filter()};filter();const incoming=box.querySelector('.note-backlinks>div');for(const row of backlinks)incoming.append(rowButton(row,false));if(!backlinks.length)incoming.textContent='尚未被其他内容引用';positionPanel(trigger);search.focus();
@@ -132,8 +193,10 @@
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}},true);
  document.getElementById('dialog').addEventListener('cancel',e=>{if(!panel)return;e.preventDefault();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})});
  window.addEventListener('resize',closePanel);
- document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink;try{const {records}=await allNotes();if(boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
- const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw()};
+ document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row,place,epoch);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
+ const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw();syncReferenceReturn()};
+ window.addEventListener('creative-board-loading',()=>{if(referenceBar)referenceBar.hidden=true;});
+ new MutationObserver(syncReferenceReturn).observe(document.getElementById('dialog'),{attributes:true,attributeFilter:['open','class']});
  const originalAdd=addNote;addNote=function(p=center(),data={}){return originalAdd(p,{...(!data.type||data.type==='note'?{textFormat:'markdown'}:{}),...data})};
  function openAppearance(id){
   const n=board?.nodes.find(n=>n.id===id),el=[...$('nodes').children].find(el=>el.dataset.id===id);
