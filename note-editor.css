@@ -78,3 +78,53 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .note-paper-choices button:hover{background:var(--ui-hover)}
 .note-paper-choices button[aria-pressed=true]{background:var(--ui-selected)}
 @media(max-width:650px){.node.immersive-surface .inline-toolbar{padding:8px 20px!important}.immersive-surface .edit-scroll{padding:24px 20px}}
+
+/* A single contextual way back after following an authored link. */
+.note-reference-return{position:absolute;top:58px;left:12px;z-index:110;display:flex;align-items:stretch;max-width:min(320px,calc(100% - 24px));border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 3px 12px #0003}
+.note-reference-return[hidden]{display:none!important}.note-reference-return button{border:0;background:transparent;color:inherit;min-height:44px;padding:7px 10px;border-radius:6px}
+#noteReferenceBack{display:flex;gap:10px;align-items:center;min-width:0;text-align:left;flex:1}#noteReferenceBack>span:last-child{display:flex;min-width:0;flex-direction:column;gap:1px}#noteReferenceBack small{font-size:10px;line-height:1.4;color:var(--ui-muted)}#noteReferenceBack b{font-size:12px;line-height:1.5;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#noteReferenceDismiss{font-size:17px;flex:none;min-width:36px;border-left:1px solid var(--ui-line);border-radius:0 6px 6px 0}.note-reference-return button:hover{background:var(--ui-hover)}.note-reference-return button:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.immersive-heading:has(.reference-in-editor){flex-wrap:wrap;gap:8px}.note-reference-return.reference-in-editor{position:relative;top:auto;left:auto;z-index:auto;flex-basis:100%;max-width:100%;box-shadow:none}
+/* Dialog text uses workbench ink; authored previews use the same ink as their fields. */
+#dialog .note-editor-preview :where(*){color:inherit}
+
+/* A wide table or source line stays local; paragraphs keep their reading width. */
+.note-markdown .note-table-scroll{max-width:100%;min-width:0;overflow:auto;margin:.7em 0;overscroll-behavior-x:contain}
+.note-markdown .note-table-scroll>table{width:100%;min-width:calc(var(--note-table-columns,1)*7em);margin:0}
+.note-markdown .note-table-scroll th,.note-markdown .note-table-scroll td{min-width:6.5em;padding:8px 10px;vertical-align:top;overflow-wrap:anywhere}
+.note-markdown .note-table-scroll th{background:#8881;font-weight:600}
+.note-table-scroll.note-text-overflow::after{content:"左右滚动查看";display:block;position:sticky;left:0;width:max-content;max-width:100%;padding-top:4px;font-size:11px;line-height:1.7;opacity:.65}
+.node .note-text-scroll{pointer-events:auto!important;touch-action:pan-x pan-y;scrollbar-width:thin}
+.note-text-scroll:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.note-markdown .note-text-scroll{scrollbar-color:#8887 transparent}
+
+/* Column names can contain authored line breaks, just like their cells. */
+.node.table .edit-table th textarea[data-column]{padding:10px 23px;min-height:40px;resize:none;overflow:hidden;font:inherit;line-height:1.6!important;border:0}
+
+/* Camera choices stay behind one contextual entrance; the canvas keeps its room. */
+#dialog[open]:has(.canvas-view-form){display:flex;flex-direction:column;width:min(500px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 40px);padding:0;overflow:hidden}
+#dialog:has(.canvas-view-form) #dialogBody{min-width:0;min-height:0;overflow:auto;padding:24px;scrollbar-gutter:stable}
+#dialog:has(.canvas-view-form) #dialogActions{flex:none;margin:0;padding:14px 24px;border-top:1px solid var(--ui-line);background:var(--ui-panel)}
+.canvas-view-form h2{font-size:20px;font-weight:550;line-height:1.5;margin:0}
+.canvas-view-explain{font-size:13px;line-height:1.8;color:var(--ui-muted);margin:6px 0 22px}
+.canvas-view-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:24px}
+.canvas-view-presets button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:12px 10px;min-height:66px;font-size:13px;text-align:left;background:transparent}
+.canvas-view-presets small{font-size:11px;line-height:1.5;color:var(--ui-muted)}
+.canvas-view-save label{display:block;font-size:12px;color:var(--ui-muted);margin-bottom:8px}
+.canvas-view-save>div{display:flex;gap:8px}.canvas-view-save input{flex:1;min-width:0;min-height:44px;font-size:13px}.canvas-view-save button{flex:none;min-height:44px;font-size:12px}
+.canvas-view-form [role=status]{font-size:12px;line-height:1.8;color:var(--ui-muted);margin:12px 0}
+.canvas-view-form .canvas-view-undo{font-size:12px;min-height:44px}.canvas-view-form .canvas-view-undo[hidden]{display:none!important}
+.canvas-view-list{border-top:1px solid var(--ui-line);margin-top:20px;padding-top:8px}
+.canvas-view-empty,.canvas-view-local{font-size:12px;line-height:1.8;color:var(--ui-muted)}.canvas-view-local{margin:18px 0 0;font-size:11px}
+.canvas-view-row{display:flex;align-items:stretch;gap:4px}.canvas-view-row button{border:0;background:transparent;min-height:44px}.canvas-view-go{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:10px 6px}.canvas-view-go span{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px}.canvas-view-go small{font-size:11px;color:var(--ui-muted)}.canvas-view-remove{flex:none;width:44px;font-size:17px;color:var(--ui-muted)}.canvas-view-row button:hover{background:var(--ui-hover)}
+.canvas-view-return{position:absolute;right:12px;z-index:110;display:flex;align-items:stretch;max-width:calc(100% - 24px);border:1px solid var(--ui-line);border-radius:6px;background:var(--ui-panel);box-shadow:0 3px 12px #0002;color:var(--ui-text)}.canvas-view-return[hidden]{display:none!important}.canvas-view-return button{border:0;background:transparent;min-height:44px;font-size:12px;padding:7px 10px}.canvas-view-return button:last-child{flex:none;min-width:36px;border-left:1px solid var(--ui-line);font-size:17px}.canvas-view-return button:hover{background:var(--ui-hover)}.canvas-view-return button:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+@media(max-width:400px){#dialog:has(.canvas-view-form) #dialogBody{padding:20px}#dialog:has(.canvas-view-form) #dialogActions{padding:12px 20px}.canvas-view-presets{grid-template-columns:1fr}.canvas-view-presets button{min-height:44px;flex-direction:row;align-items:center;justify-content:space-between}.canvas-view-save>div{flex-wrap:wrap}.canvas-view-save input{flex-basis:100%}}
+
+/* On a touch screen, the paper's heading is a drag surface; text can still scroll. */
+@media(any-pointer:coarse){body #nodes>.node>.inner.read-layout [data-preview-id=title][readonly]{touch-action:none;pointer-events:auto}}
+
+/* Overview ink stays within authored paper; its full name is a temporary readout. */
+#canvas.space-overview #nodes>.node>.space-card-label:not([hidden]){display:block;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;line-height:1.35!important;font-size:var(--space-label-font,12px)!important;padding:1px 3px!important;min-height:min(36px,var(--space-label-height,36px));max-height:var(--space-label-height,36px)}
+.space-card-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--space-title-lines,2);overflow:hidden;pointer-events:none}
+.space-card-label:focus-visible{outline:2px solid var(--ui-focus);outline-offset:1px}
+.space-title-preview{position:absolute;z-index:115;display:flex;flex-direction:column;box-sizing:border-box;pointer-events:none;padding:12px 14px;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 4px 16px #0003;overflow:hidden}
+.space-title-preview[hidden]{display:none!important}.space-title-preview p{margin:0;min-height:0;overflow:hidden;font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.space-title-preview small{display:block;flex:none;margin-top:8px;font-size:11px;line-height:1.5;color:var(--ui-muted)}

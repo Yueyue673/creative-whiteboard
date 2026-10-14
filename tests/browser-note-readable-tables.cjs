@@ -1,0 +1,54 @@
+const fs=require('fs'),os=require('os'),path=require('path'),assert=require('node:assert/strict'),{spawn}=require('child_process'),{chromium}=require('playwright');
+(async()=>{
+ const root=path.resolve(__dirname,'..'),temporary=fs.mkdtempSync(path.join(os.tmpdir(),'creative-note-tables-')),port=await require('./browser-port.cjs')(),base='http://127.0.0.1:'+port;
+ const server=spawn(process.env.PYTHON||'python',[process.env.NOTE_TABLE_SERVER||path.join(root,'server.py')],{windowsHide:true,env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:temporary,PYTHONIOENCODING:'utf-8'}});
+ const proof={checks:[],images:[],errors:[],privateUIOpened:false};let browser,p;
+ const photo=async name=>{if(!process.env.NOTE_TABLE_IMAGES)return;fs.mkdirSync(process.env.NOTE_TABLE_IMAGES,{recursive:true});const file=path.join(process.env.NOTE_TABLE_IMAGES,name+'.png');await p.screenshot({path:file});proof.images.push(file)};
+ const check=async(name,fn)=>{await fn();proof.checks.push(name);console.log('PASS '+name)};
+ try{
+  for(let i=0;i<100;i++){try{if((await fetch(base+'/api/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+  const text='## 自己的观察\n\n作者自己的测试文字。保留原始记录，寻找新的关联。\n\n| 观察 | 线索 | 时间 | 位置 | 下一步 |\n| :--- | ---: | :---: | --- | --- |\n| 日常记录一 | 合成样例 | 上午 | 临时工作区 | 继续整理 |\n| 日常记录二 | https://example.com/synthetic-reference | 下午 | 另一处临时区域 | [[target\\|参考内容]] |\n\n```text\n'+('Long original source line 0123456789 ').repeat(9)+'\n```\n\n作者后续的原文。';
+  const node={id:'author',type:'note',title:'随手观察与整理',body:text,userText:'| 简短 | 原文 |\n| --- | --- |\n| 保持 | 两列 |',annotation:'来源原文。',textFormat:'markdown',color:'#e7e2da',sizeMode:'manual',x:30,y:50,w:430,h:350,opaque:{original:[true,1,1.5]}},target={...node,id:'target',title:'参考内容',body:'另一份原文。',userText:'',x:580};
+  const data={format:'creative-board',version:1,name:'通用表格阅读',nodes:[node,target],edges:[],view:{x:12,y:16,z:1},opaqueOriginal:['retain',true]};
+  assert.equal((await fetch(base+'/api/boards/tables',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(data)})).status,200);
+  browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||undefined});const context=await browser.newContext({viewport:{width:320,height:820},hasTouch:true});
+  await context.addInitScript(()=>localStorage.setItem('creative-sidebar-state',JSON.stringify({open:false})));
+  if(process.env.NOTE_TABLE_ENTRY)await context.route(base+'/index.html*',r=>r.fulfill({contentType:'text/html',body:fs.readFileSync(process.env.NOTE_TABLE_ENTRY)}));
+  if(process.env.NOTE_TABLE_MODULES)for(const f of ['note-editor.js','note-editor.css'])await context.route(base+'/'+f,r=>r.fulfill({contentType:f.endsWith('.css')?'text/css':'text/javascript',body:fs.readFileSync(path.join(process.env.NOTE_TABLE_MODULES,f))}));
+  p=await context.newPage();p.on('pageerror',e=>proof.errors.push(e.message));
+  const open=async()=>{await p.goto(base+'/index.html?board=tables');await p.waitForFunction(()=>boardId==='tables'&&!loading&&window.whiteboardNoteEditor)};
+  const unchanged=async()=>assert.deepEqual(await p.evaluate(()=>board.nodes),data.nodes);
+  const table=()=>p.locator('#immersiveSurface #body + .note-editor-preview .note-table-scroll').first();
+  await check('320px table keeps readable cells; only the table scrolls while surrounding text stays within the paper.',async()=>{
+   await open();await p.evaluate(()=>whiteboardReading.open('author'));await p.locator('#body').waitFor();await p.locator('#notePreview').click();await table().waitFor();await p.waitForFunction(()=>document.querySelector('.note-table-scroll')?.tabIndex===0);
+   const state=await table().evaluate(e=>({w:e.clientWidth,sw:e.scrollWidth,cell:e.querySelector('th').getBoundingClientRect().width,align:[...e.querySelectorAll('th')].slice(0,3).map(x=>x.style.textAlign),area:e.closest('.edit-scroll').clientWidth,areaScroll:e.closest('.edit-scroll').scrollWidth}));
+   assert(state.sw>state.w&&state.cell>85);assert.equal(state.area,state.areaScroll);assert.deepEqual(state.align,['left','right','center']);await unchanged();await photo('01-readable-320');
+  });
+  await check('Native keyboard browsing reaches both table edges and leaves the manual card, original text, camera and Undo untouched.',async()=>{
+   const prior=await p.evaluate(()=>({view:structuredClone(board.view),undo:history.length}));await table().focus();await p.keyboard.press('End');assert((await table().evaluate(e=>e.scrollLeft))>100);await p.keyboard.press('Home');assert.equal(await table().evaluate(e=>e.scrollLeft),0);await p.keyboard.press('ArrowRight');assert.equal(await table().evaluate(e=>e.scrollLeft),40);await p.keyboard.press('Delete');await p.keyboard.press('Backspace');await p.keyboard.press('Control+d');assert.deepEqual(await p.evaluate(()=>({view:structuredClone(board.view),undo:history.length})),prior);await unchanged();await photo('02-table-last-columns');
+  });
+  await check('An original code line remains exact and can be reached with the keyboard without widening the whole note.',async()=>{
+   const code=p.locator('#immersiveSurface #body + .note-editor-preview pre');await code.scrollIntoViewIfNeeded();await p.waitForFunction(()=>document.querySelector('#immersiveSurface pre')?.tabIndex===0);assert.equal(await code.locator('code').innerText(),('Long original source line 0123456789 ').repeat(9)+'\n');await code.focus();await p.keyboard.press('End');assert((await code.evaluate(e=>e.scrollLeft))>600);await p.keyboard.press('Home');assert.equal(await code.evaluate(e=>e.scrollLeft),0);await unchanged();
+  });
+  await check('Actual touch browsing moves the table, keeps the whiteboard camera and source geometry intact, without changing authored data.',async()=>{
+   await table().scrollIntoViewIfNeeded();await table().evaluate(e=>e.scrollLeft=0);const before=await p.evaluate(()=>structuredClone(board.view)),box=await table().boundingBox(),cdp=await context.newCDPSession(p),y=box.y+Math.min(70,box.height/2),x=box.x+box.width-20;
+   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});for(let i=1;i<=6;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-i*22,y}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await p.waitForFunction(()=>document.querySelector('#immersiveSurface .note-table-scroll').scrollLeft>20);await cdp.detach();assert.deepEqual(await p.evaluate(()=>board.view),before);await unchanged();
+  });
+  await check('Resizing removes unnecessary table Tab stops, restores them on narrow paper and respects all original font/color settings.',async()=>{
+   for(const [width,preset]of [[1440,'resolve'],[620,'paper'],[320,'slate']]){await p.setViewportSize({width,height:820});await p.evaluate(preset=>whiteboardAppearance.apply({preset,custom:{},note:'#fff0aa'}),preset);await p.waitForFunction(width=>{const e=document.querySelector('#immersiveSurface .note-table-scroll');return width===320?e.tabIndex===0:!e.hasAttribute('tabindex')},width);assert.equal(await p.locator('#immersiveSurface .edit-scroll').evaluate(e=>e.clientWidth===e.scrollWidth),true);await unchanged();await photo('03-preview-'+width);}
+   await p.locator('#notePreview').click();assert.equal(await p.locator('#body').inputValue(),text);await p.keyboard.press('Escape');
+  });
+  await check('In the free canvas, arrow/delete/paste inside a preview cannot move or remove a selected card, and local wheel leaves camera intact.',async()=>{
+   await p.setViewportSize({width:1240,height:900});await open();await p.locator('#nodes>[data-id=author]').click({position:{x:30,y:25}});const surface=p.locator('#nodes>[data-id=author] [data-markdown-field=body] .note-table-scroll');await surface.scrollIntoViewIfNeeded();await p.waitForFunction(()=>document.querySelector('#nodes>[data-id=author] .note-table-scroll')?.tabIndex===0);await surface.focus();const before=await p.evaluate(()=>({view:structuredClone(board.view),undo:history.length,ids:[...selected]}));
+   for(const key of ['ArrowRight','Delete','Backspace','Control+d','Control+z'])await p.keyboard.press(key);await surface.evaluate(el=>{el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:new DataTransfer()}))});const b=await surface.boundingBox();await p.mouse.move(b.x+60,b.y+30);await p.mouse.wheel(80,0);await p.waitForTimeout(150);assert.deepEqual(await p.evaluate(()=>({view:structuredClone(board.view),undo:history.length,ids:[...selected]})),before);await unchanged();assert((await surface.evaluate(e=>e.scrollLeft))>0);await photo('04-canvas-local-table');
+  });
+  await check('A scoped copy event preserves selected rendered text and permits browser copying without selected-card JSON.',async()=>{
+   const surface=p.locator('#nodes>[data-id=author] .note-table-scroll').first();await surface.focus();await surface.locator('td').first().evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)});
+   const copied=await surface.evaluate(el=>{const data=new DataTransfer(),event=new ClipboardEvent('copy',{bubbles:true,cancelable:true,clipboardData:data});el.dispatchEvent(event);return {text:data.getData('text/plain'),prevented:event.defaultPrevented,selected:getSelection().toString()}});assert.deepEqual(copied,{text:'',prevented:false,selected:'日常记录一'});await unchanged();
+  });
+  await check('A link inside a horizontally browsed table still works through real keyboard activation; saved/reopened authored data is unchanged.',async()=>{
+   const surface=p.locator('#nodes>[data-id=author] .note-table-scroll').first();await surface.evaluate(e=>e.scrollLeft=e.scrollWidth);const link=surface.locator('.note-wikilink');await link.focus();await p.keyboard.press('Enter');await p.waitForFunction(()=>selected.has('target'));await p.locator('#noteReferenceBack').click();await p.waitForFunction(()=>!document.querySelector('#noteReferenceBack')?.disabled);await unchanged();await p.evaluate(()=>persist());assert.deepEqual((await(await fetch(base+'/api/boards/tables')).json()).nodes,data.nodes);await p.reload();await p.waitForFunction(()=>board&&!loading);await unchanged();
+  });
+  assert.deepEqual(proof.errors,[]);proof.completed=true;console.log('Readable authored tables/code: all 8 independent operations passed.');
+ }catch(e){proof.failure=e.stack;if(p)await photo('failure');throw e}finally{if(process.env.NOTE_TABLE_PROOF)fs.writeFileSync(process.env.NOTE_TABLE_PROOF,JSON.stringify(proof,null,2));if(browser)await browser.close();server.kill();await new Promise(r=>{if(server.exitCode!==null)return r();server.once('exit',r)});assert(path.resolve(temporary).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(temporary,{recursive:true,force:true})}
+})().catch(e=>{console.error(e);process.exitCode=1});

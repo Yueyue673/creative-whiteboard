@@ -12,7 +12,7 @@ button,summary,select{transition:none}
  #empty p{margin:0;line-height:1.6}
 }
 #alignmentGuides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:9}#alignmentGuides line{stroke:var(--ui-canvas-focus,var(--ui-accent));stroke-width:1;stroke-dasharray:3 3}.hand-tool,.hand-tool .node,.hand-tool .inline-ui{cursor:grab!important}.canvas-gesture.hand-tool{cursor:grabbing!important}
-.navigation-settings{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:12px}.navigation-settings h3{font-size:14px;margin:0 0 10px}.navigation-settings>label{display:grid;gap:5px;font-size:12px;margin:10px 0}.navigation-settings .navigation-check{display:flex;align-items:center;gap:8px}.navigation-check input{width:auto}.navigation-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}.navigation-settings input{min-width:0}.navigation-settings p{font-size:12px;color:var(--ui-muted);line-height:1.8}.arrange-options{display:grid;gap:16px}.arrange-options>div{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrange-options>div>span{min-width:40px;font-size:13px}.arrange-options>label{display:grid;gap:6px;font-size:13px}
+.navigation-settings{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:12px}.navigation-settings h3{font-size:14px;margin:0 0 10px}.navigation-settings>label{display:grid;gap:5px;font-size:12px;margin:10px 0}.navigation-settings .navigation-check{display:flex;align-items:center;gap:8px}.navigation-check input{width:16px;height:16px;min-width:16px;flex:0 0 16px;margin:0;accent-color:var(--ui-accent)}.navigation-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}.navigation-settings input{min-width:0}.navigation-settings p{font-size:12px;color:var(--ui-muted);line-height:1.8}.arrange-options{display:grid;gap:16px}.arrange-options>div{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrange-options>div>span{min-width:40px;font-size:13px}.arrange-options>label{display:grid;gap:6px;font-size:13px}
 /* Alignment commands stay in complete, spatially meaningful groups. */
 #dialog:has(.arrange-options){width:min(420px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);padding:24px;display:flex;flex-direction:column;overflow:hidden}
 #dialog:has(.arrange-options):not([open]){display:none}
@@ -212,6 +212,9 @@ button,summary,select{transition:none}
 #appearanceDialog .navigation-settings>label:not(.navigation-check){grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center}
 #appearanceDialog .navigation-settings>label:not(.navigation-check) input{grid-column:1/-1;grid-row:2;width:100%;margin:0}
 #appearanceDialog .navigation-settings output{grid-column:2;grid-row:1;text-align:right;color:var(--ui-muted);font-variant-numeric:tabular-nums}
+#appearanceDialog .navigation-settings>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+#appearanceDialog .navigation-settings>div>label{min-width:0}
+#appearanceDialog .navigation-settings>div input{width:100%;box-sizing:border-box}
 #appearanceDialog footer{display:flex;flex:none;justify-content:space-between;gap:10px;padding-top:18px}
 #appearanceDialog footer button{min-height:36px;font-size:13px;padding:7px 12px}
 #appearanceDone{font-weight:600}
@@ -327,6 +330,10 @@ button,summary,select{transition:none}
 #appearanceDialog .appearance-colors label>span{grid-column:1/-1}
 #appearanceDialog .appearance-colors input[type=color]{width:38px;height:34px}
 #appearanceDialog .appearance-colors input[type=text]{width:100%;min-width:0;height:34px;padding:5px 7px;cursor:text;font-size:12px;font-family:Consolas,monospace}
+#appearanceDialog .appearance-typography label{display:grid;grid-template-columns:1fr minmax(0,1fr);align-items:center;gap:12px}#appearanceDialog .appearance-typography select{min-width:0;width:100%;min-height:36px;padding:5px 7px;font:inherit;color:var(--ui-text);background:var(--ui-field);border:1px solid var(--ui-line);border-radius:4px}
+/* Existing embedded paper modules retain their original CSS and script. */
+html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card :is([data-preview-id="title"],.read-layout>h3,#title){font-family:var(--paper-heading-family)!important}
+html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card :is([data-preview-id="body"],[data-preview-id="userText"],[data-preview-id="annotation"],.note-markdown,#body,#userText,#annotation){font-family:var(--paper-body-family)!important}
 #appearanceDialog [aria-invalid=true]{outline:2px solid var(--ui-focus);outline-offset:1px}
 .appearance-pattern{padding-bottom:14px}
 .appearance-pattern>div{display:flex;gap:6px;margin-bottom:12px}

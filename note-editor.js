@@ -4,6 +4,10 @@
  const parser=window.markdownit({html:false,linkify:false,typographer:false,breaks:true});
  // Markdown images remain text: source attachments already have a controlled viewer.
  parser.renderer.rules.image=(tokens,i)=>esc(tokens[i].content||'图片');
+ // Tables retain their columns on narrow paper; only their own surface scrolls.
+ parser.renderer.rules.table_open=(tokens,i,options,env,self)=>{let columns=0;for(let j=i+1;j<tokens.length&&tokens[j].type!=='thead_close';j++)if(tokens[j].type==='th_open')columns++;return '<div class="note-text-scroll note-table-scroll inline-ui" data-note-scroll="table" style="--note-table-columns:'+Math.max(1,columns)+'">'+self.renderToken(tokens,i,options)};
+ parser.renderer.rules.table_close=(tokens,i,options,env,self)=>self.renderToken(tokens,i,options)+'</div>\n';
+ for(const kind of ['fence','code_block']){const original=parser.renderer.rules[kind];parser.renderer.rules[kind]=(...args)=>original(...args).replace('<pre>','<pre class="note-text-scroll inline-ui" data-note-scroll="code">');}
  const linkOpen=parser.renderer.rules.link_open;
  parser.renderer.rules.link_open=(tokens,i,options,env,self)=>{tokens[i].attrSet('target','_blank');tokens[i].attrSet('rel','noopener noreferrer');return linkOpen?linkOpen(tokens,i,options,env,self):self.renderToken(tokens,i,options)};
  parser.inline.ruler.before('link','whiteboard_link',(state,silent)=>{
@@ -23,6 +27,36 @@
  parser.core.ruler.after('inline','whiteboard_tasks',state=>{for(let i=1;i<state.tokens.length;i++){const token=state.tokens[i];if(token.type!=='inline'||state.tokens[i-1]?.type!=='paragraph_open'||state.tokens[i-2]?.type!=='list_item_open')continue;const first=token.children?.[0],match=first?.type==='text'&&/^\[([ xX])\] /.exec(first.content);if(!match)continue;first.content=first.content.slice(match[0].length);const checkbox=new state.Token('whiteboard_task','span',0);checkbox.content=match[1]!==' '?'true':'false';token.children.unshift(checkbox)}});
  parser.renderer.rules.whiteboard_task=(tokens,i)=>'<span class="note-task" role="checkbox" aria-checked="'+tokens[i].content+'">'+(tokens[i].content==='true'?'☑':'☐')+'</span> ';
  const rendered=text=>parser.render(String(text||''));
+ // Offer a keyboard stop only when there is content outside this local viewport.
+ const scrollSurfaces=new Set(),scrollObserver=new ResizeObserver(scheduleScrollSurfaces);let scrollFrame=0;
+ function scheduleScrollSurfaces(){if(!scrollFrame)scrollFrame=requestAnimationFrame(syncScrollSurfaces)}
+ function syncScrollSurfaces(){
+  scrollFrame=0;for(const el of scrollSurfaces)if(!el.isConnected){scrollObserver.unobserve(el);scrollSurfaces.delete(el)}
+  for(const el of document.querySelectorAll('#nodes .note-text-scroll,#dialog .note-text-scroll')){
+   if(!scrollSurfaces.has(el)){scrollSurfaces.add(el);scrollObserver.observe(el)}
+   const overflow=el.clientWidth>0&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1);
+   el.classList.toggle('note-text-overflow',overflow);
+   if(overflow){el.tabIndex=0;el.setAttribute('role','region');el.setAttribute('aria-label',el.dataset.noteScroll==='table'?'表格，左右滚动浏览':'代码，滚动浏览')}
+   else for(const key of ['tabindex','role','aria-label'])el.removeAttribute(key);
+  }
+ }
+ const scrollMutations=new MutationObserver(scheduleScrollSurfaces);
+ for(const host of [document.getElementById('nodes'),document.getElementById('dialog')])scrollMutations.observe(host,{childList:true,subtree:true});
+ window.addEventListener('resize',scheduleScrollSurfaces);scheduleScrollSurfaces();
+ // Readable table/code navigation must never nudge, delete or duplicate a card.
+ window.addEventListener('keydown',e=>{
+  const el=e.target.closest?.('.note-text-scroll');if(!el||e.isComposing||e.key==='Escape'||e.key==='Tab')return;
+  const mod=e.ctrlKey||e.metaKey;if(mod&&['k','K','\\'].includes(e.key))return;
+  e.stopImmediatePropagation();if(e.target!==el||mod||e.altKey)return;
+  if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();el.scrollLeft=e.key==='Home'?0:e.key==='End'?el.scrollWidth:el.scrollLeft+(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?160:40)}
+ },true);
+ const selectedScrollSurface=()=>{const selection=getSelection();if(!selection||selection.isCollapsed)return null;const host=node=>(node?.nodeType===1?node:node?.parentElement)?.closest('.note-text-scroll');const el=host(selection.anchorNode);return el&&el===host(selection.focusNode)?el:null};
+ for(const type of ['copy','cut','paste'])window.addEventListener(type,e=>{if(e.target.closest?.('.note-text-scroll')||type==='copy'&&selectedScrollSurface())e.stopImmediatePropagation()},true);
+ // HTML consumes the first LF immediately after a textarea start tag.
+ // A synthetic LF leaves every authored leading blank line visible and editable.
+ const preserveTextareaLines=html=>html.replace(/<textarea\b[^>]*>/g,tag=>tag.includes(' data-note-newline="1"')?tag:tag.slice(0,-1)+' data-note-newline="1">\n');
+ const originalInlineMarkup=inlineMarkup;inlineMarkup=function(n){return preserveTextareaLines(originalInlineMarkup(n))};
+ const originalTableLayout=tableLayout;tableLayout=function(n){const html=originalTableLayout(n).replace(/<input\b([^>]*\bdata-column="(\d+)"[^>]*)>/g,(_,attrs,column)=>'<textarea rows="1"'+attrs.replace(/\svalue="[^"]*"/,'')+'>'+esc(n.columns[Number(column)]||'')+'</textarea>');return preserveTextareaLines(html)};
  const originalMarkup=noteMarkup;
  noteMarkup=function(n){
   let html=originalMarkup(n);
@@ -33,6 +67,63 @@
   return html;
  };
  let panel=null,owner=null,field=null,range=null,preview=false,colourCheckpoint=null;
+ // Reference browsing keeps ephemeral author positions, never a content copy to apply.
+ const referenceTrail=[];let referenceEpoch=0,referenceReturning=false,referenceBar=null;
+ function captureReferencePlace(id){
+  const n=board?.nodes.find(node=>node.id===id);if(!n||n.type!=='note'||loading||blocked)return null;
+  const root=document.getElementById('immersiveSurface')?.dataset.id===id?document.getElementById('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===id);
+  const focused=document.activeElement,source=focused?.matches('textarea,input[type=text],input:not([type])')&&root?.contains(focused)?focused:field?.isConnected&&root?.contains(field)?field:null,area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
+  return {board:boardId,id,name:n.title||'未命名便签',view:{x:view().x,y:view().y,z:view().z},selected:[...selected],mode:editorId===id?(root?.id==='immersiveSurface'?'expanded':'canvas'):'read',preview:editorId===id&&preview,width:canvas.clientWidth,height:canvas.clientHeight,
+   field:source?{id:source.id,value:source.value.length<=512*1024?source.value:null,start:source.selectionStart,end:source.selectionEnd,direction:source.selectionDirection,top:source.scrollTop,left:source.scrollLeft}:null,scroll:area?.scrollTop||0,details:!!details?.open,detailsScroll:details?.scrollTop||0};
+ }
+ function syncReferenceReturn(){
+  const place=referenceTrail.at(-1);
+  if(!place&&!referenceBar)return;
+  if(!referenceBar){
+   referenceBar=document.createElement('div');referenceBar.id='noteReferenceReturn';referenceBar.className='note-reference-return inline-ui';
+   referenceBar.innerHTML='<button type="button" id="noteReferenceBack"><span aria-hidden="true">↶</span><span><small>返回刚才</small><b></b></span></button><button type="button" id="noteReferenceDismiss" aria-label="结束这次关联浏览">×</button>';canvas.append(referenceBar);
+   referenceBar.querySelector('#noteReferenceBack').onclick=returnReference;
+   referenceBar.querySelector('#noteReferenceDismiss').onclick=()=>{referenceEpoch++;referenceTrail.length=0;syncReferenceReturn();canvas.focus({preventScroll:true});};
+   for(const name of ['pointerdown','click'])referenceBar.addEventListener(name,event=>event.stopPropagation());
+  }
+  const dialog=document.getElementById('dialog'),heading=dialog?.open&&dialog.classList.contains('immersive-dialog')?dialog.querySelector('.immersive-heading'):null,host=heading||canvas;
+  if(referenceBar.parentElement!==host)host.append(referenceBar);referenceBar.classList.toggle('reference-in-editor',Boolean(heading));
+  referenceBar.hidden=!place||place.destination!==boardId||loading||blocked;
+  const button=referenceBar.querySelector('#noteReferenceBack');button.disabled=referenceReturning;referenceBar.querySelector('#noteReferenceDismiss').disabled=referenceReturning;
+  if(place){button.querySelector('b').textContent=place.name;button.title='返回刚才的便签：'+place.name;button.setAttribute('aria-label','返回刚才的便签：'+place.name);}
+ }
+ async function closeReferenceEditor(){
+  const dialog=document.getElementById('dialog');if(!dialog?.open)return;
+  if(!dialog.classList.contains('immersive-dialog'))throw Error('请先关闭当前窗口，再查看关联便签。');
+  await new Promise(resolve=>{dialog.addEventListener('close',resolve,{once:true});dialog.close();});
+ }
+ async function returnReference(){
+  const place=referenceTrail.at(-1);if(!place||referenceReturning||loading||blocked||place.destination!==boardId)return;
+  const epoch=++referenceEpoch;referenceReturning=true;syncReferenceReturn();
+  try{
+   closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch)return;
+   if(place.board!==boardId){await switchBoard(place.board);if(epoch!==referenceEpoch||boardId!==place.board)return;}
+   if(loading||blocked)return;
+   const n=board.nodes.find(node=>node.id===place.id);
+   if(!n||n.type!=='note'){referenceTrail.pop();syncReferenceReturn();toast('原便签已经移走、删除或改变类型，未还原旧内容。');return;}
+   editorId=null;selected=new Set(place.selected.filter(id=>board.nodes.some(node=>node.id===id)));Object.assign(board.view,place.view);
+   if(place.width!==canvas.clientWidth||place.height!==canvas.clientHeight){const z=Math.min(place.view.z,Math.max(.03,Math.min((canvas.clientWidth-40)/n.w,(canvas.clientHeight-140)/n.h)));Object.assign(board.view,{z,x:(canvas.clientWidth-n.w*z)/2-n.x*z,y:(canvas.clientHeight-n.h*z)/2-n.y*z});}
+   drawNodes();renderOutline();moveView();
+   if(place.mode==='expanded')whiteboardReading.open(n.id);else if(place.mode==='canvas')openEditor(n.id);
+   const root=document.getElementById('immersiveSurface')?.dataset.id===n.id?document.getElementById('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===n.id),area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
+   if(details){details.open=place.details;details.scrollTop=place.detailsScroll;}
+   if(place.preview&&editorId===n.id&&root?.querySelector('#notePreview'))togglePreview(root.querySelector('#notePreview'),n,root.querySelector('.inner'));
+   if(area)area.scrollTop=place.scroll;
+   const input=place.field&&root?.querySelector('#'+CSS.escape(place.field.id));
+   if(input&&place.field.value!==null&&input.value===place.field.value){
+    input.setSelectionRange(place.field.start,place.field.end,place.field.direction);input.scrollTop=place.field.top;input.scrollLeft=place.field.left;
+    if(!input.hidden&&(!details?.contains(input)||place.details)){input.focus({preventScroll:true});remember(input);}else root.querySelector('#notePreview')?.focus({preventScroll:true});
+   }else if(place.mode==='read')canvas.focus({preventScroll:true});
+   else{(root?.querySelector('#notePreview')||root?.querySelector('#body')||canvas).focus({preventScroll:true});if(place.field)toast('已回到当前原文；内容已有变化，未套用旧的光标位置。');}
+   referenceTrail.pop();syncReferenceReturn();
+  }catch(error){toast('暂时无法返回：'+error.message);}
+  finally{referenceReturning=false;syncReferenceReturn();}
+ }
  const paperChoices=[['plain','素面'],['lined','横线'],['grid','方格']];
  const swatches=[['#fff0aa','奶油黄'],['#f5dccb','杏桃'],['#eadcf2','淡紫'],['#cde8fb','雾蓝'],['#dbecc7','草绿'],['#e7e2da','暖灰'],['#ffffff','工作台灰']];
  function closePanel(){panel?.remove();panel=null;owner=null;colourCheckpoint=null}
@@ -49,6 +140,7 @@
    el.style.background=n.color;const paper=paperSurface(n);el.classList.toggle('theme-surface',contentSurfaceClass(n)==='theme-surface');el.classList.toggle('theme-dark',!!paper?.dark);
    for(const [key,value]of [['--paper-ink',paper?.ink],['--paper-caption',paper?.caption]])value?el.style.setProperty(key,value):el.style.removeProperty(key);
    for(const style of ['plain','lined','grid'])el.classList.toggle('paper-'+style,(n.paperStyle||'plain')===style);
+   for(const preview of el.querySelectorAll('.note-editor-preview')){const source=preview.previousElementSibling;if(source?.matches('textarea'))preview.style.color=getComputedStyle(source).color;}
   }
   change();
  }
@@ -65,28 +157,30 @@
   box.querySelectorAll('[data-paper]').forEach(b=>b.onclick=()=>{if(!active()||(n.paperStyle||'plain')===b.dataset.paper)return;checkpoint();n.paperStyle=b.dataset.paper;updateSurface(n);refresh()});show(trigger);
  }
  function remember(el){if(el?.matches('textarea')&&['body','userText','annotation'].includes(el.id)){field=el;range={start:el.selectionStart,end:el.selectionEnd}}}
- function setText(n,value,start,end){if(!field?.isConnected)return;checkpoint();n.textFormat='markdown';n[field.id]=value;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();}
+ function ownsField(n){return !loading&&!blocked&&field?.isConnected&&editorId===n?.id&&board?.nodes.includes(n)&&field.closest('.node')?.dataset.id===n.id&&(!document.getElementById('dialog').open||Boolean(field.closest('#dialog.immersive-dialog')))}
+ function setText(n,value,start,end){if(!ownsField(n))return false;checkpoint();n.textFormat='markdown';n[field.id]=value;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();return true;}
  function format(n,kind){
-  if(!field?.isConnected)return;const text=field.value,{start,end}=range||{start:field.selectionStart,end:field.selectionEnd};
+  if(!ownsField(n))return false;const text=field.value,{start,end}=range||{start:field.selectionStart,end:field.selectionEnd};
   const pairs={bold:'**',italic:'*',strike:'~~',highlight:'==',code:'`'};
   if(pairs[kind]){const mark=pairs[kind],selectedText=text.slice(start,end),outer=text.slice(Math.max(0,start-mark.length),start)===mark&&text.slice(end,end+mark.length)===mark&&(kind!=='italic'||(text[start-2]!=='*'&&text[end+1]!=='*'));
-   if(outer)setText(n,text.slice(0,start-mark.length)+selectedText+text.slice(end+mark.length),start-mark.length,end-mark.length);
-   else setText(n,text.slice(0,start)+mark+selectedText+mark+text.slice(end),start+mark.length,end+mark.length);return;
+   if(outer)return setText(n,text.slice(0,start-mark.length)+selectedText+text.slice(end+mark.length),start-mark.length,end-mark.length);
+   return setText(n,text.slice(0,start)+mark+selectedText+mark+text.slice(end),start+mark.length,end+mark.length);
   }
   const prefixes={heading:'# ',quote:'> ',bullet:'- ',number:'1. ',task:'- [ ] '};
-  if(prefixes[kind]){const left=text.lastIndexOf('\n',start-1)+1,right=text.indexOf('\n',end),stop=right<0?text.length:right,prefix=prefixes[kind],lines=text.slice(left,stop).split('\n');const remove=lines.every(line=>line.startsWith(prefix)),changed=lines.map(line=>remove?line.slice(prefix.length):prefix+line).join('\n');setText(n,text.slice(0,left)+changed+text.slice(stop),left,left+changed.length)}
-  if(kind==='fence'){const selectedText=text.slice(start,end),begin=(start&&text[start-1]!=='\n'?'\n':'')+'```\n',after='\n```'+(end<text.length&&text[end]!=='\n'?'\n':'');setText(n,text.slice(0,start)+begin+selectedText+after+text.slice(end),start+begin.length,end+begin.length)}
+  if(prefixes[kind]){const left=start?text.lastIndexOf('\n',start-1)+1:0,last=end>start&&text[end-1]==='\n'?end-1:end,right=text.indexOf('\n',last),stop=right<0?text.length:right,prefix=prefixes[kind],lines=text.slice(left,stop).split('\n');const remove=lines.every(line=>line.startsWith(prefix)),changed=lines.map(line=>remove?line.slice(prefix.length):prefix+line).join('\n');return setText(n,text.slice(0,left)+changed+text.slice(stop),left,left+changed.length)}
+  if(kind==='fence'){const selectedText=text.slice(start,end),begin=(start&&text[start-1]!=='\n'?'\n':'')+'```\n',after='\n```'+(end<text.length&&text[end]!=='\n'?'\n':'');return setText(n,text.slice(0,start)+begin+selectedText+after+text.slice(end),start+begin.length,end+begin.length)}
  }
  function openFormat(trigger,n){const box=popup(trigger,n,'format');if(!box)return;
+  const source=board,sourceId=boardId,active=()=>panel===box&&board===source&&boardId===sourceId&&ownsField(n);
   if(!field?.isConnected){field=document.getElementById('body');remember(field)}
   box.innerHTML='<header><b>文字格式</b><button type="button" aria-label="关闭文字格式">×</button></header><div class="note-format-grid">'+[['bold','粗体','B'],['italic','斜体','I'],['strike','删除线','S'],['highlight','高亮','标记'],['code','行内代码','代码'],['heading','标题','H1'],['quote','引用','引用'],['bullet','无序列表','• 列表'],['number','有序列表','1. 列表'],['task','任务列表','☐ 任务'],['fence','代码块','代码块']].map(([id,label,text])=>'<button type="button" data-format="'+id+'" aria-label="'+label+'" title="'+label+'">'+text+'</button>').join('')+'</div><label class="note-external-link">外部链接<input type="url" aria-label="外部链接网址" placeholder="https://"><button type="button" data-insert-link>插入链接</button></label><label class="note-mode"><input type="checkbox" '+(n.textFormat==='markdown'?'checked':'')+'>按 Markdown 显示</label><p>选中文字后应用；Ctrl+B 粗体，Ctrl+I 斜体。原文保存在便签里。</p>';
-  box.querySelector('header button').onclick=closePanel;box.querySelectorAll('[data-format]').forEach(b=>{b.onpointerdown=e=>e.preventDefault();b.onclick=()=>{format(n,b.dataset.format);box.querySelector('input[type=checkbox]').checked=true}});
-  box.querySelector('[data-insert-link]').onclick=()=>{const input=box.querySelector('input[type=url]'),url=input.value.trim();if(!/^(https?:\/\/|mailto:)/i.test(url)||!parser.validateLink(url)){input.setCustomValidity('请填写 http、https 或 mailto 链接');input.reportValidity();return}input.setCustomValidity('');if(!field?.isConnected)return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||url,link='['+label.replace(/[\\[\]]/g,'\\$&')+'](<'+url.replace(/[<>\s]/g,c=>encodeURIComponent(c))+'>)';setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length);box.querySelector('input[type=checkbox]').checked=true};
-  box.querySelector('input[type=url]').oninput=e=>e.target.setCustomValidity('');box.querySelector('input[type=checkbox]').onchange=e=>{checkpoint();n.textFormat=e.target.checked?'markdown':'plain';change()};show(trigger);
+  box.querySelector('header button').onclick=()=>{if(active())closePanel()};box.querySelectorAll('[data-format]').forEach(b=>{b.onpointerdown=e=>e.preventDefault();b.onclick=()=>{if(active()&&format(n,b.dataset.format))box.querySelector('input[type=checkbox]').checked=true}});
+  box.querySelector('[data-insert-link]').onclick=()=>{if(!active()||!ownsField(n))return;const input=box.querySelector('input[type=url]'),url=input.value.trim();if(!/^(https?:\/\/|mailto:)/i.test(url)||!parser.validateLink(url)){input.setCustomValidity('请填写 http、https 或 mailto 链接');input.reportValidity();return}input.setCustomValidity('');const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||url,link='['+label.replace(/[\\[\]]/g,'\\$&')+'](<'+url.replace(/[<>\s]/g,c=>encodeURIComponent(c))+'>)';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))box.querySelector('input[type=checkbox]').checked=true};
+  box.querySelector('input[type=url]').oninput=e=>e.target.setCustomValidity('');box.querySelector('input[type=checkbox]').onchange=e=>{if(!active())return;checkpoint();n.textFormat=e.target.checked?'markdown':'plain';change()};show(trigger);
  }
  function togglePreview(trigger,n,root){
   preview=!preview;trigger.setAttribute('aria-pressed',String(preview));trigger.textContent=preview?'继续编辑':'预览';
-  root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.innerHTML=n.textFormat==='markdown'?rendered(el.value):'<p>'+esc(el.value).replace(/\n/g,'<br>')+'</p>'});window.whiteboardSizing?.invalidate(root);
+  root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.style.color=getComputedStyle(el).color;view.innerHTML=n.textFormat==='markdown'?rendered(el.value):'<p>'+esc(el.value).replace(/\n/g,'<br>')+'</p>'});if(!preview)growContentFields(root);window.whiteboardSizing?.invalidate(root);
  }
  function references(n){if(n.textFormat!=='markdown')return [];const refs=[];for(const key of ['body','userText','annotation'])for(const block of parser.parse(String(n[key]||''),{}))for(const token of block.children||[])if(token.type==='whiteboard_link')refs.push(token.content.split('|')[0]);return refs}
  function resolveReference(value,records,sourceBoard=boardId){
@@ -102,18 +196,21 @@
   for(let start=0;start<list.length;start+=4)await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();for(const node of data.nodes||[])if(node.type!=='frame')records.push({board:b.id,name:data.name,node})}catch{incomplete=true}}));
   return {records,incomplete};
  }
- async function jumpReference(row){
-  closePanel();if(document.getElementById('dialog')?.classList.contains('immersive-dialog'))document.getElementById('dialog').close();
-  if(row.board!==boardId){await switchBoard(row.board);if(boardId!==row.board)return}
+ async function jumpReference(row,place=null,epoch=++referenceEpoch){
+  if(loading||blocked||epoch!==referenceEpoch)return;
+  closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch||place&&place.board!==boardId)return;
+  if(row.board!==boardId){await switchBoard(row.board);if(epoch!==referenceEpoch||boardId!==row.board)return}
   const n=board.nodes.find(n=>n.id===row.node.id);if(!n)return toast('这块内容已经移走或删除');
   editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();board.view.x=rect.width/2-(n.x+n.w/2)*view().z;board.view.y=rect.height/2-(n.y+n.h/2)*view().z;moveView();canvas.focus({preventScroll:true});
+  if(place&&(place.board!==boardId||place.id!==n.id)){referenceTrail.push({...place,destination:boardId});while(referenceTrail.length>12||referenceTrail.reduce((size,p)=>size+(p.field?.value?.length||0)*2,0)>4*1024*1024)referenceTrail.shift();}
+  syncReferenceReturn();
  }
  async function openLinks(trigger,n){
   const box=popup(trigger,n,'links');if(!box)return;box.setAttribute('aria-label','双向链接');box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><p role="status">正在读取可关联的内容…</p>';box.querySelector('button').onclick=closePanel;show(trigger);
   const sourceBoard=boardId;let result;try{result=await allNotes()}catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message;return}if(panel!==box||boardId!==sourceBoard||!board.nodes.includes(n))return;
   const records=result.records,backlinks=records.filter(row=>references(row.node).some(ref=>{const target=resolveReference(ref,records,row.board);return target?.board===sourceBoard&&target.node.id===n.id}));
   box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><label class="note-link-search">链接到<input type="search" placeholder="搜索便签与白板" aria-label="搜索关联内容"></label><div class="note-link-results"></div><div class="note-backlinks"><b>引用这块内容 · '+backlinks.length+'</b><div></div></div>'+(result.incomplete?'<p role="status">部分白板暂时无法读取，引用列表可能不完整。</p>':'');box.querySelector('header button').onclick=closePanel;
-  const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=row.node.title||'未命名';location.textContent=row.name;b.append(title,location);b.onclick=()=>{if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!field?.isConnected)return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||row.node.title||'未命名',safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length);closePanel()}else jumpReference(row)};return b};
+  const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=row.node.title||'未命名';location.textContent=row.name;b.append(title,location);b.onclick=()=>{if(panel!==box||boardId!==sourceBoard||!board.nodes.includes(n)||editorId!==n.id||loading||blocked||document.getElementById('dialog').open&&!trigger.closest('#dialog.immersive-dialog'))return;if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!ownsField(n))return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||row.node.title||'未命名',safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))closePanel()}else jumpReference(row,captureReferencePlace(n.id)).catch(error=>toast('暂时无法打开关联：'+error.message))};return b};
   const list=box.querySelector('.note-link-results'),search=box.querySelector('input');let limit=30;
   const filter=()=>{list.replaceChildren();const query=search.value.toLocaleLowerCase(),matches=records.filter(row=>(row.board!==sourceBoard||row.node.id!==n.id)&&(row.node.title+' '+row.name).toLocaleLowerCase().includes(query));for(const row of matches.slice(0,limit))list.append(rowButton(row,true));if(matches.length>limit){const more=document.createElement('button');more.type='button';more.textContent='显示更多 · '+(matches.length-limit);more.onclick=()=>{limit+=30;filter()};list.append(more)}if(!matches.length){const empty=document.createElement('p');empty.textContent='没有匹配的内容';list.append(empty)}};
   search.oninput=()=>{limit=30;filter()};filter();const incoming=box.querySelector('.note-backlinks>div');for(const row of backlinks)incoming.append(rowButton(row,false));if(!backlinks.length)incoming.textContent='尚未被其他内容引用';positionPanel(trigger);search.focus();
@@ -132,8 +229,10 @@
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}},true);
  document.getElementById('dialog').addEventListener('cancel',e=>{if(!panel)return;e.preventDefault();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})});
  window.addEventListener('resize',closePanel);
- document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink;try{const {records}=await allNotes();if(boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
- const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw()};
+ document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row,place,epoch);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
+ const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw();syncReferenceReturn()};
+ window.addEventListener('creative-board-loading',()=>{if(referenceBar)referenceBar.hidden=true;});
+ new MutationObserver(syncReferenceReturn).observe(document.getElementById('dialog'),{attributes:true,attributeFilter:['open','class']});
  const originalAdd=addNote;addNote=function(p=center(),data={}){return originalAdd(p,{...(!data.type||data.type==='note'?{textFormat:'markdown'}:{}),...data})};
  function openAppearance(id){
   const n=board?.nodes.find(n=>n.id===id),el=[...$('nodes').children].find(el=>el.dataset.id===id);
@@ -154,6 +253,20 @@
 (() => {
  'use strict';
  const elements=new WeakMap();let lastLevel=null,lastZ=null,lastBoard=null,lastEditor=null;
+ const normalisePreferences=p=>({mode:p?.mode==='original'?'original':'smart',at:Math.max(15,Math.min(75,Number(p?.at??45)||45)),font:Math.max(9,Math.min(18,Number(p?.font??12)||12))});
+ const appearance=window.whiteboardAppearance?.read?.();let preferences=normalisePreferences({mode:appearance?.overviewMode,at:appearance?.overviewAt,font:appearance?.overviewFont});
+ window.addEventListener('creative-overview-preferences',event=>{preferences=normalisePreferences(event.detail);distance(true)});
+ const fullName=document.createElement('aside');fullName.id='spaceTitlePreview';fullName.className='space-title-preview';fullName.hidden=true;fullName.setAttribute('aria-hidden','true');fullName.innerHTML='<p></p><small>点击查看原便签</small>';canvas.append(fullName);let peekButton=null,dismissedName=null;
+ function hideName(){fullName.hidden=true;fullName.querySelector('p').textContent='';peekButton=null}
+ function showName(button,n,source,sourceId){
+  const el=button.parentElement;if(button===dismissedName||source!==board||sourceId!==boardId||!board.nodes.includes(n)||loading||blocked||gesture||button.hidden||!el?.isConnected||el.parentElement!==$('nodes')||elements.get(el)!==button||!canvas.classList.contains('space-overview')||$('dialog').open)return;
+  const bounds=canvas.getBoundingClientRect(),r=button.getBoundingClientRect(),width=Math.max(1,Math.min(320,bounds.width-16));
+  dismissedName=null;peekButton=button;fullName.querySelector('p').textContent=label(n);fullName.style.width=width+'px';fullName.style.maxHeight=Math.max(1,Math.min(240,bounds.height-16))+'px';fullName.hidden=false;
+  const height=fullName.offsetHeight,left=Math.max(8,Math.min(r.left-bounds.left,bounds.width-width-8)),below=r.bottom-bounds.top+8,above=r.top-bounds.top-height-8;
+  fullName.style.left=left+'px';fullName.style.top=Math.max(8,Math.min(below+height<=bounds.height-8?below:above,bounds.height-height-8))+'px';
+ }
+ canvas.addEventListener('pointerdown',hideName,true);window.addEventListener('blur',hideName);window.addEventListener('resize',hideName);window.addEventListener('creative-board-loading',hideName);
+ window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!fullName.hidden&&!gesture){event.preventDefault();event.stopImmediatePropagation();dismissedName=peekButton;hideName()}},true);
  function label(n){const title=String(n.title||'').trim();return title||String(n.body||'').trim().split(/\r?\n/)[0]||(n.type==='table'?'空白表格':'空白便签')}
  function open(id){
   const n=board?.nodes.find(n=>n.id===id);if(!n||loading)return;
@@ -163,6 +276,7 @@
   const field=$('body')||$('title');field?.focus({preventScroll:true});
  }
  function mount(){
+  hideName();
   if(!board)return;
   const lookup=new Map(board.nodes.map(n=>[n.id,n]));
   for(const el of $('nodes').children){
@@ -170,23 +284,123 @@
    if(!el.classList.contains('paper-card')){elements.get(el)?.remove();elements.delete(el);continue}
    let button=elements.get(el);
    if(!button){button=document.createElement('button');button.type='button';button.className='space-card-label inline-ui';button.onclick=e=>{e.stopPropagation();open(el.dataset.id)};el.append(button);elements.set(el,button)}
-   const text=label(n);if(button.textContent!==text)button.textContent=text;
-   button.title=text;button.setAttribute('aria-label','定位并编辑：'+text);
+   const text=label(n);if(button.textContent!==text||!button.querySelector('.space-card-name')){const name=document.createElement('span');name.className='space-card-name';name.textContent=text;button.replaceChildren(name)}
+   button.removeAttribute('title');button.setAttribute('aria-label','定位并编辑：'+text);
+   const source=board,sourceId=boardId;
+   button.onpointerenter=event=>{if(event.pointerType==='mouse'||event.pointerType==='pen')showName(button,n,source,sourceId)};
+   button.onpointermove=event=>{if(fullName.hidden&&(event.pointerType==='mouse'||event.pointerType==='pen'))showName(button,n,source,sourceId)};
+   button.onpointerleave=()=>{if(dismissedName===button)dismissedName=null;if(document.activeElement!==button)hideName()};button.onfocus=()=>{dismissedName=null;showName(button,n,source,sourceId)};button.onblur=hideName;
   }
   distance(true);
  }
  function distance(force=false){
   if(!board)return;
   if(!force&&lastZ===view().z&&lastBoard===board&&lastEditor===editorId)return;
+  hideName();
   lastZ=view().z;lastBoard=board;lastEditor=editorId;
-  const overview=view().z<.45;
+  const overview=preferences.mode==='smart'&&view().z<preferences.at/100;
   if(lastLevel!==overview){canvas.classList.toggle('space-overview',overview);lastLevel=overview}
   const scale=String(1/view().z);if($('nodes').style.getPropertyValue('--space-label-scale')!==scale)$('nodes').style.setProperty('--space-label-scale',scale);
-  const widths=new Map(board.nodes.map(n=>[n.id,n.w]));
-  for(const el of $('nodes').children){const button=elements.get(el);if(button){button.hidden=!overview||editorId===el.dataset.id;const width=Math.max(1,((widths.get(el.dataset.id)||300)-24)*view().z)+'px';if(button.style.maxWidth!==width)button.style.maxWidth=width}}
+  const nodes=new Map(board.nodes.map(n=>[n.id,n]));
+  for(const el of $('nodes').children){const button=elements.get(el),n=nodes.get(el.dataset.id);if(button&&n){
+   button.hidden=!overview||editorId===el.dataset.id;const width=Math.max(1,(n.w-24)*view().z),height=Math.max(1,(n.h-12)*view().z),baseFont=Math.max(9,Math.min(preferences.font,width/7)),font=height>=26.3?Math.max(9,Math.min(baseFont,(height-2)/2.7)):baseFont,lines=Math.max(1,Math.min(3,Math.floor((height-2)/(font*1.35)+1e-6)));
+   if(button.style.maxWidth!==width+'px')button.style.maxWidth=width+'px';
+   for(const [key,value]of [['--space-label-height',height+'px'],['--space-label-font',font+'px'],['--space-title-lines',String(lines)]])if(button.style.getPropertyValue(key)!==value)button.style.setProperty(key,value);
+  }}
  }
  const previousDraw=drawNodes;drawNodes=function(){previousDraw();mount()};
  const previousSelect=refreshSelectionUI;refreshSelectionUI=function(){previousSelect();mount()};
  const previousView=moveView;moveView=function(){previousView();distance()};
- window.whiteboardSpace={open,mount};if(board)mount();
+ window.whiteboardSpace={open,mount,preferences:()=>({...preferences})};if(board)mount();
+})();
+
+// Named camera positions belong to this browser, not to the author's board content.
+(() => {
+ 'use strict';
+ const prefix='creative-canvas-views:',limit=40;let returning=null;
+ const bar=document.createElement('div');bar.className='canvas-view-return inline-ui';bar.hidden=true;
+ const back=document.createElement('button'),dismiss=document.createElement('button');back.type=dismiss.type='button';back.textContent='返回之前视角';dismiss.textContent='×';dismiss.setAttribute('aria-label','收起视角返回');bar.append(back,dismiss);canvas.append(bar);bar.addEventListener('pointerdown',event=>event.stopPropagation());bar.addEventListener('dblclick',event=>event.stopPropagation());
+ const camera=()=>{const r=canvas.getBoundingClientRect(),v=view();return {cx:(r.width/2-v.x)/v.z,cy:(r.height/2-v.y)/v.z,z:v.z}};
+ const same=(a,b)=>['id','name','cx','cy','z'].every(key=>a[key]===b[key]);
+ const valid=p=>p&&typeof p.id==='string'&&p.id.length<=80&&typeof p.name==='string'&&p.name.length>0&&p.name.length<=80&&[p.cx,p.cy,p.z].every(Number.isFinite)&&Math.abs(p.cx)<=1e9&&Math.abs(p.cy)<=1e9&&p.z>=.15&&p.z<=32;
+ function read(key){
+  let raw;try{raw=localStorage.getItem(key)}catch{throw Error('浏览器暂时不能读取视角。你可以稍后重试。')}if(raw===null)return [];
+  let value;try{value=JSON.parse(raw)}catch{throw Error('已保存的视角暂时不能读取，原记录保持原样。')}
+  if(!Array.isArray(value)||value.length>limit||!value.every(valid)||new Set(value.map(p=>p.id)).size!==value.length)throw Error('已保存的视角暂时不能读取，原记录保持原样。');
+  return value;
+ }
+ function positionReturn(){
+  if(returning&&(returning.source!==board||returning.id!==boardId||loading))returning=null;
+  if(returning?.returned&&['cx','cy','z'].some(key=>Math.abs(camera()[key]-returning.value[key])>1e-6))returning=null;
+  bar.hidden=!returning;if(bar.hidden)return;
+  back.disabled=!!returning.returned;back.textContent=returning.returned?'已返回原视角':'返回之前视角';
+  const bounds=canvas.getBoundingClientRect(),tools=$('canvasTools').getBoundingClientRect(),reference=document.querySelector('.note-reference-return:not([hidden])'),r=reference?.getBoundingClientRect();
+  const height=bar.getBoundingClientRect().height;let top=tools.bottom-bounds.top+8;
+  if(top+height>bounds.height-8)top=tools.top-bounds.top-height-8;
+  if(r&&top<r.bottom-bounds.top+8&&top+height>r.top-bounds.top)top=r.bottom-bounds.top+8;
+  bar.style.top=Math.max(8,Math.min(top,bounds.height-height-8))+'px';
+ }
+ function applyCamera(value){const r=canvas.getBoundingClientRect();board.view={...board.view,x:r.width/2-value.cx*value.z,y:r.height/2-value.cy*value.z,z:value.z};moveView();change(true)}
+ function navigate(value){const current=camera();if(['cx','cy','z'].every(key=>Math.abs(current[key]-value[key])<1e-6)){canvas.focus({preventScroll:true});return}if(!returning||returning.returned)returning={source:board,id:boardId,value:current};applyCamera(value);positionReturn();canvas.focus({preventScroll:true})}
+ back.onclick=()=>{if(!returning||returning.returned||returning.source!==board||returning.id!==boardId||loading||blocked||gesture)return;const prior=returning.value;returning.returned=true;applyCamera(prior);positionReturn();canvas.focus({preventScroll:true})};
+ dismiss.onclick=()=>{returning=null;positionReturn();canvas.focus({preventScroll:true})};
+ function selectedCamera(){
+  const nodes=board.nodes.filter(n=>selected.has(n.id));if(!nodes.length)return null;
+  const left=Math.min(...nodes.map(n=>n.x)),top=Math.min(...nodes.map(n=>n.y)),right=Math.max(...nodes.map(n=>n.x+n.w)),bottom=Math.max(...nodes.map(n=>n.y+n.h)),r=canvas.getBoundingClientRect();
+  return {cx:(left+right)/2,cy:(top+bottom)/2,z:Math.max(.15,Math.min(1.1,Math.max(1,r.width-80)/Math.max(1,right-left),Math.max(1,r.height-100)/Math.max(1,bottom-top)))};
+ }
+ function open(){
+  if(!board||loading||gesture||$('dialog').open)return;
+  if(blocked)return toast('请先处理保存冲突');
+  const source=board,id=boardId,key=prefix+id,savedCamera=camera(),focused=document.activeElement,selection=selectedCamera();let form;
+  const ownsDialog=()=>$('dialog').open&&form?.isConnected&&$('dialogBody').contains(form);
+  const active=()=>source===board&&id===boardId&&!loading&&!blocked&&!gesture&&ownsDialog();
+  const message=value=>{if(!active())return;const status=form.querySelector('[role=status]');status.textContent=value;status.hidden=!value};
+  showDialog('<section class="canvas-view-form"><h2 id="canvasViewTitle">视角与位置</h2><p class="canvas-view-explain">在同一张白板里来回走动，记住自己常用的位置。</p><div class="canvas-view-presets"><button type="button" data-view="all">全览白板<small>看看整体</small></button><button type="button" data-view="selection">聚焦选中<small>看清这一组</small></button><button type="button" data-view="actual">100%<small>按原比例查看</small></button></div><form class="canvas-view-save"><label for="canvasViewName">保存打开面板前的位置</label><div><input id="canvasViewName" maxlength="80" autocomplete="off" placeholder="给这个位置起个名称"><button type="submit">保存视角</button></div></form><p role="status" hidden></p><div class="canvas-view-list" aria-label="这张白板的已存视角"></div><p class="canvas-view-local">只保存在这个浏览器，暂不跨设备同步。</p></section>',[['返回白板',()=>{if(!ownsDialog())return;$('dialog').close();if(focused?.isConnected)focused.focus({preventScroll:true});else canvas.focus({preventScroll:true})}]]);
+  form=$('dialogBody').querySelector('.canvas-view-form');const input=form.querySelector('input'),list=form.querySelector('.canvas-view-list');let removed=null;
+  const dialog=$('dialog'),priorLabel=dialog.getAttribute('aria-labelledby');dialog.setAttribute('aria-labelledby','canvasViewTitle');
+  const tabKey=event=>{if(event.key!=='Tab'||!ownsDialog())return;const buttons=[...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled)')].filter(el=>el.getClientRects().length);const first=buttons[0],last=buttons.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};
+  dialog.addEventListener('keydown',tabKey);onDialogDismiss(()=>{dialog.removeEventListener('keydown',tabKey);if(priorLabel===null)dialog.removeAttribute('aria-labelledby');else dialog.setAttribute('aria-labelledby',priorLabel)});
+  const undo=document.createElement('button');undo.type='button';undo.textContent='撤销移除';undo.className='canvas-view-undo';undo.hidden=true;form.querySelector('[role=status]').after(undo);
+  undo.onclick=()=>{
+   if(!active()||!removed)return;let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return}
+   if(rows.length>=limit||rows.some(p=>p.id===removed.row.id||p.name===removed.row.name)){message('已有同名视角或记录已满，暂时不能恢复。移除的位置仍保留到你关闭面板。');return}
+   rows.splice(Math.min(removed.at,rows.length),0,removed.row);
+   try{localStorage.setItem(key,JSON.stringify(rows))}catch{message('浏览器没有保存这次恢复，移除的位置仍保留到你关闭面板。');return}
+   removed=null;undo.hidden=true;render();message('已恢复视角。');input.focus({preventScroll:true});
+  };
+  function render(){
+   if(!active())return;list.replaceChildren();let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return}
+   if(!rows.length){const empty=document.createElement('p');empty.className='canvas-view-empty';empty.textContent='还没有保存位置。先给当前区域起个名称。';list.append(empty);return}
+   for(const row of rows){
+    const line=document.createElement('div'),go=document.createElement('button'),remove=document.createElement('button'),name=document.createElement('span'),scale=document.createElement('small');line.className='canvas-view-row';go.type=remove.type='button';go.className='canvas-view-go';name.textContent=row.name;scale.textContent=Math.round(row.z*100)+'%';go.append(name,scale);remove.className='canvas-view-remove';remove.textContent='×';remove.setAttribute('aria-label','移除视角：'+row.name);line.append(go,remove);list.append(line);
+    const fresh=()=>{if(!active())return false;let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return false}if(!rows.some(p=>same(p,row))){message('这项视角已在另一窗口改变。请重新打开面板，原记录保留。');return false}return rows};
+    go.onclick=()=>{if(!fresh())return;$('dialog').close();navigate(row)};
+    remove.onclick=()=>{const rows=fresh();if(!rows)return;try{localStorage.setItem(key,JSON.stringify(rows.filter(p=>p.id!==row.id)))}catch{message('浏览器没有保存这次移除，原视角仍保留。');return}removed={row,at:rows.findIndex(p=>p.id===row.id)};undo.hidden=false;render();input.focus({preventScroll:true});message('已移除视角。便签和白板内容保持原样。')};
+   }
+  }
+  form.querySelector('[data-view=selection]').disabled=!selection;
+  form.querySelector('[data-view=all]').disabled=!board.nodes.length;
+  for(const button of form.querySelectorAll('[data-view]'))button.onclick=()=>{
+   if(!active())return;const value=button.dataset.view;
+   if(value==='selection'&&!selection)return;
+   $('dialog').close();if(value==='all'){if(!returning||returning.returned)returning={source:board,id:boardId,value:camera()};fit();positionReturn();canvas.focus({preventScroll:true})}else navigate(value==='selection'?selection:{...savedCamera,z:1});
+  };
+  form.querySelector('form').onsubmit=event=>{
+   event.preventDefault();if(!active())return;const name=input.value.trim();if(!name){message('请给这个位置起一个名称。');input.focus();return}
+   let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return}
+   if(rows.some(p=>p.name===name)){message('已有同名视角。请换个名称，原位置保留。');input.focus();return}
+   if(rows.length>=limit){message('这张白板已保存 40 个视角。先移除不再需要的位置，再保存。');return}
+   try{localStorage.setItem(key,JSON.stringify([...rows,{id:uid(),name,...savedCamera}]))}catch{message('浏览器没有保存这次视角，你输入的名称仍在这里。');return}
+   input.value='';render();message('已保存视角，只在这个浏览器使用。');input.focus({preventScroll:true});
+  };
+  render();form.querySelector('[data-view]:not(:disabled)').focus({preventScroll:true});
+ }
+ const previousMenu=fileMenu;fileMenu=function(event,items){if(event.target.closest?.('#canvas')&&!event.target.closest('.node,[data-edge],input,textarea,button'))items=[['视角与位置  Shift+V',open],...items];return previousMenu(event,items)};
+ window.addEventListener('keydown',event=>{if(event.shiftKey&&event.code==='KeyV'&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.isComposing&&!isTyping(event)&&!event.target.closest?.('#workspaceSidebar,header,#fileContext')&&!$('dialog').open){event.preventDefault();event.stopImmediatePropagation();open()}},true);
+ const guide=$('canvasGuide'),previousGuide=guide.onclick;guide.onclick=function(event){previousGuide.call(this,event);const p=document.createElement('p');p.textContent='Shift+V 打开视角与位置，也可以右键画布空白处。给常用位置起个名称，再回来时更容易找到。';$('dialogBody').append(p)};
+ const previousView=moveView;moveView=function(){previousView();positionReturn()};
+ window.addEventListener('creative-board-loading',()=>{returning=null;positionReturn()});
+ new ResizeObserver(positionReturn).observe(canvas);
+ window.whiteboardCanvasViews={open};
 })();

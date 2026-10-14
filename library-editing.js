@@ -5,6 +5,12 @@
  const text=value=>value===undefined?'（已移除）':Array.isArray(value)?value.join('，'):String(value??'');
  const equal=(a,b)=>wfEqual(a,b);
  const active=state=>$('dialog').open&&state.form.isConnected&&$('dialogBody').contains(state.form);
+ function fillTextarea(field,value){
+  // Parsing textarea markup consumes an initial LF. Assign the author's value directly.
+  field.value=value||'';
+  // Keep a short multiline heading or annotation visible on opening; long text can scroll.
+  field.rows=Math.max(field.rows,Math.min(12,field.value.split('\n').length));
+ }
  function element(tag,className,content){const el=document.createElement(tag);if(className)el.className=className;if(content!==undefined)el.textContent=content;return el}
  function notice(state,message){if(!active(state))return;state.message.textContent=message;state.message.hidden=!message}
  function destination(target){
@@ -129,7 +135,9 @@
   const item=assetById(id);if(!item)return;const state={mode:'file',base:clone(item),draft:clone(item),busy:false};
   showDialog('<section class="library-edit-form"><h2>文件说明</h2><label>显示名称<input id="assetTitle" value="'+esc(item.title)+'"></label><label>存放位置<select id="libraryDestination">'+libraryFolderOptions(item.folder)+'</select></label><label>备注<textarea id="assetNotes">'+esc(item.notes||'')+'</textarea></label><label>标签，用逗号分开<input id="assetTags" value="'+esc((item.tags||[]).join('，'))+'"></label><p class="library-edit-explain">修改名称与说明不会重命名原文件。</p></section>',[['取消',()=>$('dialog').close()],['保存',()=>save(state)]]);
   state.capture=()=>{state.draft.title=$('assetTitle').value;state.draft.notes=$('assetNotes').value;state.draft.tags=$('assetTags').value.split(/[,，]/).map(value=>value.trim()).filter(Boolean)};
-  setup(state);mountLibraryDestination('libraryDestination');
+  setup(state);
+  fillTextarea(state.form.querySelector('#assetNotes'),item.notes);
+  mountLibraryDestination('libraryDestination');
  }
  function editContent(id=null){
   const original=id?assetById(id):null;if(original&&original.mime!==bundleMime)return editFile(id);
@@ -137,12 +145,19 @@
   if(original&&!original.bundle?.nodes.length)return toast('这份组合没有内容块，可以先把内容收进库，再继续编辑。');
   const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'}],edges:[]}},busy:false};let index=0;
   showDialog('<section class="library-edit-form library-content-form"><div class="library-content-heading"><h2>'+(original?'编辑内容':'新建内容')+'</h2><p class="library-edit-explain">'+(original?'已放到白板上的副本保持原样。':'先写下想法，需要使用时再拖到白板。')+'</p></div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div></div><aside class="library-content-details" aria-label="内容信息"><label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label><label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label><div id="librarySupplement"></div></aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
-  const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=$('library-'+key).value};
-  const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'">'+esc(state.draft.bundle.nodes[index][key]||'')+'</textarea></label>';
-  const draw=()=>{$('libraryFields').innerHTML=field('title','标题',1)+field('body','正文',7);$('librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(state.draft.bundle.nodes[index].type==='table'?'<p class="library-edit-explain">表格单元格与附件会保留。调整表格结构时，可放到白板编辑后再收录。</p>':'')};
+  const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value};
+  const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'"></textarea></label>';
+  const draw=()=>{
+   if(!active(state))return;
+   state.form.querySelector('#libraryFields').innerHTML=field('title','标题',1)+field('body','正文',7);
+   state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(state.draft.bundle.nodes[index].type==='table'?'<p class="library-edit-explain">表格单元格与附件会保留。调整表格结构时，可放到白板编辑后再收录。</p>':'');
+   for(const key of ['title','body','userText','annotation'])fillTextarea(state.form.querySelector('#library-'+key),state.draft.bundle.nodes[index][key]);
+  };
   state.capture=()=>{capturePiece();state.draft.title=$('libraryName').value.trim();state.draft.folder=$('libraryDestination').value};
-  if($('libraryPiece'))$('libraryPiece').onchange=e=>{capturePiece();index=Number(e.target.value);draw()};
-  draw();setup(state);$(original?'libraryName':'library-body').focus();
+  setup(state);
+  const piece=state.form.querySelector('#libraryPiece');
+  if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();index=Number(piece.value);draw()};
+  draw();$(original?'libraryName':'library-body').focus();
  }
  window.whiteboardLibraryEditing={editFile,editContent};
 })();

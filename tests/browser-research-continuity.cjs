@@ -137,7 +137,9 @@ const {chromium} = require('playwright');
   // Switching scope cannot keep the old set of authored background.
   await page.getByRole('button', {name:'关闭', exact:true}).click();
   await page.evaluate(async()=>{
-   addNote({x:450,y:240},{title:'未选中的记录',body:'这块没有被选择，不应出现在选中范围的任务里。'});
+   // Scope exclusion needs a stable background. Automatic height resolution is
+   // itself a legitimate source change and must still invalidate preparation.
+   addNote({x:450,y:240},{title:'未选中的记录',body:'这块没有被选择，不应出现在选中范围的任务里。',sizeMode:'manual',w:300,h:160});
    await persist();selected=new Set(['note']);assetSelected.clear();whiteboardAI.compose();
   });
   await page.locator('#aiVisuals').uncheck();await page.locator('#aiTaskScope').selectOption('board');
