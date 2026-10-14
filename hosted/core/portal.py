@@ -9,6 +9,7 @@ from .views import account_json
 
 
 ASSETS = {
+    "paper-reading.js": "text/javascript", "paper-reading.css": "text/css",
     "account-panel.js": "text/javascript", "account-panel.css": "text/css",
     "note-references.js": "text/javascript", "note-references.css": "text/css",
     "board-views.js": "text/javascript", "board-views.css": "text/css",

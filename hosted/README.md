@@ -1198,6 +1198,46 @@ certification. The pre-change layout image is a same-data reconstruction with
 the new controls removed. Hosted search remains unreleased and undeployed;
 the unrelated localhost HTTPS media integration still awaits explicit approval.
 
+### Browser-local paper reading (staged)
+
+The existing spatial editor's Reading button offers Original, Clear, Book and
+Monospace families for top-level note titles/body/context/annotations and their
+existing inspector fields. Original remains the default; code, controls, author
+text/font sizes/positions and manual dimensions stay unchanged. Automatic paper
+display reflows locally; connectors and Fit use its displayed height instead of
+the older stored height. Choosing a reading style does not save a board, create
+history or store a font field in its JSON. Subsequent author edits and their
+ordinary automatic sizing still follow the existing guarded save flow.
+
+Preferences contain only a fixed font ID and use the page's original numeric
+account plus fixed workspace UUID in the browser storage key. Different accounts
+and workspaces do not share the choice, while the same account/workspace's other
+tabs can receive it. This is neither a synchronized preference nor an authored
+per-note font. Fixed local [CSS font fallbacks](https://www.w3.org/TR/css-fonts-4/#font-family-prop)
+need no font download; actual glyphs depend on the device. Invalid values fall
+back to Original. Storage refusal explicitly leaves a preview, and reopening
+uses the previous saved choice. Restore returns to the opening choice.
+
+The same Reading button moves beside the inspector heading in small windows.
+The native dialog blocks background save/undo/dismiss commands and returns to
+the unchanged original field/caret/selection/view. New account or access loss
+closes and disables the old dialog. Own-tab preference notifications defer font
+changes and paper rebuilding during a captured pointer gesture or composition; changing only a
+reading preference never modifies another author's content.
+
+Final original-page acceptance passed twelve distinct real localhost HTTPS
+behavior groups in one uninterrupted synthetic fixture, with earlier focused
+checks of the receiving tab's keyboard focus:
+four choices, rendering/manual originals/code, exact editor return, persistence
+and own-tab focus, malformed values, storage refusal, 390/320px controls, a real
+viewer, displayed-height connectors/Fit, switching to another actual member,
+native pointer drag/save/own Undo, and simulated composition.
+Simulation is not physical-device/IME acceptance;
+the test browser's local certificate exception is not public TLS acceptance.
+Three pure identity/fallback model cases and twelve affected portal boundaries
+also passed. No schema, server backup format, private program or deployment is
+changed by this feature.
+
 ### Registered HTML static preview (staged)
 
 The existing library detail can display the static layout of a registered

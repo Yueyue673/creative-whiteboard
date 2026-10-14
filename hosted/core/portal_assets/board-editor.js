@@ -3,11 +3,12 @@ import {BoardTransport} from './board-transport.js';
 import {BoardMedia,validAssetId,mediaElement,stopMedia,bytesLabel} from './board-media.js';
 import {BoardLibrary} from './board-library.js';
 import {ReferenceIndex,NoteReferences,installReferences} from './note-references.js';
-import {SpatialViews,fitRegion} from './board-views.js';
+import {SpatialViews,fitRegion,safeViewport} from './board-views.js';
 import {FrameEditor,frameCard,framePatch} from './board-frames.js';
 import {TableEditor,tableCard} from './board-tables.js';
 import {MediaCues} from './media-cues.js';
 import {OwnHistory,valueEqual,validateLiveBoard} from './board-reconciliation.js';
+import {PaperReading} from './paper-reading.js';
 
 const $ = id => document.getElementById(id);
 const context = Object.freeze(JSON.parse($('board-context').textContent));
@@ -24,9 +25,9 @@ parser.renderer.rules.link_open = (tokens,index,options,env,self) => {
   return linkOpen(tokens,index,options,env,self);
 };
 let board = null, selected = null, creating = context.create, saveTimer, selectedRecovery = null, recoveryEpoch = 0, editorError = '';
-let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='';
+let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='',readingLayoutPending=false;
 const ownHistory=new OwnHistory();
-const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling;
+const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling,readingAnchor=$('showPaperReading').nextSibling;
 function syncHistoryControls(){
   const narrow=narrowEditor.matches&&!$('inspector').hidden,host=narrow?$('inspectorHistory'):historyHome;
   for(const[id,label,icon]of [['undo','撤销','↶'],['redo','重做','↷']]){
@@ -35,6 +36,10 @@ function syncHistoryControls(){
   }
   // The narrow inspector covers the canvas toolbar. Keep the same permission-
   // bound library button available while writing, without duplicate controls.
+  const reading=$('showPaperReading');
+  const readingHost=narrow?document.querySelector('.inspector-heading-actions'):historyHome;
+  if(reading.parentElement!==readingHost){if(narrow)readingHost.insertBefore(reading,$('showViewsFromNote'));else readingHost.insertBefore(reading,readingAnchor);}
+  reading.textContent=narrow?'Aa':'阅读';
   const media=$('showMedia');
   if(media.parentElement!==host){if(narrow)host.append(media);else host.insertBefore(media,mediaAnchor);}
   $('inspectorHistory').hidden=!narrow;
@@ -53,6 +58,16 @@ const frames=new FrameEditor({board:()=>board,node:()=>selectedNode()?.type==='f
 const tables=new TableEditor({scope,colours,raw:()=>rawBoard(),download,mediaAPI:()=>mediaAPI,canReadMedia:()=>mediaAllowed,select:id=>selectNode(id),node:()=>selectedNode()?.type==='table'?selectedNode():null,canEdit:stateCanEdit,canBrowse:()=>canBrowseReferences(),endGroup:()=>{inputGroup=null;},
  change:(next,group)=>{checkpoint(group);Object.assign(selectedNode(),next);commit();},remove:id=>{checkpoint();board.nodes=board.nodes.filter(n=>n.id!==id);board.edges=board.edges.filter(e=>e.from!==id&&e.to!==id);selectNode(null);commit();}});
 const canBrowseReferences = () => board && ['ready','readonly','offline','conflict'].includes(session.state.status);
+const paperReading=new PaperReading({scope,canRead:canBrowseReferences,canApply:()=>!board||!gesture&&!composing,onApply:refreshReadingLayout,capture:captureReadingPlace,restore:restoreReadingPlace,afterClose:releaseAdoption});
+function refreshReadingLayout(){if(!board)return;if(gesture||composing){readingLayoutPending=true;return;}readingLayoutPending=false;const focus=document.activeElement?.matches('#cards>.card')?document.activeElement.dataset.node:null;drawCanvas(false);if(focus&&!document.querySelector('dialog[open]'))[...$('cards').children].find(el=>el.dataset.node===focus)?.focus({preventScroll:true});}
+function captureReadingPlace(field=document.activeElement){
+  if(!field?.matches('#noteTitle,#noteBody,#noteUserText,#noteAnnotation'))return null;
+  return {board,node:selected,field,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,top:field.scrollTop,left:field.scrollLeft,inspectorTop:$('inspector').scrollTop,view:{...view}};
+}
+function restoreReadingPlace(place){
+  if(!place||place.board!==board||place.node!==selected||!place.field.isConnected||place.field.closest('[hidden]')||place.field.value!==place.value||document.querySelector('dialog[open]'))return;
+  view={...place.view};applyView();place.field.focus({preventScroll:true});place.field.setSelectionRange(place.start,place.end,place.direction);place.field.scrollTop=place.top;place.field.scrollLeft=place.left;$('inspector').scrollTop=place.inspectorTop;
+}
 const referenceIndex=new ReferenceIndex(scope.key,parser),referenceTrail=[];
 const references=new NoteReferences(referenceIndex,{navigate:navigateReference,insert:insertReference,canBrowse:canBrowseReferences,canEdit:stateCanEdit,activeNode});
 let viewRestorePending=false;
@@ -66,7 +81,7 @@ const hex = value => typeof value==='string' && /^#[a-f0-9]{6}$/i.test(value);
 const finite = (value,fallback) => typeof value==='number' && Number.isFinite(value) ? value : fallback;
 const clamp = (value,min,max) => Math.max(min,Math.min(max,value));
 const rawBoard = () => JSON.stringify(board,null,2);
-const mediaAPI=new BoardMedia(scope),mediaCards=new Map();let mediaEpoch=0,mediaAllowed=false;
+const mediaAPI=new BoardMedia(scope),mediaCards=new Map(),displayedNoteHeights=new Map();let mediaEpoch=0,mediaAllowed=false;
 const cues=new MediaCues({api:mediaAPI,node:id=>board?.nodes.find(n=>n.id===id),active:activeNode,cards:()=>$('cards'),
   canRead:()=>mediaAllowed,canEdit:stateCanEdit,canCreate:()=>stateCanEdit()&&session.state.status==='ready',
   create:(cue,source)=>{checkpoint();const node={id:crypto.randomUUID(),type:'note',title:'',body:'',textFormat:'markdown',color:'#f0d79e',sizeMode:'auto',x:clamp(source.x+source.w+40,-999000,999000),y:clamp(source.y,-999000,999000),w:320,h:180,mediaCue:cue};board.nodes.push(node);commit();selectNode(node.id);fit([source,node]);$('noteBody').focus({preventScroll:true});},
@@ -90,13 +105,15 @@ function applyView() {
   $('canvas').style.setProperty('--control-scale',String(Math.min(1e6,1/view.z)));
   $('zoomValue').textContent = (view.z<.01?(view.z*100).toFixed(2):Math.round(view.z*100))+'%';
 }
+function displayedHeight(node){return node.type==='note'&&node.sizeMode==='auto'?(displayedNoteHeights.get(node.id)??node.h):node.h;}
 function fit(nodes = board?.nodes) {
   if(!nodes?.length){view={x:48,y:55,z:1};applyView();return;}
   const rect=$('canvas').getBoundingClientRect();
   const minX=Math.min(...nodes.map(n=>n.x)), minY=Math.min(...nodes.map(n=>n.y));
-  const maxX=Math.max(...nodes.map(n=>n.x+n.w)), maxY=Math.max(...nodes.map(n=>n.y+n.h));
-  const z=clamp(Math.min((rect.width-70)/Math.max(1,maxX-minX),(rect.height-130)/Math.max(1,maxY-minY)),.03,1.35);
-  view={x:(rect.width-(maxX-minX)*z)/2-minX*z,y:(rect.height-(maxY-minY)*z)/2-minY*z,z};applyView();
+  const maxX=Math.max(...nodes.map(n=>n.x+n.w)), maxY=Math.max(...nodes.map(n=>n.y+displayedHeight(n)));
+  if(rect.width<80||rect.height<180)return;
+  const area=safeViewport(rect.width,rect.height),z=clamp(Math.min(area.w/Math.max(1,maxX-minX),area.h/Math.max(1,maxY-minY)),1e-6,1.35);
+  view={x:area.x+(area.w-(maxX-minX)*z)/2-minX*z,y:area.y+(area.h-(maxY-minY)*z)/2-minY*z,z};applyView();
 }
 function zoom(factor, clientX, clientY) {
   const rect=$('canvas').getBoundingClientRect(); const x=(clientX??rect.left+rect.width/2)-rect.left, y=(clientY??rect.top+rect.height/2)-rect.top;
@@ -129,6 +146,7 @@ async function performSave() {
 
 function refreshState() {
   const state=session.state, editable=stateCanEdit();
+  paperReading.sync();
   references.sync();refreshReferenceReturn();
   spatialViews.sync();
   for(const button of $('cards').querySelectorAll('[data-reference]'))button.disabled=!canBrowseReferences();
@@ -187,7 +205,7 @@ function drawEdges() {
   for(const edge of board.edges){
     const from=board.nodes.find(n=>n.id===edge.from),to=board.nodes.find(n=>n.id===edge.to);if(!from||!to)continue;
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-    for(const [key,value] of Object.entries({x1:from.x+from.w/2,y1:from.y+from.h/2,x2:to.x+to.w/2,y2:to.y+to.h/2}))line.setAttribute(key,String(value));
+    for(const [key,value] of Object.entries({x1:from.x+from.w/2,y1:from.y+displayedHeight(from)/2,x2:to.x+to.w/2,y2:to.y+displayedHeight(to)/2}))line.setAttribute(key,String(value));
     svg.append(line);
   }
 }
@@ -226,6 +244,7 @@ function mediaCard(node){
 }
 function drawCanvas(allowResize=false) {
   if(!board)return;let resized=false;
+  displayedNoteHeights.clear();
   referenceIndex.update(board);
   const cards=$('cards');
   // Keep opened media mounted: editing a different note must not restart playback.
@@ -254,7 +273,7 @@ function drawCanvas(allowResize=false) {
     }
     card.style.height=node.type==='note'&&node.sizeMode==='auto'?'auto':node.h+'px';if(card.parentNode!==cards)cards.append(card);
     if(node.type==='note'&&node.sizeMode==='auto'){
-      const height=clamp(card.offsetHeight,96,20000);card.style.height=height+'px';
+      const height=clamp(card.offsetHeight,96,20000);card.style.height=height+'px';displayedNoteHeights.set(node.id,height);
       const before=ownHistory.pending?.before.nodes.find(item=>item.id===node.id);
       if(allowResize&&ownHistory.pending&&(!before||!valueEqual(before,node))&&stateCanEdit()&&node.h!==height){node.h=height;resized=true;}
     }
@@ -290,7 +309,7 @@ new ResizeObserver(()=>{
   if(!changed||!board||gesture||viewRestorePending)return;
   if(spatialViews.resize())return;
   const node=board.nodes.find(item=>item.id===selected);
-  const visible=item=>{const x=view.x+item.x*view.z,y=view.y+item.y*view.z;return x+item.w*view.z>24&&x<rect.width-24&&y+item.h*view.z>24&&y<rect.height-100;};
+  const visible=item=>{const x=view.x+item.x*view.z,y=view.y+item.y*view.z;return x+item.w*view.z>24&&x<rect.width-24&&y+displayedHeight(item)*view.z>24&&y<rect.height-100;};
   if(node&&!visible(node))fit([node]);
   else if(!board.nodes.some(visible))fit();
 }).observe($('canvas'));
@@ -451,7 +470,7 @@ document.addEventListener('keydown',event=>{
   if(event.isComposing)return;
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();performSave();}
   if((event.ctrlKey||event.metaKey)&&document.activeElement===$('noteBody')&&['b','i'].includes(event.key.toLowerCase())){event.preventDefault();format(event.key.toLowerCase()==='b'?'bold':'italic');}
-  if(event.key==='Escape'&&!['viewDialog','referenceDialog','recoveryDialog','mediaDialog','metadataDialog','foldersDialog','browserRecoveryDialog','workspaceArchiveDialog','archiveCleanupDialog','accountDialog','cellNotesDialog','mediaCueDialog','tablePasteDialog'].some(id=>$(id).open)){spatialViews.closePanel();$('closeInspector').click();$('closeOutline').click();}
+  if(event.key==='Escape'&&!['paperReadingDialog','viewDialog','referenceDialog','recoveryDialog','mediaDialog','metadataDialog','foldersDialog','browserRecoveryDialog','workspaceArchiveDialog','archiveCleanupDialog','accountDialog','cellNotesDialog','mediaCueDialog','tablePasteDialog'].some(id=>$(id).open)){spatialViews.closePanel();$('closeInspector').click();$('closeOutline').click();}
 });
 function checkAccess(){if(board)session.checkAccess();}
 window.addEventListener('focus',checkAccess);window.addEventListener('creative-account-check',checkAccess);window.addEventListener('pageshow',event=>{if(event.persisted)checkAccess();});document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAccess();});
@@ -472,7 +491,7 @@ function canReceiveCanonical(next){
   return true;
 }
 async function waitForAdoption(){while(gesture||composing)await new Promise(resolve=>adoptionWaiters.add(resolve));}
-function releaseAdoption(){if(gesture||composing)return;for(const resolve of adoptionWaiters)requestAnimationFrame(()=>requestAnimationFrame(resolve));adoptionWaiters.clear();}
+function releaseAdoption(){if(gesture||composing)return;paperReading.flush();if(readingLayoutPending)refreshReadingLayout();for(const resolve of adoptionWaiters)requestAnimationFrame(()=>requestAnimationFrame(resolve));adoptionWaiters.clear();}
 function adoptCanonical(raw){
   const next=validateLiveBoard(JSON.parse(raw));
   if(!board)return false;

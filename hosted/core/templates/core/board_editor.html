@@ -4,6 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark"><title>创作白板 · 空间编辑</title>
   <link rel="stylesheet" href="/portal-assets/board-editor.css">
+  <link rel="stylesheet" href="/portal-assets/paper-reading.css">
   <link rel="stylesheet" href="/portal-assets/media-cues.css">
   <link rel="stylesheet" href="/portal-assets/browser-recovery.css">
   <link rel="stylesheet" href="/portal-assets/workspace-archive.css">
@@ -26,7 +27,7 @@
   <section class="canvas-shell" aria-label="白板空间">
     <button id="returnReferenceCanvas" class="reference-return canvas-return" hidden data-reference-read></button>
     <div id="canvas" tabindex="0" aria-label="白板画布：拖动空白平移，滚轮缩放"><div id="world"><svg id="edges" aria-hidden="true"></svg><div id="cards"></div></div><div id="emptyCanvas" class="empty-canvas" hidden><span aria-hidden="true">▱</span><h1>留白，也是一种开始。</h1><p>添加一张空白便签，写下属于你的第一个字。</p></div></div>
-    <div class="canvas-tools"><button id="addNote" disabled>＋ 便签</button><button id="addFrame" disabled>＋ 分区</button><button id="addTable" disabled>＋ 表格</button><button id="showMedia" disabled>素材</button><button id="showOutline" aria-expanded="false">目录</button><button id="showViews" aria-expanded="false" disabled>视角</button><button id="undo" aria-label="撤销" disabled>↶</button><button id="redo" aria-label="重做" disabled>↷</button><span class="tool-divider"></span><button id="zoomOut" aria-label="缩小">−</button><button id="fitView">全览</button><button id="zoomIn" aria-label="放大">＋</button><output id="zoomValue">100%</output></div>
+    <div class="canvas-tools"><button id="addNote" disabled>＋ 便签</button><button id="addFrame" disabled>＋ 分区</button><button id="addTable" disabled>＋ 表格</button><button id="showMedia" disabled>素材</button><button id="showPaperReading" disabled data-reference-read>阅读</button><button id="showOutline" aria-expanded="false">目录</button><button id="showViews" aria-expanded="false" disabled>视角</button><button id="undo" aria-label="撤销" disabled>↶</button><button id="redo" aria-label="重做" disabled>↷</button><span class="tool-divider"></span><button id="zoomOut" aria-label="缩小">−</button><button id="fitView">全览</button><button id="zoomIn" aria-label="放大">＋</button><output id="zoomValue">100%</output></div>
     <nav id="viewJourney" class="view-journey" hidden aria-label="浏览保存的视角"><button id="viewPrevious" aria-label="上一个视角">←</button><div class="view-journey-title" aria-live="polite"><strong id="viewJourneyName"></strong><span id="viewJourneyCount"></span></div><button id="viewNext" aria-label="下一个视角">→</button><button id="exitViews">退出浏览</button></nav>
     <aside id="outline" class="outline" hidden><div class="panel-heading"><h2>空间里的内容</h2><button id="closeOutline" aria-label="关闭目录">×</button></div><div id="outlineItems"></div></aside>
     <div class="canvas-caption"><span id="nodeCount">正在读取…</span><span>拖动空白平移 · 滚轮缩放</span></div>
