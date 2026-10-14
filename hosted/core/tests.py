@@ -185,12 +185,18 @@ class HostedFoundationTests(TestCase):
 
     def test_legacy_file_endpoints_are_never_exposed_and_future_routes_fail_closed(self):
         anonymous = Client()
-        paths = ["uploads/example", "media/example", "preview/example/../../outside", "search?q=private", "ai/tasks/example", "assets/reference"]
+        paths = ["uploads/example", "media/example", "preview/example/../../outside", "ai/tasks/example", "assets/reference"]
         for path in paths:
             self.assertEqual(self.api("/api/" + path).status_code, 404, path)
             self.assertEqual(self.api(self.route(path)).status_code, 501, path)
             self.assertEqual(self.api(self.route(path, self.other_personal)).status_code, 404, path)
             self.assertEqual(self.api(self.route(path), client=anonymous).status_code, 401, path)
+        # Saved-text search is now implemented, with the same fixed scope.
+        search = "search?q=private"
+        self.assertEqual(self.api("/api/" + search).status_code, 404)
+        self.assertEqual(self.api(self.route(search)).status_code, 200)
+        self.assertEqual(self.api(self.route(search, self.other_personal)).status_code, 404)
+        self.assertEqual(self.api(self.route(search), client=anonymous).status_code, 401)
         for path in ["/server.py", "/index.html", "/data/accounts.sqlite3", "/admin/"]:
             self.assertEqual(self.api(path).status_code, 404, path)
 
