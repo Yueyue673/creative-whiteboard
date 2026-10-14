@@ -289,3 +289,94 @@
  const previousView=moveView;moveView=function(){previousView();distance()};
  window.whiteboardSpace={open,mount};if(board)mount();
 })();
+
+// Named camera positions belong to this browser, not to the author's board content.
+(() => {
+ 'use strict';
+ const prefix='creative-canvas-views:',limit=40;let returning=null;
+ const bar=document.createElement('div');bar.className='canvas-view-return inline-ui';bar.hidden=true;
+ const back=document.createElement('button'),dismiss=document.createElement('button');back.type=dismiss.type='button';back.textContent='返回之前视角';dismiss.textContent='×';dismiss.setAttribute('aria-label','收起视角返回');bar.append(back,dismiss);canvas.append(bar);bar.addEventListener('pointerdown',event=>event.stopPropagation());bar.addEventListener('dblclick',event=>event.stopPropagation());
+ const camera=()=>{const r=canvas.getBoundingClientRect(),v=view();return {cx:(r.width/2-v.x)/v.z,cy:(r.height/2-v.y)/v.z,z:v.z}};
+ const same=(a,b)=>['id','name','cx','cy','z'].every(key=>a[key]===b[key]);
+ const valid=p=>p&&typeof p.id==='string'&&p.id.length<=80&&typeof p.name==='string'&&p.name.length>0&&p.name.length<=80&&[p.cx,p.cy,p.z].every(Number.isFinite)&&Math.abs(p.cx)<=1e9&&Math.abs(p.cy)<=1e9&&p.z>=.15&&p.z<=32;
+ function read(key){
+  let raw;try{raw=localStorage.getItem(key)}catch{throw Error('浏览器暂时不能读取视角。你可以稍后重试。')}if(raw===null)return [];
+  let value;try{value=JSON.parse(raw)}catch{throw Error('已保存的视角暂时不能读取，原记录保持原样。')}
+  if(!Array.isArray(value)||value.length>limit||!value.every(valid)||new Set(value.map(p=>p.id)).size!==value.length)throw Error('已保存的视角暂时不能读取，原记录保持原样。');
+  return value;
+ }
+ function positionReturn(){
+  if(returning&&(returning.source!==board||returning.id!==boardId||loading))returning=null;
+  if(returning?.returned&&['cx','cy','z'].some(key=>Math.abs(camera()[key]-returning.value[key])>1e-6))returning=null;
+  bar.hidden=!returning;if(bar.hidden)return;
+  back.disabled=!!returning.returned;back.textContent=returning.returned?'已返回原视角':'返回之前视角';
+  const bounds=canvas.getBoundingClientRect(),tools=$('canvasTools').getBoundingClientRect(),reference=document.querySelector('.note-reference-return:not([hidden])'),r=reference?.getBoundingClientRect();
+  const height=bar.getBoundingClientRect().height;let top=tools.bottom-bounds.top+8;
+  if(top+height>bounds.height-8)top=tools.top-bounds.top-height-8;
+  if(r&&top<r.bottom-bounds.top+8&&top+height>r.top-bounds.top)top=r.bottom-bounds.top+8;
+  bar.style.top=Math.max(8,Math.min(top,bounds.height-height-8))+'px';
+ }
+ function applyCamera(value){const r=canvas.getBoundingClientRect();board.view={...board.view,x:r.width/2-value.cx*value.z,y:r.height/2-value.cy*value.z,z:value.z};moveView();change(true)}
+ function navigate(value){const current=camera();if(['cx','cy','z'].every(key=>Math.abs(current[key]-value[key])<1e-6)){canvas.focus({preventScroll:true});return}if(!returning||returning.returned)returning={source:board,id:boardId,value:current};applyCamera(value);positionReturn();canvas.focus({preventScroll:true})}
+ back.onclick=()=>{if(!returning||returning.returned||returning.source!==board||returning.id!==boardId||loading||blocked||gesture)return;const prior=returning.value;returning.returned=true;applyCamera(prior);positionReturn();canvas.focus({preventScroll:true})};
+ dismiss.onclick=()=>{returning=null;positionReturn();canvas.focus({preventScroll:true})};
+ function selectedCamera(){
+  const nodes=board.nodes.filter(n=>selected.has(n.id));if(!nodes.length)return null;
+  const left=Math.min(...nodes.map(n=>n.x)),top=Math.min(...nodes.map(n=>n.y)),right=Math.max(...nodes.map(n=>n.x+n.w)),bottom=Math.max(...nodes.map(n=>n.y+n.h)),r=canvas.getBoundingClientRect();
+  return {cx:(left+right)/2,cy:(top+bottom)/2,z:Math.max(.15,Math.min(1.1,Math.max(1,r.width-80)/Math.max(1,right-left),Math.max(1,r.height-100)/Math.max(1,bottom-top)))};
+ }
+ function open(){
+  if(!board||loading||gesture||$('dialog').open)return;
+  if(blocked)return toast('请先处理保存冲突');
+  const source=board,id=boardId,key=prefix+id,savedCamera=camera(),focused=document.activeElement,selection=selectedCamera();let form;
+  const ownsDialog=()=>$('dialog').open&&form?.isConnected&&$('dialogBody').contains(form);
+  const active=()=>source===board&&id===boardId&&!loading&&!blocked&&!gesture&&ownsDialog();
+  const message=value=>{if(!active())return;const status=form.querySelector('[role=status]');status.textContent=value;status.hidden=!value};
+  showDialog('<section class="canvas-view-form"><h2 id="canvasViewTitle">视角与位置</h2><p class="canvas-view-explain">在同一张白板里来回走动，记住自己常用的位置。</p><div class="canvas-view-presets"><button type="button" data-view="all">全览白板<small>看看整体</small></button><button type="button" data-view="selection">聚焦选中<small>看清这一组</small></button><button type="button" data-view="actual">100%<small>按原比例查看</small></button></div><form class="canvas-view-save"><label for="canvasViewName">保存打开面板前的位置</label><div><input id="canvasViewName" maxlength="80" autocomplete="off" placeholder="给这个位置起个名称"><button type="submit">保存视角</button></div></form><p role="status" hidden></p><div class="canvas-view-list" aria-label="这张白板的已存视角"></div><p class="canvas-view-local">只保存在这个浏览器，暂不跨设备同步。</p></section>',[['返回白板',()=>{if(!ownsDialog())return;$('dialog').close();if(focused?.isConnected)focused.focus({preventScroll:true});else canvas.focus({preventScroll:true})}]]);
+  form=$('dialogBody').querySelector('.canvas-view-form');const input=form.querySelector('input'),list=form.querySelector('.canvas-view-list');let removed=null;
+  const dialog=$('dialog'),priorLabel=dialog.getAttribute('aria-labelledby');dialog.setAttribute('aria-labelledby','canvasViewTitle');
+  const tabKey=event=>{if(event.key!=='Tab'||!ownsDialog())return;const buttons=[...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled)')].filter(el=>el.getClientRects().length);const first=buttons[0],last=buttons.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}};
+  dialog.addEventListener('keydown',tabKey);onDialogDismiss(()=>{dialog.removeEventListener('keydown',tabKey);if(priorLabel===null)dialog.removeAttribute('aria-labelledby');else dialog.setAttribute('aria-labelledby',priorLabel)});
+  const undo=document.createElement('button');undo.type='button';undo.textContent='撤销移除';undo.className='canvas-view-undo';undo.hidden=true;form.querySelector('[role=status]').after(undo);
+  undo.onclick=()=>{
+   if(!active()||!removed)return;let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return}
+   if(rows.length>=limit||rows.some(p=>p.id===removed.row.id||p.name===removed.row.name)){message('已有同名视角或记录已满，暂时不能恢复。移除的位置仍保留到你关闭面板。');return}
+   rows.splice(Math.min(removed.at,rows.length),0,removed.row);
+   try{localStorage.setItem(key,JSON.stringify(rows))}catch{message('浏览器没有保存这次恢复，移除的位置仍保留到你关闭面板。');return}
+   removed=null;undo.hidden=true;render();message('已恢复视角。');input.focus({preventScroll:true});
+  };
+  function render(){
+   if(!active())return;list.replaceChildren();let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return}
+   if(!rows.length){const empty=document.createElement('p');empty.className='canvas-view-empty';empty.textContent='还没有保存位置。先给当前区域起个名称。';list.append(empty);return}
+   for(const row of rows){
+    const line=document.createElement('div'),go=document.createElement('button'),remove=document.createElement('button'),name=document.createElement('span'),scale=document.createElement('small');line.className='canvas-view-row';go.type=remove.type='button';go.className='canvas-view-go';name.textContent=row.name;scale.textContent=Math.round(row.z*100)+'%';go.append(name,scale);remove.className='canvas-view-remove';remove.textContent='×';remove.setAttribute('aria-label','移除视角：'+row.name);line.append(go,remove);list.append(line);
+    const fresh=()=>{if(!active())return false;let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return false}if(!rows.some(p=>same(p,row))){message('这项视角已在另一窗口改变。请重新打开面板，原记录保留。');return false}return rows};
+    go.onclick=()=>{if(!fresh())return;$('dialog').close();navigate(row)};
+    remove.onclick=()=>{const rows=fresh();if(!rows)return;try{localStorage.setItem(key,JSON.stringify(rows.filter(p=>p.id!==row.id)))}catch{message('浏览器没有保存这次移除，原视角仍保留。');return}removed={row,at:rows.findIndex(p=>p.id===row.id)};undo.hidden=false;render();input.focus({preventScroll:true});message('已移除视角。便签和白板内容保持原样。')};
+   }
+  }
+  form.querySelector('[data-view=selection]').disabled=!selection;
+  form.querySelector('[data-view=all]').disabled=!board.nodes.length;
+  for(const button of form.querySelectorAll('[data-view]'))button.onclick=()=>{
+   if(!active())return;const value=button.dataset.view;
+   if(value==='selection'&&!selection)return;
+   $('dialog').close();if(value==='all'){if(!returning||returning.returned)returning={source:board,id:boardId,value:camera()};fit();positionReturn();canvas.focus({preventScroll:true})}else navigate(value==='selection'?selection:{...savedCamera,z:1});
+  };
+  form.querySelector('form').onsubmit=event=>{
+   event.preventDefault();if(!active())return;const name=input.value.trim();if(!name){message('请给这个位置起一个名称。');input.focus();return}
+   let rows;try{rows=read(key)}catch(error){message(error.message||'浏览器暂时不能读取视角。');return}
+   if(rows.some(p=>p.name===name)){message('已有同名视角。请换个名称，原位置保留。');input.focus();return}
+   if(rows.length>=limit){message('这张白板已保存 40 个视角。先移除不再需要的位置，再保存。');return}
+   try{localStorage.setItem(key,JSON.stringify([...rows,{id:uid(),name,...savedCamera}]))}catch{message('浏览器没有保存这次视角，你输入的名称仍在这里。');return}
+   input.value='';render();message('已保存视角，只在这个浏览器使用。');input.focus({preventScroll:true});
+  };
+  render();form.querySelector('[data-view]:not(:disabled)').focus({preventScroll:true});
+ }
+ const previousMenu=fileMenu;fileMenu=function(event,items){if(event.target.closest?.('#canvas')&&!event.target.closest('.node,[data-edge],input,textarea,button'))items=[['视角与位置  Shift+V',open],...items];return previousMenu(event,items)};
+ window.addEventListener('keydown',event=>{if(event.shiftKey&&event.code==='KeyV'&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.isComposing&&!isTyping(event)&&!event.target.closest?.('#workspaceSidebar,header,#fileContext')&&!$('dialog').open){event.preventDefault();event.stopImmediatePropagation();open()}},true);
+ const guide=$('canvasGuide'),previousGuide=guide.onclick;guide.onclick=function(event){previousGuide.call(this,event);const p=document.createElement('p');p.textContent='Shift+V 打开视角与位置，也可以右键画布空白处。给常用位置起个名称，再回来时更容易找到。';$('dialogBody').append(p)};
+ const previousView=moveView;moveView=function(){previousView();positionReturn()};
+ window.addEventListener('creative-board-loading',()=>{returning=null;positionReturn()});
+ new ResizeObserver(positionReturn).observe(canvas);
+ window.whiteboardCanvasViews={open};
+})();
