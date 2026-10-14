@@ -4,6 +4,10 @@
  const parser=window.markdownit({html:false,linkify:false,typographer:false,breaks:true});
  // Markdown images remain text: source attachments already have a controlled viewer.
  parser.renderer.rules.image=(tokens,i)=>esc(tokens[i].content||'图片');
+ // Tables retain their columns on narrow paper; only their own surface scrolls.
+ parser.renderer.rules.table_open=(tokens,i,options,env,self)=>{let columns=0;for(let j=i+1;j<tokens.length&&tokens[j].type!=='thead_close';j++)if(tokens[j].type==='th_open')columns++;return '<div class="note-text-scroll note-table-scroll inline-ui" data-note-scroll="table" style="--note-table-columns:'+Math.max(1,columns)+'">'+self.renderToken(tokens,i,options)};
+ parser.renderer.rules.table_close=(tokens,i,options,env,self)=>self.renderToken(tokens,i,options)+'</div>\n';
+ for(const kind of ['fence','code_block']){const original=parser.renderer.rules[kind];parser.renderer.rules[kind]=(...args)=>original(...args).replace('<pre>','<pre class="note-text-scroll inline-ui" data-note-scroll="code">');}
  const linkOpen=parser.renderer.rules.link_open;
  parser.renderer.rules.link_open=(tokens,i,options,env,self)=>{tokens[i].attrSet('target','_blank');tokens[i].attrSet('rel','noopener noreferrer');return linkOpen?linkOpen(tokens,i,options,env,self):self.renderToken(tokens,i,options)};
  parser.inline.ruler.before('link','whiteboard_link',(state,silent)=>{
@@ -23,6 +27,31 @@
  parser.core.ruler.after('inline','whiteboard_tasks',state=>{for(let i=1;i<state.tokens.length;i++){const token=state.tokens[i];if(token.type!=='inline'||state.tokens[i-1]?.type!=='paragraph_open'||state.tokens[i-2]?.type!=='list_item_open')continue;const first=token.children?.[0],match=first?.type==='text'&&/^\[([ xX])\] /.exec(first.content);if(!match)continue;first.content=first.content.slice(match[0].length);const checkbox=new state.Token('whiteboard_task','span',0);checkbox.content=match[1]!==' '?'true':'false';token.children.unshift(checkbox)}});
  parser.renderer.rules.whiteboard_task=(tokens,i)=>'<span class="note-task" role="checkbox" aria-checked="'+tokens[i].content+'">'+(tokens[i].content==='true'?'☑':'☐')+'</span> ';
  const rendered=text=>parser.render(String(text||''));
+ // Offer a keyboard stop only when there is content outside this local viewport.
+ const scrollSurfaces=new Set(),scrollObserver=new ResizeObserver(scheduleScrollSurfaces);let scrollFrame=0;
+ function scheduleScrollSurfaces(){if(!scrollFrame)scrollFrame=requestAnimationFrame(syncScrollSurfaces)}
+ function syncScrollSurfaces(){
+  scrollFrame=0;for(const el of scrollSurfaces)if(!el.isConnected){scrollObserver.unobserve(el);scrollSurfaces.delete(el)}
+  for(const el of document.querySelectorAll('#nodes .note-text-scroll,#dialog .note-text-scroll')){
+   if(!scrollSurfaces.has(el)){scrollSurfaces.add(el);scrollObserver.observe(el)}
+   const overflow=el.clientWidth>0&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1);
+   el.classList.toggle('note-text-overflow',overflow);
+   if(overflow){el.tabIndex=0;el.setAttribute('role','region');el.setAttribute('aria-label',el.dataset.noteScroll==='table'?'表格，左右滚动浏览':'代码，滚动浏览')}
+   else for(const key of ['tabindex','role','aria-label'])el.removeAttribute(key);
+  }
+ }
+ const scrollMutations=new MutationObserver(scheduleScrollSurfaces);
+ for(const host of [document.getElementById('nodes'),document.getElementById('dialog')])scrollMutations.observe(host,{childList:true,subtree:true});
+ window.addEventListener('resize',scheduleScrollSurfaces);scheduleScrollSurfaces();
+ // Readable table/code navigation must never nudge, delete or duplicate a card.
+ window.addEventListener('keydown',e=>{
+  const el=e.target.closest?.('.note-text-scroll');if(!el||e.isComposing||e.key==='Escape'||e.key==='Tab')return;
+  const mod=e.ctrlKey||e.metaKey;if(mod&&['k','K','\\'].includes(e.key))return;
+  e.stopImmediatePropagation();if(e.target!==el||mod||e.altKey)return;
+  if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();el.scrollLeft=e.key==='Home'?0:e.key==='End'?el.scrollWidth:el.scrollLeft+(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?160:40)}
+ },true);
+ const selectedScrollSurface=()=>{const selection=getSelection();if(!selection||selection.isCollapsed)return null;const host=node=>(node?.nodeType===1?node:node?.parentElement)?.closest('.note-text-scroll');const el=host(selection.anchorNode);return el&&el===host(selection.focusNode)?el:null};
+ for(const type of ['copy','cut','paste'])window.addEventListener(type,e=>{if(e.target.closest?.('.note-text-scroll')||type==='copy'&&selectedScrollSurface())e.stopImmediatePropagation()},true);
  const originalMarkup=noteMarkup;
  noteMarkup=function(n){
   let html=originalMarkup(n);

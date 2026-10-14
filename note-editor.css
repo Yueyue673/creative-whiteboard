@@ -86,3 +86,13 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .immersive-heading:has(.reference-in-editor){flex-wrap:wrap;gap:8px}.note-reference-return.reference-in-editor{position:relative;top:auto;left:auto;z-index:auto;flex-basis:100%;max-width:100%;box-shadow:none}
 /* Dialog text uses workbench ink; authored previews use the same ink as their fields. */
 #dialog .note-editor-preview :where(*){color:inherit}
+
+/* A wide table or source line stays local; paragraphs keep their reading width. */
+.note-markdown .note-table-scroll{max-width:100%;min-width:0;overflow:auto;margin:.7em 0;overscroll-behavior-x:contain}
+.note-markdown .note-table-scroll>table{width:100%;min-width:calc(var(--note-table-columns,1)*7em);margin:0}
+.note-markdown .note-table-scroll th,.note-markdown .note-table-scroll td{min-width:6.5em;padding:8px 10px;vertical-align:top;overflow-wrap:anywhere}
+.note-markdown .note-table-scroll th{background:#8881;font-weight:600}
+.note-table-scroll.note-text-overflow::after{content:"左右滚动查看";display:block;position:sticky;left:0;width:max-content;max-width:100%;padding-top:4px;font-size:11px;line-height:1.7;opacity:.65}
+.node .note-text-scroll{pointer-events:auto!important;touch-action:pan-x pan-y;scrollbar-width:thin}
+.note-text-scroll:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.note-markdown .note-text-scroll{scrollbar-color:#8887 transparent}
