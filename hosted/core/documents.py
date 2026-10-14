@@ -87,9 +87,13 @@ def validate_document(kind, value):
     return size
 
 
-def document_etag(document):
-    namespace = f"{document.workspace_id}/{document.kind}/{document.key}/{document.revision_token}"
+def revision_etag(document, token):
+    namespace = f"{document.workspace_id}/{document.kind}/{document.key}/{token}"
     return '"' + hashlib.sha256(namespace.encode("utf-8")).hexdigest() + '"'
+
+
+def document_etag(document):
+    return revision_etag(document, document.revision_token)
 
 
 def require_precondition(value):
@@ -211,7 +215,7 @@ def put_document(scope, account, kind, key, value, expected):
         relation_error = folder_reference_conflict(workspace.pk, kind, value)
         if relation_error:
             return conflict_result(workspace, account, kind, key, value, size, expected, current, relation_error), current
-        if document and document.value == value:
+        if document and document_bytes(document.value) == document_bytes(value):
             return {"saved": True, "unchanged": True, "revision": document.revision}, current
         if document is None:
             if workspace.documents.count() >= settings.HOSTED_MAX_DOCUMENTS:

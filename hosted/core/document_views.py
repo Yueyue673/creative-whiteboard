@@ -8,6 +8,7 @@ from .cleanup import apply_cleanup, keep_count, preview_cleanup
 from .documents import change_board_state, document_etag, find_document, put_document, remove_conflict, usage
 from .models import ConflictDraft, DocumentRevision, WorkspaceDocument
 from .revision_application import apply_application, preview_application
+from .reconciliation import reconcile_board
 from .workspace_search import search_boards, search_query
 from .services import APIError
 from .views import endpoint, payload
@@ -94,6 +95,19 @@ def board(request, workspace_id, key):
         result, etag = change_board_state(request.workspace_scope, request.user, key, request.headers.get("If-Match"))
         return reply_value(result, etag)
     return document_response(request, WorkspaceDocument.Kind.BOARD, key)
+
+
+@data_endpoint(("POST",))
+def reconcile(request, workspace_id, key):
+    if request.headers.get("If-Match") is not None or request.headers.get("If-None-Match") is not None:
+        raise APIError("接续编辑请在请求内容中提供原版本；普通条件保存仍使用原接口")
+    data = value_payload(request)
+    if not isinstance(data, dict) or set(data) != {"baseETag", "board"}:
+        raise APIError("接续编辑需提供原版本和完整的作者输入")
+    result, etag = reconcile_board(request.workspace_scope, request.user, key, data["board"], data["baseETag"])
+    response = JsonResponse(result, status=200 if result["saved"] else 409, json_dumps_params={"ensure_ascii": False})
+    response["ETag"] = etag
+    return response
 
 
 @data_endpoint(("POST",))

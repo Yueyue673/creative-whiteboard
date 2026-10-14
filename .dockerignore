@@ -92,6 +92,7 @@
 !hosted/core/portal_assets/workspace-recovery.js
 !hosted/core/portal_assets/workspace-search.js
 !hosted/core/revision_application.py
+!hosted/core/reconciliation.py
 !hosted/core/scope.py
 !hosted/core/services.py
 !hosted/core/sessions.py

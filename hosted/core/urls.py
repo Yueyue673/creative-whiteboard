@@ -49,6 +49,7 @@ urlpatterns = [
     path("w/<uuid:workspace_id>/api/boards", document_views.boards),
     path("w/<uuid:workspace_id>/api/search", document_views.search),
     path("w/<uuid:workspace_id>/api/boards/<document_key:key>", document_views.board),
+    path("w/<uuid:workspace_id>/api/boards/<document_key:key>/reconcile", document_views.reconcile),
     path("w/<uuid:workspace_id>/api/boards/<document_key:key>/restore", document_views.restore_board),
     path("w/<uuid:workspace_id>/api/boards/<document_key:key>/purge", document_views.purge_board),
     path("w/<uuid:workspace_id>/api/folders", document_views.folders),

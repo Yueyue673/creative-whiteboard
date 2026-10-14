@@ -25,6 +25,45 @@ It is not a deployment authorization or evidence of external HTTPS, full device
 support, safe file cleanup or real-time merging. Actual Linux/container workflow
 results are required; desktop Linux tests do not substitute for hosted checks.
 
+## Original-value reconciliation (server foundation; editor integration pending)
+
+An explicit `POST /w/<workspace>/api/boards/<key>/reconcile` accepts only
+`{"baseETag": "the original strong tag", "board": <the complete author input>}`.
+For reconciling an older tag, the base must be a complete retained server revision in that exact board and
+workspace, with uninterrupted history and no intervening trash/restore transition.
+Client-supplied base documents and private conflict copies never supply authority.
+The server rechecks the original account and fresh editor role under the same
+workspace transaction as the write, then returns the complete accepted board and
+its strong ETag. Regular conditional PUT behavior is unchanged.
+
+Independent nodes and independent known note field groups can retain both
+original submissions. Text/format, geometry, appearance and table structure stay
+in groups; attachment nodes and changed unknown extensions stay whole. Concurrent
+ordering changes, deletion versus editing, identity collisions, overlapping text,
+missing bases and invalid combined references refuse reconciliation. The exact
+submitting author's input follows the existing private conflict-copy/quota policy;
+no text is synthesized, silently concatenated, normalized or transferred to
+another workspace. Appended nodes follow the already committed order before this
+submission's new nodes. A stale no-op creates no revision or false author update.
+
+A successful response is the authoritative combined board. An editor must adopt
+or safely rebase that full result before its next save; keeping the old local
+snapshot with the new ETag would overwrite the other author's changes. The
+current spatial editor does **not** call this endpoint yet. Live receiving,
+foreground input/gesture preservation, per-page camera and safe collaborative
+Undo are still required. This endpoint is not a realtime transport, character
+CRDT, full concurrent table editing or deployed collaboration.
+
+The related no-op guard now compares canonical JSON bytes, so opaque Boolean,
+integer and decimal changes are actually stored instead of Python equality
+incorrectly treating them as unchanged. Original author strings remain exact.
+
+The retained-base approach is informed by the three-way merge model described
+in [Git's merge documentation](https://git-scm.com/docs/git-merge); field grouping
+and refusal rules here are conservative application choices. Keeping reconciliation
+separate from ordinary conditional PUT follows the precondition distinction in
+[RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#name-if-match).
+
 ## Media time notes (staged experiment)
 
 An opened, registered audio/video canvas card offers **留便签** at the current
@@ -433,7 +472,7 @@ Within `/w/<workspace-uuid>/api`:
 - Owner-only `GET /boards/<key>/purge` previews permanent removal of a board
   already in the trash; `POST` uses `{"confirm": "discard_board"}` to apply it.
 
-Every save, delete, and restore needs the exact strong `If-Match` ETag returned by
+Ordinary document saves, deletes, and restores need the exact strong `If-Match` ETag returned by
 a read, or `new` for creating an absent document. ETags include the workspace and
 document namespace. A stale save does not overwrite or merge. The server stores
 the submitted valid JSON separately for its author and returns `409` with

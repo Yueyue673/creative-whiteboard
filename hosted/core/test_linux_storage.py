@@ -17,7 +17,7 @@ from core.backups import file_details, sync_directory, transfer_file
 from core.maintenance import StorageLease
 from core.media_audit import audit_media
 from core.services import APIError
-from core.test_upload_recovery import InterruptedUploadTests
+from core import test_upload_recovery as fixtures
 from service.configuration import secret_key
 
 
@@ -106,8 +106,8 @@ class LinuxLeaseTests(SimpleTestCase):
 
 @skipUnless(sys.platform == "linux", "Native Linux inventory acceptance")
 class LinuxInventoryTests(TestCase):
-    setUp = InterruptedUploadTests.setUp
-    committed = InterruptedUploadTests.committed
+    setUp = fixtures.InterruptedUploadTests.setUp
+    committed = fixtures.InterruptedUploadTests.committed
 
     def test_native_directory_symlink_is_reported_without_traversing_or_reading_target(self):
         self.committed()
