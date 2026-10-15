@@ -10,6 +10,7 @@ import {MediaCues} from './media-cues.js';
 import {OwnHistory,valueEqual,validateLiveBoard,canReceiveTableCell} from './board-reconciliation.js';
 import {PaperReading} from './paper-reading.js';
 import {DistanceReading} from './space-reading.js';
+import {BoardRecovery} from './board-recovery.js';
 
 const $ = id => document.getElementById(id);
 const context = Object.freeze(JSON.parse($('board-context').textContent));
@@ -25,7 +26,7 @@ parser.renderer.rules.link_open = (tokens,index,options,env,self) => {
   tokens[index].attrSet('target','_blank'); tokens[index].attrSet('rel','noopener noreferrer');
   return linkOpen(tokens,index,options,env,self);
 };
-let board = null, selected = null, creating = context.create, saveTimer, selectedRecovery = null, recoveryEpoch = 0, editorError = '';
+let board = null, selected = null, creating = context.create, saveTimer, editorError = '';
 let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='',readingLayoutPending=false;
 const ownHistory=new OwnHistory();
 const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling,readingAnchor=$('showPaperReading').nextSibling;
@@ -180,7 +181,6 @@ function refreshState() {
   }
   for(const button of $('inspector').querySelectorAll('button,select'))if(!['closeInspector','undo','redo'].includes(button.id))button.disabled=button.hasAttribute('data-reference-read')?!canBrowseReferences():!editable;
   $('noteHeight').readOnly=!editable || activeNode()?.sizeMode==='auto';frames.sync();tables.sync();cues.sync();
-  $('applyRecovery').disabled=!editable;
   if(['paused','readonly','conflict','offline'].includes(state.status))clearTimeout(saveTimer);
 }
 session.addEventListener('change',refreshState);
@@ -452,29 +452,11 @@ function download(raw,name='whiteboard') {
   a.href=url;a.download=(name.replace(/[^\w\u4e00-\u9fff.-]+/g,'_').slice(0,80)||'whiteboard')+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 $('exportBoard').onclick=()=>download(board?rawBoard():session.exportRaw(),board?.name||'whiteboard');
-function showRecoveryRow(label,raw,description) {
-  const row=element('section',undefined,'recovery-row');row.append(element('h3',label),element('p',description));
-  const value=JSON.parse(raw);const note=value.nodes.find(node=>node&&typeof node==='object'&&node.type==='note'&&(typeof node.body==='string'||typeof node.title==='string'));
-  if(note)row.append(element('p',(typeof note.body==='string'?note.body:note.title).slice(0,140),'recovery-excerpt'));
-  const inspect=element('button','查看原文');inspect.onclick=()=>{selectedRecovery=raw;$('recoveryPreview').value=raw;$('recoveryPreviewLabel').hidden=false;$('applyRecovery').hidden=false;refreshState();};
-  const exportButton=element('button','导出这份输入');exportButton.onclick=()=>download(raw,'recovered-input');row.append(inspect,exportButton);$('recoveryList').append(row);
-}
-$('openRecovery').onclick=async()=>{
-  const epoch=++recoveryEpoch;selectedRecovery=null;$('recoveryList').replaceChildren();$('recoveryPreviewLabel').hidden=$('applyRecovery').hidden=true;$('recoveryMessage').textContent='正在核对原账号与工作区…';$('recoveryDialog').showModal();
-  const conflict=session.state.conflict;
-  if(conflict)showRecoveryRow(conflict.accepted?'收到保存确认后仍待核对的输入':'这次提交但未应用的输入',conflict.submittedRaw,conflict.accepted?'刚才一次已收到保存确认；完整结果或后来输入还未合并，请保留当前页面导出。':conflict.draftSaved?'服务器也保留了这次提交的副本；后来继续写的内容请使用当前页面导出。':'服务器没有确认另外保存这次输入，请保留浏览器副本或导出。');
-  try{
-    const rows=await session.recoverableDrafts();if(epoch!==recoveryEpoch||!$('recoveryDialog').open)return;
-    for(const row of rows){const value=JSON.parse(row.raw);showRecoveryRow(value.name||'未命名输入',row.raw,new Date(row.updatedAt).toLocaleString('zh-CN')+' · 当前浏览器保留');}
-    $('recoveryMessage').textContent=rows.length||conflict?'选择一份查看，再决定是否使用。':'没有发现这个账号与白板的浏览器副本。';
-  }catch(error){if(epoch===recoveryEpoch&&$('recoveryDialog').open)$('recoveryMessage').textContent=error.message;}
-};
-$('closeRecovery').onclick=()=>$('recoveryDialog').close();$('recoveryDialog').addEventListener('close',()=>{recoveryEpoch++;selectedRecovery=null;});
-$('applyRecovery').onclick=()=>{
-  if(!selectedRecovery||!stateCanEdit()||!confirm('用这份完整输入替换当前页面的白板内容？可撤销；若可以保存，会按当前服务器版本保存。'))return;
-  try{validateLiveBoard(JSON.parse(selectedRecovery),selectedRecovery);}catch(error){$('recoveryMessage').textContent=error.message+' 请先导出这份原文。';return;}
-  checkpoint();board=JSON.parse(selectedRecovery);$('boardName').value=board.name;selected=null;$('inspector').hidden=true;commit();$('recoveryDialog').close();fit();
-};
+new BoardRecovery({scope,session,raw:rawBoard,canEdit:stateCanEdit,download,
+  capture:(field=document.activeElement)=>{if(!field?.matches('#inspector input:not([type]),#inspector input[type="text"],#inspector textarea'))return null;return {board,node:selected,field,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,top:field.scrollTop,left:field.scrollLeft,inspectorTop:$('inspector').scrollTop,view:{...view}};},
+  restore:restoreReadingPlace,
+  apply:value=>{checkpoint();board=value;$('boardName').value=board.name;selected=null;$('inspector').hidden=true;commit();},
+  afterApply:()=>$('canvas').focus({preventScroll:true})});
 document.addEventListener('keydown',event=>{
   if(event.isComposing)return;
   // A modal owns its command. Native field undo remains local; an explicitly

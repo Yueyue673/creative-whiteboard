@@ -1751,3 +1751,53 @@ name/font input explicitly identifies the earlier saved name and says the later
 adjustments remain unsaved; continued typing clears the earlier confirmation.
 A real held browser lock verifies this distinction without replacing the later
 name or current font. No permission/API boundary or stored document is changed.
+
+
+## Reviewing recovered input before whole-board replacement (development)
+
+The original editor recovery dialog now compares a selected complete input with
+this page before application. Counts distinguish added, changed, removed and
+unchanged nodes; a literal list identifies up to twelve affected originals and
+reports any remainder. Name, relations, order, saved-view and other board-field
+changes are identified separately. The selected source name stays with the
+comparison in small windows. Original excerpts help identify copies of the same
+board; complete raw input is folded behind an explicit disclosure and remains
+exactly exportable. The summary does not generate or merge any authored text.
+
+The review captures exact current and source raw strings. Application requires
+its own existing confirmation and a fresh original-account/workspace permission
+check. If a canonical result arrives or current input changes after review,
+the first action refreshes the comparison instead of applying it. Closing or
+reopening cancels pending local application, and detached old list callbacks
+cannot select or export into the new dialog. A confirmed application replaces
+the complete page input through the original Undo/save path; it keeps the local
+camera, supports own Undo/Redo and retains ordinary server-version/quota rules.
+It does not restart a stopped conflict session or automatically resolve overlaps.
+
+A failed fresh check retains both inputs and provides nearby visible feedback.
+An actual changed login or downgraded editor cannot apply an old selection.
+Cancel can return to the same unchanged, still-mounted original editor field,
+selection, scroll and camera; it never replays old field text. Application keeps
+its literal source and returns focus to the canvas. No local copy, server history
+or registered original file is removed by viewing or applying a copy.
+
+This layout applies [NN/g progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/)
+to keep the decision scope visible while deferring complete data, and uses the
+[W3C modal dialog guidance](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+for labeled content, explicit exit and continuation of the editing workflow.
+These are implementation choices; no accessibility certification or physical
+assistive-device acceptance is claimed. Model checks:
+`node tests/recovery-review.mjs`; explicit assets and fixed shell scope:
+`python manage.py test core.test_portal --settings=service.test_settings`.
+
+Ten distinct native behavior groups pass across independent localhost HTTPS
+fixtures, with one overlapping final320px/application delta: the first seven
+flows, three focused completion flows and a final keyboard-only flow. The first
+run stopped at a test-fixture login mistake before its final database audit;
+those passed operations are retained, not described as one uninterrupted suite.
+The focused stores verify exact application/Undo/Redo, real changed login and
+actual editor-to-viewer downgrade, readable320px feedback, native keyboard
+summary focus/raw disclosure/Escape return, untouched unrelated data/history and
+all45 registered source hashes. Late detached events and held reads are explicit
+test conditions; physical devices/hardware IME, external TLS and deployment are
+still unaccepted. Eight new model cases and twelve portal cases pass.
