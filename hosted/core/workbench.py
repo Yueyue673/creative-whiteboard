@@ -59,6 +59,16 @@ def file(request, workspace_id, name='shell.html'):
     text = text.replace('网页预览 · 支持页面内的样式与交互', '网页静态预览 · 原文件可以下载')
     text = text.replace('保存白板恢复点', '检查白板自动恢复记录').replace('保存内容库恢复点', '检查内容库自动恢复记录').replace('已保存白板恢复点', '当前云端白板已有恢复记录').replace('已保存内容库恢复点', '当前云端内容库已有恢复记录')
     text = text.replace('已保存到本机', '已保存到云端').replace('内容已保存到本机', '内容已保存到云端').replace('修改正在本机保存', '修改正在云端保存')
+    if name == 'context-capture.js':
+        text = text.replace("script.src='/vendor/html2canvas.min.js'", "script.src='/portal-assets/html2canvas.js'")
+        text = text.replace('本地助手可以读取任务中的图片路径；在线 AI 需要同时上传图片。只粘贴 JSON，它还看不到图片。', '图片保存在这个云端工作区；在线 AI 需要同时上传下载材料中的图片。只粘贴 JSON，它还看不到图片。')
+    if name == 'ai-workflow.js':
+        text = text.replace('材料只存到本机，不会自动发送。', '材料保存在当前云端工作区，不会自动发送给 AI。')
+        text = text.replace('本地助手读取方式', '资料任务读取方式')
+        text = text.replace("location.origin+'/api/ai/tasks", "location.origin+whiteboardHosted.base+'ai/tasks")
+        text = text.replace('GET /api/ai/tasks/任务编号', 'GET '+f'/w/{workspace_id}/api/ai/tasks/任务编号')
+        text = text.replace('PUT /api/ai/references/新的资料编号', 'PUT '+f'/w/{workspace_id}/api/ai/references/新的资料编号')
+        text = text.replace('先准备材料，再读取任务与图像。回复只能存为独立参考资料。', '先准备材料，再读取任务与图像。读取须保留原登录账号与工作区；接口需 X-Creative-Account: '+str(request.user.pk)+'，写入还需原会话 CSRF 验证。回复只能存为独立参考资料。')
     if name.endswith('.html'):
         nonce = secrets.token_urlsafe(24)
         for program in sorted(PROGRAM_FILES, key=len, reverse=True):

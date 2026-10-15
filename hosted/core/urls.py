@@ -1,6 +1,6 @@
 from django.urls import path, register_converter
 
-from . import account_views, document_views, media_views, portal, views, workbench, native_views, native_folders
+from . import account_views, document_views, media_views, portal, views, workbench, native_views, native_folders, native_research
 
 
 class DocumentKeyConverter:
@@ -85,5 +85,15 @@ urlpatterns = [
     path("w/<uuid:workspace_id>/api/conflicts", document_views.conflicts),
     path("w/<uuid:workspace_id>/api/conflicts/<uuid:draft_id>", document_views.conflict),
     path("w/<uuid:workspace_id>/api/quota", document_views.quota),
+    path('w/<uuid:workspace_id>/api/ai/tasks', native_research.listing, {'kind': 'task'}),
+    path('w/<uuid:workspace_id>/api/ai/tasks/<document_key:key>', native_research.item, {'kind': 'task'}),
+    path('w/<uuid:workspace_id>/api/ai/tasks/<document_key:key>/current', native_research.current),
+    path('w/<uuid:workspace_id>/api/ai/tasks/<document_key:key>/bundle', native_research.bundle),
+    path('w/<uuid:workspace_id>/api/ai/tasks/<document_key:key>/files/<str:name>', native_research.attachment),
+    path('w/<uuid:workspace_id>/api/ai/references', native_research.listing, {'kind': 'reference'}),
+    path('w/<uuid:workspace_id>/api/ai/references/<document_key:key>', native_research.item, {'kind': 'reference'}),
+    path('w/<uuid:workspace_id>/api/proposals', native_research.proposals),
+    path('w/<uuid:workspace_id>/api/proposals/<document_key:key>', native_research.proposals),
+    path('w/<uuid:workspace_id>/api/proposals/<document_key:key>/status', native_research.proposals, {'status': True}),
     path("w/<uuid:workspace_id>/api/<path:remaining>", views.unfinished_workspace_route),
 ]

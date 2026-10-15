@@ -43,7 +43,7 @@ def program_files(root):
             raise ContextError('Original workbench program contract is invalid.') from None
     for name in files:
         path = PurePosixPath(name)
-        allowed_root = name in native_names or name in ('LICENSE', 'board_schema.py', 'library_folders.py', 'vendor/markdown-it.min.js', 'vendor/markdown-it.LICENSE')
+        allowed_root = name in native_names or name in ('LICENSE', 'board_schema.py', 'library_folders.py', 'ai_context.py', 'vendor/html2canvas.min.js', 'vendor/html2canvas.LICENSE', 'vendor/markdown-it.min.js', 'vendor/markdown-it.LICENSE')
         if str(path) != name or path.is_absolute() or any(part in ('..', '.') or part.startswith('.') for part in path.parts) or any(char in name for char in ':\\*?[]\x00\r\n'):
             raise ContextError('Program paths must be exact relative files.')
         if not allowed_root and not name.startswith(('hosted/core/', 'hosted/service/', 'hosted/deployment/')) and name not in ('hosted/manage.py', 'hosted/requirements.txt', 'hosted/requirements-runtime.txt'):

@@ -188,7 +188,7 @@ class HostedFoundationTests(TestCase):
         paths = ["uploads/example", "media/example", "preview/example/../../outside", "ai/tasks/example", "assets/reference"]
         for path in paths:
             self.assertEqual(self.api("/api/" + path).status_code, 404, path)
-            self.assertEqual(self.api(self.route(path)).status_code, 501, path)
+            self.assertEqual(self.api(self.route(path)).status_code, 404 if path == "ai/tasks/example" else 501, path)
             self.assertEqual(self.api(self.route(path, self.other_personal)).status_code, 404, path)
             self.assertEqual(self.api(self.route(path), client=anonymous).status_code, 401, path)
         # Saved-text search is now implemented, with the same fixed scope.

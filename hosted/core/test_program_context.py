@@ -15,8 +15,8 @@ class ProgramContextTests(SimpleTestCase):
         root = settings.BASE_DIR.parent; files = set(program_files(root))
         tree = ast.parse((root / 'hosted/core/portal.py').read_text(encoding='utf-8'))
         assets = next(ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'ASSETS' for target in node.targets))
-        required = {f'hosted/core/portal_assets/{name}' for name in assets if name != 'markdown-it.js'}
-        required.add('vendor/markdown-it.min.js')
+        required = {f'hosted/core/portal_assets/{name}' for name in assets if name not in ('markdown-it.js', 'html2canvas.js')}
+        required.update(['vendor/markdown-it.min.js', 'vendor/html2canvas.min.js', 'vendor/html2canvas.LICENSE', 'ai_context.py'])
         for path in (root / 'hosted/core').rglob('*.py'):
             if not path.name.startswith('test_') and path.name != 'tests.py': required.add(path.relative_to(root).as_posix())
         required.update(path.relative_to(root).as_posix() for path in (root / 'hosted/core/templates').rglob('*.html'))

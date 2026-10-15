@@ -2102,7 +2102,7 @@ The original Open in new window action also retains the exact account, workspace
 
 The native library facade combines registered cloud file metadata with literal reusable original note/table bundles. A whole-catalog precondition covers catalog and file versions; metadata/catalog writes and quota checks are atomic. Client paths cannot create file reads or replace registered originals. Content snapshots and registered originals are preserved. Native search, board deletion/restoration, retained-version reads and idempotent checks of automatic recovery records use the same existing scoped store. Interactive authored HTML is rendered as an inert static preview, with originals available for download.
 
-This integration does not promise complete desktop endpoint parity: batch folder deletion, research-task persistence and legacy proposal APIs remain unavailable rather than accessing desktop files. Shared edits retain the existing conditional saves/conflict protection; no character-level real-time merge is claimed. Verify each deployment in an independent synthetic store before enabling the flag for existing users. Accounts, documents, originals and signing keys must not be reinitialized or automatically migrated from a private desktop workspace.
+This integration does not promise complete desktop endpoint parity: features are enabled only after their exact release is accepted, and no endpoint falls back to desktop files. Shared edits retain the existing conditional saves/conflict protection; no character-level real-time merge is claimed. Verify each deployment in an independent synthetic store before enabling the flag for existing users. Accounts, documents, originals and signing keys must not be reinitialized or automatically migrated from a private desktop workspace.
 
 ### Original workbench device reception
 
@@ -2116,7 +2116,7 @@ The original More menu's device-updates action can pause or resume automatic rec
 
 Deployment availability must be checked against the exact release and server acceptance; having this source does not establish production availability. This is periodic reception of checked complete versions, not character-level realtime collaboration, automatic merging of simultaneous native saves, cross-device appearance synchronization or uploading a private desktop workspace.
 
-### Original workbench folder recovery (deployment pending)
+### Original workbench folder recovery
 
 The original folder Delete and recovery controls have a protected hosted adapter. A short-lived signed server plan binds the original account, workspace, catalog version and exact affected live-board versions. Any intervening board save, move or creation refuses the whole deletion. One transaction retains the removed hierarchy and exact deleted-board versions, records original history and removes the active entries. Empty folders also retain a recovery record. Recovery merges the retained hierarchy into the current catalog without replacing unrelated work and refuses identifier collisions, missing parents or changed members before restoring anything. Quota or mid-operation failures roll back the whole transaction. Individual permanent removal cannot break an active folder batch; restore that batch before handling its boards separately.
 
@@ -2125,3 +2125,14 @@ Migration `0007_native_folder_trash` adds a retained recovery journal; its paylo
 New folder deletion is disabled unless the app environment explicitly sets `CREATIVE_BOARD_HOSTED_NATIVE_FOLDER_DELETE=1`. Enable it only after migration and exact-release independent server acceptance. Setting it to `0` stops new folder deletions while keeping the migration-aware backend, existing records and restoration available. This is the operation-specific exit; it neither removes recovery data nor runs a schema downgrade.
 
 The shared original shell also keeps Help, Search and Recovery usable when its requested board failed to load, even before the explorer exists. These actions use the original mounted pane's recovery controls, keep canvas editing disabled and do not invent a replacement document. Source availability alone does not mean these changes have been installed or deployed.
+
+
+### Original research material (candidate; deployment acceptance required)
+
+The original research form prepares immutable task snapshots in a separate scoped record, not the authored boards/library. The server verifies the original source version and exact selected nodes or native library entries, reconstructs only their internal edges/folder ancestry, and forces the existing research/reference-only policy. It never calls an external AI. A source change refuses preparation. The original prepared-material list can reopen a previous question and its original preview after reload or from another signed-in device; it does not replace the current board.
+
+Optional PNGs come from the original reviewed renderer and selected-media capture. Bounded original bytes, metadata and snapshots are stored transactionally in the database and charged to workspace quota, so a failed quota check leaves no partial task/images. Task attachments and downloads retain the original account/workspace checks. Only registered IDs in the selected context can produce file excerpts; client paths and URLs never authorize file reads. Plaintext excerpts are bounded, HTML is treated as inert text, and sounds/video remain explicitly untranscribed/partial.
+
+Sourced replies require a task in the same workspace, bounded source fields and literal http(s) links. They persist separately without writing authored content; the original viewer labels outside claims as unverified. Legacy proposal listing/reading is scoped and read-only; existing migrated records, if any, may be read, but proposal/status write-back stays refused. No private desktop records are imported automatically.
+
+Migration0008 adds the immutable research table. Matching-schema full backups include tasks, sources and their exact image bytes. A schema downgrade refuses to drop retained research. New task/source writes default to disabled unless `CREATIVE_BOARD_HOSTED_NATIVE_RESEARCH=1`; setting it to0 preserves reads, downloads and existing references on the same migration-aware backend. Enable only after independent migration, permissions, original browser, backup/recovery and exact release acceptance. Source code or development checks alone do not establish that a deployment has this feature.

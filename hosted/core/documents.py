@@ -12,7 +12,7 @@ from board_schema import valid_board, valid_folders
 from library_folders import validate_folder_ids, with_folder_ids
 
 from .json_data import document_bytes
-from .models import Account, ConflictDraft, DocumentRevision, MediaAsset, Membership, NativeFolderTrash, WorkspaceDocument
+from .models import Account, ConflictDraft, DocumentRevision, MediaAsset, Membership, NativeFolderTrash, ResearchRecord, WorkspaceDocument
 from .scope import valid_membership
 from .services import APIError, locked_workspace
 
@@ -127,7 +127,8 @@ def usage(workspace_id):
     drafts = total(ConflictDraft.objects.filter(workspace_id=workspace_id))
     metadata = total(MediaAsset.objects.filter(workspace_id=workspace_id))
     trash = total(NativeFolderTrash.objects.filter(workspace_id=workspace_id))
-    return {"currentBytes": current, "historyBytes": history, "draftBytes": drafts, "assetMetadataBytes": metadata, "trashMetadataBytes": trash, "totalBytes": current + history + drafts + metadata + trash, "limitBytes": settings.HOSTED_MAX_WORKSPACE_BYTES}
+    research = total(ResearchRecord.objects.filter(workspace_id=workspace_id))
+    return {"researchBytes": research, "currentBytes": current, "historyBytes": history, "draftBytes": drafts, "assetMetadataBytes": metadata, "trashMetadataBytes": trash, "totalBytes": current + history + drafts + metadata + trash + research, "limitBytes": settings.HOSTED_MAX_WORKSPACE_BYTES}
 
 
 def check_quota(workspace_id):

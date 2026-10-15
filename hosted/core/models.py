@@ -243,3 +243,20 @@ class NativeFolderTrash(models.Model):
     byte_size = models.PositiveIntegerField()
     created_by = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="deleted_folders")
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ResearchRecord(models.Model):
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='research_records')
+    kind = models.CharField(max_length=9)
+    key = models.CharField(max_length=100)
+    value = models.JSONField(encoder=DocumentJSONEncoder)
+    summary = models.JSONField(encoder=DocumentJSONEncoder)
+    byte_size = models.PositiveIntegerField()
+    created_by = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='research_records')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'kind', 'key'], name='unique_workspace_research_record'),
+            models.CheckConstraint(condition=Q(kind__in=['task', 'reference', 'legacy']), name='valid_research_record_kind'),
+        ]

@@ -29,7 +29,7 @@ ASSETS = {
     "native-reception.js": "text/javascript",
     "board-recovery.js": "text/javascript", "recovery-review.js": "text/javascript",
     "board-finder.js": "text/javascript", "board-editor.js": "text/javascript", "board-editor.css": "text/css",
-    "markdown-it.js": "text/javascript",
+    "markdown-it.js": "text/javascript", "html2canvas.js": "text/javascript",
     "board-media.js": "text/javascript", "board-library.js": "text/javascript",
     "board-metadata.js": "text/javascript",
     "board-folders.js": "text/javascript", "folder-plan.js": "text/javascript",
@@ -76,7 +76,8 @@ def asset(request, name):
     if name not in ASSETS:
         raise Http404
     # This vendor alias is one fixed program file, never a supplied path.
-    path = Path(__file__).resolve().parents[2] / "vendor" / "markdown-it.min.js" if name == "markdown-it.js" else ASSET_ROOT / name
+    vendor = {"markdown-it.js": "markdown-it.min.js", "html2canvas.js": "html2canvas.min.js"}
+    path = Path(__file__).resolve().parents[2] / "vendor" / vendor[name] if name in vendor else ASSET_ROOT / name
     if path.resolve() != path.absolute() or not path.is_file():
         raise Http404
     return HttpResponse(path.read_bytes(), content_type=ASSETS[name])

@@ -76,6 +76,16 @@ orphan=scope.storage_root()/"media"/"unreserved.blob"; orphan.write_bytes(b"unre
 (scope.storage_root()/"empty-subdirectory").mkdir()
 from django.contrib.auth import SESSION_KEY,BACKEND_SESSION_KEY,HASH_SESSION_KEY
 session=SessionStore(); session[SESSION_KEY]=str(owner.pk); session[BACKEND_SESSION_KEY]="django.contrib.auth.backends.ModelBackend"; session[HASH_SESSION_KEY]=owner.get_session_auth_hash(); session.login_label="Fixture browser"; session.save()
+from core.models import WorkspaceDocument
+from core.documents import document_etag
+from core.native_research import prepare,reference
+import base64
+original=WorkspaceDocument.objects.get(workspace=shared,kind='board',key='one');tag=document_etag(original)
+request={'id':'retained-research','resource':'board','targetId':'one','baseETag':tag,'ids':['note'],'nodeIds':['note'],'task':'Find existing original sources','keepWords':True,'keepNotes':True,'allowAdd':False,'allowDelete':False}
+png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
+pack={'format':'creative-board-context','version':1,'resource':'board','targetId':'one','baseETag':tag,'requestId':'retained-research','selectedIds':['note'],'request':request,'data':original.value,'visualInput':[{'kind':'image','nodeIds':['note'],'data':'data:image/png;base64,'+base64.b64encode(png).decode()}]}
+prepare(scope,owner,'retained-research',pack,'new')
+reference(scope,owner,'retained-sources',{'format':'creative-board-references','version':1,'requestId':'retained-research','sources':[{'id':'source','title':'Original source','url':'https://example.test/published','finding':'Exact sourced observation'}]},'new')
 print(json.dumps({"asset":str(asset.pk),"workspace":str(shared.pk),"pending":str(pending.pk)}))
 '''
         cls.identifiers = json.loads(execute("-c", fixture).stdout)
@@ -172,6 +182,30 @@ with StorageLease(offline=True):
                                    text=True, encoding='utf-8', check=True, timeout=30)
         self.assertTrue(json.loads(completed.stdout)['freshProcessFolderRecovery'])
         self.assertEqual(self.sql_dump(self.store), before)
+
+    def test_restored_research_serves_exact_images_sources_and_bundle_in_a_fresh_process(self):
+        before=self.sql_dump(self.store);result=self.snapshot();self.recover(expected=result['manifestHash'])
+        self.assertEqual(self.sql_dump(self.target),before)
+        environment=dict(os.environ,DJANGO_SETTINGS_MODULE='service.settings',CREATIVE_BOARD_HOSTED_DATA_DIR=str(self.target),CREATIVE_BOARD_HOSTED_SECRET='fixture-secret-'+'z'*64,CREATIVE_BOARD_HOSTED_HOSTS='localhost',CREATIVE_BOARD_HOSTED_ORIGINS='',CREATIVE_BOARD_HOSTED_NATIVE_RESEARCH='0',PYTHONIOENCODING='utf-8');environment.pop('CREATIVE_BOARD_HOSTED_TRUST_PROXY',None)
+        script='''import django,base64,io,json,zipfile
+django.setup()
+from django.test import Client
+from core.models import Account,ResearchRecord,WorkspaceDocument,DocumentRevision
+owner=Account.objects.get(email='owner@example.test');task=ResearchRecord.objects.get(kind='task');base='/w/'+str(task.workspace_id)+'/api/'
+original=[list(model.objects.order_by('pk').values()) for model in (WorkspaceDocument,DocumentRevision)]
+client=Client();client.force_login(owner)
+def get(path):
+ response=client.get(base+path,secure=True,HTTP_HOST='localhost',HTTP_X_CREATIVE_ACCOUNT=str(owner.pk));assert response.status_code==200,response.content;return response
+pack=get('ai/tasks/retained-research').json();assert pack['data']['nodes'][0]['body']=="Newer author's words"
+image=pack['visuals']['images'][0];raw=get('ai/tasks/retained-research/files/'+image['name']).content;assert raw==base64.b64decode(task.value['images'][image['name']])
+with zipfile.ZipFile(io.BytesIO(get('ai/tasks/retained-research/bundle').content)) as archive:
+ assert archive.read(image['archivePath'])==raw and json.loads(archive.read('task.json'))==pack
+assert get('ai/references/retained-sources').json()['sources'][0]['finding']=='Exact sourced observation'
+assert original==[list(model.objects.order_by('pk').values()) for model in (WorkspaceDocument,DocumentRevision)]
+print(json.dumps({'freshRecoveredTaskSourcesAndImages':True,'bundleMatchesExactSnapshot':True,'authoredRowsUnchanged':True}))
+'''
+        completed=subprocess.run([sys.executable,'-c',script],cwd=settings.BASE_DIR,env=environment,text=True,capture_output=True,encoding='utf-8',timeout=30)
+        self.assertEqual(completed.returncode,0,completed.stderr);self.assertTrue(json.loads(completed.stdout)['freshRecoveredTaskSourcesAndImages']);self.assertEqual(self.sql_dump(self.store),before)
 
     def test_sqlite_backup_includes_committed_wal_rows_without_copying_live_journals(self):
         with closing(sqlite3.connect(self.store / "accounts.sqlite3")) as writer:

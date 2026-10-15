@@ -28,7 +28,7 @@ MAX_ENTRIES = 100000
 BACKUP_MARKER = ".incomplete"
 REQUIRED_TABLES = {"core_account", "core_workspace", "core_membership", "core_invitation", "core_throttlebucket",
                    "core_initialization", "core_workspacedocument", "core_documentrevision", "core_conflictdraft",
-                   "core_mediastoragebudget", "core_mediaasset", "core_uploadreservation", "core_accountsession", "core_nativefoldertrash", "django_session", "django_migrations"}
+                   "core_mediastoragebudget", "core_mediaasset", "core_uploadreservation", "core_accountsession", "core_nativefoldertrash", "core_researchrecord", "django_session", "django_migrations"}
 
 
 def plain_path(value):
