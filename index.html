@@ -80,7 +80,7 @@ async function loadBoard(id,options={}){
   if(new URLSearchParams(location.search).has('board')){const url=new URL(location.href);url.searchParams.set('board',id);window.history.replaceState(null,'',url)}
   render();$('status').textContent='已保存到本机';
   listBoards().catch(error=>{if(generation===loadGeneration)toast('白板已打开，列表暂时未能刷新：'+error.message)});
-  if(!$('dialog').open&&(document.activeElement===openingFocus||!isTyping({target:document.activeElement}))){canvas.tabIndex=-1;canvas.focus({preventScroll:true})}
+  if(!$('dialog').open&&(document.activeElement===openingFocus||!isTyping({target:document.activeElement}))){if(window.whiteboardPane)whiteboardPane.focus();else{canvas.tabIndex=-1;canvas.focus({preventScroll:true})}}
   return true;
  }catch(error){
   if(generation!==loadGeneration)return false;

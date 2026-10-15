@@ -51,7 +51,8 @@ def page(request, workspace_id=None, key=None, create=False):
             if member and valid_membership(member):
                 return redirect(f'/w/{member.workspace_id}/app/')
         if workspace_id and (key is not None or request.path == f'/w/{workspace_id}/'):
-            return redirect(f'/w/{workspace_id}/app/' + (f'?board={key}' if key is not None and not create else ''))
+            query = '?create=1' if create else (f'?board={key}' if key is not None else '')
+            return redirect(f'/w/{workspace_id}/app/' + query)
     # A UUID is only a requested destination, not an authority. No workspace
     # name/data is embedded: fresh scoped APIs authorize the actual contents.
     editor = key is not None and request.user.is_authenticated

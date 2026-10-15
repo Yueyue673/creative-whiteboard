@@ -145,6 +145,29 @@ class OriginalWorkbenchTests(TestCase):
         self.assertEqual(self.client.get('/spaces').status_code,200)
         self.assertEqual(self.client.get(f'/w/{self.space.pk}/manage/').status_code,200)
 
+    @override_settings(HOSTED_NATIVE_WORKBENCH=True)
+    def test_new_entry_keeps_create_intent_and_never_creates_on_get_or_head(self):
+        before=list(WorkspaceDocument.objects.values())
+        for method in ('get','head'):
+            response=getattr(self.client,method)(f'/w/{self.space.pk}/new/explicit-request/')
+            self.assertEqual(response.status_code,302)
+            self.assertEqual(response.url,self.app+'?create=1')
+        self.assertEqual(list(WorkspaceDocument.objects.values()),before)
+
+    @override_settings(HOSTED_NATIVE_WORKBENCH=True)
+    def test_anonymous_new_entry_retains_destination_until_login(self):
+        response=Client().get(f'/w/{self.space.pk}/new/explicit-request/')
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,f'/w/{self.space.pk}/new/explicit-request/')
+        self.assertNotContains(response,'id="shellHeader"')
+
+    @override_settings(HOSTED_NATIVE_WORKBENCH=False)
+    def test_disabled_native_entry_keeps_legacy_create_contract(self):
+        response=self.client.get(f'/w/{self.space.pk}/new/explicit-request/')
+        self.assertEqual(response.status_code,200)
+        self.assertTrue(response.creative_editor)
+        self.assertContains(response,'"create": true')
+
     def test_original_preview_control_bridge_has_exact_script_hash_and_no_authored_code(self):
         raw=b'<h1>Original preview</h1><script>window.UNTRUSTED=true</script>'
         row=upload_stream(self.scope,self.owner,io.BytesIO(raw),len(raw),'fixture.html','')
