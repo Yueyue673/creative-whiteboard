@@ -29,7 +29,7 @@
     $('paused').hidden = false;
     $('status').hidden = true;
     $('password').value = '';
-    document.querySelectorAll('button').forEach(button => { if (button.id !== 'copyInvite' && button.id !== 'showPassword' && !button.hasAttribute('data-browser-recovery-safe') && !button.hasAttribute('data-archive-safe') && !button.hasAttribute('data-account-safe')) button.disabled = true; });
+    document.querySelectorAll('button').forEach(button => { if (button.id !== 'copyInvite' && button.id !== 'forgetInvite' && button.id !== 'showPassword' && !button.hasAttribute('data-browser-recovery-safe') && !button.hasAttribute('data-archive-safe') && !button.hasAttribute('data-account-safe')) button.disabled = true; });
   }
   function csrf() {
     const item = document.cookie.split(';').map(part => part.trim()).find(part => part.startsWith('__Host-creative_csrf='));
@@ -93,8 +93,14 @@
   window.addEventListener('creative-account-check', checkSession);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkSession(); });
   window.addEventListener('pageshow', event => { if (event.persisted) checkSession(); });
+  const inviteCopyReminder = '请现在复制保存；离开页面后无法再次查看原链接。';
+  function hasIssuedInvite() { return issuedID !== null && Boolean($('inviteLink').value); }
+  function forgetIssuedInvite() {
+    issuedID = null; $('inviteLink').value = ''; $('issuedInvite').hidden = true;
+    $('inviteCopyHint').textContent = inviteCopyReminder;
+  }
   function hasInputs() {
-    return Boolean(invitationToken) || roleDrafts.size > 0 || [...document.querySelectorAll('form input')].some(input => {
+    return hasIssuedInvite() || Boolean(invitationToken) || roleDrafts.size > 0 || [...document.querySelectorAll('form input')].some(input => {
       if (input.type === 'password' || input.type === 'search') return false;
       if (input.type === 'checkbox' || input.type === 'radio') return input.checked !== input.defaultChecked;
       return input.value && input.value !== input.defaultValue;
@@ -139,9 +145,9 @@
     });
   };
   $('logout').onclick = () => {
-    if (hasInputs() && !confirm('还有未提交的填写或权限选择。退出会离开这个页面，确定退出吗？')) return;
+    if (hasInputs() && !confirm('当前页面还有填写、权限选择或未收起的邀请链接。退出会离开这个页面，确定退出吗？')) return;
     run($('logout').parentElement, async () => {
-      await request('/api/logout', 'POST', {}); roleDrafts.clear();
+      await request('/api/logout', 'POST', {}); roleDrafts.clear(); invitationToken = ''; forgetIssuedInvite();
       document.querySelectorAll('form').forEach(form => form.reset());
       announceSessionChange(); navigate('/');
     });
@@ -228,7 +234,7 @@
         const revoke = element('button', '撤回', 'quiet'); revoke.type = 'button';
         revoke.onclick = () => run(row, async () => {
           await request(base + `invitations/${invitation.id}`, 'DELETE');
-          if (issuedID === invitation.id) { $('inviteLink').value = ''; $('issuedInvite').hidden = true; issuedID = null; }
+          if (issuedID === invitation.id) forgetIssuedInvite();
           await loadInvitations(); message('邀请已撤回，原链接不能再使用。');
         }); row.append(revoke);
       }
@@ -272,12 +278,16 @@
   });
   $('refreshMembers').onclick = () => run($('refreshMembers').parentElement, loadSpace);
   $('inviteForm').onsubmit = event => {
-    event.preventDefault(); const value = {email: $('inviteEmail').value, role: $('inviteRole').value};
+    event.preventDefault();
+    if (paused || $('inviteForm').dataset.busy === 'true') return;
+    if (hasIssuedInvite() && !confirm('这里还有一份只能在本页查看的邀请链接。新邀请会替换这里的显示；同一邮箱的旧邀请还会失效。请先复制保存，确定继续生成吗？')) return;
+    const value = {email: $('inviteEmail').value, role: $('inviteRole').value};
     run($('inviteForm'), async () => {
       const result = await request(base + 'invitations', 'POST', value);
       issuedID = result.invitation.id;
       $('inviteLink').value = `${location.origin}/join#token=${encodeURIComponent(result.token)}`;
       $('issuedInvite').hidden = false; $('inviteEmail').value = '';
+      $('inviteCopyHint').textContent = inviteCopyReminder;
       // Keep the only copy of this link even if subsequent list refresh fails.
       message('邀请链接已生成，请复制后亲自发给对方。');
       $('copyInvite').focus();
@@ -287,8 +297,21 @@
   $('copyInvite').onclick = async () => {
     const link = $('inviteLink').value;
     if (!link) return;
-    try { await navigator.clipboard.writeText(link); $('inviteCopyHint').textContent = '链接已复制。请发给指定邮箱的那个人。'; }
-    catch { $('inviteLink').focus(); $('inviteLink').select(); $('inviteCopyHint').textContent = '浏览器没有允许复制，链接已选中，可手动复制。'; }
+    try {
+      await navigator.clipboard.writeText(link);
+      if (hasIssuedInvite() && $('inviteLink').value === link) $('inviteCopyHint').textContent = '链接已复制。请发给指定邮箱的那个人。';
+    } catch {
+      if (!hasIssuedInvite() || $('inviteLink').value !== link) return;
+      $('inviteLink').focus(); $('inviteLink').select();
+      $('inviteCopyHint').textContent = '浏览器没有允许复制，链接已选中，可手动复制。';
+    }
+  };
+
+  $('forgetInvite').onclick = () => {
+    if (!hasIssuedInvite()) return;
+    forgetIssuedInvite();
+    message('已收起本页链接，原邀请仍有效；需要取消时可在邀请记录中撤回。');
+    if (!paused) $('inviteEmail').focus({preventScroll: true});
   };
 
   async function start() {

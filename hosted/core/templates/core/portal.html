@@ -69,7 +69,7 @@
       <section id="invitePanel" class="panel" hidden>
         <h2>邀请一个人</h2><p class="caption">链接由你亲自发送。对方接受前，你可以撤回。</p>
         <form id="inviteForm"><label>对方邮箱<input id="inviteEmail" name="email" type="email" autocomplete="off" maxlength="254" required></label><label>权限<select name="role" id="inviteRole"><option value="editor">可编辑</option><option value="viewer">只读</option></select></label><button class="primary" type="submit">生成邀请链接</button></form>
-        <div id="issuedInvite" class="issued" hidden><label>这次生成的邀请链接<textarea id="inviteLink" rows="3" readonly spellcheck="false" aria-describedby="inviteCopyHint"></textarea></label><button id="copyInvite" class="quiet" type="button">复制链接</button><p class="caption" id="inviteCopyHint">请现在复制保存；离开页面后无法再次查看原链接。</p></div>
+        <div id="issuedInvite" class="issued" hidden><label>这次生成的邀请链接<textarea id="inviteLink" rows="3" readonly spellcheck="false" aria-describedby="inviteCopyHint"></textarea></label><div class="issued-actions"><button id="copyInvite" class="quiet" type="button">复制链接</button><button id="forgetInvite" class="quiet" type="button" title="只收起本页显示，不会撤回邀请">已保存，收起链接</button></div><p class="caption" id="inviteCopyHint">请现在复制保存；离开页面后无法再次查看原链接。</p></div>
         <div class="invitation-history"><h3>已发出的邀请</h3><div id="invitationList" aria-label="邀请记录"><p class="empty">正在读取邀请…</p></div></div>
       </section>
       <aside id="privatePanel" class="panel private-panel" hidden><span class="large-symbol" aria-hidden="true">◇</span><h2>给自己的空间</h2><p>这里属于你，不能邀请其他成员。需要一起创作时，可以回到首页新建共享工作区。</p></aside>

@@ -499,6 +499,34 @@ blocked. Invite links are not automatically sent and original tokens cannot be
 retrieved again. Read-only/editor members see names/roles, without owner email or
 management controls. Server checks remain authoritative.
 
+Generated owner links also remain page-only: ordinary native reload/navigation
+warns until the owner explicitly chooses **saved, hide link**. This removes the
+local display, not the server invitation. Replacing an existing displayed link
+requires explicit confirmation; cancellation sends no new invitation, and a
+failed request retains the prior link plus the next recipient. Reissuing for the
+same email still follows the server's existing old-token invalidation rules.
+Each new link starts with its own uncopied reminder. A delayed clipboard success
+or refusal cannot relabel a later link, revive a hidden link or focus its hidden
+field. A failed logout retains it; a confirmed successful logout clears page-only
+state before leaving, avoiding a second leave prompt. Account pause still blocks
+server actions while permitting local copy/hide. Nothing stores these tokens in
+browser storage, the URL query, public logs or an automatic email. Native leave
+prompts depend on browser support and user activation; they are not crash or
+mobile-process recovery.
+
+Actual isolated Chromium HTTPS first reproduced silent generated-link loss on
+reload and replacement plus a stale copied hint. Eight affected native flows then
+passed in one fresh store: canceled reload/replacement, failed and successful
+replacement, delayed clipboard completion, local hide,320px fallback/leave and
+failed/successful logout. Clipboard completion/refusal is simulated; native
+clicks, browser confirmation/leave dialogs, real scoped requests and connection
+failure are exercised. A separate final320px/logout-wording delta verifies a
+nonwrapping44px history action beside a long recipient. Both final stores preserve
+all original workspace rows/memberships/media metadata/reservations and45 original
+file hashes, with only the exact expected synthetic invitations created. Thirteen
+existing portal cases pass. These are local flows, not server deployment,
+external TLS, physical-device or hardware-IME acceptance.
+
 The page retains its original account for **all** workspace/member/invitation
 reads and actions, including creating a space, accepting a link and logging out.
 Send `X-Creative-Account` on these authenticated requests. Missing identity is
