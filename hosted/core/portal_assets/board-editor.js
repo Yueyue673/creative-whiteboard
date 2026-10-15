@@ -151,7 +151,19 @@ const library=new BoardLibrary(mediaAPI,asset=>{
   const node={id:crypto.randomUUID(),type:'image',assetId:asset.id,title:asset.title||asset.filename,
     x:Math.round((rect.width/2-view.x)/view.z-200),y:Math.round((rect.height/2-view.y)/view.z-140),w:400,h:asset.kind==='audio'?210:310};
   board.nodes.push(node);commit();selectNode(node.id);fit([node]);
-},scope);
+},scope,{capture:captureLibraryPlace,restore:restoreLibraryPlace,afterClose:releaseAdoption});
+function captureLibraryPlace(){
+  const active=captureFinderPlace(),cached=spatialEditorPlace;
+  const prior=active&&typeof active.start==='number'?{...active,nodeObject:selectedNode()}:cached;
+  if(!prior||prior.board!==board||prior.node!==selected||prior.nodeObject!==selectedNode()||!prior.field.isConnected||prior.field.closest('[hidden]')||prior.field.value!==prior.value)return null;
+  // Read the unchanged field's current selection; keep the camera and scrollers
+  // as they are now, without writing any captured text back into the editor.
+  return {...captureFinderPlace(prior.field),nodeObject:selectedNode(),gridTop:$('tableGridScroll').scrollTop,gridLeft:$('tableGridScroll').scrollLeft};
+}
+function restoreLibraryPlace(place){
+  if(!canBrowseReferences()||place.nodeObject!==selectedNode()||place.board!==board||place.node!==selected||!place.field.isConnected||place.field.closest('[hidden]')||place.field.value!==place.value||document.querySelector('dialog[open]'))return;
+  restoreFinderPlace(place);$('tableGridScroll').scrollTop=place.gridTop;$('tableGridScroll').scrollLeft=place.gridLeft;
+}
 
 $('backWorkspace').href = $('cancelCreate').href = `/w/${scope.workspace}/`;
 $('latestBoard').href = destination;

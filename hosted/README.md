@@ -2026,3 +2026,34 @@ original, another registered original, close-again cancellation and an actual
 readonly member's resume. Baseline/final workspace rows, membership rows and45
 original file hashes are unchanged, with zero scoped mutation requests. Held
 requests delay real protected replies; they do not fabricate metadata or save.
+
+
+### Continue writing after the original library (development)
+
+Closing the original media library now returns to the unchanged original
+inspector field and its exact selection direction, field/inspector scrolling,
+table grid scrolling and current camera. The existing writing-place capture is
+reused before the Media button takes focus. Title, body and stable table-cell
+fields remain mounted; the return checks the original board/node object,
+selection, field and literal value. No captured text is replayed. A different
+selection, replaced field, changed value or another open dialog prevents this
+return, including when inserting an original selects its new media card.
+
+Explicit close, Escape and the native dialog close share one completion. A late
+close event cannot restore an older field or disturb a later dialog. Reopening
+captures the later writing place afresh. Browsing, existing permission controls,
+retained import/metadata input and media stopping keep their original behavior.
+
+Validation uses one native synthetic HTTPS baseline, then four new behavior
+groups split across two initial checks and two focused remaining checks. The
+first pair verifies pointer/title and320px keyboard/body exact return. The
+remaining pair verifies stable table-cell return after nested original-image
+metadata, plus changed-field refusal and focus in a subsequent real Finder. The
+changed-field guard is simulated in the real DOM; it is not hardware IME or
+physical-device acceptance. The initial table check sampled before the existing
+responsive camera adjustment settled; only that fixture timing was corrected
+and the two remaining checks continued. All baseline/partial/final stores retain
+all document/membership/media/reservation rows and45 original-file hashes,
+with zero scoped writes. Three new actual-controller lifecycle checks and the
+four affected library/shelf model files pass. No schema, endpoint, new controls
+or private desktop installation is included. Still unmerged and undeployed.

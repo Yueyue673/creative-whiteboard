@@ -8,7 +8,9 @@ const text=(tag,value,className)=>{const item=document.createElement(tag);item.t
 export class BoardLibrary {
   #query=''; #matches=new Map(); #selectionReady=false; #listReady=false; #archived=false; #changingShelf=false; #shelfUncertain=null;
   #api; #insert; #metadata; #folders; #read=false; #edit=false; #epoch=0; #previewEpoch=0; #refreshing=false; #referencesEpoch=0; #checkingReferences=false; #scope; #selected=null; #file=null; #uploaded=null; #uploading=false; #uncertain=false; #next=null; #items=new Map(); #singleLimit=Infinity;
-  constructor(api,insert,scope){
+  #navigation; #place=null; #active=false;
+  constructor(api,insert,scope,navigation={}){
+    this.#navigation=navigation;
     this.#api=api;this.#insert=insert;this.#scope=Object.freeze({...scope});
     this.#folders=new BoardFolders(api,scope,catalog=>this.catalogSaved(catalog));
     this.#metadata=new BoardMetadata(api,scope,asset=>{
@@ -26,7 +28,7 @@ export class BoardLibrary {
     $('editMetadata').onclick=()=>{if(this.#read&&this.#selectionReady&&!this.#refreshing&&!this.#changingShelf&&$('mediaDialog').open&&this.#selected)this.#metadata.open(this.#selected.id);};
     $('showMedia').onclick=()=>this.open();$('closeMedia').onclick=()=>this.close();
     $('mediaDialog').addEventListener('cancel',event=>{event.preventDefault();this.close();});
-    $('mediaDialog').addEventListener('close',()=>{if(!$('mediaDialog').open)this.clearMedia();});
+    $('mediaDialog').addEventListener('close',()=>{if(!$('mediaDialog').open&&this.#active)this.finishClose();});
     $('findMediaReferences').onclick=()=>this.references();
     $('hideMediaReferences').onclick=()=>{this.clearReferences();$('findMediaReferences').focus({preventScroll:true});};
     $('refreshMedia').onclick=()=>this.refresh();$('moreMedia').onclick=()=>this.refresh(true);
@@ -77,7 +79,11 @@ export class BoardLibrary {
     this.controls();
   }
   clearMedia(){this.#epoch++;this.#previewEpoch++;this.#refreshing=false;this.#selectionReady=false;this.clearReferences();stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();}
-  close(){this.clearMedia();$('mediaDialog').close();}
+  finishClose(){
+    if(!this.#active)return;this.#active=false;this.clearMedia();
+    const place=this.#place;this.#place=null;if(place)this.#navigation.restore?.(place);this.#navigation.afterClose?.();
+  }
+  close(){if(!$('mediaDialog').open)return;$('mediaDialog').close();this.finishClose();}
   controls(){
     $('mediaImport').hidden=!this.#edit;
     $('mediaImportLabel').title=this.#file?.name||'';
@@ -142,7 +148,8 @@ export class BoardLibrary {
     // Update captions in place; a directory rename does not interrupt playback.
   }
   async open(){
-    if(!this.#read)return;
+    if(!this.#read||$('mediaDialog').open)return;
+    this.#place=this.#navigation.capture?.()??null;this.#active=true;
     $('mediaDialog').showModal();await this.refresh();
   }
   shelf(archived){
