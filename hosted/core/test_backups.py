@@ -62,6 +62,11 @@ put_document(scope,owner,"board","one",sample_board("Newer author's words"),tag)
 put_document(scope,editor,"board","one",sample_board("Exact unapplied editor words"),tag)
 _,trash_tag=put_document(scope,owner,"board","trash",sample_board("Trash original"),"new")
 change_board_state(scope,owner,"trash",trash_tag)
+from core.native_folders import preview,remove
+_,folder_tag=put_document(scope,owner,"folders","catalog",{"folders":[{"id":"batch-folder","name":"Retained folder"},{"id":"batch-child","name":"Retained child","parent":"batch-folder"}]},"new")
+for key,folder in [("batch-one","batch-folder"),("batch-two","batch-child")]:
+ put_document(scope,owner,"board",key,{**sample_board("Exact retained "+key),"folder":folder},"new")
+remove(scope,owner,"batch-folder",folder_tag,preview(scope,owner,"batch-folder",folder_tag)["plan"])
 asset=upload_stream(scope,owner,io.BytesIO(b"\x89PNG\r\n\x1a\n"+bytes(range(64))),72,"generic.png","")
 from core.media import update_asset,asset_etag
 update_asset(scope,owner,asset.pk,{"archived":True},asset_etag(asset))
@@ -123,6 +128,7 @@ print(json.dumps({"asset":str(asset.pk),"workspace":str(shared.pk),"pending":str
         self.assertEqual(result["database"]["tables"]["core_accountsession"], 1)
         self.assertEqual(result["database"]["tables"]["django_session"], 0)
         self.assertEqual(result["database"]["tables"]["core_invitation"], 1)
+        self.assertEqual(result["database"]["tables"]["core_nativefoldertrash"], 1)
         restored = self.recover(expected=result["manifestHash"])
         self.assertTrue(restored["restored"])
         self.assertFalse(restored["overwroteExistingData"])
@@ -135,6 +141,37 @@ print(json.dumps({"asset":str(asset.pk),"workspace":str(shared.pk),"pending":str
         self.assertTrue(list(self.target.rglob("empty-subdirectory"))[0].is_dir())
         self.assertFalse((self.package / backups.BACKUP_MARKER).exists())
         self.assertFalse((self.target / RESTORE_MARKER).exists())
+
+    def test_restored_folder_record_recovers_exact_hierarchy_in_a_fresh_process(self):
+        before = self.sql_dump(self.store)
+        result = self.snapshot();self.recover(expected=result["manifestHash"])
+        environment = dict(os.environ, DJANGO_SETTINGS_MODULE="service.settings", PYTHONIOENCODING="utf-8",
+                           CREATIVE_BOARD_HOSTED_DATA_DIR=str(self.target), CREATIVE_BOARD_HOSTED_SECRET="fixture-secret-" + "z" * 64,
+                           CREATIVE_BOARD_HOSTED_HOSTS="localhost", CREATIVE_BOARD_HOSTED_ORIGINS="")
+        environment.pop("CREATIVE_BOARD_HOSTED_TRUST_PROXY", None)
+        script = '''
+import django,json
+django.setup()
+from core.maintenance import StorageLease
+from core.models import NativeFolderTrash,WorkspaceDocument
+from core.native_folders import restore,batch_etag
+from core.scope import WorkspaceScope
+with StorageLease(offline=True):
+ batch=NativeFolderTrash.objects.select_related('workspace','created_by').get()
+ result=restore(WorkspaceScope(batch.workspace,'owner'),batch.created_by,batch.pk,batch_etag(batch))
+ assert set(result['ids'])=={'batch-one','batch-two'}
+ for key,folder in [('batch-one','batch-folder'),('batch-two','batch-child')]:
+  row=WorkspaceDocument.objects.get(workspace=batch.workspace,kind='board',key=key)
+  assert row.deleted_at is None and row.value['nodes'][0]['body']=='Exact retained '+key and row.value['folder']==folder
+ catalog=WorkspaceDocument.objects.get(workspace=batch.workspace,kind='folders').value
+ assert catalog=={'folders':[{'id':'batch-folder','name':'Retained folder'},{'id':'batch-child','name':'Retained child','parent':'batch-folder'}]}
+ assert not NativeFolderTrash.objects.exists()
+ print(json.dumps({'freshProcessFolderRecovery':True,'exactBoards':2,'hierarchyRetained':True}))
+'''
+        completed = subprocess.run([sys.executable, '-c', script], cwd=settings.BASE_DIR, env=environment, capture_output=True,
+                                   text=True, encoding='utf-8', check=True, timeout=30)
+        self.assertTrue(json.loads(completed.stdout)['freshProcessFolderRecovery'])
+        self.assertEqual(self.sql_dump(self.store), before)
 
     def test_sqlite_backup_includes_committed_wal_rows_without_copying_live_journals(self):
         with closing(sqlite3.connect(self.store / "accounts.sqlite3")) as writer:

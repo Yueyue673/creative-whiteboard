@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from .documents import document_etag, find_document, require_current_editor, require_precondition, usage
 from .json_data import document_bytes
-from .models import DocumentRevision
+from .models import DocumentRevision, NativeFolderTrash
 from .services import APIError, locked_workspace
 
 
@@ -45,6 +45,8 @@ def build_plan(document, action, keep=None):
     elif action == "discard_board":
         if document.kind != "board" or not document.deleted_at:
             raise APIError("只有回收站中的白板可以永久移除", 409)
+        if NativeFolderTrash.objects.filter(workspace_id=document.workspace_id, boards__has_key=document.key).exists():
+            raise APIError("这张白板属于整夹回收记录，请先恢复整个文件夹再单独处理永久移除", 409)
         removed = versions
         # Keep the identity reserved, so delayed saves and reused 'new' IDs can
         # never resurrect a permanently removed board. The title labels it only.

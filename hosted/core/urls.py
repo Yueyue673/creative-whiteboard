@@ -1,6 +1,6 @@
 from django.urls import path, register_converter
 
-from . import account_views, document_views, media_views, portal, views, workbench, native_views
+from . import account_views, document_views, media_views, portal, views, workbench, native_views, native_folders
 
 
 class DocumentKeyConverter:
@@ -61,6 +61,9 @@ urlpatterns = [
     path("w/<uuid:workspace_id>/api/assets", document_views.library),
     path("w/<uuid:workspace_id>/api/native/assets", native_views.library),
     path("w/<uuid:workspace_id>/api/native/search", native_views.search),
+    path("w/<uuid:workspace_id>/api/native/folders/<document_key:key>", native_folders.folder),
+    path("w/<uuid:workspace_id>/api/native/trash", native_folders.trash),
+    path("w/<uuid:workspace_id>/api/native/trash/<document_key:batch_id>/restore", native_folders.restore_batch),
     path("w/<uuid:workspace_id>/api/native/preview/<uuid:asset_id>", native_views.preview),
     path("w/<uuid:workspace_id>/api/native/history/<document_kind:kind>/<document_key:key>", native_views.history),
     path("w/<uuid:workspace_id>/api/native/history/<document_kind:kind>/<document_key:key>/<uuid:revision_id>", native_views.history),

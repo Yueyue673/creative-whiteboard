@@ -8,7 +8,7 @@
  if(NativeChannel)window.BroadcastChannel=class extends NativeChannel{constructor(name){super(name==='creative-account-session'?name:`creative-hosted-native:${account}:${workspace}:`+name);}};
  const jsonResponse=(value,response)=>{const headers=new Headers(response.headers);headers.delete('Content-Length');return new Response(JSON.stringify(value),{status:response.status,headers});};
  async function ticket(key,etag){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(workspace+'\0'+key+'\0'+etag));return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('').slice(0,32);}
- async function trashRows(rows){const result=[];for(const row of rows){const id=await ticket(row.id,row.etag);trash.set(id,{key:row.id,etag:row.etag});result.push({...row,id,names:[row.name],folders:[]});}return result;}
+ async function trashRows(rows){const result=[];for(const row of rows){if(row.kind==='folder'){trash.set(row.id,{kind:'folder',id:row.id,etag:row.etag});result.push(row);}else{const id=await ticket(row.id,row.etag);trash.set(id,{kind:'board',key:row.id,etag:row.etag});result.push({...row,id,names:[row.name],folders:[]});}}return result;}
  function scopedStorage(storage){
   const prefix=`creative-hosted-native:${account}:${workspace}:`;
   return Object.freeze({
@@ -39,7 +39,7 @@
   if(url.origin!==location.origin||!url.pathname.startsWith('/api/'))return rawFetch(input,options);
   if(paused)return new Response(JSON.stringify({error:'原账号或权限已改变，原输入仍保留',code:'account_changed',preserveDraft:true}),{status:409,headers:{'Content-Type':'application/json'}});
   const suffix=url.pathname.slice(5);
-  let mapped=suffix==='assets'?'native/assets':suffix==='search'?'native/search':/^history\//.test(suffix)?'native/'+suffix:suffix;
+  let mapped=suffix==='assets'?'native/assets':suffix==='search'?'native/search':suffix==='trash'?'native/trash':/^folders\/[^/]+$/.test(suffix)?'native/'+suffix:/^history\//.test(suffix)?'native/'+suffix:suffix;
   if(suffix.startsWith('checkpoints/'))mapped='native/checkpoints/'+(suffix.startsWith('checkpoints/library/')?suffix.slice(12):'board/'+suffix.slice(12));
   url.pathname=base+mapped;
   const headers=new Headers(options.headers||{});headers.set('X-Creative-Account',String(account));
@@ -48,20 +48,29 @@
   if(method==='PUT'&&/^trash\/[a-f0-9]{32}$/.test(suffix)){
    const id=suffix.slice(6);
    if(!trash.has(id)){
-    const r=await rawFetch(base+'trash',{headers:{'X-Creative-Account':String(account)},credentials:'same-origin',cache:'no-store',redirect:'error'});
+    const r=await rawFetch(base+'native/trash',{headers:{'X-Creative-Account':String(account)},credentials:'same-origin',cache:'no-store',redirect:'error'});
     if(!r.ok)return r;await trashRows(await r.json());
    }
    restored=trash.get(id);if(!restored)return new Response(JSON.stringify({error:'原删除记录已改变，请重新核对回收站'}),{status:409,headers:{'Content-Type':'application/json'}});
-   url.pathname=base+'boards/'+encodeURIComponent(restored.key)+'/restore';method='POST';headers.set('If-Match',restored.etag);
+   url.pathname=restored.kind==='folder'?base+'native/trash/'+restored.id+'/restore':base+'boards/'+encodeURIComponent(restored.key)+'/restore';method='POST';headers.set('If-Match',restored.etag);
   }
-  const response=await rawFetch(url,{...options,method,headers,credentials:'same-origin',cache:'no-store',redirect:'error'});
+  let response;
+  if(method==='DELETE'&&/^folders\/[^/]+$/.test(suffix)){
+   // Original lifecycle has flushed and frozen affected local views. Bind the
+   // batch to a fresh server plan; any intervening board/placement change is
+   // refused atomically. No new global workspace or filesystem path is used.
+   const preview=await rawFetch(url,{method:'GET',headers,credentials:'same-origin',cache:'no-store',redirect:'error'});
+   if(!preview.ok)response=preview;
+   else{const value=await preview.json();if(typeof value.plan!=='string')throw Error('整夹删除范围无法核对，原内容保留');headers.set('Content-Type','application/json');options={...options,body:JSON.stringify({plan:value.plan})};}
+  }
+  response=response||await rawFetch(url,{...options,method,headers,credentials:'same-origin',cache:'no-store',redirect:'error'});
   if(response.status===401)freeze('原登录已经失效。');
   if(response.status===409){const value=await response.clone().json().catch(()=>({}));if(value.code==='account_changed')freeze('登录账号已经改变。');}
   if(response.ok&&method==='GET'&&suffix==='trash')return jsonResponse(await trashRows(await response.json()),response);
   if(response.ok&&method==='DELETE'&&/^boards\/[^/]+$/.test(suffix)){
    const key=suffix.slice(7),etag=response.headers.get('ETag'),id=await ticket(key,etag);trash.set(id,{key,etag});return jsonResponse({ids:[key],ticket:id,folders:[]},response);
   }
-  if(response.ok&&restored)return jsonResponse({ids:[restored.key],ticket:suffix.slice(6),folders:[]},response);
+  if(response.ok&&restored)return jsonResponse(restored.kind==='folder'?{...await response.json(),ticket:suffix.slice(6)}:{ids:[restored.key],ticket:suffix.slice(6),folders:[]},response);
   if(response.ok&&/^history\//.test(suffix)){
    const value=await response.json();if(Array.isArray(value))return jsonResponse(value.map(row=>({...row,count:row.count??0})),response);return jsonResponse(value,response);
   }

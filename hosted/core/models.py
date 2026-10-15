@@ -231,3 +231,15 @@ class UploadReservation(models.Model):
     filename = models.CharField(max_length=255)
     folder_id = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class NativeFolderTrash(models.Model):
+    """A retained original folder hierarchy and exact deleted-board versions."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="folder_trash")
+    title = models.CharField(max_length=1000)
+    folders = models.JSONField(encoder=DocumentJSONEncoder)
+    boards = models.JSONField(encoder=DocumentJSONEncoder)
+    byte_size = models.PositiveIntegerField()
+    created_by = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="deleted_folders")
+    created_at = models.DateTimeField(auto_now_add=True)
