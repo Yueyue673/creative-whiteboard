@@ -925,6 +925,25 @@ These locally checked additions are still an unreleased development preview.
 
 ### Saved spatial views (development preview)
 
+Writing-place return captures the original inspector field before a pointer or
+keyboard view action takes focus. Its original board/node/value must still
+match; returning never replays a captured text value. Title, body and stable
+table-cell/header identities retain selection direction, both scroll axes and
+camera. If the original field/value no longer matches, navigation does not apply
+a stale selection to another cell or revive removed content.
+
+A native synthetic HTTPS baseline reproduced a backward-selected title returning
+to the body. Seven new affected return behaviors pass as two initial flows plus
+five focused completion flows in separate stores: title/body reverse selection,
+native keyboard entry, exact table cell/title,320px and an actual readonly member.
+The first fixture stopped only because it expected the narrow-only inspector
+button in wide desktop tab order; it was corrected to reach the visible toolbar
+action and only unfinished flows resumed. Every baseline/partial/final store
+preserves all workspace rows and45 original media hashes, with zero scoped writes.
+These checks do not repeat the previously settled spatial-view metadata and
+journey acceptance or constitute hardware-IME, physical-device or external TLS
+verification.
+
 The editor can save an author-named current region, selected content bounds,
 or whole-board bounds. Small spatial previews use existing geometry and colors.
 Up to48 views can be renamed, reordered, explicitly given a new region, removed

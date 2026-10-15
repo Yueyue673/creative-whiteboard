@@ -89,10 +89,50 @@ const referenceIndex=new ReferenceIndex(scope.key,parser),referenceTrail=[];
 const references=new NoteReferences(referenceIndex,{navigate:navigateReference,insert:insertReference,canBrowse:canBrowseReferences,canEdit:stateCanEdit,activeNode});
 let viewRestorePending=false;
 const spatialViews=new SpatialViews({board:()=>board,canBrowse:canBrowseReferences,canEdit:stateCanEdit,view:()=>view,size:()=>$('canvas').getBoundingClientRect(),selected:()=>board?.nodes.find(n=>n.id===selected),inspectorHidden:()=>$('inspector').hidden,
-  capturePlace:()=>({...captureReferencePlace(),inspectorHidden:$('inspector').hidden,focus:document.activeElement?.id,trail:structuredClone(referenceTrail)}),
+  capturePlace:captureSpatialPlace,
   showRegion:(region,clear=true)=>{if(clear){selected=null;$('inspector').hidden=true;for(const card of $('cards').children)card.classList.remove('selected');}const rect=$('canvas').getBoundingClientRect();view=fitRegion(region,rect.width,rect.height);applyView();refreshReferenceReturn();},
-  restorePlace:place=>{viewRestorePending=true;referenceTrail.splice(0,referenceTrail.length,...place.trail);selectNode(board.nodes.some(n=>n.id===place.node)?place.node:null);$('inspector').hidden=place.inspectorHidden||!editableInspector();view={...place.view};applyView();for(const saved of place.fields){const f=$(saved.id);f.setSelectionRange(saved.start,saved.end);f.scrollTop=saved.scroll;}if(selectedNode()?.type==='table'&&tables.restore(place.table,!place.inspectorHidden)){}else if(place.focus&&$(place.focus)&&!$(place.focus).closest('[hidden]'))$(place.focus).focus({preventScroll:true});else if(editableInspector()&&!place.inspectorHidden)$(place.field).focus({preventScroll:true});else $('canvas').focus({preventScroll:true});$('inspector').scrollTop=place.scroll;requestAnimationFrame(()=>requestAnimationFrame(()=>{viewRestorePending=false;}));},
+  restorePlace:restoreSpatialPlace,
   change:data=>{checkpoint();board.spatialViews=data;commit(false);},refreshReturn:refreshReferenceReturn});
+let spatialEditorPlace=null;
+$('inspector').addEventListener('focusout',event=>{
+  if(spatialViews.active)return;
+  const place=captureFinderPlace(event.target);
+  if(place&&typeof place.start==='number')spatialEditorPlace={...place,nodeObject:selectedNode()};
+});
+function spatialField(field){
+  if(!field?.isConnected||!$('inspector').contains(field)||typeof field.selectionStart!=='number')return null;
+  return {id:field.id,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,scroll:field.scrollTop,left:field.scrollLeft,row:field.dataset.rowKey,column:field.dataset.columnKey,cell:field.hasAttribute('data-table-cell'),heading:field.hasAttribute('data-table-heading')};
+}
+function captureSpatialPlace(){
+  const place=captureReferencePlace(),cached=spatialEditorPlace;
+  const prior=cached&&cached.board===board&&cached.node===selected&&cached.nodeObject===selectedNode()&&cached.field.isConnected&&cached.field.value===cached.value?cached:null;
+  const focus=spatialField(document.activeElement)||spatialField(prior?.field)||spatialField($(place.field));
+  return {...place,board,nodeObject:selectedNode(),focus,inspectorHidden:$('inspector').hidden,trail:structuredClone(referenceTrail),fields:['noteTitle','noteBody','noteUserText','noteAnnotation','frameTitle','frameBody','tableTitle','tableBody'].map(id=>spatialField($(id))).filter(Boolean)};
+}
+function restoreSpatialPlace(place){
+  if(place.board!==board)return;
+  viewRestorePending=true;referenceTrail.splice(0,referenceTrail.length,...place.trail);
+  selectNode(board.nodes.some(n=>n===place.nodeObject)?place.node:null);
+  $('inspector').hidden=place.inspectorHidden||!editableInspector();view={...place.view};applyView();
+  const restore=(field,saved)=>{
+    if(!field||field.value!==saved?.value)return false;
+    field.setSelectionRange(saved.start,saved.end,saved.direction);field.scrollTop=saved.scroll;field.scrollLeft=saved.left;return true;
+  };
+  for(const saved of place.fields)restore($(saved.id),saved);
+  if(selectedNode()?.type==='table')tables.restore(place.table,false);
+  const saved=place.focus;
+  let field=saved?$(saved.id):null;
+  if(saved?.cell||saved?.heading){
+    const candidates=$('tableGrid').querySelectorAll(saved.cell?'[data-table-cell]':'[data-table-heading]');
+    field=[...candidates].find(f=>f.dataset.columnKey===saved.column&&(!saved.cell||f.dataset.rowKey===saved.row));
+  }
+  if(selected===place.node&&!$('inspector').hidden&&field&&!field.closest('[hidden]')&&restore(field,saved)){
+    field.focus({preventScroll:true});restore(field,saved);
+  }else $('canvas').focus({preventScroll:true});
+  $('inspector').scrollTop=place.scroll;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{viewRestorePending=false;}));
+}
+
 const element = (tag,text,className) => { const item=document.createElement(tag); if(text!==undefined)item.textContent=text; if(className)item.className=className; return item; };
 const hex = value => typeof value==='string' && /^#[a-f0-9]{6}$/i.test(value);
 const finite = (value,fallback) => typeof value==='number' && Number.isFinite(value) ? value : fallback;
