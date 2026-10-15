@@ -1664,3 +1664,54 @@ revisions and private submissions. The final header fixture makes zero data writ
 Real post-commit acknowledgements are held on the temporary TLS socket, not mocked
 success replies. Public TLS, hardware IME, physical devices, server deduplication,
 complete realtime merging and a deployed hosted service remain unaccepted.
+
+
+### Named local reading combinations (development)
+
+The original paper-reading dialog now starts from four combinations: original
+adaptive reading, clear spatial reading, book-style paper, and monospaced spatial
+reading. Each combines one of the existing four device font choices with the
+existing adaptive-name/original-paper choice. The original default remains the
+same. Individual font and distance controls, opening-value revert, caret/camera
+return and the original author-owned text/manual geometry remain in place.
+
+The native selector groups ready combinations and the reader's own named choices.
+A folded management area can save a new combination, explicitly update/rename the
+selected saved original, or remove it and undo the most recent removal. It holds
+up to twelve names of one to forty characters; names render literally. Duplicate
+names never silently replace another saved choice. Updates do not make a second
+copy, and exact unchanged confirmation preserves the saved version. Removal and
+its undo do not apply a different reading combination. Opening-value revert
+restores reading preferences only; it does not roll back explicit catalog saves.
+
+The bounded catalog has its own versioned localStorage key bound to the page's
+original account and workspace, separate from the existing reading-preference
+key and all authored documents. All application catalog writers use the same
+browser Web Lock, then read the latest catalog and compare the exact selected
+version before replacing/removing it. Distinct simultaneous tab saves retain both
+new names. Stale updates preserve the typed name and request explicit reselection;
+undo refuses an occupied identity/name and retains unrelated later changes.
+
+Queued actions capture their original name/font/mode. Closing or losing original
+read access before the lock is acquired cancels that write; later typed input
+stays in the page. Malformed/refused storage leaves existing records intact and
+reports an unconfirmed save. A browser without Web Locks keeps ready combinations
+and local reading adjustment usable, with named mutations disabled. These are
+browser preferences, not server-owned user data, encrypted storage, cross-device
+sync or a backup. A failed read never resets the named catalog automatically.
+
+Native synthetic localhost HTTPS checks cover ten distinct groups across a
+six-group run, two focused completion groups, and two storage/feature-refusal
+groups. The first run stopped at a later new 320px button-width assertion; its six
+completed groups are retained rather than described as one ten-group rerun. The
+44px minimum width was fixed. Original caret return is checked after the native
+close event settles, without weakening the focus/selection assertion. Actual
+shared browser locks, two real tabs, literal names/reload, update/no-op, removal/
+undo, later input/canceled queued write, native name-field Undo, 320/375px controls,
+original workspace and actual changed-account isolation all pass. Simulated
+storage denial/absent locks are labeled test conditions, not physical-device or
+hardware IME acceptance. The completed focused fixtures perform zero workspace
+API writes and preserve all boards/revisions/private submissions/registered
+metadata and all 45 original source hashes. Six new store cases, seven related
+reading models and twelve portal checks pass. No backend schema/endpoint, desktop
+program or private data changes are included; hosted remains draft and undeployed.
