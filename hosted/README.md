@@ -1976,3 +1976,18 @@ later pending typing rebases against the submitted snapshot and checked server
 result. An overlap refuses before adopting input or popping history. This is a
 limited original-value reconciliation improvement, not generated writing,
 character-level realtime editing or a deployment claim.
+
+### Small-window inspector actions (development)
+
+At320px, the original writing inspector squeezed **素材** to22px while **查找**
+extended beyond its edge. Its four existing actions now share equal columns,
+keeping their full labels, at least44px targets and the same44px row height.
+Nothing is added to the writing panel and the original controls still return
+to the canvas toolbar in a wide window.
+
+An isolated original-page HTTPS baseline reproduces the clipping. Three native
+checks cover320/375/540/680px geometry, pointer media/native-keyboard finder
+entry and exit, and narrow/wide transitions with a selected stable table. All
+baseline and final workspace rows, media metadata/reservations and45 original
+file hashes remain unchanged, with no scoped mutation requests. These are
+browser viewport checks, not physical-device or assistive-device acceptance.
