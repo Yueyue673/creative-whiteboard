@@ -252,6 +252,22 @@ const {chromium} = require('playwright');
   await p.locator('#shellMore>summary').click();await frame.locator('#canvas').click({position:{x:200,y:60}});
   await p.waitForFunction(()=>!document.getElementById('shellMore').open);
   await p.locator('#openBoards').click();await p.waitForFunction(()=>window.whiteboardWorkspace.explorer());const shared=p.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');await shared.locator('#manage').click();await frame.evaluate(()=>fit());
+  // The shared explorer can be narrower than the main browser viewport.
+  for(const width of [320,390]){
+   await p.setViewportSize({width,height:844});
+   for(const panel of ['manager','assetPane']){
+    await shared.evaluate(panel=>showWorkspaceTab(panel),panel);
+    assert(await shared.evaluate(()=>[...document.querySelectorAll('.workspace-tabs button,.library-bottom-actions button')].filter(el=>el.getClientRects().length).every(el=>{
+     const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight;
+    })),'Every original narrow-sidebar navigation and footer action fits');
+   }
+   await shared.getByRole('button',{name:'侧栏选项',exact:true}).click();
+   await shared.getByRole('menuitem',{name:'刷新',exact:true}).waitFor();
+   assert(await shared.locator('#fileContext').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth}));
+   await p.keyboard.press('Escape');assert.equal(await shared.evaluate(()=>document.activeElement.id),'sidebarClose');
+  }
+  await p.setViewportSize({width:1600,height:1000});
+  assert(await shared.locator('.workspace-tabs').evaluate(el=>{const tops=[...el.querySelectorAll('button')].map(b=>b.getBoundingClientRect().top);return Math.max(...tops)-Math.min(...tops)<3}),'Wide navigation keeps its original single row');
   if(process.env.INTERFACE_SCREENSHOT)await p.screenshot({path:process.env.INTERFACE_SCREENSHOT});
   console.log('界面：结束编辑、表格键盘导航、文件夹选择与打开、菜单去重与关闭、来源查看、侧栏恢复、窄屏布局通过');
   assert.deepEqual(errors,[]);

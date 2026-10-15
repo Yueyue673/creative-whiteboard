@@ -265,3 +265,12 @@ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summa
 }
 /* Leave room for the existing save/failure status at the largest interface size. */
 @media(max-width:360px){body #shellHeader .studio-brand{display:none}}
+
+/* Keep every sidebar destination and existing option available in narrow panes. */
+@media(max-width:240px){
+ body #workspaceSidebar .workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ body #workspaceSidebar .workspace-tabs button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+ body #workspaceSidebar .workspace-tabs #sidebarClose{width:32px;min-width:32px;justify-self:end}
+ body #workspaceSidebar .library-bottom-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ body #workspaceSidebar .library-bottom-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+}
