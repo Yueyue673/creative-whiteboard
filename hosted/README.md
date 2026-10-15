@@ -2057,3 +2057,36 @@ all document/membership/media/reservation rows and45 original-file hashes,
 with zero scoped writes. Three new actual-controller lifecycle checks and the
 four affected library/shelf model files pass. No schema, endpoint, new controls
 or private desktop installation is included. Still unmerged and undeployed.
+
+
+### Preserve an association tab already reused by its author (development)
+
+The original library association action opens one blank tab synchronously, then
+rechecks the fixed account/workspace and original asset. It previously replaced
+that tab even if its author had meanwhile navigated it elsewhere; errors could
+also close that reused tab. The pending action now owns only its untouched
+`about:blank` tab. Reused or cross-origin tabs are left alone, and a closed tab is
+not reopened. Duplicate clicks share the same pending attempt. Closing/changing
+the original library selection cancels the attempt and closes only its unused
+blank; late replies cannot navigate an old or detached association link.
+
+An untouched tab still opens the exact associated board after the original
+protected reads. Popup blocking reports a retry choice without performing those
+reads. The original image preview, writing-place return, author input and fixed
+workspace remain in their existing page. No backend/permission/endpoint or
+private desktop installation changes are included.
+
+Validation: one native synthetic HTTPS baseline reproduced overwriting a real
+tab reused for account home. Three actual browser flows pass for preserved reused
+tab,320px duplicate clicks/library-close cancellation, and normal exact-board
+opening. Protected responses are real, delayed by the fixture rather than
+fabricated. Baseline/final all document/membership/media/reservation rows and45
+original-file hashes remain unchanged, with zero scoped mutations. Five new
+actual-controller groups cover successful/failed delayed reads, duplicate/closed
+targets, blocked/detached/paused actions and exact current navigation. The first
+model draft used a wrong generation constant and did not exercise the intended
+callback; it was corrected to invoke the actual registered link handler before
+accepting the corrected cases. An additional refresh/replacement case verifies
+that an old completion cannot release a newer pending attempt. The four affected library/shelf model files pass.
+Local browser checks are not hardware/physical-device/public TLS acceptance.
+The hosted branch remains unmerged and undeployed.

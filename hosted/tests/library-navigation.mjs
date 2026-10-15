@@ -63,3 +63,42 @@ await check('A library opened without a writing place closes normally and never 
  let finished=0;const f=await fixture({capture:()=>null,restore:()=>{throw Error('No captured field');},afterClose:()=>finished++});
  f.library.close();assert.equal(finished,1);
 });
+
+async function referenceFixture(open){
+ const f=await fixture();globalThis.window={open};
+ f.api.references=async()=>({counts:{board:1},coverage:'visibleSavedRecords',hiddenResults:0,scannedRecords:1,checkedAt:1,items:[{category:'board',kind:'board',key:'own-board',name:'Own original board',revision:1,savedAt:1,match:'direct'}]});
+ await f.library.references();const item=f.$('mediaReferenceRows').children[0],link=item.children.at(-1);
+ return {...f,item,link,click:()=>link.listeners.get('click')[0]({preventDefault(){}})};
+}
+function referenceTab(){const tab={closed:false,close(){this.closed=true;},location:{href:'about:blank',replace(value){this.href=value;}}};return tab;}
+await check('A reused reference tab is not replaced or closed after success or failure of the delayed original read.',async()=>{
+ for(const failure of [false,true]){const tab=referenceTab(),f=await referenceFixture(()=>tab),gate=held();
+ f.api.read=async()=>{await gate.promise;if(failure)throw Error('Original read unavailable');return source;};
+ const pending=f.click();await tick();tab.location.href='https://example.test/own-later-page';gate.release();await pending;
+ assert.equal(tab.closed,false);assert.equal(tab.location.href,'https://example.test/own-later-page');assert(!f.link.attributes.has('aria-busy'));
+ }
+});
+await check('Pending reference clicks create only one blank tab; close cancels that blank and late replies cannot navigate it.',async()=>{
+ let opened=0;const tab=referenceTab(),f=await referenceFixture(()=>{opened++;return tab;}),gate=held();f.api.read=async()=>{await gate.promise;return source;};
+ const pending=f.click();await tick();await f.click();assert.equal(opened,1);
+ f.library.close();assert.equal(tab.closed,true);gate.release();await pending;assert.equal(tab.location.href,'about:blank');assert.equal(opened,1);
+});
+await check('A current untouched reference tab opens the exact original workspace target; a closed target is never reopened.',async()=>{
+ for(const closed of [false,true]){let opened=0;const tab=referenceTab(),f=await referenceFixture(()=>{opened++;return tab;}),gate=held();f.api.read=async()=>{await gate.promise;return source;};
+ const pending=f.click();await tick();tab.closed=closed;gate.release();await pending;
+ assert.equal(opened,1);assert.equal(tab.location.href,closed?'about:blank':f.link.href);assert.equal(tab.closed,closed);
+ }
+});
+await check('Blocked, detached or paused reference links do not start hidden source checks or create a new tab.',async()=>{
+ let opened=0;const f=await referenceFixture(()=>{opened++;return null;});let checks=0;f.api.access=async()=>checks++;f.api.read=async()=>checks++;
+ await f.click();assert.equal(opened,1);assert.equal(checks,0);
+ f.$('mediaReferenceRows').replaceChildren();await f.click();assert.equal(opened,1);assert.equal(checks,0);
+ f.library.sync(false,false);await f.click();assert.equal(opened,1);assert.equal(checks,0);
+});
+
+await check('Refreshing associations cancels only the earlier blank; its late completion cannot release or navigate a newer attempt.',async()=>{
+ const tabs=[],f=await referenceFixture(()=>{const tab=referenceTab();tabs.push(tab);return tab;}),gate=held();f.api.read=async()=>{await gate.promise;return source;};
+ const earlier=f.click();await tick();await f.library.references();assert.equal(tabs[0].closed,true);
+ const nextItem=f.$('mediaReferenceRows').children[0],nextLink=nextItem.children.at(-1);const later=nextLink.listeners.get('click')[0]({preventDefault(){}});await tick();assert.equal(tabs.length,2);
+ gate.release();await Promise.all([earlier,later]);assert.equal(tabs[0].location.href,'about:blank');assert.equal(tabs[1].location.href,nextLink.href);assert.equal(tabs[1].closed,false);
+});

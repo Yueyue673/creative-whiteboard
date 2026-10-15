@@ -5,10 +5,13 @@ import {BoardFolders} from './board-folders.js';
 const $=id=>document.getElementById(id);
 const text=(tag,value,className)=>{const item=document.createElement(tag);item.textContent=value;if(className)item.className=className;return item;};
 
+const blankReferenceTab=tab=>{try{return !tab.closed&&tab.location.href==='about:blank';}catch{return false;}};
+const closeBlankReferenceTab=tab=>{if(tab&&blankReferenceTab(tab))tab.close();};
+
 export class BoardLibrary {
   #query=''; #matches=new Map(); #selectionReady=false; #listReady=false; #archived=false; #changingShelf=false; #shelfUncertain=null;
   #api; #insert; #metadata; #folders; #read=false; #edit=false; #epoch=0; #previewEpoch=0; #refreshing=false; #referencesEpoch=0; #checkingReferences=false; #scope; #selected=null; #file=null; #uploaded=null; #uploading=false; #uncertain=false; #next=null; #items=new Map(); #singleLimit=Infinity;
-  #navigation; #place=null; #active=false;
+  #navigation; #place=null; #active=false; #referenceAttempt=null;
   constructor(api,insert,scope,navigation={}){
     this.#navigation=navigation;
     this.#api=api;this.#insert=insert;this.#scope=Object.freeze({...scope});
@@ -285,12 +288,14 @@ export class BoardLibrary {
     $('mediaNotes').textContent=asset.notes||'';$('mediaTags').replaceChildren(...asset.tags.map(tag=>text('span',tag,'tag')));
   }
   clearReferences(){
+    closeBlankReferenceTab(this.#referenceAttempt?.tab);this.#referenceAttempt=null;
     this.#referencesEpoch++;this.#checkingReferences=false;$('mediaReferences').hidden=true;
     $('findMediaReferences').setAttribute('aria-expanded','false');$('findMediaReferences').textContent='查找关联';
     $('mediaReferenceRows').replaceChildren();$('mediaReferenceCounts').replaceChildren();$('mediaReferenceState').textContent='';this.controls();
   }
   async references(){
     if(!this.#read||!this.#selectionReady||!this.#selected||this.#checkingReferences||this.#refreshing||!$('mediaDialog').open)return;
+    closeBlankReferenceTab(this.#referenceAttempt?.tab);this.#referenceAttempt=null;
     const asset=this.#selected,epoch=++this.#referencesEpoch;
     this.#checkingReferences=true;$('mediaReferences').hidden=false;$('mediaReferenceTarget').textContent=asset.title||asset.filename;
     $('findMediaReferences').setAttribute('aria-expanded','true');$('findMediaReferences').textContent='重新检查关联';
@@ -315,21 +320,31 @@ export class BoardLibrary {
         item.append(info);
         if(row.category==='board'){
           const link=text('a','新页打开白板 ↗');link.href=`/w/${this.#scope.workspace}/b/${row.key}/`;link.target='_blank';link.rel='noopener noreferrer';
-          link.addEventListener('click',async event=>{event.preventDefault();const target=link.href;
-            // Opening a blank tab synchronously avoids popup blocking; it gets
-            // no workspace data until original-account access is rechecked.
-            const tab=window.open('about:blank','_blank');if(tab)tab.opener=null;
-            try{await this.#api.access();await this.#api.read(asset.id);
-              if(epoch!==this.#referencesEpoch||!this.#read||this.#selected?.id!==asset.id){tab?.close();return;}
-              if(tab)tab.location.replace(target);else $('mediaReferenceState').textContent='浏览器未打开新页；请允许弹出窗口后再试，当前输入仍保留。';
-            }catch(error){tab?.close();if(epoch===this.#referencesEpoch)$('mediaReferenceState').textContent=error.message;}
-          });item.append(link);
+          link.addEventListener('click',event=>{event.preventDefault();return this.openReference(link,item,asset,epoch);});item.append(link);
         }
         $('mediaReferenceRows').append(item);
       }
       $('mediaReferences').scrollIntoView({block:'start'});
     }catch(error){if(epoch===this.#referencesEpoch)$('mediaReferenceState').textContent=error.message;}
     finally{if(epoch===this.#referencesEpoch){this.#checkingReferences=false;this.controls();}}
+  }
+  async openReference(link,item,asset,epoch){
+    const live=()=>epoch===this.#referencesEpoch&&this.#read&&this.#selectionReady&&!this.#refreshing&&this.#selected?.id===asset.id&&$('mediaDialog').open&&link.parentElement===item&&item.parentElement===$('mediaReferenceRows');
+    if(!live()||this.#referenceAttempt)return;
+    const target=link.href,tab=window.open('about:blank','_blank');
+    if(!tab){$('mediaReferenceState').textContent='浏览器未打开新页；请允许弹出窗口后再试，当前输入仍保留。';return;}
+    tab.opener=null;const attempt={tab};this.#referenceAttempt=attempt;link.setAttribute('aria-busy','true');
+    $('mediaReferenceState').textContent='正在核对原账号、工作区与素材…';
+    const current=()=>live()&&this.#referenceAttempt===attempt;
+    try{
+      await this.#api.access();if(!current()){closeBlankReferenceTab(tab);return;}
+      if(!tab.closed)await this.#api.read(asset.id);
+      if(!current()){closeBlankReferenceTab(tab);return;}
+      if(tab.closed){$('mediaReferenceState').textContent='新标签已关闭，没有重新打开。';return;}
+      if(!blankReferenceTab(tab)){$('mediaReferenceState').textContent='新标签已打开其他内容，没有替换它。原预览仍保留。';return;}
+      tab.location.replace(target);$('mediaReferenceState').textContent='已在新标签打开原工作区的白板；这页预览仍保留。';
+    }catch(error){closeBlankReferenceTab(tab);if(current())$('mediaReferenceState').textContent=error.message;}
+    finally{if(this.#referenceAttempt===attempt)this.#referenceAttempt=null;link.removeAttribute('aria-busy');}
   }
   async preview(asset,resume=null){
     if(!asset||!this.#read||!this.#selectionReady||this.#refreshing||this.#selected?.id!==asset.id||!$('mediaDialog').open)return;
