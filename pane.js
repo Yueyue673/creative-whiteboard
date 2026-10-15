@@ -75,7 +75,7 @@
   // Dialogs temporarily fill the window; retain the original pane size and camera until they return.
   let width=0,height=0,timer;new ResizeObserver(entries=>{const r=entries[0].contentRect;if(modal||frameElement?.classList.contains('pane-modal')||r.width<1||r.height<1)return;const dx=r.width-width,dy=r.height-height;if(Math.abs(dx)<.01&&Math.abs(dy)<.01)return;if(board&&width&&height){view().x+=dx/2;view().y+=dy/2;moveView();clearTimeout(timer);timer=setTimeout(()=>{if(board&&!loading)change(true)},250)}width=r.width;height=r.height}).observe(canvas);
   document.addEventListener('pointerdown',()=>{send('pane-active');queueMicrotask(report)},true);document.addEventListener('creative-board-pan-start',()=>send('pane-active'));document.addEventListener('creative-document-active',()=>send('pane-active'));
-  document.addEventListener('keydown',e=>{send('pane-active');if((e.ctrlKey||e.metaKey)&&e.key==='Tab'){e.preventDefault();e.stopImmediatePropagation();if(!modal)send('pane-shortcut',{reverse:e.shiftKey})}},true);
+  document.addEventListener('keydown',e=>{send('pane-active');if((e.ctrlKey||e.metaKey)&&e.key==='Tab'&&!e.isComposing&&!document.querySelector('dialog[open]')){e.preventDefault();e.stopImmediatePropagation();send('pane-shortcut',{reverse:e.shiftKey})}},true);
   if($('windowWorkspace'))$('windowWorkspace').onclick=()=>send('pane-split');
   window.addEventListener('creative-board-loading',report);window.addEventListener('creative-import-state',report);if(board)report();
  }
