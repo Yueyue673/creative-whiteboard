@@ -26,7 +26,7 @@ parser.renderer.rules.link_open = (tokens,index,options,env,self) => {
   tokens[index].attrSet('target','_blank'); tokens[index].attrSet('rel','noopener noreferrer');
   return linkOpen(tokens,index,options,env,self);
 };
-let board = null, selected = null, creating = context.create, saveTimer, editorError = '';
+let board = null, selected = null, creating = context.create, saveTimer, editorError = '', workspaceName = null;
 let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='',readingLayoutPending=false;
 const ownHistory=new OwnHistory();
 const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling,readingAnchor=$('showPaperReading').nextSibling;
@@ -153,8 +153,21 @@ async function performSave() {
   } catch { /* Session status explains failure; no background retry of failed writes. */ }
 }
 
+function refreshPageTitle(state=session.state) {
+  const notices=[];
+  if(state.status==='paused')notices.push('已暂停');
+  else if(state.status==='conflict')notices.push('需核对');
+  else if(state.status==='offline')notices.push('连接中断');
+  else if(state.status==='readonly')notices.push('只读');
+  // A missing acknowledgement can follow a committed write. Describe the local
+  // confirmation boundary, rather than claiming the server has no saved copy.
+  if(board&&(state.dirty||editorError))notices.push('修改待确认');
+  const name=board?(board.name.trim()||'未命名白板'):creating?'新建白板':'白板';
+  document.title=[...notices,name,...(workspaceName===null?[]:[workspaceName]),'创作白板'].join(' · ');
+}
 function refreshState() {
   const state=session.state, editable=stateCanEdit();
+  refreshPageTitle(state);
   distanceReading.schedule();
   paperReading.sync();
   references.sync();refreshReferenceReturn();
@@ -533,8 +546,9 @@ setTimeout(receiveOthers,2500);
 
 async function start() {
   const transport=new BoardTransport(scope);
+  refreshPageTitle();
   try{
-    await transport.assertIdentity();const workspace=await transport.workspace();$('spaceName').textContent=workspace.name;
+    await transport.assertIdentity();const workspace=await transport.workspace();workspaceName=workspace.name;$('spaceName').textContent=workspaceName;refreshPageTitle();
     if(creating){
       $('createPanel').hidden=false;
       if(workspace.role==='viewer'){$('createBoardButton').disabled=true;$('createError').textContent='这个工作区只有阅读权限，无法创建白板。';}

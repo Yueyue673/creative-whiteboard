@@ -25,6 +25,13 @@ It is not a deployment authorization or evidence of external HTTPS, full device
 support, safe file cleanup or real-time merging. Actual Linux/container workflow
 results are required; desktop Linux tests do not substitute for hosted checks.
 
+Browser tabs identify the current literal board name and the workspace loaded by
+that fixed page. Local edits remain marked as awaiting confirmation until the
+session adopts the accepted result; offline, read-only, paused and conflicting
+states are named separately. An uncertain acknowledgement is not described as
+proof that nothing reached the server. Empty-name display fallbacks do not change
+stored names, and tab labels never use a newer login or workspace selection.
+
 ## Original-value reconciliation and limited editor collaboration (development)
 
 An explicit `POST /w/<workspace>/api/boards/<key>/reconcile` accepts only
