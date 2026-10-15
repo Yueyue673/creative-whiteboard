@@ -4,6 +4,7 @@ import {TablePaste} from './board-table-paste.js';
 const $=id=>document.getElementById(id);
 const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
 const payloads=(n,key,r,c)=>Array.isArray(n[key]?.[r]?.[c])?n[key][r][c]:[];
+const gridContext=n=>JSON.stringify(Object.fromEntries(Object.entries(n).filter(([key])=>key!=='rows')));
 const columnWidth=(n,c)=>{const value=n.columnWidths?.[c];return typeof value==='number'&&Number.isFinite(value)&&value>0?Math.max(100,Math.min(900,value)):160;};
 export function tableCard(n){
   const card=el('article',undefined,'card reference-card table-card');card.append(el('span','表格','reference-type'),el('h2',n.title||'未命名表格','card-title'));
@@ -29,7 +30,7 @@ export class TableEditor{
     $('tableGrid').addEventListener('keydown',e=>{if(e.isComposing||!e.ctrlKey||e.key!=='Enter'||!e.target.hasAttribute('data-table-cell')||!this.c.canBrowse())return;e.preventDefault();const n=this.c.node();if(!n)return;const r=indexFor(n,'row',e.target.dataset.rowKey)+(e.shiftKey?-1:1),c=indexFor(n,'column',e.target.dataset.columnKey);if(r>=0&&r<n.rows.length)this.jump(r,c);});
     $('deleteTable').onclick=()=>{const n=this.c.node();if(!n||!this.c.canEdit())return;let description;try{tableShape(n);description=`只从白板移除这个表格及其连线？\n${n.rows.length} 行、${n.columns.length} 列及单元格内容会从这张白板移除，素材库原文件保留。可以撤销，也可先导出。`;}catch{return;}if(confirm(description)&&this.c.node()===n&&this.c.canEdit())this.c.remove(n.id);};
   }
-  select(retainFields=false){const n=this.c.node();if(!n)return;if(this.nodeID!==n.id){this.nodeID=n.id;this.rowPage=this.colPage=0;this.target=null;this.lastField='tableTitle';}if(!retainFields)this.rendered='';$('tableTitle').value=n.title||'';$('tableBody').value=n.body||'';$('tableWidth').value=n.w;$('tableHeight').value=n.h;$('tableState').textContent='';this.sync();}
+  select(retainFields=false){const n=this.c.node();if(!n)return;if(this.nodeID!==n.id){this.nodeID=n.id;this.rowPage=this.colPage=0;this.target=null;this.lastField='tableTitle';}if(!retainFields||this.gridContext!==gridContext(n))this.rendered='';$('tableTitle').value=n.title||'';$('tableBody').value=n.body||'';$('tableWidth').value=n.w;$('tableHeight').value=n.h;$('tableState').textContent='';this.sync();}
   change(action,group=null){const n=this.c.node();if(!n||!this.c.canEdit())return false;try{const next=editTable(n,action);if(['title','body'].includes(action.kind)&&n[action.kind]===action.value)return false;if(action.kind==='cell'&&n.rows[indexFor(n,'row',action.row)][indexFor(n,'column',action.column)]===action.value)return false;if(action.kind==='heading'&&n.columns[indexFor(n,'column',action.column)]===action.value)return false;this.c.change(next,group);$('tableState').textContent='';return true;}catch(e){$('tableState').textContent=e.message;return false;}}
   sync(){this.paste.sync();const n=this.c.node();if(!n)return;
     try{tableShape(n);}catch(e){$('tableState').textContent=e.message;$('tableGrid').replaceChildren();return;}
@@ -40,7 +41,7 @@ export class TableEditor{
     for(const f of $('tableGrid').querySelectorAll('input,textarea')){const c=colIndex.get(f.dataset.columnKey),heading=f.hasAttribute('data-table-heading'),value=heading?n.columns[c]:n.rows[rowIndex.get(f.dataset.rowKey)][c];if(f.value!==value)f.value=value;f.readOnly=!this.c.canEdit();if(heading)f.closest('th').style.width=columnWidth(n,c)+'px';}
     this.syncControls();this.cellNotes.sync();
   }
-  render(n,layout){this.renderEpoch++;const root=$('tableGrid');root.replaceChildren();const r0=this.rowPage*20,c0=this.colPage*6,head=el('thead'),row=el('tr');row.append(el('th','行','table-row-number'));
+  render(n,layout){this.renderEpoch++;this.gridContext=gridContext(n);const root=$('tableGrid');root.replaceChildren();const r0=this.rowPage*20,c0=this.colPage*6,head=el('thead'),row=el('tr');row.append(el('th','行','table-row-number'));
     const rKeys=axisKeys(n,'row'),cKeys=axisKeys(n,'column');
     for(let c=c0;c<Math.min(c0+6,n.columns.length);c++){const th=el('th'),field=el('input');field.type='text';field.id=`table-heading-${c}`;field.value=n.columns[c];field.dataset.tableHeading='';field.dataset.columnKey=cKeys[c];field.dataset.layout=String(this.renderEpoch);field.setAttribute('aria-label',`第${c+1}列名称`);field.placeholder=`第${c+1}列 · 由你命名`;th.style.width=columnWidth(n,c)+'px';th.append(field);row.append(th);}head.append(row);root.append(head);const body=el('tbody');
     for(let r=r0;r<Math.min(r0+20,n.rows.length);r++){const tr=el('tr');tr.append(el('th',String(r+1),'table-row-number'));for(let c=c0;c<Math.min(c0+6,n.columns.length);c++){

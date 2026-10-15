@@ -128,7 +128,9 @@ Six native two-account localhost HTTPS groups also pass in an independent
 synthetic store: disjoint cell saves, own Undo/Redo, later input during a held
 accepted response, overlapping-cell private copies, an actual concurrent row
 addition, and 320px focused-cell periodic receiving. The last check retains the
-same mounted textarea, selection, scroll and camera. Earlier history, unrelated
+same mounted textarea, selection, scroll and camera. A separate two-group native
+delta verifies that newly added embedded notes refresh counts/list contents
+while unchanged focused-cell receiving still retains its input. Earlier history, unrelated
 documents, registered metadata and all 45 synthetic original file hashes remain
 unchanged. The local service and test browsers close afterward; this is still
 development evidence, not external TLS, physical-device or deployed acceptance.
