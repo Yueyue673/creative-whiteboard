@@ -53,3 +53,32 @@ await check('Detached list clicks and closed delayed reads cannot steal a new pr
 await check('A newer submitted search owns its result and caption; an older delayed result cannot replace it or restart the original.',async()=>{
   const f=await fixture(),gate=held();f.api.search=async query=>{if(query==='older')await gate.promise;return {items:[],coverage:'registeredMetadata'};};f.$('mediaSearch').value='older';f.library.find();await tick();f.$('mediaSearch').value='newer';f.library.find();await tick();assert(f.$('mediaMessage').textContent.includes('newer'));gate.release();await tick();assert(f.$('mediaMessage').textContent.includes('newer'));assert.equal(f.$('mediaPreview').children[0],f.player);assert.equal(f.player.paused,false);
 });
+
+await check('A failed original preview offers a local explicit recheck; a fresh same-source read restores time without playing.',async()=>{
+  const f=await fixture();f.player.currentTime=12;f.player.onerror();
+  const panel=f.$('mediaPreview').children[0],retry=panel.children[1];
+  assert.equal(f.player.paused,true);assert.equal(f.$('mediaPreview').dataset.kind,'error');assert.equal(retry.textContent,'重新核对预览');
+  const reads=f.calls.length;await tick();assert.equal(f.calls.length,reads);
+  retry.onclick();await tick();const player=f.$('mediaPreview').children[0];assert.equal(player.tagName,'audio');assert.equal(player.paused,true);
+  player.duration=120;for(const fn of player.listeners.get('loadedmetadata')||[])fn();assert.equal(player.currentTime,12);
+  retry.onclick();await tick();assert.equal(f.$('mediaPreview').children[0],player);assert.equal(f.calls.length,reads+1);
+});
+await check('An unavailable recheck stays actionable without guessing a source and retains its same-original listening position.',async()=>{
+  const f=await fixture();f.player.currentTime=12;f.player.onerror();const read=f.api.read;f.api.read=async()=>{throw Error('Original read unavailable');};
+  f.$('mediaPreview').children[0].children[1].onclick();await tick();assert.equal(f.$('mediaPreview').children[0].children[0].textContent,'Original read unavailable');
+  f.api.read=read;f.$('mediaPreview').children[0].children[1].onclick();await tick();
+  const player=f.$('mediaPreview').children[0];assert.equal(player.tagName,'audio');player.duration=120;for(const fn of player.listeners.get('loadedmetadata')||[])fn();assert.equal(player.currentTime,12);
+});
+await check('Changed original bytes never inherit a listening position from the failed previous source.',async()=>{
+  const f=await fixture();f.player.currentTime=12;f.player.onerror();f.set({contentHash:'d'.repeat(64)});f.$('mediaPreview').children[0].children[1].onclick();await tick();
+  const player=f.$('mediaPreview').children[0];assert.equal(player.tagName,'audio');assert.equal(player.listeners.get('loadedmetadata'),undefined);
+});
+await check('Closed or superseded failures and old player events cannot replace a later preview or issue an extra recheck.',async()=>{
+  const f=await fixture(),oldError=f.player.onerror;f.player.onerror();const retry=f.$('mediaPreview').children[0].children[1];
+  const gate=held(),read=f.api.read;f.api.read=async id=>{await gate.promise;return read(id);};retry.onclick();await tick();
+  f.library.close();gate.release();await tick();assert.equal(f.$('mediaPreview').children.length,0);
+  f.api.read=read;await f.library.open();f.$('mediaItems').children[0].onclick();await f.$('mediaPreview').children[0].onclick();
+  const player=f.$('mediaPreview').children[0],reads=f.calls.length;oldError();retry.onclick();await tick();
+  assert.equal(f.$('mediaPreview').children[0],player);assert.equal(f.calls.length,reads);
+  player.onerror();const stopped=f.$('mediaPreview').children[0].children[1];f.library.sync(false,false);stopped.onclick();await tick();assert.equal(f.calls.length,reads);
+});

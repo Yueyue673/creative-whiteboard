@@ -324,10 +324,23 @@ export class BoardLibrary {
     }catch(error){if(epoch===this.#referencesEpoch)$('mediaReferenceState').textContent=error.message;}
     finally{if(epoch===this.#referencesEpoch){this.#checkingReferences=false;this.controls();}}
   }
-  async preview(asset){
+  async preview(asset,resume=null){
     if(!asset||!this.#read||!this.#selectionReady||this.#refreshing||this.#selected?.id!==asset.id||!$('mediaDialog').open)return;
     const token=++this.#previewEpoch;
     const valid=()=>token===this.#previewEpoch&&this.#read&&this.#selectionReady&&this.#selected?.id===asset.id&&$('mediaDialog').open;
+    const failed=(message,current=asset,position=null)=>{
+      if(!valid())return;
+      const root=$('mediaPreview'),restoreFocus=root.contains?.(document.activeElement),failureToken=++this.#previewEpoch;
+      stopMedia(root);root.dataset.kind='error';
+      const panel=text('div','','media-preview-failure'),status=text('p',message),retry=text('button','重新核对预览');
+      status.setAttribute('role','status');status.setAttribute('aria-live','polite');retry.type='button';
+      retry.onclick=()=>{
+        if(panel.parentElement!==root||failureToken!==this.#previewEpoch||!this.#read||!this.#selectionReady||this.#refreshing||this.#selected?.id!==current.id||!$('mediaDialog').open)return;
+        this.preview(current,{asset:current,position});
+      };
+      panel.append(status,retry);root.replaceChildren(panel);this.controls();
+      if(restoreFocus)retry.focus({preventScroll:true});
+    };
     stopMedia($('mediaPreview'));$('mediaPreview').textContent='正在核对素材…';
     try{
       await this.#api.access();const current=await this.#api.read(asset.id);
@@ -337,13 +350,23 @@ export class BoardLibrary {
         const frame=htmlPreviewFrame(plan,current.title||current.filename,()=>this.close()),hint=text('p','静态排版预览。'+(plan.omittedMarkup?'部分内容已略过，':'')+'交互、链接与外部资源不会运行；原文件保留，可下载完整查看。','static-html-caption');
         frame.onload=async()=>{if(!valid())return;try{await this.#api.access();const fresh=await this.#api.read(current.id);
           if(!valid())return;if(fresh.contentHash!==plan.contentHash)throw Error('原文件已改变，请重新核对预览。');
-        }catch(error){if(valid()){this.#previewEpoch++;stopMedia($('mediaPreview'));$('mediaPreview').textContent=error.message;}}};
-        frame.onerror=()=>{if(valid()){this.#previewEpoch++;stopMedia($('mediaPreview'));$('mediaPreview').textContent='静态排版暂时无法显示，仍可下载原文件。';}};
+        }catch(error){failed(error.message,current);}};
+        frame.onerror=()=>failed('静态排版暂时无法显示；可以重新核对，也可下载原文件。',current);
         $('mediaPreview').dataset.kind='html';$('mediaPreview').replaceChildren(hint,frame);frame.src=plan.url;
         hint.scrollIntoView({block:'start'});frame.focus({preventScroll:true});return;
       }
-      const item=mediaElement(current);$('mediaPreview').replaceChildren();if(item){item.onerror=()=>$('mediaMessage').textContent='浏览器无法显示这个媒体，仍可下载原文件。';$('mediaPreview').append(item);item.focus({preventScroll:true});}
-    }catch(error){if(valid())$('mediaPreview').textContent=error.message;}
+      const item=mediaElement(current);$('mediaPreview').replaceChildren();if(item){
+        item.onerror=()=>{if(item.parentElement===$('mediaPreview'))failed('这份媒体暂时无法加载。请检查连接后重新核对；也可下载原文件。',current,Number.isFinite(item.currentTime)?item.currentTime:null);};
+        // Restore a listening position only after a fresh read confirms the
+        // same original bytes and account-bound source. Playback stays paused.
+        if(resume&&Number.isFinite(resume.position)&&resume.position>0&&['id','contentHash','size','mime','mediaURL'].every(key=>resume.asset?.[key]===current[key])){
+          item.addEventListener('loadedmetadata',()=>{
+            if(valid()&&item.parentElement===$('mediaPreview')&&Number.isFinite(item.duration)&&item.duration>0){try{item.currentTime=Math.min(resume.position,item.duration);}catch{}}
+          },{once:true});
+        }
+        $('mediaPreview').dataset.kind=current.kind;$('mediaPreview').append(item);item.focus({preventScroll:true});
+      }
+    }catch(error){failed(error.message,resume?.asset||asset,resume?.position??null);}
   }
   async upload(){
     if(!this.#edit||!this.#file||this.#uploaded===this.#file||this.#uploading||this.#refreshing||!$('mediaDialog').open)return;

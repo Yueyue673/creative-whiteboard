@@ -1808,3 +1808,33 @@ summary focus/raw disclosure/Escape return, untouched unrelated data/history and
 all45 registered source hashes. Late detached events and held reads are explicit
 test conditions; physical devices/hardware IME, external TLS and deployment are
 still unaccepted. Eight new model cases and twelve portal cases pass.
+
+### Recover a failed library preview in place (development)
+
+A real interrupted original WAV previously left a failed native player. Its
+error appeared above the list, outside the narrow preview, and selecting the
+same original retained that unusable player. Preview read, HTML-plan and media
+load failures now show a nearby explanation with **重新核对预览**. Rechecking is
+explicit and reads the same original account/workspace again; it never retries
+an upload, changes the board or replaces another selection. Original download
+and the dialog exit remain available under their existing access checks.
+
+Audio/video retry keeps the last finite listening position only if a fresh read
+confirms the same original identity, bytes, size, type and account-bound URL.
+An unavailable metadata recheck retains that position for another manual try.
+Playback remains paused. Different bytes start from their own beginning. Old
+player errors, detached retry buttons, closed dialogs and late responses cannot
+replace a newer preview or resume an account-paused page. The failure panel uses
+the existing details column, a local status message and a minimum44px action.
+
+Validation: four new cases in `tests/library-selection.mjs`, the affected
+navigation/import controllers and twelve portal cases. Six distinct native
+Chromium behaviors pass across independent synthetic localhost HTTPS fixtures:
+four first flows and two focused completion flows. The first run stopped when
+its HTML-exit fixture pressed Escape before the child document loaded; it has
+no final database audit. The focused completion store verifies all workspace
+rows and45 source hashes unchanged, actual viewer recovery and changed login,
+plus inert HTML recheck and Escape exit. The320px failure message and button were
+visually checked. Media-error dispatch, precise playhead setup and detached
+callbacks are simulated; original media requests and interrupted transfers use
+real HTTPS. No external TLS, hardware/device or deployment acceptance is added.
