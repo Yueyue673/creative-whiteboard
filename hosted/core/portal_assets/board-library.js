@@ -330,12 +330,15 @@ export class BoardLibrary {
     const valid=()=>token===this.#previewEpoch&&this.#read&&this.#selectionReady&&this.#selected?.id===asset.id&&$('mediaDialog').open;
     const failed=(message,current=asset,position=null)=>{
       if(!valid())return;
-      const root=$('mediaPreview'),restoreFocus=root.contains?.(document.activeElement),failureToken=++this.#previewEpoch;
+      const root=$('mediaPreview'),restoreFocus=root.contains?.(document.activeElement);this.#previewEpoch++;
       stopMedia(root);root.dataset.kind='error';
       const panel=text('div','','media-preview-failure'),status=text('p',message),retry=text('button','重新核对预览');
       status.setAttribute('role','status');status.setAttribute('aria-live','polite');retry.type='button';
       retry.onclick=()=>{
-        if(panel.parentElement!==root||failureToken!==this.#previewEpoch||!this.#read||!this.#selectionReady||this.#refreshing||this.#selected?.id!==current.id||!$('mediaDialog').open)return;
+        // A failed list read may invalidate media callbacks while retaining
+        // this exact panel. Fresh selection verification can re-enable it;
+        // detached/replaced panels still cannot request another original.
+        if(panel.parentElement!==root||!this.#read||!this.#selectionReady||this.#refreshing||this.#selected?.id!==current.id||!$('mediaDialog').open)return;
         this.preview(current,{asset:current,position});
       };
       panel.append(status,retry);root.replaceChildren(panel);this.controls();

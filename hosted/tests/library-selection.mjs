@@ -73,6 +73,12 @@ await check('Changed original bytes never inherit a listening position from the 
   const f=await fixture();f.player.currentTime=12;f.player.onerror();f.set({contentHash:'d'.repeat(64)});f.$('mediaPreview').children[0].children[1].onclick();await tick();
   const player=f.$('mediaPreview').children[0];assert.equal(player.tagName,'audio');assert.equal(player.listeners.get('loadedmetadata'),undefined);
 });
+await check('A failed list refresh disables the retained recovery action; a successful fresh list re-enables that same original action.',async()=>{
+  const f=await fixture();f.player.currentTime=12;f.player.onerror();const panel=f.$('mediaPreview').children[0],retry=panel.children[1],list=f.api.list;
+  f.api.list=async()=>{throw Error('List disconnected');};await f.library.refresh();assert.equal(retry.disabled,true);const reads=f.calls.length;retry.onclick();await tick();assert.equal(f.calls.length,reads);
+  f.api.list=list;await f.library.refresh();assert.equal(f.$('mediaPreview').children[0],panel);assert.equal(retry.disabled,false);retry.onclick();await tick();
+  const player=f.$('mediaPreview').children[0];assert.equal(player.tagName,'audio');player.duration=120;for(const fn of player.listeners.get('loadedmetadata')||[])fn();assert.equal(player.currentTime,12);
+});
 await check('Closed or superseded failures and old player events cannot replace a later preview or issue an extra recheck.',async()=>{
   const f=await fixture(),oldError=f.player.onerror;f.player.onerror();const retry=f.$('mediaPreview').children[0].children[1];
   const gate=held(),read=f.api.read;f.api.read=async id=>{await gate.promise;return read(id);};retry.onclick();await tick();

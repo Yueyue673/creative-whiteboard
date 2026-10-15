@@ -1827,12 +1827,14 @@ player errors, detached retry buttons, closed dialogs and late responses cannot
 replace a newer preview or resume an account-paused page. The failure panel uses
 the existing details column, a local status message and a minimum44px action.
 
-Validation: four new cases in `tests/library-selection.mjs`, the affected
-navigation/import controllers and twelve portal cases. Six distinct native
+Validation: five new cases in `tests/library-selection.mjs`, the affected
+navigation/import controllers and twelve portal cases. Seven distinct native
 Chromium behaviors pass across independent synthetic localhost HTTPS fixtures:
-four first flows and two focused completion flows. The first run stopped when
+four first flows, two focused completion flows and one final list-recovery
+delta. An interrupted list read disables the retained retry; a fresh successful
+list check makes that same original action usable again. The first run stopped when
 its HTML-exit fixture pressed Escape before the child document loaded; it has
-no final database audit. The focused completion store verifies all workspace
+no final database audit. The focused completion and delta stores verify all workspace
 rows and45 source hashes unchanged, actual viewer recovery and changed login,
 plus inert HTML recheck and Escape exit. The320px failure message and button were
 visually checked. Media-error dispatch, precise playhead setup and detached
