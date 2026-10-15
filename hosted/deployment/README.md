@@ -5,10 +5,21 @@ web product. Account ownership and scoped invitations are implemented; real-time
 merge, full device acceptance, registered-file lifecycle controls, external DNS
 and certificate acceptance remain unfinished. It never imports desktop data.
 
-The image uses the reviewed Python manifest digest and Gunicorn 26.2.0. It copies
-only explicit program paths from `.dockerignore`: two shared validators, the
-Markdown vendor/license and hosted runtime code. Desktop `server.py`, local data,
-keys, logs, screenshots and test fixtures are outside the image context.
+The image uses the reviewed Python manifest digest and Gunicorn 26.2.0. Its exact
+115 runtime files are declared in `program_files.json` and mirrored by literal
+file exceptions in `.dockerignore`. Do not unignore parent directories: their
+children can become build inputs too. The contract includes current portal
+assets and migrations, while excluding desktop `server.py`, local data, keys,
+logs, caches, screenshots and tests. Future runtime additions must update both
+lists; `core.test_program_context` checks current asset/module/migration coverage.
+
+`program_context.export_context` copies only those explicit public files and the
+three build controls to a new empty directory outside the source checkout. It
+does not walk unlisted files, overwrite a target or follow linked program inputs.
+Use a reviewed clean fixed-revision source; a manifest is not a content signature
+or a substitute for source review. Operator environment and secret files remain
+outside the checkout and any exported context. The context rule follows
+[Docker's build-context and ignore semantics](https://docs.docker.com/build/concepts/context/).
 
 The default application has one guarded WSGI worker and two threads, a 768 MiB
 memory limit, 0.75 CPU limit and a loopback-only published port. These are a small
@@ -113,6 +124,15 @@ login/CSRF, original board/media/Range and foreign-scope refusal, then restores
 a stopped store into a different empty directory. It does not deploy a server,
 use private data or establish external certificate/device/realtime acceptance.
 The workflow result, not this document, determines whether these checks passed.
+
+Before the application build, actual Docker exports a minimal parent-exception
+baseline and an independent full program context to tar inventories. The baseline
+uses synthetic extras only; it is not evidence of a private-file exposure. The
+corrected context must contain exactly all115 runtime files and omit twelve
+unlisted synthetic inputs placed in root/runtime/asset/vendor subdirectories.
+The resulting application image is separately inventoried against that same
+manifest. The real HTTPS/backup/restore fixture then runs from this independently
+exported context, rather than borrowing files from the original checkout.
 
 Sources for the operational mechanics:
 [Django deployment checklist](https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/),

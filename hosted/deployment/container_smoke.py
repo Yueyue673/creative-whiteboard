@@ -5,11 +5,14 @@ import os
 import socket
 import ssl
 import subprocess
+import tarfile
 import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+from program_context import export_context, program_files
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,11 +23,40 @@ def free_port():
         return sock.getsockname()[1]
 
 
+def verify_build_boundary(root):
+    """Actual Docker matching, with synthetic sentinels in an isolated tree."""
+    baseline = root / 'parent-rule-baseline'; baseline.mkdir()
+    for name in ('hosted/core/portal_assets/portal.js', 'hosted/private.env', 'hosted/core/fixture.log'):
+        path = baseline / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'Synthetic context sentinel')
+    (baseline / '.dockerignore').write_text('**\n!hosted\n!hosted/core\n!hosted/core/portal_assets\n!hosted/core/portal_assets/portal.js\n', encoding='utf-8')
+    def snapshot(context, output):
+        subprocess.run(['docker', 'build', '--progress=plain', '--file', '-', '--output', 'type=tar,dest=' + str(output), str(context)],
+                       input='FROM scratch\nCOPY . /\n', text=True, check=True, timeout=120)
+        with tarfile.open(output) as archive:
+            return {item.name.removeprefix('./') for item in archive.getmembers() if item.isfile()}
+    old = snapshot(baseline, root / 'parent-rule-output.tar')
+    assert 'hosted/private.env' in old and 'hosted/core/fixture.log' in old
+    # This is a minimal reproduction of the old parent-negation semantics,
+    # not evidence that an actual private input has ever entered an image.
+    context = root / 'program-context'; export_context(ROOT, context)
+    probes = ['server.py', '.env', 'hosted/private.env', 'hosted/operator.key', 'hosted/core/fixture.log',
+              'hosted/core/data/original.json', 'hosted/core/__pycache__/fixture.pyc',
+              'hosted/core/portal_assets/unreviewed.js', 'hosted/deployment/private-config.json',
+              'hosted/service/test_settings.py', 'hosted/tests/synthetic.mjs', 'vendor/private.key']
+    for name in probes:
+        path = context / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'Synthetic excluded input')
+    included = snapshot(context, root / 'exact-context-output.tar')
+    assert included == set(program_files(ROOT)), 'Docker context differs from the explicit program contract'
+    assert not set(probes) & included
+    return context
+
+
 def main():
     if os.name != "posix":
         raise SystemExit("Container acceptance requires Linux Docker; this is not a Windows substitute.")
     with tempfile.TemporaryDirectory(prefix="creative-hosted-container-") as temporary:
         root = Path(temporary).resolve()
+        build_root = verify_build_boundary(root)
         store, backups = root / "store", root / "backups"
         store.mkdir(); backups.mkdir()
         key = root / "fixture.key"
@@ -39,7 +71,7 @@ def main():
         override = root / "override.yaml"
         override.write_text('services:\n  proxy:\n    image: nginx:stable-alpine\n    ports: ["127.0.0.1:' + str(proxy_port) + ':443"]\n    volumes:\n      - "' + str(proxy_conf) + ':/etc/nginx/nginx.conf:ro"\n      - "' + str(cert) + ':/fixture/fixture.crt:ro"\n      - "' + str(private_key) + ':/fixture/fixture.pem:ro"\n', encoding="utf-8")
         environment = {**os.environ, "HOSTED_DOMAIN": "localhost", "HOSTED_PORT": str(app_port), "HOSTED_DATA_DIR": str(store), "HOSTED_BACKUP_DIR": str(backups), "HOSTED_SECRET_PATH": str(key)}
-        compose = ["docker", "compose", "-p", "hosted-check-" + str(os.getpid()), "-f", str(ROOT / "hosted/compose.yaml"), "-f", str(override), "--profile", "operations"]
+        compose = ["docker", "compose", "-p", "hosted-check-" + str(os.getpid()), "-f", str(build_root / "hosted/compose.yaml"), "-f", str(override), "--profile", "operations"]
         def command(*arguments, input=None, capture=False):
             result = subprocess.run([*compose, *arguments], cwd=ROOT, env=environment, input=input, text=True, encoding="utf-8", capture_output=capture, timeout=480)
             if result.returncode:
@@ -59,7 +91,7 @@ def main():
                 except (urllib.error.URLError, ConnectionError, TimeoutError):
                     time.sleep(.5)
             raise AssertionError("Synthetic HTTPS backend did not become ready")
-        checks = []
+        checks = ['Actual Docker parent-negation baseline includes synthetic extras; exact context contains all115 program files and excludes12 unlisted synthetic inputs.']
         try:
             resolved = json.loads(command("config", "--format", "json", capture=True))
             assert resolved["services"]["app"]["ports"][0]["host_ip"] == "127.0.0.1"
@@ -67,6 +99,10 @@ def main():
             assert "CREATIVE_BOARD_HOSTED_SECRET" not in resolved["services"]["app"]["environment"]
             checks.append("Resolved Compose is non-root/read-only, bounded, loopback-only and file-secret based.")
             command("build", "app")
+            inventory = command('run', '--rm', '--no-deps', '-T', '--entrypoint', 'python', 'ops', '-c',
+                "import json;from pathlib import Path;r=Path('/opt/creative');print(json.dumps(sorted(str(p.relative_to(r)) for p in r.rglob('*') if p.is_file())))", capture=True)
+            assert json.loads(inventory.strip().splitlines()[-1]) == sorted(program_files(ROOT))
+            checks.append('Built application image contains exactly the reviewed program manifest, with latest assets/migration and no tests, caches, logs or synthetic secrets.')
             refused = subprocess.run([*compose, "run", "--rm", "--no-deps", "-T", "ops", "serve"], cwd=ROOT, env=environment, capture_output=True, text=True, timeout=30)
             assert refused.returncode
             command("run", "--rm", "--no-deps", "-T", "--entrypoint", "python", "ops", "-c", "from pathlib import Path; assert not Path('/data/accounts.sqlite3').exists()")

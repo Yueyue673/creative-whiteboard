@@ -1,21 +1,7 @@
-# Explicit reviewed program paths only; no runtime data, secrets, tests or private workspace files.
+# Exact reviewed runtime files only. Do not unignore parent directories.
 **
-!hosted
-!hosted/core
-!hosted/core/management
-!hosted/core/management/commands
-!hosted/core/migrations
-!hosted/core/portal_assets
-!hosted/core/templates
-!hosted/core/templates/core
-!hosted/deployment
-!hosted/service
-!vendor
 !LICENSE
 !board_schema.py
-!library_folders.py
-!vendor/markdown-it.min.js
-!vendor/markdown-it.LICENSE
 !hosted/core/__init__.py
 !hosted/core/account_recovery.py
 !hosted/core/account_security.py
@@ -49,6 +35,7 @@
 !hosted/core/migrations/0003_workspacedocument_purged_at_and_more.py
 !hosted/core/migrations/0004_mediaasset_mediastoragebudget_uploadreservation.py
 !hosted/core/migrations/0005_accountsession.py
+!hosted/core/migrations/0006_mediaasset_archived.py
 !hosted/core/migrations/__init__.py
 !hosted/core/models.py
 !hosted/core/portal.py
@@ -67,8 +54,9 @@
 !hosted/core/portal_assets/board-library.js
 !hosted/core/portal_assets/board-media.js
 !hosted/core/portal_assets/board-metadata.js
-!hosted/core/portal_assets/board-session.js
 !hosted/core/portal_assets/board-reconciliation.js
+!hosted/core/portal_assets/board-recovery.js
+!hosted/core/portal_assets/board-session.js
 !hosted/core/portal_assets/board-table-paste.js
 !hosted/core/portal_assets/board-tables.css
 !hosted/core/portal_assets/board-tables.js
@@ -84,16 +72,20 @@
 !hosted/core/portal_assets/media-cues.js
 !hosted/core/portal_assets/note-references.css
 !hosted/core/portal_assets/note-references.js
+!hosted/core/portal_assets/paper-reading.css
+!hosted/core/portal_assets/paper-reading.js
 !hosted/core/portal_assets/portal.css
 !hosted/core/portal_assets/portal.js
+!hosted/core/portal_assets/recovery-review.js
+!hosted/core/portal_assets/space-reading.js
 !hosted/core/portal_assets/table-model.js
 !hosted/core/portal_assets/table-paste-model.js
 !hosted/core/portal_assets/workspace-archive.css
 !hosted/core/portal_assets/workspace-archive.js
 !hosted/core/portal_assets/workspace-recovery.js
 !hosted/core/portal_assets/workspace-search.js
-!hosted/core/revision_application.py
 !hosted/core/reconciliation.py
+!hosted/core/revision_application.py
 !hosted/core/scope.py
 !hosted/core/services.py
 !hosted/core/sessions.py
@@ -102,7 +94,6 @@
 !hosted/core/templates/core/browser_recovery.html
 !hosted/core/templates/core/portal.html
 !hosted/core/templates/core/workspace_archive.html
-!hosted/core/tests.py
 !hosted/core/upload_recovery.py
 !hosted/core/urls.py
 !hosted/core/views.py
@@ -112,6 +103,7 @@
 !hosted/deployment/gunicorn_conf.py
 !hosted/deployment/healthcheck.py
 !hosted/deployment/operator_logs.py
+!hosted/deployment/program_files.json
 !hosted/manage.py
 !hosted/requirements-runtime.txt
 !hosted/requirements.txt
@@ -120,3 +112,6 @@
 !hosted/service/settings.py
 !hosted/service/urls.py
 !hosted/service/wsgi.py
+!library_folders.py
+!vendor/markdown-it.LICENSE
+!vendor/markdown-it.min.js
