@@ -11,16 +11,24 @@ export class MediaCues{
     if(!['audio','video'].includes(asset.kind))return;
     const button=text('button','在此刻留便签','capture-media-cue'),state=text('p','','media-cue-state');button.dataset.captureCue=sourceId;button.disabled=true;state.hidden=true;state.setAttribute('role','status');root.append(state);
     const card=root.closest('.media-card'),title=card.querySelector('.card-title'),heading=text('div',undefined,'media-cue-title');title.replaceWith(heading);heading.append(title,button);card.classList.add('media-time-card');
-    const binding={player,asset,sourceId,button,state};this.bindings.set(player,binding);
-    const update=()=>this.controls(binding);for(const name of ['loadedmetadata','durationchange','timeupdate','seeking','seeked','error','emptied'])player.addEventListener(name,update);
+    const binding={player,asset,sourceId,button,state,title,heading,card};this.bindings.set(player,binding);
+    const update=()=>this.controls(binding);binding.update=update;for(const name of ['loadedmetadata','durationchange','timeupdate','seeking','seeked','error','emptied'])player.addEventListener(name,update);
     button.onclick=()=>this.capture(binding);update();
+  }
+  detach(player){
+    const b=this.bindings.get(player);if(!b)return;this.bindings.delete(player);
+    b.button.disabled=true;b.button.onclick=null;
+    for(const name of ['loadedmetadata','durationchange','timeupdate','seeking','seeked','error','emptied'])player.removeEventListener(name,b.update);
+    b.state.remove();b.button.remove();
+    if(b.title.parentElement===b.heading)b.heading.replaceWith(b.title);
+    b.card.classList.remove('media-time-card');
   }
   controls(b){const source=this.c.node(b.sourceId);let ready=false;try{captureCue(b.asset,b.player.currentTime,b.player.duration);ready=b.player.readyState>=1&&!b.player.error;}catch{}
     b.button.disabled=!ready||!this.c.canCreate()||Boolean(this.creating)||source?.type!=='image'||source.assetId!==b.asset.id;
     b.button.replaceChildren(text('span',this.creating===b?'正在核对…':'留便签'));if(ready)b.button.append(text('small',cueTime(b.player.currentTime)));b.button.title='在当前位置留一张由你填写的便签';
   }
   sync(){
-    for(const [player,b] of this.bindings){if(!player.isConnected){this.bindings.delete(player);continue;}this.controls(b);}
+    for(const [player,b] of this.bindings){if(!player.isConnected){this.detach(player);continue;}this.controls(b);}
     const node=this.c.active(),cue=node?.mediaCue,exists=node&&Object.prototype.hasOwnProperty.call(node,'mediaCue');$('noteCueContext').hidden=!exists;
     const valid=readableCue(cue);$('noteCueSource').textContent=valid?cue.sourceTitle+' · '+cueTime(cue.time):'原时间关联暂无法核对；原文仍保留。';$('openNoteCue').hidden=$('removeNoteCue').hidden=!valid;
     $('openNoteCue').disabled=!this.c.canRead();$('removeNoteCue').disabled=!this.c.canEdit();

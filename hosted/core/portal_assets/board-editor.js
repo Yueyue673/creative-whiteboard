@@ -238,29 +238,45 @@ function drawOutline() {
 function mediaCard(node){
   const previous=mediaCards.get(node.id);
   if(previous?.assetId===node.assetId){previous.card.querySelector('.card-title').textContent=node.title||'';return previous.card;}
-  if(previous)stopMedia(previous.card);
-  const card=element('article',undefined,'card reference-card media-card');
+  if(previous){for(const player of previous.card.querySelectorAll('audio,video'))cues.detach(player);stopMedia(previous.card);}
+  const id=node.id,assetId=node.assetId,card=element('article',undefined,'card reference-card media-card');
   card.append(element('span','素材','reference-type'),element('h2',node.title||'','card-title'));
-  const body=element('div',undefined,'media-card-body'),open=element('button','打开媒体');body.append(open);card.append(body);
-  const download=element('a','下载原文件 ↧','media-download');download.hidden=true;card.append(download);
-  mediaCards.set(node.id,{assetId:node.assetId,card});
-  open.onclick=async()=>{
-    if(!mediaAllowed)return;const epoch=mediaEpoch;open.disabled=true;open.textContent='正在核对素材…';
-    try{
-      await mediaAPI.access();const asset=await mediaAPI.read(node.assetId);
-      if(epoch!==mediaEpoch||!mediaAllowed||mediaCards.get(node.id)?.card!==card)return;
-      const item=mediaElement(asset);body.replaceChildren();
-      if(item){item.onerror=()=>{if(epoch===mediaEpoch)body.append(element('p','浏览器无法播放或显示，仍可下载原文件。','reference-caption'));};body.append(item);}
-      else body.append(element('p','这个文件只提供下载，不在白板内执行。','reference-caption'));
-      body.append(element('span',asset.mime+' · '+bytesLabel(asset.size),'media-item-caption'));
-      if(item)cues.attach(item,asset,node.id,body);
-      download.hidden=false;download.href=asset.mediaURL;download.download=asset.filename;
-    }catch(error){if(epoch===mediaEpoch){open.disabled=false;open.textContent='重试打开';body.append(element('p',error.message,'reference-caption'));}}
+  const body=element('div',undefined,'media-card-body'),download=element('a','下载原文件 ↧','media-download');card.append(body,download);download.hidden=true;
+  mediaCards.set(id,{assetId,card});let generation=0,pending=false;
+  const current=()=>mediaAllowed&&card.isConnected&&mediaCards.get(id)?.card===card&&board.nodes.some(row=>row.id===id&&row.type==='image'&&row.assetId===assetId);
+  const clear=()=>{for(const player of body.querySelectorAll('audio,video'))cues.detach(player);stopMedia(body);body.replaceChildren();};
+  const report=message=>{let state=body.querySelector('.media-retry-state');if(!state){state=element('p',undefined,'reference-caption media-retry-state');state.setAttribute('role','status');body.append(state);}state.textContent=message;};
+  const offer=(message='',resume=null)=>{
+    const epoch=++generation,focused=body.contains(document.activeElement);clear();
+    if(message)report(message);
+    const open=element('button',message?'重新核对媒体':'打开媒体','media-reopen');open.type='button';body.append(open);
+    open.onclick=async()=>{
+      if(pending||epoch!==generation||open.parentElement!==body||!current())return;
+      const token=++generation;pending=true;open.disabled=true;open.textContent='正在核对素材…';download.hidden=true;download.removeAttribute('href');
+      const valid=()=>token===generation&&current();
+      try{
+        await mediaAPI.access();const asset=await mediaAPI.read(assetId);await mediaAPI.access();if(!valid())return;
+        clear();const item=mediaElement(asset);
+        if(item){
+          item.onerror=()=>{if(valid()&&item.parentElement===body)offer('媒体暂时无法加载；可以重新核对，也可下载原文件。',{asset,position:Number.isFinite(item.currentTime)?item.currentTime:null});};
+          if(resume&&Number.isFinite(resume.position)&&resume.position>0&&['id','contentHash','size','mime','mediaURL'].every(key=>resume.asset?.[key]===asset[key])){
+            item.addEventListener('loadedmetadata',()=>{if(valid()&&item.parentElement===body&&Number.isFinite(item.duration)&&item.duration>0){try{item.currentTime=Math.min(resume.position,item.duration);}catch{}}},{once:true});
+          }
+          body.append(item);
+        }else body.append(element('p','这个文件只提供下载，不在白板内执行。','reference-caption'));
+        body.append(element('span',asset.mime+' · '+bytesLabel(asset.size),'media-item-caption'));
+        if(item)cues.attach(item,asset,id,body);
+        download.hidden=false;download.href=asset.mediaURL;download.download=asset.filename;
+      }catch(error){if(valid())offer(error.message,resume);}
+      finally{pending=false;}
+    };
+    if(focused)open.focus({preventScroll:true});
   };
-  download.onclick=async event=>{event.preventDefault();const epoch=mediaEpoch;
-    try{await mediaAPI.access();if(epoch!==mediaEpoch||!mediaAllowed)return;
-      const link=element('a');link.href=mediaAPI.url(node.assetId);link.download=download.download;document.body.append(link);link.click();link.remove();
-    }catch(error){if(epoch===mediaEpoch)body.append(element('p',error.message,'reference-caption'));}
+  offer();
+  download.onclick=async event=>{event.preventDefault();if(download.hidden||pending||!current())return;const token=generation;
+    try{await mediaAPI.access();if(token!==generation||!current())return;
+      const link=element('a');link.href=mediaAPI.url(assetId);link.download=download.download;document.body.append(link);link.click();link.remove();
+    }catch(error){if(token===generation&&current())report(error.message);}
   };
   return card;
 }

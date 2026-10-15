@@ -1840,3 +1840,35 @@ plus inert HTML recheck and Escape exit. The320px failure message and button wer
 visually checked. Media-error dispatch, precise playhead setup and detached
 callbacks are simulated; original media requests and interrupted transfers use
 real HTTPS. No external TLS, hardware/device or deployment acceptance is added.
+
+### Recover original canvas media without duplicate time controls (development)
+
+The separate canvas card also had a real interrupted-WAV failure: it removed
+its opening action after metadata succeeded, leaving a failed player with no
+usable re-open control. That original card now offers a local explanation and
+explicit **重新核对媒体**. Rechecking preserves its authored geometry/title and
+camera. Only the same freshly verified original bytes can inherit the previous
+finite listening position, including after a failed metadata recheck; a new
+player remains paused. No failed read automatically sends another request.
+
+Replacing a player explicitly detaches its time-cue listeners, disabled old
+capture action, status and heading wrapper before attaching the new player.
+Repeated recovery leaves one cue action and heading. A capture awaiting source
+verification cannot create a blank note after its original player was removed.
+Detached re-open/error callbacks, removed source nodes, changed login and late
+reads cannot revive an old card. Reader recovery uses their original scope and
+never enables note creation. Existing protected download remains available after
+a verified media-load failure; unconfirmed reads do not invent a download target.
+
+Five new model cases execute the real canvas-card function together with the
+actual cue controller (`tests/canvas-media-recovery.mjs`); twelve portal cases
+pass. Five distinct native behaviors pass across independent synthetic HTTPS
+fixtures: first recovery, repeated three-round recovery, then three focused
+completion cases. The first fixture sampled a pending retry before the response;
+the second had a test-route release/unregister race after repeated recovery
+passed. Those partial stores have no final preservation audit. The final focused
+store verifies pending-capture cancellation,590px geometry, actual viewer/login
+change and all workspace rows/45 original hashes unchanged. Precise seek/error
+dispatch and old callbacks are simulated; interrupted media and held metadata
+use real HTTPS. No private desktop installation, external TLS, physical-device
+or deployment acceptance is added.
