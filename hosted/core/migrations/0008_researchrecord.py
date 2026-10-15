@@ -8,8 +8,9 @@ from django.db.migrations.exceptions import IrreversibleError
 
 
 def protect_research_records(apps, schema_editor):
-    if apps.get_model("core", "ResearchRecord").objects.using(schema_editor.connection.alias).exists():
-        raise IrreversibleError("Retained research tasks and sources must not be dropped by a schema downgrade.")
+    if (apps.get_model("core", "ResearchRecord").objects.using(schema_editor.connection.alias).exists()
+            or apps.get_model("core", "NativeFolderTrash").objects.using(schema_editor.connection.alias).exists()):
+        raise IrreversibleError("Retained research or folder recovery records require the current recovery schema; no tables were dropped.")
 
 
 class Migration(migrations.Migration):

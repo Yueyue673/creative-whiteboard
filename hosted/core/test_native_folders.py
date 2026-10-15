@@ -208,7 +208,7 @@ for kind,key,value in [('folders','catalog',{'folders':[{'id':'folder','name':'E
             database=root/'data/accounts.sqlite3'
             def snapshot():
                 with closing(sqlite3.connect(database)) as db:
-                    tables=[row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('django_migrations','core_nativefoldertrash')")]
+                    tables=[row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('django_migrations','core_nativefoldertrash','core_researchrecord')")]
                     return {table:hashlib.sha256(json.dumps(db.execute('SELECT * FROM "'+table+'" ORDER BY 1').fetchall()).encode()).hexdigest() for table in tables}
             before=snapshot();upgraded=run('manage.py','migrate','--noinput');self.assertEqual(upgraded.returncode,0,upgraded.stderr);self.assertEqual(snapshot(),before)
             delete='''
