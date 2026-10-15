@@ -25,6 +25,58 @@ def original():
 
 
 class ReconciliationModelTests(SimpleTestCase):
+    def test_separated_original_note_lines_preserve_literal_endings_and_inputs(self):
+        for ending in ('\n','\r\n'):
+            for final in ('',ending):
+                for a,c in ((0,2),(2,0)):
+                    rows=['  第一行 😀 e\u0301\t','Unchanged separator','  Third **literal**  ']
+                    base=original();base['nodes'][0]['body']=ending.join(rows)+final
+                    incoming=copy.deepcopy(base);current=copy.deepcopy(base)
+                    own=rows[:];peer=rows[:];both=rows[:]
+                    own[a]+=' / own';peer[c]+=' / peer';both[a]=own[a];both[c]=peer[c]
+                    incoming['nodes'][0]['body']=ending.join(own)+final
+                    current['nodes'][0]['body']=ending.join(peer)+final
+                    snapshots=[document_bytes(v) for v in (base,incoming,current)]
+                    result=reconcile_values(base,incoming,current)
+                    self.assertEqual(result['nodes'][0]['body'],ending.join(both)+final)
+                    self.assertEqual(document_bytes(result),document_bytes(reconcile_values(base,current,incoming)))
+                    self.assertEqual(snapshots,[document_bytes(v) for v in (base,incoming,current)])
+        base=original();base['nodes'][0]['body']='first\r\nmiddle\nthird\r\n'
+        incoming=copy.deepcopy(base);current=copy.deepcopy(base)
+        incoming['nodes'][0]['body']='own\r\nmiddle\nthird\r\n';current['nodes'][0]['body']='first\r\nmiddle\npeer\r\n'
+        self.assertEqual(reconcile_values(base,incoming,current)['nodes'][0]['body'],'own\r\nmiddle\npeer\r\n')
+
+    def test_ambiguous_note_lines_and_dependent_context_still_refuse_whole_operation(self):
+        text='first\nseparator\nthird\nanother separator\nfifth'
+        for own,peer in [('own\nseparator\nthird\nanother separator\nfifth',text.replace('first','peer')),
+                         (text.replace('first','own'),text.replace('separator','adjacent',1)),
+                         (text.replace('first','own')+'\nadded',text.replace('fifth','peer')),
+                         (text.replace('first','own').replace('\n','\r\n'),text.replace('fifth','peer')),
+                         (text.replace('first','third'),text.replace('fifth','peer')),
+                         (text.replace('first','same'),text.replace('fifth','same')),
+                         (text.replace('first',' \t'),text.replace('fifth','peer')),
+                         (text.replace('first','own').replace('third','other own'),text.replace('fifth','peer'))]:
+            base=original();base['nodes'][0]['body']=text
+            incoming=copy.deepcopy(base);current=copy.deepcopy(base)
+            incoming['nodes'][0]['body']=own;current['nodes'][0]['body']=peer
+            before=[document_bytes(v) for v in (base,incoming,current)]
+            with self.assertRaises(ReconciliationConflict):reconcile_values(base,incoming,current)
+            self.assertEqual(before,[document_bytes(v) for v in (base,incoming,current)])
+        for patch_value in ({'textFormat':'plain'},{'userText':'peer'},{'opaque':{'meaning':'peer'}}):
+            base=original();base['nodes'][0]['body']=text
+            incoming=copy.deepcopy(base);current=copy.deepcopy(base)
+            incoming['nodes'][0]['body']=text.replace('first','own');current['nodes'][0]['body']=text.replace('fifth','peer')
+            current['nodes'][0].update(patch_value)
+            with self.assertRaises(ReconciliationConflict):reconcile_values(base,incoming,current)
+
+    def test_note_line_range_and_original_identity_are_bounded(self):
+        for text in ('first\nmiddle\nfirst\nlast\nfifth',' \t\nmiddle\nthird','中'*21845+'\nmiddle\nthird','\n'.join(str(i) for i in range(2049)),'first\rbroken\nmiddle\nthird'):
+            base=original();base['nodes'][0]['body']=text
+            incoming=copy.deepcopy(base);current=copy.deepcopy(base)
+            own=text.split('\n');peer=own[:];own[0]='own';peer[-1]='peer'
+            incoming['nodes'][0]['body']='\n'.join(own);current['nodes'][0]['body']='\n'.join(peer)
+            with self.assertRaises(ReconciliationConflict):reconcile_values(base,incoming,current)
+
     def test_disjoint_notes_and_fields_preserve_originals_without_mutating_inputs(self):
         base = original(); incoming = copy.deepcopy(base); current = copy.deepcopy(base)
         incoming['nodes'][0]['body'] = '  My own\nnew text  '
@@ -106,6 +158,41 @@ class ReconciliationAPITests(TestCase):
 
     def stored(self):
         return WorkspaceDocument.objects.get(workspace=self.shared,kind='board',key='one')
+
+    def test_separated_same_note_authors_keep_exact_history_and_inverse_own_operation(self):
+        base=original();base['nodes'][0]['body']='  First original 😀  \r\nUnchanged separator\r\nThird original\r\n'
+        tag=self.create(value=base);remote=copy.deepcopy(base);remote['nodes'][0]['body']=remote['nodes'][0]['body'].replace('Third original','Third peer')
+        self.assertEqual(self.api('boards/one','PUT',remote,tag,client=self.editor_client,account=self.editor).status_code,200)
+        own=copy.deepcopy(base);own['nodes'][0]['body']=own['nodes'][0]['body'].replace('First original','First own')
+        result=self.submit(own,tag);self.assertEqual(result.status_code,200,result.content);self.assertTrue(result.json()['merged'])
+        combined=copy.deepcopy(remote);combined['nodes'][0]['body']=combined['nodes'][0]['body'].replace('First original','First own')
+        self.assertEqual(document_bytes(result.json()['board']),document_bytes(combined))
+        # The browser's inverse operation uses the author's own original pair.
+        undone=reconcile_values(own,base,combined);self.assertEqual(document_bytes(undone),document_bytes(remote))
+        undo_save=self.submit(undone,result['ETag']);self.assertEqual(undo_save.status_code,200)
+        redone=reconcile_values(base,own,undone);redo_save=self.submit(redone,undo_save['ETag']);self.assertEqual(redo_save.status_code,200)
+        doc=self.stored();self.assertEqual(doc.revision,5);self.assertEqual(document_bytes(doc.value),document_bytes(combined))
+        for revision,value in enumerate((base,remote,combined,remote,combined),1):self.assertEqual(document_bytes(doc.versions.get(revision=revision).value),document_bytes(value))
+        self.assertFalse(ConflictDraft.objects.exists())
+
+    def test_overlapping_same_note_keeps_peer_and_exact_private_recovery_copy(self):
+        base=original();base['nodes'][0]['body']='First original\nUnchanged separator\nThird original';tag=self.create(value=base)
+        remote=copy.deepcopy(base);remote['nodes'][0]['body']=remote['nodes'][0]['body'].replace('First original','First peer')
+        self.api('boards/one','PUT',remote,tag,client=self.editor_client,account=self.editor)
+        own=copy.deepcopy(base);own['nodes'][0]['body']=own['nodes'][0]['body'].replace('First original','  First own 😀  ')
+        result=self.submit(own,tag);self.assertEqual(result.status_code,409);self.assertTrue(result.json()['draftSaved'])
+        self.assertEqual(document_bytes(self.stored().value),document_bytes(remote));draft=ConflictDraft.objects.get()
+        self.assertEqual(document_bytes(draft.value),document_bytes(own));self.assertEqual(draft.actor_id,self.owner.pk)
+        self.assertEqual(self.api('conflicts/'+str(draft.pk),client=self.editor_client,account=self.editor).status_code,404)
+
+    def test_note_line_candidate_cannot_bypass_fresh_role_or_workspace_quota(self):
+        base=original();base['nodes'][0]['body']='First original\nUnchanged separator\nThird original';tag=self.create(value=base)
+        remote=copy.deepcopy(base);remote['nodes'][0]['body']=remote['nodes'][0]['body'].replace('Third original','Third peer')
+        self.api('boards/one','PUT',remote,tag,client=self.editor_client,account=self.editor)
+        doc=self.stored();before=document_bytes(doc.value);versions=list(doc.versions.values());own=copy.deepcopy(base);own['nodes'][0]['body']=own['nodes'][0]['body'].replace('First original','First own '+'x'*1000)
+        with override_settings(HOSTED_MAX_WORKSPACE_BYTES=usage(self.shared.pk)['totalBytes']+1):self.assertEqual(self.submit(own,tag).status_code,413)
+        with patch('core.reconciliation.require_current_editor',side_effect=fixtures.APIError('Fresh loss',403)):self.assertEqual(self.submit(own,tag).status_code,403)
+        after=self.stored();self.assertEqual(document_bytes(after.value),before);self.assertEqual(after.revision,doc.revision);self.assertEqual(after.updated_by_id,doc.updated_by_id);self.assertEqual(list(after.versions.values()),versions);self.assertFalse(ConflictDraft.objects.exists())
 
     def test_disjoint_author_submissions_are_combined_and_canonical_response_matches_history(self):
         base=original();tag=self.create(value=base)

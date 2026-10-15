@@ -1,6 +1,7 @@
 """Conservative original-value reconciliation, with a server-retained base.
 
-Not text generation, a CRDT, or a realtime transport. Ambiguous changes remain
+Only two bounded, unambiguous, separated existing note-body lines can be
+combined within a string. Not text generation, a CRDT, or a realtime transport. Ambiguous changes remain
 the submitting author's separate conflict copy. No client-supplied base or
 another author's private conflict submission is an authority.
 """
@@ -45,6 +46,44 @@ def choice(base, incoming, current):
     if same(base, current):
         return incoming
     raise ReconciliationConflict("Overlapping original-value changes")
+
+
+def merge_original_note_lines(base, incoming, current):
+    values = (base, incoming, current)
+    try:
+        if any(not isinstance(value, str) or len(value) > 65536 or len(value.encode("utf-8")) > 65536 for value in values):
+            raise ReconciliationConflict("Unsupported original text range")
+    except UnicodeError:
+        raise ReconciliationConflict("Unsupported original scalar") from None
+    parts = [value.split("\n") for value in values]
+    if any(len(rows) > 2048 or len(rows) != len(parts[0]) or any("\r" in line and (i == len(rows)-1 or "\r" in line[:-1] or not line.endswith("\r")) for i, line in enumerate(rows)) for rows in parts):
+        raise ReconciliationConflict("Original line count or ending changed")
+    if any(any(line.endswith("\r") != parts[0][i].endswith("\r") for i, line in enumerate(rows)) for rows in parts[1:]):
+        raise ReconciliationConflict("Original line ending changed")
+    changed = [[i for i, line in enumerate(rows) if line != parts[0][i]] for rows in parts[1:]]
+    if any(len(indices) != 1 for indices in changed) or abs(changed[0][0]-changed[1][0]) < 2:
+        raise ReconciliationConflict("Adjacent or overlapping original edits")
+    a, c = (indices[0] for indices in changed)
+    merged = parts[0][:]
+    merged[a], merged[c] = parts[1][a], parts[2][c]
+    for rows in (*parts, merged):
+        for i in (a, c):
+            line = rows[i][:-1] if rows[i].endswith("\r") else rows[i]
+            if not line.strip(" \t") or rows.count(rows[i]) != 1:
+                raise ReconciliationConflict("Ambiguous repeated or blank original line")
+    return "\n".join(merged)
+
+
+def note_body_group(base, incoming, current):
+    try:
+        return choice(base, incoming, current)
+    except ReconciliationConflict:
+        pass
+    values = (base, incoming, current)
+    context = [{key: item for key, item in value.items() if key != "body"} for value in values]
+    if any("body" not in value or not isinstance(value["body"], str) for value in values) or any(not same(context[0], value) for value in context[1:]):
+        raise ReconciliationConflict("Original format or supplementary text changed")
+    return {**deepcopy(current), "body": merge_original_note_lines(base["body"], incoming["body"], current["body"])}
 
 
 def stable_cells(value):
@@ -99,7 +138,12 @@ def grouped_node(base, incoming, current):
     for group in groups:
         values = [{key: value[key] for key in group if key in value}
                   for value in (base, incoming, current)]
-        selected = table_cells(*values) if base.get("type") == "table" and "rows" in group else choice(*values)
+        if base.get("type") == "table" and "rows" in group:
+            selected = table_cells(*values)
+        elif base.get("type") == "note" and "body" in group:
+            selected = note_body_group(*values)
+        else:
+            selected = choice(*values)
         result.update(deepcopy(selected))
     return result
 

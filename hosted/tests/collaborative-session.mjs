@@ -46,3 +46,16 @@ await test('Creation and direct recovery updates refuse lossy numeric raw input 
  const s=new BoardSession(scope,{reconcile:true});try{await s.open();const before=s.exportRaw();assert.throws(()=>s.updateRaw(raw));assert.equal(s.exportRaw(),before);assert.equal(s.state.dirty,false);}finally{await s.close();}
 });
 console.log(groups+' collaborative session groups passed');
+await test('A late separated-line acknowledgement rebases newer own typing and sends the exact next canonical base',async()=>{
+ const savedOriginal=clone(original),literal='First original\nUnchanged separator\nThird original';original.nodes[0].body=literal;
+ const hold=deferred(),arrived=deferred(),requests=[];let adopted;
+ fixture({save:async body=>{requests.push(body);if(requests.length===1){arrived.release();await hold.promise;}const v=clone(body.board);v.nodes[0].body=v.nodes[0].body.replace('Third original','Third peer');return response({saved:true,merged:requests.length===1,board:v},tag(requests.length===1?'b':'c'),scoped());}});
+ const s=new BoardSession(scope,{reconcile:true,onAdopt:raw=>{adopted=JSON.parse(raw);}});
+ try{await s.open();const own=clone(original);own.nodes[0].body=literal.replace('First original','First own');await s.updateRaw(boardRaw(own));const saving=s.save();await arrived.promise;own.nodes[0].body=literal.replace('First original','First newer own');await s.updateRaw(boardRaw(own));hold.release();assert.equal((await saving).remainingDirty,true);assert.equal(adopted.nodes[0].body,'First newer own\nUnchanged separator\nThird peer');assert.equal(s.state.etag,tag('b'));assert.equal(s.state.dirty,true);await s.save();assert.equal(requests[1].board.nodes[0].body,adopted.nodes[0].body);assert.equal(requests[1].baseETag,tag('b'));assert.equal(s.state.dirty,false);}finally{hold.release();await s.close();Object.assign(original,savedOriginal);}
+});
+await test('A late same-line response retains pending original text and its recovery base',async()=>{
+ const savedOriginal=clone(original),literal='First original\nUnchanged separator\nThird original';original.nodes[0].body=literal;
+ const hold=deferred(),arrived=deferred();let adopts=0;fixture({save:async body=>{arrived.release();await hold.promise;const v=clone(body.board);v.nodes[0].body=v.nodes[0].body.replace('First own','First peer');return response({saved:true,merged:true,board:v},tag('b'),scoped());}});
+ const s=new BoardSession(scope,{reconcile:true,onAdopt:()=>adopts++});
+ try{await s.open();const own=clone(original);own.nodes[0].body=literal.replace('First original','First own');await s.updateRaw(boardRaw(own));const saving=s.save();await arrived.promise;own.nodes[0].body=literal.replace('First original','First later own');const raw=boardRaw(own);await s.updateRaw(raw);hold.release();assert.equal((await saving).adopted,false);assert.equal(adopts,0);assert.equal(s.exportRaw(),raw);assert.equal(s.state.status,'conflict');assert.equal(s.state.etag,tag('a'));assert.equal(s.state.dirty,true);}finally{hold.release();await s.close();Object.assign(original,savedOriginal);}
+});

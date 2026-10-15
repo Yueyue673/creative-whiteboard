@@ -1,5 +1,6 @@
 /* Original-value reconciliation mirrors the server's conservative groups.
-   Strings are selected whole. This is not character merging or a CRDT. */
+   Strings stay whole except two bounded, unambiguous, separated existing note
+   body lines. This is not character merging or a CRDT. */
 export class ReconciliationError extends Error {}
 const missing = Symbol('absent original field');
 const own = (value, key) => Object.hasOwn(value, key);
@@ -26,6 +27,28 @@ function choose(base, incoming, current) {
   if (valueEqual(base,current)) return incoming;
   throw new ReconciliationError('这部分内容又被修改，原输入保持不变。');
 }
+function mergeOriginalNoteLines(base,incoming,current) {
+  const values=[base,incoming,current];
+  if(values.some(v=>typeof v!=='string'||v.length>65536||[...v].some(c=>{const p=c.codePointAt(0);return p>=0xd800&&p<=0xdfff;})||new TextEncoder().encode(v).length>65536))throw new ReconciliationError('原文范围无法逐行核对，输入仍保留。');
+  const parts=values.map(v=>v.split('\n'));
+  if(parts.some(p=>p.length>2048||p.length!==parts[0].length||p.some((line,i)=>line.includes('\r')&&(i===p.length-1||line.slice(0,-1).includes('\r')||!line.endsWith('\r')))))throw new ReconciliationError('原文行数或换行形式又被修改，输入仍保留。');
+  if(parts.slice(1).some(p=>p.some((line,i)=>line.endsWith('\r')!==parts[0][i].endsWith('\r'))))throw new ReconciliationError('原文换行形式又被修改，输入仍保留。');
+  const changed=parts.slice(1).map(p=>p.flatMap((line,i)=>line!==parts[0][i]?[i]:[]));
+  if(changed.some(ids=>ids.length!==1)||Math.abs(changed[0][0]-changed[1][0])<2)throw new ReconciliationError('两次原文修改相邻或重叠，输入仍保留。');
+  const [a,c]=changed.map(ids=>ids[0]),merged=parts[0].slice();merged[a]=parts[1][a];merged[c]=parts[2][c];
+  for(const rows of [...parts,merged])for(const i of [a,c]){
+    const line=rows[i].endsWith('\r')?rows[i].slice(0,-1):rows[i];
+    if(!line.replace(/[ \t]/g,'')||rows.filter(v=>v===rows[i]).length!==1)throw new ReconciliationError('重复或空白原行无法准确区分，输入仍保留。');
+  }
+  return merged.join('\n');
+}
+function noteBodyGroup(base,incoming,current) {
+  try{return choose(base,incoming,current);}catch(error){if(!(error instanceof ReconciliationError))throw error;}
+  const values=[base,incoming,current],context=values.map(v=>pick(v,keys(v).filter(k=>k!=='body')));
+  if(values.some(v=>!own(v,'body')||typeof v.body!=='string')||context.slice(1).some(v=>!valueEqual(context[0],v)))throw new ReconciliationError('原文格式或补充内容又被修改，输入仍保留。');
+  return {...current,body:mergeOriginalNoteLines(base.body,incoming.body,current.body)};
+}
+
 function stableCells(value) {
   const {rows,columns}=value;
   if(!Array.isArray(rows)||rows.length>5000||!Array.isArray(columns)||columns.length<1||columns.length>100||columns.some(value=>typeof value!=='string'))return false;
@@ -57,7 +80,7 @@ function node(base,incoming,current) {
   const opaque=[base,incoming,current].map(value=>pick(value,unknown));
   if (base.type==='image'||opaque.slice(1).some(value=>!valueEqual(opaque[0],value))) return choose(base,incoming,current);
   const selected=base.type==='table'?[union(groups[0],groups[5]),...groups.slice(1,5),unknown]:[...groups,unknown];
-  return Object.fromEntries(selected.flatMap(group=>Object.entries((base.type==='table'&&group.includes('rows')?tableCells:choose)(...[base,incoming,current].map(value=>pick(value,group))))));
+  return Object.fromEntries(selected.flatMap(group=>Object.entries((base.type==='table'&&group.includes('rows')?tableCells:base.type==='note'&&group.includes('body')?noteBodyGroup:choose)(...[base,incoming,current].map(value=>pick(value,group))))));
 }
 function sequence(base,incoming,current,isNodes) {
   try { return structuredClone(choose(base,incoming,current)); } catch(error) { if(!(error instanceof ReconciliationError))throw error; }

@@ -1956,3 +1956,23 @@ and changed login, and a user-reused tab. DOM field-change, malformed/limited
 responses and held replies are explicit test conditions; no physical-device,
 hardware-IME, external-TLS or launch acceptance is claimed. The build manifest
 now explicitly contains116 runtime files, including the new finder module.
+
+### Separated original lines in one note (development)
+
+Two authors editing one note no longer always need a recovery choice just because
+both changed its body. A narrow extension accepts exactly one changed existing
+line per author when the lines are separated by an unchanged line and each
+changed original/result line is unique and nonblank. It preserves literal text,
+spaces, Unicode, final newline and the original LF/CRLF endings. All three
+versions must keep the same physical line count and unchanged supplementary
+text/format; the range is bounded to64KiB UTF-8 and2048 line parts. Unknown
+extensions, other node types, same/adjacent lines, repeated/blank lines, line
+insertions/removals and ambiguous changes retain the existing recovery flow.
+
+The server uses its retained original revision and existing current membership,
+fixed account/workspace, validation, quota and transaction checks. Browser undo
+reverses only the author's matching operation while retaining the peer's line;
+later pending typing rebases against the submitted snapshot and checked server
+result. An overlap refuses before adopting input or popping history. This is a
+limited original-value reconciliation improvement, not generated writing,
+character-level realtime editing or a deployment claim.
