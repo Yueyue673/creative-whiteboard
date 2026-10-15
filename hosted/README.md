@@ -1700,9 +1700,9 @@ and local reading adjustment usable, with named mutations disabled. These are
 browser preferences, not server-owned user data, encrypted storage, cross-device
 sync or a backup. A failed read never resets the named catalog automatically.
 
-Native synthetic localhost HTTPS checks cover ten distinct groups across a
-six-group run, two focused completion groups, and two storage/feature-refusal
-groups. The first run stopped at a later new 320px button-width assertion; its six
+Native synthetic localhost HTTPS checks cover eleven distinct groups across a
+six-group run, two focused completion groups, two storage/feature-refusal groups
+and one focused later-input confirmation, with additional feedback geometry. The first run stopped at a later new 320px button-width assertion; its six
 completed groups are retained rather than described as one ten-group rerun. The
 44px minimum width was fixed. Original caret return is checked after the native
 close event settles, without weakening the focus/selection assertion. Actual
@@ -1715,3 +1715,11 @@ API writes and preserve all boards/revisions/private submissions/registered
 metadata and all 45 original source hashes. Six new store cases, seven related
 reading models and twelve portal checks pass. No backend schema/endpoint, desktop
 program or private data changes are included; hosted remains draft and undeployed.
+
+Named confirmation feedback is placed inside the expanded management area beside
+its actions, with scroll clearance above the sticky footer. Successful and refused
+confirmations remain visible at 320/375px. A saved snapshot followed by later
+name/font input explicitly identifies the earlier saved name and says the later
+adjustments remain unsaved; continued typing clears the earlier confirmation.
+A real held browser lock verifies this distinction without replacing the later
+name or current font. No permission/API boundary or stored document is changed.
