@@ -28,9 +28,22 @@ def program_files(root):
     files = value['files']
     if not isinstance(files, list) or not 1 <= len(files) <= 500 or any(not isinstance(name, str) for name in files) or len(set(name.casefold() for name in files)) != len(files):
         raise ContextError('Program paths must be a bounded unique list.')
+    native_names = ()
+    native_contract = root / 'hosted/deployment/native_files.json'
+    if native_contract.exists():
+        try:
+            if native_contract.resolve() != native_contract or native_contract.stat().st_nlink != 1 or native_contract.stat().st_size > 16384:
+                raise ValueError()
+            native = json.loads(native_contract.read_text(encoding='utf-8'))
+            native_names = native['files']
+            import re
+            if set(native) != {'version', 'files'} or type(native['version']) is not int or native['version'] != 1 or not isinstance(native_names, list) or not 1 <= len(native_names) <= 80 or len(set(native_names)) != len(native_names) or any(not isinstance(n, str) or not re.fullmatch(r'[a-z][a-z0-9-]*\.(js|css|html)', n) for n in native_names):
+                raise ValueError()
+        except (OSError, ValueError, TypeError, KeyError):
+            raise ContextError('Original workbench program contract is invalid.') from None
     for name in files:
         path = PurePosixPath(name)
-        allowed_root = name in ('LICENSE', 'board_schema.py', 'library_folders.py', 'vendor/markdown-it.min.js', 'vendor/markdown-it.LICENSE')
+        allowed_root = name in native_names or name in ('LICENSE', 'board_schema.py', 'library_folders.py', 'vendor/markdown-it.min.js', 'vendor/markdown-it.LICENSE')
         if str(path) != name or path.is_absolute() or any(part in ('..', '.') or part.startswith('.') for part in path.parts) or any(char in name for char in ':\\*?[]\x00\r\n'):
             raise ContextError('Program paths must be exact relative files.')
         if not allowed_root and not name.startswith(('hosted/core/', 'hosted/service/', 'hosted/deployment/')) and name not in ('hosted/manage.py', 'hosted/requirements.txt', 'hosted/requirements-runtime.txt'):

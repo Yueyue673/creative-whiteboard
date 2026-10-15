@@ -1,6 +1,6 @@
 from django.urls import path, register_converter
 
-from . import account_views, document_views, media_views, portal, views
+from . import account_views, document_views, media_views, portal, views, workbench, native_views
 
 
 class DocumentKeyConverter:
@@ -25,8 +25,12 @@ register_converter(DocumentKindConverter, "document_kind")
 
 urlpatterns = [
     path("", portal.page),
+    path("spaces", portal.page),
     path("join", portal.page),
     path("w/<uuid:workspace_id>/", portal.page),
+    path("w/<uuid:workspace_id>/manage/", portal.page),
+    path("w/<uuid:workspace_id>/app/", workbench.file),
+    path("w/<uuid:workspace_id>/app/<str:name>", workbench.file),
     path("w/<uuid:workspace_id>/b/<document_key:key>/", portal.page),
     path("w/<uuid:workspace_id>/new/<document_key:key>/", portal.page, {"create": True}),
     path("portal-assets/<str:name>", portal.asset),
@@ -55,6 +59,12 @@ urlpatterns = [
     path("w/<uuid:workspace_id>/api/boards/<document_key:key>/purge", document_views.purge_board),
     path("w/<uuid:workspace_id>/api/folders", document_views.folders),
     path("w/<uuid:workspace_id>/api/assets", document_views.library),
+    path("w/<uuid:workspace_id>/api/native/assets", native_views.library),
+    path("w/<uuid:workspace_id>/api/native/search", native_views.search),
+    path("w/<uuid:workspace_id>/api/native/preview/<uuid:asset_id>", native_views.preview),
+    path("w/<uuid:workspace_id>/api/native/history/<document_kind:kind>/<document_key:key>", native_views.history),
+    path("w/<uuid:workspace_id>/api/native/history/<document_kind:kind>/<document_key:key>/<uuid:revision_id>", native_views.history),
+    path("w/<uuid:workspace_id>/api/native/checkpoints/<document_kind:kind>/<document_key:key>", native_views.checkpoint),
     path("w/<uuid:workspace_id>/api/assets/upload", media_views.upload),
     path("w/<uuid:workspace_id>/api/assets/search", media_views.search),
     path("w/<uuid:workspace_id>/api/assets/items", media_views.items),

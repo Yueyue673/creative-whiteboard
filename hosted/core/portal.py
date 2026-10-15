@@ -1,8 +1,9 @@
 """Small independent portal; never serves the desktop entry or its file API."""
 from pathlib import Path
+from django.conf import settings
 
 from django.http import HttpResponse, HttpResponseNotAllowed, Http404
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from .views import account_json
@@ -41,6 +42,15 @@ ASSET_ROOT = Path(__file__).resolve().parent / "portal_assets"
 def page(request, workspace_id=None, key=None, create=False):
     if request.method not in ("GET", "HEAD"):
         return HttpResponseNotAllowed(("GET", "HEAD"))
+    if request.user.is_authenticated and settings.HOSTED_NATIVE_WORKBENCH:
+        if request.path == '/':
+            from .models import Membership
+            from .scope import valid_membership
+            member = Membership.objects.select_related('workspace').filter(account=request.user, workspace__kind='personal', workspace__owner=request.user).first()
+            if member and valid_membership(member):
+                return redirect(f'/w/{member.workspace_id}/app/')
+        if workspace_id and (key is not None or request.path == f'/w/{workspace_id}/'):
+            return redirect(f'/w/{workspace_id}/app/' + (f'?board={key}' if key is not None and not create else ''))
     # A UUID is only a requested destination, not an authority. No workspace
     # name/data is embedded: fresh scoped APIs authorize the actual contents.
     editor = key is not None and request.user.is_authenticated

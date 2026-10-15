@@ -65,14 +65,10 @@ def validate_document(kind, value):
                 if not folder["name"].strip() or len(folder["name"]) > 1000:
                     raise ValueError("文件夹名称无效")
         elif kind == WorkspaceDocument.Kind.LIBRARY:
-            if set(value) - {"version", "folders", "folderIds", "assets"} or type(value.get("version")) is not int or value["version"] != 1:
+            if set(value) - {"version", "folders", "folderIds", "assets", "trash"} or type(value.get("version")) is not int or value["version"] != 1:
                 raise ValueError("资料库目录格式无效")
             if not isinstance(value.get("assets"), list):
                 raise ValueError("资料库格式无效")
-            if value["assets"]:
-                # Uploaded asset records require the later media service. Client
-                # supplied filesystem paths must never become file references.
-                raise APIError("网页版素材接口仍在开发，当前只能保存资料库目录", 501)
             folders = value.get("folders")
             if not isinstance(folders, list) or len(folders) > 1000 or len(set(folders)) != len(folders):
                 raise ValueError("资料库文件夹无效")
@@ -80,6 +76,8 @@ def validate_document(kind, value):
                 if not isinstance(path, str) or len(path) > 1000 or "\\" in path or any(not part or part in (".", "..") for part in path.split("/")):
                     raise ValueError("资料库文件夹名称无效")
             validate_folder_ids(value)
+            from .native_library import validate_entries
+            validate_entries(value)
         else:
             raise ValueError("内容类型无效")
     except (TypeError, AttributeError, KeyError, ValueError) as error:
@@ -208,6 +206,10 @@ def put_document(scope, account, kind, key, value, expected):
         current = document_etag(document) if document else "new"
         if kind == WorkspaceDocument.Kind.LIBRARY:
             value = with_folder_ids(value, document.value if document else None)
+            from .native_library import FILE_REFERENCE
+            references = {row['id'] for row in value['assets'] if row.get('mime') == FILE_REFERENCE}
+            if references and set(str(identity) for identity in MediaAsset.objects.filter(workspace_id=workspace.pk, pk__in=references).values_list('pk', flat=True)) != references:
+                raise APIError('内容库含未在这个工作区登记的文件，原数据保留')
         size = validate_document(kind, value)
         if expected != current or (document and document.deleted_at):
             reason = "purged" if document and document.purged_at else "deleted" if document and document.deleted_at else "version_conflict"

@@ -2090,3 +2090,14 @@ accepting the corrected cases. An additional refresh/replacement case verifies
 that an old completion cannot release a newer pending attempt. The four affected library/shelf model files pass.
 Local browser checks are not hardware/physical-device/public TLS acceptance.
 The hosted branch remains unmerged and undeployed.
+
+
+### Original workbench integration
+
+The authenticated service can serve the actual root `shell.html`, `index.html` and their reviewed JavaScript/CSS, including the existing tabs, split panes, canvas, note/table editing, appearance controls and reusable content library. These original program files remain unchanged. `CREATIVE_BOARD_HOSTED_NATIVE_WORKBENCH=1` selects it for signed-in home/workspace/board navigation; `/spaces` and `/w/<workspace>/manage/` retain account, workspace and membership management. Leave the flag unset to retain the previous editor while reviewing an independent deployment.
+
+Each original pane is bound to the account and workspace that opened it. Its legacy API requests use protected workspace URLs, CSRF and the original account header; media and inert HTML previews carry the original account. Preferences/session state and original coordination channels are separated by account/workspace. Changed-login pages preserve inputs and refuse writes. Server membership and exact-version checks remain authoritative. There is no desktop global-root adapter or filesystem-path file service.
+
+The native library facade combines registered cloud file metadata with literal reusable original note/table bundles. A whole-catalog precondition covers catalog and file versions; metadata/catalog writes and quota checks are atomic. Client paths cannot create file reads or replace registered originals. Content snapshots and registered originals are preserved. Native search, board deletion/restoration, retained-version reads and idempotent checks of automatic recovery records use the same existing scoped store. Interactive authored HTML is rendered as an inert static preview, with originals available for download.
+
+This integration does not promise complete desktop endpoint parity: batch folder deletion, research-task persistence and legacy proposal APIs remain unavailable rather than accessing desktop files. Shared edits retain the existing conditional saves/conflict protection; no character-level real-time merge is claimed. Verify each deployment in an independent synthetic store before enabling the flag for existing users. Accounts, documents, originals and signing keys must not be reinitialized or automatically migrated from a private desktop workspace.

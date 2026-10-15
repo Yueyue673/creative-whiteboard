@@ -20,9 +20,18 @@ class ResponsePolicyMiddleware:
             policy += "; script-src 'self'; style-src 'self'; connect-src 'self'"
         if getattr(response, "creative_editor", False):
             policy += "; img-src 'self'; media-src 'self'; frame-src 'self'"
+        if getattr(response, 'creative_workbench_nonce', None):
+            # Original workbench uses program-created inline styles and real
+            # same-origin panes. Authored code never receives a script nonce.
+            nonce = response.creative_workbench_nonce
+            policy = "default-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'nonce-" + nonce + "'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self' blob:; object-src 'none'"
+            response['X-Frame-Options'] = 'SAMEORIGIN'
         if getattr(response, "creative_static_preview", False):
             from .html_preview import POLICY
             policy = POLICY
+            if getattr(response, 'creative_native_preview', False):
+                from .native_preview import POLICY as NATIVE_POLICY
+                policy = NATIVE_POLICY
             response["X-Frame-Options"] = "SAMEORIGIN"
             response["Referrer-Policy"] = "no-referrer"
             response["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), fullscreen=()"
