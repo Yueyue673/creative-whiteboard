@@ -89,7 +89,8 @@ button,summary,select{transition:none}
 .node .inline-toolbar #inlineDetails{background:transparent;border:0;color:var(--ui-muted)}
 /* Editing a paper card keeps its text in place; tools share the outside placement. */
 #nodes>.node>.inner.live-layout{overflow:visible}
-#nodes>.node>.inner.live-layout>.inline-toolbar{position:absolute;left:auto;right:0;top:auto;bottom:calc(100% + 7px);width:max-content;min-width:0;max-width:none;height:34px;min-height:34px;flex-wrap:nowrap;padding:3px;border:1px solid var(--ui-line);border-radius:6px;box-shadow:0 2px 8px #0002;white-space:nowrap}
+#nodes>.node>.inner.live-layout>.inline-toolbar{position:absolute;left:auto;right:0;top:auto;bottom:calc(100% + 7px);width:max-content;min-width:0;max-width:calc(100vw - 12px);height:auto;min-height:34px;flex-wrap:wrap;gap:4px;padding:3px;border:1px solid var(--ui-line);border-radius:6px;box-shadow:0 2px 8px #0002;white-space:nowrap}
+#nodes>.node>.inner.live-layout>.inline-toolbar>.note-edit-tools{display:contents}
 #nodes>.node>.inner.live-layout>.inline-toolbar #inlineDone{margin-left:0}
 /* Source controls keep their screen size and scroll within the available pane. */
 #nodes>.node>.inner.live-layout>#inlineMeta{max-width:none;transform:scale(var(--canvas-control-scale,1));transform-origin:top left;overscroll-behavior:contain;scrollbar-gutter:stable;z-index:20}
