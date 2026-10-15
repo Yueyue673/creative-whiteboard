@@ -1991,3 +1991,20 @@ entry and exit, and narrow/wide transitions with a selected stable table. All
 baseline and final workspace rows, media metadata/reservations and45 original
 file hashes remain unchanged, with no scoped mutation requests. These are
 browser viewport checks, not physical-device or assistive-device acceptance.
+
+### Readonly library access in a narrow inspector (development)
+
+A readonly member could open the library in a wide window, but its same **素材**
+button became disabled after moving into a narrow selected-note inspector and
+receiving the current role. The generic inspector write guard no longer
+overrides that button's existing library read/paused state. The library still
+owns its current-account/workspace checks; upload, insertion, shelving and board
+editing remain unavailable to readonly members.
+
+A real-member HTTPS baseline reproduces the mismatch. Three affected native
+flows verify320px original image preview/exact download, an editor's actual
+change to readonly while retaining keyboard library access, and session expiry
+pausing the original page and disabling media access. Baseline/final workspace
+document rows and45 source hashes remain unchanged, with zero scoped mutation
+requests. The final fixture separately verifies its sole expected synthetic
+membership downgrade. No server permission rule or deployment status changes.

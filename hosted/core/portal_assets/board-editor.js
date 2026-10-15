@@ -246,7 +246,9 @@ function refreshState() {
     if(['text','number'].includes(input.type)||input.tagName==='TEXTAREA')input.readOnly=!editable;
     else input.disabled=!editable;
   }
-  for(const button of $('inspector').querySelectorAll('button,select'))if(!['closeInspector','undo','redo'].includes(button.id))button.disabled=button.hasAttribute('data-reference-read')?!canBrowseReferences():!editable;
+  // The library owns its read/paused boundary in every layout; moving its
+  // original button into the inspector must not require write permission.
+  for(const button of $('inspector').querySelectorAll('button,select'))if(!['closeInspector','undo','redo','showMedia'].includes(button.id))button.disabled=button.hasAttribute('data-reference-read')?!canBrowseReferences():!editable;
   $('noteHeight').readOnly=!editable || activeNode()?.sizeMode==='auto';frames.sync();tables.sync();cues.sync();finder.sync();
   if(['paused','readonly','conflict','offline'].includes(state.status))clearTimeout(saveTimer);
 }
