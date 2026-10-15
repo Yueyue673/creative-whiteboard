@@ -49,6 +49,7 @@
     "hosted/core/portal_assets/board-drafts.js",
     "hosted/core/portal_assets/board-editor.css",
     "hosted/core/portal_assets/board-editor.js",
+    "hosted/core/portal_assets/board-finder.js",
     "hosted/core/portal_assets/board-folders.js",
     "hosted/core/portal_assets/board-frames.css",
     "hosted/core/portal_assets/board-frames.js",

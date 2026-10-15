@@ -136,6 +136,21 @@ class PortalTests(TestCase):
             self.assertEqual(response['Cache-Control'], 'no-store')
             self.assertEqual(self.client.post(path).status_code, 405)
 
+    def test_editor_finder_is_a_fixed_scope_program_dialog_without_bootstrap_content(self):
+        path = f'/w/{self.shared.pk}/b/exact-key/'
+        response = self.client.get(path)
+        text = response.content.decode()
+        self.assertIn('id="boardFinderDialog" aria-labelledby="boardFinderHeading"', text)
+        self.assertIn('id="showBoardFinder" disabled data-reference-read', text)
+        self.assertIn('id="closeBoardFinder" aria-label="关闭查找，返回原编辑"', text)
+        self.assertIn('id="boardFinderForm" role="search"', text)
+        self.assertNotIn('workspaceSearchResults', text)
+        asset = self.client.get('/portal-assets/board-finder.js')
+        self.assertEqual(asset.status_code, 200)
+        self.assertTrue(asset['Content-Type'].startswith('text/javascript'))
+        self.assertEqual(asset['Cache-Control'], 'no-store')
+        self.assertNotIn('unsafe-inline', response['Content-Security-Policy'])
+
     def test_editor_login_return_is_server_fixed_and_shell_does_not_grant_access(self):
         guest = Client()
         for part in ['b', 'new']:

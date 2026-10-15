@@ -91,7 +91,7 @@ def main():
                 except (urllib.error.URLError, ConnectionError, TimeoutError):
                     time.sleep(.5)
             raise AssertionError("Synthetic HTTPS backend did not become ready")
-        checks = ['Actual Docker parent-negation baseline includes synthetic extras; exact context contains all115 program files and excludes12 unlisted synthetic inputs.']
+        checks = [f'Actual Docker parent-negation baseline includes synthetic extras; exact context contains all{len(program_files(ROOT))} program files and excludes12 unlisted synthetic inputs.']
         try:
             resolved = json.loads(command("config", "--format", "json", capture=True))
             assert resolved["services"]["app"]["ports"][0]["host_ip"] == "127.0.0.1"

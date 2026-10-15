@@ -11,6 +11,7 @@ import {OwnHistory,valueEqual,validateLiveBoard,canReceiveTableCell} from './boa
 import {PaperReading} from './paper-reading.js';
 import {DistanceReading} from './space-reading.js';
 import {BoardRecovery} from './board-recovery.js';
+import {BoardFinder} from './board-finder.js';
 
 const $ = id => document.getElementById(id);
 const context = Object.freeze(JSON.parse($('board-context').textContent));
@@ -29,7 +30,7 @@ parser.renderer.rules.link_open = (tokens,index,options,env,self) => {
 let board = null, selected = null, creating = context.create, saveTimer, editorError = '', workspaceName = null;
 let view = {x: 48, y: 55, z: 1}, inputGroup = null, composing=false, renderPending=false, historyMessage='',readingLayoutPending=false;
 const ownHistory=new OwnHistory();
-const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling,readingAnchor=$('showPaperReading').nextSibling;
+const narrowEditor=matchMedia('(max-width:680px)'),historyHome=$('undo').parentElement,historyAnchor=$('redo').nextSibling,mediaAnchor=$('showMedia').nextSibling,readingAnchor=$('showPaperReading').nextSibling,finderAnchor=$('showBoardFinder').nextSibling;
 function syncHistoryControls(){
   const narrow=narrowEditor.matches&&!$('inspector').hidden,host=narrow?$('inspectorHistory'):historyHome;
   for(const[id,label,icon]of [['undo','撤销','↶'],['redo','重做','↷']]){
@@ -44,6 +45,8 @@ function syncHistoryControls(){
   reading.textContent=narrow?'Aa':'阅读';
   const media=$('showMedia');
   if(media.parentElement!==host){if(narrow)host.append(media);else host.insertBefore(media,mediaAnchor);}
+  const find=$('showBoardFinder');
+  if(find.parentElement!==host){if(narrow)host.append(find);else host.insertBefore(find,finderAnchor);}
   $('inspectorHistory').hidden=!narrow;
 }
 narrowEditor.addEventListener('change',syncHistoryControls);
@@ -70,6 +73,17 @@ function captureReadingPlace(field=document.activeElement){
 function restoreReadingPlace(place){
   if(!place||place.board!==board||place.node!==selected||!place.field.isConnected||place.field.closest('[hidden]')||place.field.value!==place.value||document.querySelector('dialog[open]'))return;
   view={...place.view};applyView();place.field.focus({preventScroll:true});place.field.setSelectionRange(place.start,place.end,place.direction);place.field.scrollTop=place.top;place.field.scrollLeft=place.left;$('inspector').scrollTop=place.inspectorTop;
+}
+const finder=new BoardFinder({scope,canRead:canBrowseReferences,name:()=>workspaceName,capture:captureFinderPlace,restore:restoreFinderPlace,afterClose:releaseAdoption});
+function captureFinderPlace(field=document.activeElement){
+  if(!board||!field?.isConnected||field.id==='showBoardFinder'||field.closest('dialog'))return null;
+  return {board,node:selected,field,value:typeof field.value==='string'?field.value:undefined,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,top:field.scrollTop,left:field.scrollLeft,inspectorTop:$('inspector').scrollTop,view:{...view}};
+}
+function restoreFinderPlace(place){
+  if(!place||place.board!==board||place.node!==selected||!place.field.isConnected||place.field.closest('[hidden]')||document.querySelector('dialog[open]')||(place.value!==undefined&&place.field.value!==place.value))return;
+  view={...place.view};applyView();place.field.focus({preventScroll:true});
+  if(typeof place.start==='number'&&typeof place.end==='number')try{place.field.setSelectionRange(place.start,place.end,place.direction);}catch{}
+  place.field.scrollTop=place.top;place.field.scrollLeft=place.left;$('inspector').scrollTop=place.inspectorTop;
 }
 const referenceIndex=new ReferenceIndex(scope.key,parser),referenceTrail=[];
 const references=new NoteReferences(referenceIndex,{navigate:navigateReference,insert:insertReference,canBrowse:canBrowseReferences,canEdit:stateCanEdit,activeNode});
@@ -193,7 +207,7 @@ function refreshState() {
     else input.disabled=!editable;
   }
   for(const button of $('inspector').querySelectorAll('button,select'))if(!['closeInspector','undo','redo'].includes(button.id))button.disabled=button.hasAttribute('data-reference-read')?!canBrowseReferences():!editable;
-  $('noteHeight').readOnly=!editable || activeNode()?.sizeMode==='auto';frames.sync();tables.sync();cues.sync();
+  $('noteHeight').readOnly=!editable || activeNode()?.sizeMode==='auto';frames.sync();tables.sync();cues.sync();finder.sync();
   if(['paused','readonly','conflict','offline'].includes(state.status))clearTimeout(saveTimer);
 }
 session.addEventListener('change',refreshState);

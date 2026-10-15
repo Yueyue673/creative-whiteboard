@@ -1872,3 +1872,40 @@ change and all workspace rows/45 original hashes unchanged. Precise seek/error
 dispatch and old callbacks are simulated; interrupted media and held metadata
 use real HTTPS. No private desktop installation, external TLS, physical-device
 or deployment acceptance is added.
+
+### Find another saved board without leaving the original editor (development)
+
+The existing saved-workspace text search was available only in the portal, so
+finding another board required leaving the mounted editor. **查找** and
+Ctrl/Command+K now open a scoped dialog in that original editor. The same control
+moves beside the existing history/media controls in a narrow inspector. There
+is no duplicate desktop-global-search implementation or changed portal search.
+
+The query stays in this page's memory. Searches read saved names, notes, tables
+and edge text through the existing bounded workspace API; the scope excludes
+history, trash, recovery input and original file contents. Results retain literal
+author text and identify the source context. A limited scan never implies an
+absent board. Selection opens a blank tab synchronously, verifies the original
+account/workspace again and then uses a validated fixed-workspace board key.
+Changing a query, closing or losing access cancels the pending choice. A tab
+that the user has already used for another page is neither replaced nor closed.
+
+The original board/field remains mounted. Escape or explicit close returns to
+the same unchanged field, caret/range, scroll and camera. Removed or changed
+fields never receive replayed text or an old selection. A native keyboard check
+exposed Tab leaving the new modal; its local focus cycle was corrected. This
+uses the [W3C modal-dialog guidance](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+for initial focus, contained keyboard navigation, explicit exit and workflow
+return; it is not assistive-device certification. Long literal names wrap at
+320px, and readonly users can find/open their permitted originals.
+
+Eight controller/protocol model cases and13 portal plus2 build-contract cases
+pass. Ten distinct original-page native behaviors pass across independent
+synthetic HTTPS fixtures (1+3+4+2), with workspace rows and45 source hashes
+verified even after partial fixture exits. Coverage includes keyboard/pointer
+return, late/closed queries, real disconnect, wrong-scope reply refusal,320px
+literal long names, table cells, pending blank-tab cancellation, actual viewer
+and changed login, and a user-reused tab. DOM field-change, malformed/limited
+responses and held replies are explicit test conditions; no physical-device,
+hardware-IME, external-TLS or launch acceptance is claimed. The build manifest
+now explicitly contains116 runtime files, including the new finder module.

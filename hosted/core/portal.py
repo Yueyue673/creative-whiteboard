@@ -26,7 +26,7 @@ ASSETS = {
     "board-session.js": "text/javascript",
     "board-reconciliation.js": "text/javascript",
     "board-recovery.js": "text/javascript", "recovery-review.js": "text/javascript",
-    "board-editor.js": "text/javascript", "board-editor.css": "text/css",
+    "board-finder.js": "text/javascript", "board-editor.js": "text/javascript", "board-editor.css": "text/css",
     "markdown-it.js": "text/javascript",
     "board-media.js": "text/javascript", "board-library.js": "text/javascript",
     "board-metadata.js": "text/javascript",
