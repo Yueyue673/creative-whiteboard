@@ -40,13 +40,27 @@ export class BoardLibrary {
     $('insertMedia').onclick=()=>this.insert();
     $('activeMedia').onclick=()=>this.shelf(false);$('archivedMedia').onclick=()=>this.shelf(true);
     $('archiveMedia').onclick=()=>this.changeShelf();
+    $('backToMediaList').onclick=()=>this.backToList();
     $('metadataDialog').addEventListener('close',()=>this.controls());
     const drop=$('mediaDrop');drop.ondragover=event=>{event.preventDefault();if(this.#edit&&!this.#uploading)drop.dataset.over='true';};
     drop.ondragleave=()=>{delete drop.dataset.over;};
     drop.ondrop=event=>{event.preventDefault();delete drop.dataset.over;if(this.#edit&&!this.#uploading){
       if(event.dataTransfer.files.length!==1){$('uploadState').textContent='每次选择一个文件，确认后再继续。';return;}
-      this.choose(event.dataTransfer.files[0]);
+      this.choose(event.dataTransfer.files[0],event.dataTransfer.files);
     }};
+    // A file dropped on the closed importer or preview must never navigate
+    // away from the author's page. Choosing a file still does not upload it.
+    $('mediaDialog').ondragover=event=>{if([...event.dataTransfer?.types||[]].includes('Files'))event.preventDefault();};
+    $('mediaDialog').ondrop=event=>{
+      if(![...event.dataTransfer?.types||[]].includes('Files')||event.defaultPrevented)return;
+      event.preventDefault();
+      if(!this.#edit||this.#uploading){$('mediaMessage').textContent=this.#uploading?'正在等待本次上传确认，所选文件保持不变。':'当前只有阅读权限，文件没有上传。';return;}
+      if(!$('mediaDialog').open)return;
+      $('mediaImport').open=true;
+      if(event.dataTransfer.files.length!==1)$('uploadState').textContent='每次选择一个文件，确认后再继续。';
+      else this.choose(event.dataTransfer.files[0],event.dataTransfer.files);
+      $('mediaImport').scrollIntoView({block:'nearest'});
+    };
   }
   sync(read,edit){
     const stopped=this.#read&&!read,withdrawn=this.#edit&&!edit;
@@ -64,6 +78,8 @@ export class BoardLibrary {
   clearMedia(){this.#epoch++;this.#previewEpoch++;this.#refreshing=false;this.#selectionReady=false;this.clearReferences();stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();}
   close(){this.clearMedia();$('mediaDialog').close();}
   controls(){
+    $('mediaImport').hidden=!this.#edit;
+    $('mediaImportLabel').textContent=this.#file?'已选文件 · '+this.#file.name:'放入自己的文件';
     for(const [id,archived] of [['activeMedia',false],['archivedMedia',true]]){
       $(id).disabled=!this.#read||this.#changingShelf;$(id).setAttribute('aria-pressed',String(this.#archived===archived));
     }
@@ -86,11 +102,18 @@ export class BoardLibrary {
     $('moreMedia').hidden=!this.#next;
     $('mediaReadOnly').hidden=this.#edit;
   }
-  choose(file){
-    if(!file||!this.#edit||this.#uploading||this.#refreshing)return;
+  choose(file,files=null){
+    if(!file||!this.#edit||this.#uploading||!$('mediaDialog').open)return;
     this.#file=file;this.#uncertain=false;
+    if(files){try{$('mediaFile').files=files;}catch{$('mediaFile').value='';}}
     $('chosenMedia').textContent=file.name+' · '+bytesLabel(file.size);
     $('uploadState').textContent='文件仍在你的设备；确认上传后才会进入这个工作区。';$('uploadProgress').hidden=true;this.controls();
+  }
+  backToList(){
+    if(!this.#read||!$('mediaDialog').open)return;
+    const item=[...$('mediaItems').children].find(row=>row.dataset.asset===this.#selected?.id&&!row.disabled);
+    $('mediaSearch').closest('.media-browser')?.scrollIntoView({block:'start'});
+    const target=item||$('mediaSearch');target.scrollIntoView({block:'nearest'});target.focus({preventScroll:true});
   }
   catalogSaved(catalog){
     const oldFolder=$('uploadFolder').value,entries=Object.entries(catalog.folderIds),names=new Map(entries.map(([name,id])=>[id,name]));
@@ -221,6 +244,7 @@ export class BoardLibrary {
     this.#selected=asset;this.#selectionReady=true;$('mediaDetails').hidden=false;
     this.caption(asset);
     if(!same){
+      $('mediaDetails').scrollTop=0;
       this.#previewEpoch++;stopMedia($('mediaPreview'));$('mediaPreview').replaceChildren();$('mediaPreview').dataset.kind=asset.kind;
       const html=canPreviewHTML(asset),preview=text('button',html?'查看HTML静态排版':asset.kind==='attachment'?'此文件只提供下载':'打开'+({image:'图片',audio:'音频',video:'视频'})[asset.kind]);
       preview.dataset.unavailable=String(asset.kind==='attachment'&&!html);preview.onclick=()=>this.preview(this.#selected);$('mediaPreview').append(preview);
@@ -234,7 +258,7 @@ export class BoardLibrary {
       }catch(error){$('mediaMessage').textContent=error.message;}
     };
     for(const button of $('mediaItems').children)button.setAttribute('aria-pressed',String(button.dataset.asset===asset.id));
-    this.controls();if(reveal)$('mediaDetails').scrollIntoView({block:'nearest'});
+    this.controls();if(reveal&&!globalThis.matchMedia?.('(min-width:901px) and (min-height:700px)').matches)$('mediaDetails').scrollIntoView({block:'nearest'});
   }
   caption(asset){
     $('mediaSelectionState').textContent=asset.archived?'当前预览 · 已收起；已有白板引用仍可查看。':this.#items.has(asset.id)?'当前预览':'当前预览 · 不在这页结果中；仍可继续查看和使用。';

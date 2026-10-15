@@ -1572,3 +1572,50 @@ private submission, earlier revision and all 45 source-file hashes; only the
 explicitly selected synthetic media row changes. Local temporary-certificate
 acceptance is not public TLS or physical-device acceptance. Still draft,
 unmerged and undeployed; complete character/table realtime merging is unfinished.
+
+
+### Browse beside the original preview (development)
+
+Choosing an image in the original library previously scrolled its search and
+results above the visible window. At 1280×800 the baseline search field was at
+y≈−369 while the preview was at y≈403. The original library now places browse
+results beside the verified original on a roomy desktop. Its fixed-height
+workbench keeps the scope, directory/import controls, search and results in
+context; long details scroll independently. Narrow/short windows reflow rather
+than compressing the desktop columns. A small-window return action focuses the
+selected result, or the exact search if that original is outside current results.
+A closed or paused library cannot steal focus through a late return action.
+
+Import is an explicit native disclosure instead of taking a permanent second
+column. It retains the selected device file and stable destination when folded
+or when the original library is closed and reopened. The collapsed caption shows
+the selected filename. Read-only members get the browsing workspace and their
+protected preview, without an unusable import panel. No upload is sent merely
+by choosing, dropping, unfolding or reopening a file.
+
+File drops over the dialog prevent navigation away from the author's page.
+A single original is selected locally and opens the importer; ambiguous multiple
+files retain the existing selection. A file dropped during a pending list read
+is retained, including its actual file-input entry, while upload remains disabled
+until the read completes. Closed/paused/read-only/pending-upload drop paths cannot
+replace the retained selection or send a file. Source nodes, scope, account and
+workspace do not move with the visual layout. A different selected source starts
+its detail scroller at the beginning; the same mounted original keeps its place.
+
+This uses the grouping, responsive reflow and list/detail guidance in
+[Microsoft Fluent's layout documentation](https://fluent2.microsoft.design/layout).
+Keyboard return and sticky-heading checks follow the intent of
+[WCAG focus-not-obscured guidance](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
+These are design criteria, not a claim of complete WCAG conformance.
+
+Validation: seven distinct original-library browser flows plus focused final
+layout checks use isolated synthetic localhost HTTPS data. Before/after images,
+1280px browsing, keyboard disclosure, exact file bytes and destination, 375/320px
+return/search, mounted-image continuity, viewer-specific media and close/reenter
+passed. File-drop events are simulated in the real browser; actual OS drag,
+physical devices and hardware IME are not accepted. Every fixture performs zero
+data writes and preserves all original boards/private submissions/retained
+revisions/registered metadata and all45 source-file hashes. Four new async
+navigation/drop guard cases, thirteen affected library/shelf cases and twelve
+portal cases pass. No backend/schema/endpoint or desktop program change is added.
+The hosted branch remains draft, unmerged and undeployed.
