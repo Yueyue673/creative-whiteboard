@@ -137,7 +137,11 @@ def sniff_mime(prefix, filename):
 
 
 def metadata_size(asset):
-    return len(document_bytes({"filename": asset.filename, "title": asset.title, "folderId": asset.folder_id, "notes": asset.notes, "tags": asset.tags, "mime": asset.mime, "size": asset.size, "contentHash": asset.content_hash}))
+    value = {"filename": asset.filename, "title": asset.title, "folderId": asset.folder_id, "notes": asset.notes, "tags": asset.tags, "mime": asset.mime, "size": asset.size, "contentHash": asset.content_hash}
+    # Existing active rows keep their exact charged size after migration.
+    if asset.archived:
+        value["archived"] = True
+    return len(document_bytes(value))
 
 
 def asset_etag(asset):
@@ -151,7 +155,7 @@ def content_etag(asset):
 def asset_json(asset, account, folder_map=None):
     return {"id": str(asset.pk), "title": asset.title, "filename": asset.filename, "folderId": asset.folder_id,
             "folder": folder_map.get(asset.folder_id, "") if folder_map is not None else folder_location(asset.workspace_id, asset.folder_id), "mime": asset.mime, "size": asset.size,
-            "contentHash": asset.content_hash, "notes": asset.notes, "tags": asset.tags,
+            "contentHash": asset.content_hash, "notes": asset.notes, "tags": asset.tags, "archived": asset.archived,
             "etag": asset_etag(asset), "mediaURL": f"/w/{asset.workspace_id}/api/media/{asset.pk}?account={account.pk}"}
 
 
@@ -225,8 +229,10 @@ def upload_stream(scope, account, request, size, filename, folder_id):
 
 def update_asset(scope, account, identifier, data, expected):
     expected = require_precondition(expected)
-    if not isinstance(data, dict) or not data or set(data) - {"title", "notes", "tags", "folderId"}:
+    if not isinstance(data, dict) or not data or set(data) - {"title", "notes", "tags", "folderId", "archived"}:
         raise APIError("素材编辑字段无效")
+    if "archived" in data and (set(data) != {"archived"} or type(data["archived"]) is not bool):
+        raise APIError("收起或恢复须单独确认，不能同时修改素材说明")
     if "title" in data and (not isinstance(data["title"], str) or not data["title"].strip() or len(data["title"]) > 1000):
         raise APIError("素材名称无效")
     if "notes" in data and (not isinstance(data["notes"], str) or len(data["notes"]) > 65536):
@@ -251,6 +257,8 @@ def update_asset(scope, account, identifier, data, expected):
             return {"saved": True}, asset
         for key, value in data.items():
             setattr(asset, "folder_id" if key == "folderId" else key, value)
+        # Archive is a reversible library filter only. Never move/delete source
+        # bytes or alter board references, filenames, ownership or folder IDs.
         asset.byte_size = metadata_size(asset)
         asset.revision_token = uuid.uuid4()
         asset.save()

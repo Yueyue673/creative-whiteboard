@@ -63,6 +63,8 @@ put_document(scope,editor,"board","one",sample_board("Exact unapplied editor wor
 _,trash_tag=put_document(scope,owner,"board","trash",sample_board("Trash original"),"new")
 change_board_state(scope,owner,"trash",trash_tag)
 asset=upload_stream(scope,owner,io.BytesIO(b"\x89PNG\r\n\x1a\n"+bytes(range(64))),72,"generic.png","")
+from core.media import update_asset,asset_etag
+update_asset(scope,owner,asset.pk,{"archived":True},asset_etag(asset))
 pending=reserve_upload(scope,editor,100,"pending.png","")
 checked_storage(scope,"incoming",pending.pk,create=True).write_bytes(b"unfinished exact bytes")
 orphan=scope.storage_root()/"media"/"unreserved.blob"; orphan.write_bytes(b"unreserved exact bytes")
@@ -109,6 +111,8 @@ print(json.dumps({"asset":str(asset.pk),"workspace":str(shared.pk),"pending":str
 
     def test_full_current_store_roundtrip_keeps_all_sql_rows_files_pending_orphans_and_empty_directories(self):
         before_sql = self.sql_dump(self.store)
+        with closing(sqlite3.connect(self.store / "accounts.sqlite3")) as database:
+            self.assertEqual(database.execute("SELECT archived FROM core_mediaasset").fetchone()[0], 1)
         before_media = (self.store / self.asset_relative).read_bytes()
         result = self.snapshot()
         self.assertEqual(result["fileCount"], 4)

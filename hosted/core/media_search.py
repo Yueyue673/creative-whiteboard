@@ -43,11 +43,11 @@ def metadata_parts(asset, budget):
                 yield "标签", tag
 
 
-def search_assets(scope, account, query):
+def search_assets(scope, account, query, *, archived=False):
     query = search_query([query])
     current_reader(scope, account)
     budget = {"parts": 0, "deadline": time.monotonic() + MAX_SECONDS}
-    rows = MediaAsset.objects.filter(workspace=scope.workspace).order_by("-updated_at", "pk")
+    rows = MediaAsset.objects.filter(workspace=scope.workspace, archived=archived).order_by("-updated_at", "pk")
     identities, byte_count, scanned, limited = [], 0, 0, False
     # Metadata byte sizes are charged before loading text/JSON. Source blobs,
     # arbitrary URLs and paths are neither opened nor requested by this scan.

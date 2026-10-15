@@ -42,18 +42,27 @@ def upload(request, workspace_id):
 
 @data_endpoint(("GET", "HEAD"))
 def search(request, workspace_id):
-    if set(request.GET) != {"q"}:
+    if "q" not in request.GET or set(request.GET) - {"q", "shelf"}:
         raise APIError("素材查找请求包含不支持的字段")
-    return JsonResponse(search_assets(request.workspace_scope, request.user, search_query(request.GET.getlist("q"))))
+    return JsonResponse(search_assets(request.workspace_scope, request.user, search_query(request.GET.getlist("q")), archived=archived_shelf(request)))
+
+
+def archived_shelf(request):
+    values = request.GET.getlist("shelf")
+    if values and (len(values) != 1 or values[0] not in ("active", "archived")):
+        raise APIError("素材显示范围无效")
+    return values == ["archived"]
 
 
 @data_endpoint(("GET", "HEAD"))
 def items(request, workspace_id):
+    if set(request.GET) - {"limit", "after", "shelf"} or any(len(request.GET.getlist(key)) != 1 for key in request.GET):
+        raise APIError("素材列表请求包含不支持的字段")
     raw = request.GET.get("limit", "100")
     if not raw.isascii() or not raw.isdigit() or len(raw) > 3 or not 1 <= int(raw) <= 100:
         raise APIError("每页素材数量无效")
     limit = int(raw)
-    query = MediaAsset.objects.filter(workspace_id=workspace_id).order_by("id")
+    query = MediaAsset.objects.filter(workspace_id=workspace_id, archived=archived_shelf(request)).order_by("id")
     cursor = request.GET.get("after", "")
     if cursor:
         try:
@@ -69,7 +78,7 @@ def items(request, workspace_id):
 @data_endpoint(("GET", "HEAD", "PATCH"))
 def item(request, workspace_id, asset_id):
     if request.method == "PATCH":
-        data = payload(request, (), ("title", "notes", "tags", "folderId"))
+        data = payload(request, (), ("title", "notes", "tags", "folderId", "archived"))
         result, asset = update_asset(request.workspace_scope, request.user, asset_id, data, request.headers.get("If-Match"))
         response = JsonResponse({**result, "asset": asset_json(asset, request.user)}, status=200 if result["saved"] else 409)
     else:

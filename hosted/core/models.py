@@ -214,6 +214,7 @@ class MediaAsset(models.Model):
     mime = models.CharField(max_length=100)
     size = models.PositiveBigIntegerField()
     content_hash = models.CharField(max_length=64)
+    archived = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
     tags = models.JSONField(default=list, encoder=DocumentJSONEncoder)
     byte_size = models.PositiveIntegerField()

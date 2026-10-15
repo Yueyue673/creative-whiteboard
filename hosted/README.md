@@ -1518,3 +1518,57 @@ The main fixture changes only its original catalog and adds its two retained
 versions; original board/private-submission/media rows, earlier history and all
 45 media hashes remain unchanged. The account-switch fixture performs no data
 writes. The hosted branch remains draft, unmerged and undeployed.
+
+
+### Reversible media shelves (development)
+
+The original library now offers **素材库** and **已收起**. An editor can explicitly
+hide a selected registered original from the active list and restore it later.
+Each shelf has its own paginated results and literal metadata search. The
+selected verified preview stays in place when outside that shelf or query;
+archiving does not stop or replace its original audio/image/HTML source.
+
+This is organization, not deletion or storage reclamation. Original UUID,
+bytes, hash, filename, folder identity, ownership, metadata, board references,
+retained history and media-capacity accounting remain intact. Protected media,
+original downloads, static HTML and association inspection remain available to
+current readers. A new library insertion requires explicit restoration first.
+Archived originals still prevent removal of their occupied folder.
+
+A separate `archived` boolean defaults to false for all existing rows in
+migration `0006_mediaasset_archived`. The existing item PATCH accepts only
+`{"archived": true}` or `{"archived": false}` for this action, with fresh original
+account/workspace/editor checks and exact strong If-Match. It cannot combine a
+shelf change with metadata edits. Stale versions reject, unchanged exact-state
+confirmation is a no-op, and JSON-quota failure rolls back the state/version.
+Active metadata charges remain unchanged on migration; archived-state bytes
+count toward JSON quota. Media bytes and asset-count limits include both shelves.
+
+An unconfirmed action never automatically retries. Explicit refresh checks the
+same original before offering another action. Closing a pending request cannot
+reopen the library or repaint a detached source. A pending metadata draft blocks
+the shelf action with an explanation; a peer archive conflicts with its old
+save basis. Explicitly reviewed metadata saves retain the peer's shelf state.
+The author remains responsible for saving/exporting page-memory input before
+reload. No automatic file purge, orphan deletion or private-data migration exists.
+
+Full-store backup/restoration preserves archived rows and exact original bytes.
+Its existing exact-migration validation still applies: keep a pre-upgrade backup
+and its matching application version; do not treat a new-schema snapshot as an
+old-version backup, or restore an older schema directly with the new program.
+No production database is migrated by this development update.
+
+Validation: eight new backend cases cover archive/restore, stale/no-op versions,
+CSRF/identity/roles, both-shelf pagination/search, quota rollback, occupied folders
+and unchanged static HTML/original downloads. All nineteen offline backup cases
+pass with an archived original in the full-store fixture; twenty-four related
+media/search cases and the migration consistency check pass. Six async shelf
+model cases and seven affected existing library cases pass. Nine distinct native
+localhost HTTPS groups use independent synthetic data: eight original-library
+flows plus one retained-metadata/peer-archive flow, including actual playback,
+existing board references, viewer permissions, 320px controls, lost acknowledgement
+and closing a real pending response. Both native stores preserve every board,
+private submission, earlier revision and all 45 source-file hashes; only the
+explicitly selected synthetic media row changes. Local temporary-certificate
+acceptance is not public TLS or physical-device acceptance. Still draft,
+unmerged and undeployed; complete character/table realtime merging is unfinished.

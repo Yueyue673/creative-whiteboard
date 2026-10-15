@@ -71,10 +71,10 @@ export class BoardMedia {
        typeof value.mime!=='string'||!Number.isSafeInteger(value.size)||value.size<1||
        !/^[a-f0-9]{64}$/.test(value.contentHash)||!validETag(value.etag)||
        typeof value.folderId!=='string'||(value.folderId&&!FOLDER.test(value.folderId))||
-       typeof value.folder!=='string'||typeof value.notes!=='string'||value.notes.length>65536||
+       (value.archived!==undefined&&typeof value.archived!=='boolean')||typeof value.folder!=='string'||typeof value.notes!=='string'||value.notes.length>65536||
        !Array.isArray(value.tags)||value.tags.length>50||value.tags.some(tag=>typeof tag!=='string'||tag.length>100))
       throw new BoardError('素材返回结果无法核对，请重新检查列表。',0,'protocol');
-    return Object.freeze({...value, mediaURL:this.url(value.id),kind:mediaKind(value.mime)});
+    return Object.freeze({...value, archived:value.archived===true,mediaURL:this.url(value.id),kind:mediaKind(value.mime)});
   }
   async #request(path,method='GET',data,expected){
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
@@ -91,15 +91,19 @@ export class BoardMedia {
     }finally{clearTimeout(timeout);}
   }
   async #get(path){return (await this.#request(path)).value;}
-  async list(after=null){
+  async list(after=null,archived=false){
+    if(typeof archived!=='boolean')throw new TypeError('素材显示范围无效');
     if(after!==null&&!validAssetId(after))throw new TypeError('素材翻页编号无效');
-    const value=await this.#get('assets/items?limit=40'+(after?'&after='+after:''));
+    const value=await this.#get('assets/items?limit=40'+(after?'&after='+after:'')+(archived?'&shelf=archived':''));
     if(!Array.isArray(value.items)||value.items.length>40||!(value.next===null||validAssetId(value.next)))throw new BoardError('素材列表无法核对。',0,'protocol');
-    return {items:value.items.map(item=>this.asset(item)),next:value.next};
+    const items=value.items.map(item=>this.asset(item));
+    if(items.some(item=>item.archived!==archived))throw new BoardError('素材显示范围无法核对，请刷新。',0,'protocol');
+    return {items,next:value.next};
   }
-  async search(query){
+  async search(query,archived=false){
+    if(typeof archived!=='boolean')throw new TypeError('素材显示范围无效');
     if(typeof query!=='string'||!query.trim()||[...query].length>120||/[\p{Cc}\p{Cs}]/u.test(query))throw new TypeError('查找词须为1至120个字符。');
-    query=query.trim();await this.access();const value=await this.#get('assets/search?q='+encodeURIComponent(query));
+    query=query.trim();await this.access();const value=await this.#get('assets/search?q='+encodeURIComponent(query)+(archived?'&shelf=archived':''));
     if(!value||value.account!==this.#scope.account||value.workspace!==this.#scope.workspace||value.query!==query||
        !['registeredMetadata','limited'].includes(value.coverage)||!Number.isSafeInteger(value.scannedAssets)||value.scannedAssets<0||value.scannedAssets>500||
        !Number.isFinite(value.checkedAt)||value.checkedAt<=0||!Array.isArray(value.items)||value.items.length>40)
@@ -107,7 +111,8 @@ export class BoardMedia {
     const seen=new Set(),items=value.items.map(row=>{
       if(!row||!['素材名称','原文件名','说明','标签'].includes(row.context)||typeof row.excerpt!=='string'||[...row.excerpt].length>142)
         throw new BoardError('素材查找线索无法核对，请重新查找。',0,'protocol');
-      const asset=this.asset(row.asset);if(seen.has(asset.id))throw new BoardError('素材查找记录重复，请重新查找。',0,'protocol');
+      const asset=this.asset(row.asset);if(asset.archived!==archived)throw new BoardError('素材查找范围无法核对，请刷新。',0,'protocol');
+      if(seen.has(asset.id))throw new BoardError('素材查找记录重复，请重新查找。',0,'protocol');
       seen.add(asset.id);return Object.freeze({asset,context:row.context,excerpt:row.excerpt});
     });
     if(items.length>value.scannedAssets)throw new BoardError('素材查找数量无法核对，请重新查找。',0,'protocol');
