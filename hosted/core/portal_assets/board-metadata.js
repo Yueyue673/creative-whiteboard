@@ -5,11 +5,11 @@ const exact=value=>JSON.stringify(value);
 // One retained form has its own asset, original version and author input.
 // Library selection, refresh, late replies and new cookies cannot retarget it.
 export class BoardMetadata {
-  #api; #scope; #saved; #draft=null; #read=false; #edit=false; #busy=false; #phase='ready'; #generation=0; #candidate=null;
+  #api; #scope; #saved; #draft=null; #read=false; #edit=false; #busy=false; #phase='ready'; #generation=0; #candidate=null; #opening=null; #reopen=null;
   constructor(api,scope,saved){
     this.#api=api;this.#scope=Object.freeze({...scope});this.#saved=saved;
     $('closeMetadata').onclick=()=>$('metadataDialog').close();
-    $('metadataDialog').addEventListener('close',()=>{this.#generation++;this.controls();});
+    $('metadataDialog').addEventListener('close',()=>{this.#generation++;this.#reopen=null;this.controls();});
     $('metadataDialog').addEventListener('keydown',event=>{
       if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){
         event.preventDefault();event.stopPropagation();if(!event.isComposing&&$('metadataDialog').open)this.save();
@@ -34,7 +34,7 @@ export class BoardMetadata {
   get pending(){return this.#busy||this.dirty||['uncertain','conflict'].includes(this.#phase)&&!!this.#draft;}
   canType(){return $('metadataDialog').open&&!!this.#draft&&this.#read&&this.#edit&&this.#phase!=='paused';}
   sync(read,edit){
-    if(this.#read&&!read){this.#generation++;this.#candidate=null;this.#phase='paused';this.message('原账号或素材访问已暂停，你的说明仍在这页，可复制或导出。');}
+    if(this.#read&&!read){this.#generation++;this.#reopen=null;this.#candidate=null;this.#phase='paused';this.message('原账号或素材访问已暂停，你的说明仍在这页，可复制或导出。');}
     if(this.#edit&&!edit&&this.#draft){this.#candidate=null;this.#phase='paused';this.message('编辑权限已暂停，你的说明仍保留；核对权限后再继续。');}
     this.#read=read;this.#edit=edit;this.controls();
   }
@@ -98,7 +98,17 @@ export class BoardMetadata {
       if(id&&id!==this.#draft.original.id)this.message('先处理这份未完成的说明；它仍属于上方标明的原素材。');
       this.controls();return;
     }
-    if(!id||!this.#read||this.#busy)return;
+    if(this.#busy){
+      const target=id??this.#opening;
+      if(!target||!this.#read||!this.#opening)return;
+      // An explicit reopen invalidates the old read. A second close cancels
+      // this queued choice; an old reply must never select another original.
+      this.#generation++;this.#reopen=target;
+      if(!$('metadataDialog').open)$('metadataDialog').showModal();
+      this.message('正在等待前次读取结束，再重新核对所选素材…');this.controls();return;
+    }
+    if(!id||!this.#read)return;
+    this.#opening=id;this.#reopen=null;
     this.#draft=null;this.#candidate=null;this.#busy=true;this.#phase='ready';
     $('metadataTarget').textContent='正在核对所选素材…';this.message('正在读取原账号工作区的素材说明…');
     $('metadataDialog').showModal();const generation=++this.#generation;this.controls();
@@ -108,7 +118,11 @@ export class BoardMetadata {
       this.#draft={original:asset,base:fields(asset),data:fields(asset)};this.render();this.folders(folders);
       this.message(this.#edit?'填写后确认保存，原文件不会改变。':'当前只有阅读权限，可查看或导出说明。');
     }catch(error){if(generation===this.#generation)this.message(error.message);}
-    finally{this.#busy=false;this.controls();}
+    finally{
+      const target=this.#reopen;
+      this.#opening=null;this.#reopen=null;this.#busy=false;this.controls();
+      if(target&&this.#read&&$('metadataDialog').open&&!this.#draft)await this.open(target);
+    }
   }
   async save(){
     if(!this.canType()||this.#busy||this.#phase!=='ready'||!this.dirty)return;

@@ -2008,3 +2008,21 @@ pausing the original page and disabling media access. Baseline/final workspace
 document rows and45 source hashes remain unchanged, with zero scoped mutation
 requests. The final fixture separately verifies its sole expected synthetic
 membership downgrade. No server permission rule or deployment status changes.
+
+### Reopening a loading original's metadata (development)
+
+Closing an initial metadata read and immediately choosing **编辑说明与位置**
+again left its dialog closed until the earlier request finished. An explicit
+reopen now shows the loading dialog, invalidates the canceled read and queues a
+fresh check of the latest explicitly chosen original. **继续未完成的素材说明**
+keeps the same original when no new selection is supplied. Closing again or
+losing read access cancels the queued choice; a late reply cannot reopen it.
+An existing author's draft or in-flight save retains its original target and
+later input, and readonly forms stay readonly.
+
+Six new real-controller cases cover those asynchronous boundaries. An actual
+HTTPS baseline reproduces the inert action; four native320px flows verify same
+original, another registered original, close-again cancellation and an actual
+readonly member's resume. Baseline/final workspace rows, membership rows and45
+original file hashes are unchanged, with zero scoped mutation requests. Held
+requests delay real protected replies; they do not fabricate metadata or save.
