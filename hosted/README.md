@@ -1619,3 +1619,48 @@ revisions/registered metadata and all45 source-file hashes. Four new async
 navigation/drop guard cases, thirteen affected library/shelf cases and twelve
 portal cases pass. No backend/schema/endpoint or desktop program change is added.
 The hosted branch remains draft, unmerged and undeployed.
+
+
+### Finish one intentional import (development)
+
+Repeating the unchanged upload control used to send the same chosen File twice.
+After a verified upload reply, the original importer now says **已上传** and disables
+that choice's upload action, including late/repeated callbacks and destination
+changes. A newly selected file starts a new explicit action. This is a page-local
+completion guard, not server deduplication, idempotent upload replay or a promise
+that intentionally reselected identical files cannot be uploaded again.
+
+**清除文件选择** releases only the page's chosen File and native file-input entry.
+It preserves the stable destination, current source preview, device original,
+registered files and existing board references. It cannot clear or replace a
+pending upload. A rejected/unconfirmed upload retains its selection. Clearing an
+uncertain choice explicitly says the prior server result is still unconfirmed;
+it neither deletes that result nor retries it. Original-account/workspace checks
+and the existing explicit uncertain-retry confirmation remain in force.
+
+An unsent or unconfirmed file now participates in the existing before-unload
+warning. Canceling that native prompt keeps its bytes and destination. Confirmed
+or explicitly cleared selections do not create a pending-file warning. These
+choices and confirmations live only in this page, not durable browser storage or
+cross-device recovery; browser warnings are not a backup or a force-close guard.
+
+A verified reply can complete its original file choice after closing the library,
+but cannot refresh/reselect over a newer library view or another mounted source.
+The author's original listening position stays in place. Long filenames no longer
+consume the scope controls' desktop column: the folded filename stays compact,
+with its literal full name available on hover and in the expanded importer.
+Import actions retain a 44px minimum height, including at 320px.
+
+Validation: six new actual-controller cases and seventeen affected library cases,
+plus twelve portal checks, pass locally. Native synthetic localhost HTTPS checks
+cover seven distinct import flows across a six-flow run and a focused final
+compact-window run. A separate final desktop geometry check verifies the long-name
+fix; these are not one full seven-flow rerun. The six-flow run stopped at its later
+new button-height assertion, which was corrected to 44px and checked separately.
+The baseline proves two repeated posts from the same unchanged choice. The final
+compact fixture makes exactly one explicit upload, verifies its exact source hash
+and original account/folder, and preserves all 45 existing source hashes, boards,
+revisions and private submissions. The final header fixture makes zero data writes.
+Real post-commit acknowledgements are held on the temporary TLS socket, not mocked
+success replies. Public TLS, hardware IME, physical devices, server deduplication,
+complete realtime merging and a deployed hosted service remain unaccepted.

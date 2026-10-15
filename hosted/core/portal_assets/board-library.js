@@ -7,7 +7,7 @@ const text=(tag,value,className)=>{const item=document.createElement(tag);item.t
 
 export class BoardLibrary {
   #query=''; #matches=new Map(); #selectionReady=false; #listReady=false; #archived=false; #changingShelf=false; #shelfUncertain=null;
-  #api; #insert; #metadata; #folders; #read=false; #edit=false; #epoch=0; #previewEpoch=0; #refreshing=false; #referencesEpoch=0; #checkingReferences=false; #scope; #selected=null; #file=null; #uploading=false; #uncertain=false; #next=null; #items=new Map(); #singleLimit=Infinity;
+  #api; #insert; #metadata; #folders; #read=false; #edit=false; #epoch=0; #previewEpoch=0; #refreshing=false; #referencesEpoch=0; #checkingReferences=false; #scope; #selected=null; #file=null; #uploaded=null; #uploading=false; #uncertain=false; #next=null; #items=new Map(); #singleLimit=Infinity;
   constructor(api,insert,scope){
     this.#api=api;this.#insert=insert;this.#scope=Object.freeze({...scope});
     this.#folders=new BoardFolders(api,scope,catalog=>this.catalogSaved(catalog));
@@ -37,6 +37,7 @@ export class BoardLibrary {
     $('mediaSearch').addEventListener('keydown',event=>{if(event.key==='Escape'&&($('mediaSearch').value||this.#query)){event.preventDefault();event.stopPropagation();this.clearSearch();}});
     $('mediaFile').onchange=()=>this.choose($('mediaFile').files[0]);
     $('uploadMedia').onclick=()=>this.upload();$('cancelUpload').onclick=()=>this.#api.cancel();
+    $('clearChosenMedia').onclick=()=>this.clearFile();
     $('insertMedia').onclick=()=>this.insert();
     $('activeMedia').onclick=()=>this.shelf(false);$('archivedMedia').onclick=()=>this.shelf(true);
     $('archiveMedia').onclick=()=>this.changeShelf();
@@ -79,7 +80,8 @@ export class BoardLibrary {
   close(){this.clearMedia();$('mediaDialog').close();}
   controls(){
     $('mediaImport').hidden=!this.#edit;
-    $('mediaImportLabel').textContent=this.#file?'已选文件 · '+this.#file.name:'放入自己的文件';
+    $('mediaImportLabel').title=this.#file?.name||'';
+    $('mediaImportLabel').textContent=this.#file?(this.#uploaded===this.#file?'已上传 · ':'已选文件 · ')+this.#file.name:'放入自己的文件';
     for(const [id,archived] of [['activeMedia',false],['archivedMedia',true]]){
       $(id).disabled=!this.#read||this.#changingShelf;$(id).setAttribute('aria-pressed',String(this.#archived===archived));
     }
@@ -88,7 +90,9 @@ export class BoardLibrary {
     $('mediaItems').setAttribute('aria-busy',String(this.#refreshing));
     for(const button of $('mediaItems').children)button.disabled=!this.#read||this.#refreshing||this.#changingShelf||!this.#listReady;
     $('mediaFile').disabled=$('uploadFolder').disabled=!this.#edit||this.#uploading||this.#refreshing;
-    $('uploadMedia').disabled=!this.#edit||!this.#file||this.#uploading||this.#refreshing;
+    $('uploadMedia').disabled=!this.#edit||!this.#file||this.#uploaded===this.#file||this.#uploading||this.#refreshing;
+    $('uploadMedia').textContent=this.#file&&this.#uploaded===this.#file?'已上传':'确认上传';
+    $('clearChosenMedia').hidden=!this.#file;$('clearChosenMedia').disabled=this.#uploading;
     $('cancelUpload').hidden=!this.#uploading;
     const unavailable=!this.#read||!this.#selected||!this.#selectionReady||this.#refreshing;
     $('insertMedia').disabled=!this.#edit||unavailable||this.#selected?.archived===true||this.#changingShelf||this.#shelfUncertain===this.#selected?.id;
@@ -104,10 +108,18 @@ export class BoardLibrary {
   }
   choose(file,files=null){
     if(!file||!this.#edit||this.#uploading||!$('mediaDialog').open)return;
-    this.#file=file;this.#uncertain=false;
+    this.#file=file;this.#uploaded=null;this.#uncertain=false;
     if(files){try{$('mediaFile').files=files;}catch{$('mediaFile').value='';}}
     $('chosenMedia').textContent=file.name+' · '+bytesLabel(file.size);
     $('uploadState').textContent='文件仍在你的设备；确认上传后才会进入这个工作区。';$('uploadProgress').hidden=true;this.controls();
+  }
+  clearFile(){
+    if(this.#uploading||!this.#file||!$('mediaDialog').open)return;
+    const uncertain=this.#uncertain;
+    this.#file=null;this.#uploaded=null;this.#uncertain=false;
+    $('mediaFile').value='';$('chosenMedia').textContent='';$('uploadProgress').hidden=true;
+    $('uploadState').textContent=uncertain?'已清除本页文件选择；上次上传结果仍未确认，请刷新列表核对。设备原件和已上传素材均未删除。':'已清除本页文件选择；设备原件和已上传素材均未删除。';
+    this.controls();$('mediaFile').focus({preventScroll:true});
   }
   backToList(){
     if(!this.#read||!$('mediaDialog').open)return;
@@ -334,10 +346,10 @@ export class BoardLibrary {
     }catch(error){if(valid())$('mediaPreview').textContent=error.message;}
   }
   async upload(){
-    if(!this.#edit||!this.#file||this.#uploading||this.#refreshing)return;
+    if(!this.#edit||!this.#file||this.#uploaded===this.#file||this.#uploading||this.#refreshing||!$('mediaDialog').open)return;
     if(this.#file.size>this.#singleLimit){$('uploadState').textContent='这个文件超过单文件上限 '+bytesLabel(this.#singleLimit)+'，尚未发送；原文件仍在页面。';return;}
     if(this.#uncertain&&!confirm('上次上传未确认，请先刷新列表检查。仍要把这份文件再上传一次吗？可能出现重复素材。'))return;
-    const file=this.#file,folder=$('uploadFolder').value;
+    const file=this.#file,folder=$('uploadFolder').value,epoch=this.#epoch,selection=this.#selected;
     if($('uploadFolder').selectedOptions[0]?.disabled){$('uploadState').textContent='原位置已不存在，请明确选择新的存放位置。';return;}
     this.#uploading=true;$('uploadProgress').hidden=false;$('uploadProgress').value=0;
     $('uploadState').textContent='正在核对原账号和上传位置…';this.controls();
@@ -347,8 +359,12 @@ export class BoardLibrary {
         if(fraction!==null){$('uploadProgress').value=fraction*100;$('uploadState').textContent=fraction>=1?'文件已发送，正在等待服务器确认…':'正在发送 '+Math.floor(fraction*100)+'%';}
       });
       if(!this.#read||!this.#edit){this.#uncertain=true;$('uploadState').textContent='原文件仍保留，请在原账号工作区的新页面检查上传结果。';return;}
-      this.#uncertain=false;$('uploadState').textContent='上传已确认 · '+asset.filename+'；选择“放到白板”后才会添加内容。';
-      await this.refresh();if(this.#read)this.select(asset);
+      this.#uploaded=file;this.#uncertain=false;$('uploadState').textContent='上传已确认 · '+asset.filename+'；选择“放到白板”后才会添加内容。再次上传须重新选择文件。';
+      // A confirmed upload belongs to the original action. Closing, searching
+      // or choosing another preview must not let its late acknowledgement
+      // replace the author's newer place in the library.
+      if(epoch!==this.#epoch||this.#selected!==selection||!$('mediaDialog').open)return;
+      await this.refresh();if(this.#read&&epoch+1===this.#epoch&&$('mediaDialog').open)this.select(asset);
     }catch(error){this.#uncertain=error.code==='upload_uncertain'||error.code==='account_changed';$('uploadState').textContent=error.message;}
     finally{this.#uploading=false;this.controls();}
   }
@@ -362,5 +378,5 @@ export class BoardLibrary {
     }catch(error){$('mediaMessage').textContent=error.message;}
     finally{this.controls();}
   }
-  get pending(){return this.#uploading||this.#changingShelf||this.#metadata.pending||this.#folders.pending;}
+  get pending(){return Boolean(this.#file&&this.#uploaded!==this.#file)||this.#uploading||this.#changingShelf||this.#metadata.pending||this.#folders.pending;}
 }
