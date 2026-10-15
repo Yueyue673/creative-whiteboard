@@ -48,6 +48,11 @@ def file(request, workspace_id, name='shell.html'):
     # Exact legacy navigation prefixes, never request-driven program rewriting.
     for entry in ('index.html', 'shell.html'):
         text = text.replace('/' + entry + '?', base + entry + '?' + bound + '&')
+    if name == 'shell.js':
+        # The desktop root means its current filesystem workspace. Hosted home
+        # means the personal workspace, so preserve this pane's explicit scope.
+        text = text.replace("w.location.replace('/?board='+encodeURIComponent(t.boardId))",
+                            'w.location.replace(' + json.dumps(base + '?' + bound + '&board=') + '+encodeURIComponent(t.boardId))')
     text = text.replace("const mediaURL=id=>'/api/media/'+encodeURIComponent(id);", 'const mediaURL=id=>window.whiteboardHosted.mediaURL(id);')
     text = text.replace("'/api/preview/'+encodeURIComponent(id)", 'window.whiteboardHosted.previewURL(id)')
     text = text.replace("'/api/preview/'+encodeURIComponent(a.id)", 'window.whiteboardHosted.previewURL(a.id)')

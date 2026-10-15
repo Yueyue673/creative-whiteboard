@@ -53,6 +53,25 @@ class OriginalWorkbenchTests(TestCase):
         guest=Client();self.assertEqual(guest.get(self.app+'shell.js').status_code,401)
         self.assertNotIn(self.owner.email,guest.get(self.app).content.decode())
 
+    def test_original_external_window_keeps_exact_account_workspace_and_board(self):
+        script = self.client.get(self.app+'shell.js').content.decode()
+        self.assertNotIn("w.location.replace('/?board='", script)
+        self.assertIn('w.location.replace("'+self.app+'?account='+str(self.owner.pk)+'&board="+encodeURIComponent(t.boardId))', script)
+        self.assertIn('if(!await pane(t).flush())', script)
+        personal = create_personal_workspace(self.owner)
+        personal_app = f'/w/{personal.pk}/app/'
+        other_script = self.client.get(personal_app+'shell.js').content.decode()
+        self.assertIn('w.location.replace("'+personal_app+'?account='+str(self.owner.pk)+'&board="', other_script)
+        self.assertNotIn('w.location.replace("'+self.app, other_script)
+
+    def test_old_external_window_url_refuses_a_new_account_instead_of_rebinding(self):
+        Membership.objects.create(workspace=self.space,account=self.other,role='editor')
+        self.client.force_login(self.other)
+        response = self.client.get(self.app+'?account='+str(self.owner.pk)+'&board=one')
+        self.assertEqual(response.status_code,409)
+        self.assertEqual(response.json()['code'],'account_changed')
+        self.assertFalse(WorkspaceDocument.objects.filter(workspace=self.space).exists())
+
     def test_native_library_reuses_registered_original_bytes_and_atomic_metadata(self):
         asset=upload_stream(self.scope,self.owner,io.BytesIO(b'original synthetic bytes'),24,'original.txt','')
         read=self.read();self.assertEqual(read.status_code,200)
