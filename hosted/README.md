@@ -1486,3 +1486,35 @@ unchanged; only the intentionally edited peer metadata record changes in the
 main fixture. This is not new file deletion/recovery tooling, physical-device
 acceptance, public certificate verification or a deployment. The hosted branch
 remains draft, unmerged and undeployed.
+
+### Reopen an unfinished directory operation reliably (development)
+
+Closing the directory window during its initial read invalidates that result.
+If the user reopens before it finishes, one fresh read of the original scope
+follows; the window no longer remains indefinitely at its loading caption.
+Closing again cancels that requested follow-up read. No save is retried.
+
+An existing operation reopens from its retained name, kind and stable target,
+including while an explicitly submitted save awaits acknowledgement. Hidden
+late input, submit, review, discard and export actions cannot change or commit
+that retained operation. A previously submitted save still acknowledges only
+its captured review; later author input remains pending. A canceled version
+inspection cannot provide a late comparison or replace the save basis; the
+window offers an explicit new inspection. A paused original-account view keeps
+the author's operation and target without repopulating cached directory choices.
+
+This applies the same
+[user control and freedom principle](https://www.nngroup.com/articles/user-control-and-freedom/)
+to closing, resuming and abandoning a pending operation. It adds no schema,
+endpoint, automatic directory changes or new confirmation flow.
+
+Seven asynchronous cases exercise the actual controller. A synthetic localhost
+HTTPS baseline reproduces the stuck initial read. Five native groups check
+delayed real reads, exact retained author fields, two explicit real catalog saves,
+later input during acknowledgement, canceled comparison and 320px controls;
+a separate sixth group checks an actual shared-member account switch. Hidden
+late events are simulated; this does not accept hardware IME or physical devices.
+The main fixture changes only its original catalog and adds its two retained
+versions; original board/private-submission/media rows, earlier history and all
+45 media hashes remain unchanged. The account-switch fixture performs no data
+writes. The hosted branch remains draft, unmerged and undeployed.

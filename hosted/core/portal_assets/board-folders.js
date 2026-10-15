@@ -6,12 +6,12 @@ const initial=()=>({kind:'create',target:'',name:''});
 // Each review is one operation on a captured catalog. A conflict is reviewed
 // against a new tree, never an old whole catalog blindly retried with a new tag.
 export class BoardFolders {
-  #api;#scope;#saved;#draft=null;#review=null;#candidate=null;#busy=false;#phase='ready';#read=false;#edit=false;#generation=0;
+  #api;#scope;#saved;#draft=null;#review=null;#candidate=null;#busy=false;#reopenRead=false;#phase='ready';#read=false;#edit=false;#generation=0;
   constructor(api,scope,saved){
     this.#api=api;this.#scope=Object.freeze({...scope});this.#saved=saved;
     $('manageFolders').onclick=()=>this.open();$('resumeFolders').onclick=()=>this.open();
     $('closeFolders').onclick=()=>$('foldersDialog').close();
-    $('foldersDialog').addEventListener('close',()=>{this.#generation++;this.#candidate=null;this.controls();});
+    $('foldersDialog').addEventListener('close',()=>{this.#generation++;this.#candidate=null;this.#reopenRead=false;this.controls();});
     $('folderForm').onsubmit=e=>{e.preventDefault();this.prepare();};
     $('folderKind').onchange=()=>this.change('kind',$('folderKind').value);
     $('folderTarget').onchange=()=>this.change('target',$('folderTarget').value);
@@ -19,13 +19,13 @@ export class BoardFolders {
     $('saveFolders').onclick=()=>this.save();$('inspectFolders').onclick=()=>this.inspect();
     $('useFolderVersion').onclick=()=>this.useVersion();$('exportFolders').onclick=()=>this.export();
     $('discardFolders').onclick=()=>{
-      if(this.#busy||!this.#draft||!confirm('放弃这页未完成的目录操作？已保存目录和素材不会改变。'))return;
+      if(!$('foldersDialog').open||this.#busy||!this.#draft||!confirm('放弃这页未完成的目录操作？已保存目录和素材不会改变。'))return;
       this.#draft=null;this.#review=null;this.#candidate=null;this.#phase='ready';$('foldersDialog').close();this.controls();
     };
   }
   get dirty(){return !!this.#draft&&exact(this.#draft.input)!==exact(this.#draft.acknowledged);}
   get pending(){return this.#busy||this.dirty||!!this.#draft&&['conflict','uncertain'].includes(this.#phase);}
-  canType(){return !!this.#draft&&this.#read&&this.#edit&&this.#phase!=='paused';}
+  canType(){return $('foldersDialog').open&&!!this.#draft&&this.#read&&this.#edit&&this.#phase!=='paused';}
   message(value){$('folderState').textContent=value;$('folderLoading').textContent=value;}
   sync(read,edit){
     if((this.#read&&!read)||(this.#edit&&!edit&&this.#draft)){
@@ -63,7 +63,9 @@ export class BoardFolders {
     for(const folder of entries){const row=element('div',folder.name);row.className='folder-tree-row';row.style.setProperty('--depth',String(Math.min(folder.name.split('/').length-1,5)));root.append(row);}
   }
   targets(){
-    const input=this.#draft.input,entries=folderEntries(this.#draft.catalog.value);
+    const input=this.#draft.input;
+    if(!this.#read){$('folderTarget').replaceChildren(new Option(input.target?'原操作目录（访问已暂停）':'资料库根目录',input.target));$('folderTarget').value=input.target;return;}
+    const entries=folderEntries(this.#draft.catalog.value);
     $('folderTarget').replaceChildren(new Option('资料库根目录',''));
     for(const row of entries)$('folderTarget').append(new Option(row.name,row.id));
     if(input.target&&!entries.some(row=>row.id===input.target)){
@@ -76,8 +78,14 @@ export class BoardFolders {
     this.targets();if(this.#read)this.tree(this.#draft.catalog.value,$('folderTree'));this.controls();
   }
   async open(){
-    if(this.#busy){if(!$('foldersDialog').open)$('foldersDialog').showModal();return;}
-    if(this.#draft&&this.pending){if(!$('foldersDialog').open)$('foldersDialog').showModal();this.controls();return;}
+    if(this.#busy){
+      if(!this.#read&&!this.#draft)return;
+      const reopening=!$('foldersDialog').open;if(reopening)$('foldersDialog').showModal();
+      if(this.#draft)this.render();else if(reopening)this.#reopenRead=true;
+      this.controls();return;
+    }
+    // Render the retained operation, not values left in a hidden DOM field.
+    if(this.#draft&&this.pending){if(!$('foldersDialog').open)$('foldersDialog').showModal();this.render();return;}
     if(!this.#read)return;this.#draft=null;this.#review=null;this.#candidate=null;this.#phase='ready';this.#busy=true;
     $('folderTree').replaceChildren();$('foldersDialog').showModal();const generation=++this.#generation;this.message('正在核对原工作区的目录…');this.controls();
     try{
@@ -86,7 +94,13 @@ export class BoardFolders {
       this.#draft={catalog,input:initial(),acknowledged:initial()};this.render();
       this.message(this.#edit?'按自己的方式命名；每次只处理一项，并核对影响范围。':'当前只有阅读权限，可以查看目录。');
     }catch(error){if(generation===this.#generation)this.message(error.message);}
-    finally{this.#busy=false;this.controls();}
+    finally{
+      const reopen=this.#reopenRead&&this.#read&&$('foldersDialog').open&&!this.#draft;
+      this.#reopenRead=false;this.#busy=false;this.controls();
+      // Closing invalidates that read. A user's explicit reopen waits for it,
+      // then reads the original scope again instead of accepting its late tree.
+      if(reopen)await this.open();
+    }
   }
   prepare(){
     if(!this.canType()||this.#busy||this.#phase!=='ready'||!this.dirty)return;
@@ -118,7 +132,7 @@ export class BoardFolders {
     }finally{this.#busy=false;this.controls();}
   }
   async inspect(){
-    if(!this.#draft||!this.#read||this.#busy)return;const generation=++this.#generation;this.#busy=true;this.#candidate=null;
+    if(!$('foldersDialog').open||!this.#draft||!this.#read||this.#busy)return;const generation=++this.#generation;this.#busy=true;this.#candidate=null;
     this.message('只读取服务器目录，不改变你填写的操作…');this.controls();
     try{
       await this.#api.access();const catalog=await this.#api.catalog();await this.#api.access();
@@ -126,10 +140,14 @@ export class BoardFolders {
       this.#candidate=catalog;this.tree(catalog.value,$('folderCurrentTree'));
       this.message('服务器目录已显示；你填写的操作和旧保存依据保持原样。');this.controls();$('folderComparison').scrollIntoView({block:'nearest'});
     }catch(error){if(generation===this.#generation)this.message(error.message+' 你的操作仍保留。');}
-    finally{this.#busy=false;this.controls();}
+    finally{
+      this.#busy=false;
+      if(generation!==this.#generation&&this.#read&&$('foldersDialog').open&&this.#phase!=='paused')this.message('上一次检查已结束，原操作仍保留；可重新查看服务器目录。');
+      this.controls();
+    }
   }
   async useVersion(){
-    if(!this.#candidate||!this.#draft||!this.#read||!this.#edit||this.#busy)return;
+    if(!$('foldersDialog').open||!this.#candidate||!this.#draft||!this.#read||!this.#edit||this.#busy)return;
     if(!confirm('以刚刚查看的服务器目录重新核对这项操作？会保留你的输入和服务器其他目录；不会直接保存。'))return;
     const candidate=this.#candidate,generation=this.#generation;this.#busy=true;this.controls();
     try{
@@ -140,7 +158,7 @@ export class BoardFolders {
     finally{this.#busy=false;this.controls();}
   }
   export(){
-    if(!this.#draft)return;
+    if(!$('foldersDialog').open||!this.#draft)return;
     const target=folderEntries(this.#draft.catalog.value).find(row=>row.id===this.#draft.input.target)?.name||'';
     const raw=JSON.stringify({format:'creative-folder-input',version:1,account:this.#scope.account,workspace:this.#scope.workspace,
       expected:this.#draft.catalog.etag,targetName:target,input:this.#draft.input,review:this.#review?.changes||null},null,2);
