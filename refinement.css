@@ -264,9 +264,13 @@ button,summary,select{transition:none}
 .ai-source-list article{padding:16px 0;border-bottom:1px solid var(--ui-line)}.ai-source-list a{font-weight:600;color:var(--ui-text);text-decoration:underline;text-underline-offset:3px}.ai-source-list small{display:block;color:var(--ui-muted);margin-top:5px}.ai-source-list p{white-space:pre-wrap;line-height:1.75}.ai-source-limits{color:var(--ui-muted);font-size:13px}.ai-legacy{white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto}.media-marker-tick{min-width:8px!important;min-height:8px!important;width:8px!important;height:8px!important;z-index:2}
 .media-controls .media-marker-tick{background:currentColor!important;padding:0!important;border:0!important;min-width:8px!important;width:8px!important;height:8px!important;line-height:1!important;opacity:.7}.media-controls .media-marker-tick.replay-start{opacity:1}
 .ai-visual-option{display:flex!important;align-items:center;gap:8px;margin:16px 0;font-size:13px}.ai-visual-option input{width:14px!important;height:14px!important;flex:0 0 14px;padding:0!important;margin:0!important;accent-color:var(--ui-accent)}
-#dialog[open]:has(.ai-compose),#dialog[open]:has(.ai-source-list){display:flex;flex-direction:column;padding:0;width:min(660px,calc(100vw - 32px));max-height:calc(100dvh - 64px);overflow:hidden}
-#dialog:has(.ai-compose) #dialogBody,#dialog:has(.ai-source-list) #dialogBody{padding:22px 26px;overflow:auto;min-height:0;scrollbar-gutter:stable}
-#dialog:has(.ai-compose) #dialogActions,#dialog:has(.ai-source-list) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#dialog[open]:has(.research-panel){display:flex;flex-direction:column;padding:0;width:min(660px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:hidden}
+#dialog:has(.research-panel) #dialogBody{display:flex;min-width:0;min-height:0;padding:0;overflow:hidden}
+.research-panel{display:flex;flex-direction:column;min-width:0;min-height:0;max-width:100%;overflow:hidden}
+.research-panel>h2{flex:none;margin:0;padding:18px 22px 16px;border-bottom:1px solid var(--ui-line);font-size:18px;line-height:1.5;overflow-wrap:anywhere}
+.research-panel-content{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 22px}
+#dialog:has(.research-panel) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:650px),(max-height:500px){#dialog[open]:has(.research-panel){max-height:calc(100dvh - 24px)}.research-panel>h2{padding:14px 18px 12px}.research-panel-content{padding:14px 18px}#dialog:has(.research-panel) #dialogActions{padding:10px 14px}}
 .ai-compose>p{line-height:1.75}.ai-compose>.wf-explain{margin-top:4px;margin-bottom:18px}.ai-compose .ai-context-details{margin:12px 0}.media-controls{position:relative}.media-controls .media-marker-tick{top:0!important}
 /* Give authored text the writing space; keep its library information nearby. */
 #dialog[open]:has(.library-content-form){display:flex;flex-direction:column;width:min(900px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 48px);padding:0;overflow:hidden}
