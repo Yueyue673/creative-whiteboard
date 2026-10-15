@@ -38,7 +38,14 @@ its strong ETag. Regular conditional PUT behavior is unchanged.
 
 Independent nodes and independent known note field groups can retain both
 original submissions. Text/format, geometry, appearance and table structure stay
-in groups; attachment nodes and changed unknown extensions stay whole. Concurrent
+in groups; attachment nodes and changed unknown extensions stay whole. Existing
+textual table cells can retain different authors' changes when all three versions
+have the same stored, unique row/column IDs, rectangular string rows, headings,
+widths, geometry and embedded content. Each complete cell string is selected
+unchanged. An overlap in even one cell refuses the whole submission without
+partially writing other cells. Legacy tables without stored IDs and concurrent
+axis, heading, width, geometry or attachment changes remain conservative; the
+merge never invents IDs or moves a cell by its current index. Concurrent
 ordering changes, deletion versus editing, identity collisions, overlapping text,
 missing bases and invalid combined references refuse reconciliation. The exact
 submitting author's input follows the existing private conflict-copy/quota policy;
@@ -61,10 +68,13 @@ role even when the version is unchanged. Dirty input, composition, a captured
 gesture and pending modal operations defer receiving. Changes to the clean focused
 note wait until the author leaves that field; unrelated note updates preserve its
 caret and selection. Local camera/navigation do not follow another page's view.
+An unchanged clean focused table cell can receive changes to other cells on the
+same stored axes. Its original textarea stays mounted, with its selection and
+scroll retained; changes to that focused string or table context still wait.
 Accepted saves wait for active composition/gestures before adopting a result.
 
 Undo applies the inverse of this page's own operation to the current originals.
-Independent peer fields and appended nodes survive; a later overlapping edit
+Independent peer fields, stable table cells and appended nodes survive; a later overlapping edit
 refuses Undo without popping its history entry. In small windows the same existing
 Undo/Redo and library buttons move into the sticky editor heading, where the
 inspector no longer covers them. The same account-bound library button remains
@@ -106,6 +116,22 @@ Windows Chromium HTTPS operations use synthetic accounts and data; browser TLS
 errors are ignored only for that temporary local certificate. They do not prove
 external-domain HTTPS or actual multi-device acceptance. Independent trusted-CA
 preflight and Linux/container recovery checks are separate.
+
+Exact-cell checks: `python manage.py test core.test_table_reconciliation
+core.test_reconciliation --settings=service.test_settings` and
+`node tests/table-cell-reconciliation.mjs`. They include simultaneous real
+database transactions, retained server bases, canonical author history, exact
+private overlap copies, quota rollback, malformed/legacy identity refusal,
+own Undo/Redo, later typing and clean focused-cell receive guards. No storage
+schema, endpoint or desktop installation changes are required.
+Six native two-account localhost HTTPS groups also pass in an independent
+synthetic store: disjoint cell saves, own Undo/Redo, later input during a held
+accepted response, overlapping-cell private copies, an actual concurrent row
+addition, and 320px focused-cell periodic receiving. The last check retains the
+same mounted textarea, selection, scroll and camera. Earlier history, unrelated
+documents, registered metadata and all 45 synthetic original file hashes remain
+unchanged. The local service and test browsers close afterward; this is still
+development evidence, not external TLS, physical-device or deployed acceptance.
 
 The related no-op guard now compares canonical JSON bytes, so opaque Boolean,
 integer and decimal changes are actually stored instead of Python equality

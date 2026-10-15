@@ -47,6 +47,35 @@ def choice(base, incoming, current):
     raise ReconciliationConflict("Overlapping original-value changes")
 
 
+def stable_cells(value):
+    """Only stored, unchanged axes can identify an existing textual cell."""
+    rows, columns = value.get("rows"), value.get("columns")
+    if not isinstance(rows, list) or len(rows) > 5000 or not isinstance(columns, list) or not 1 <= len(columns) <= 100:
+        return False
+    if any(not isinstance(column, str) for column in columns):
+        return False
+    for name, length in (("rowIds", len(rows)), ("columnIds", len(columns))):
+        ids = value.get(name)
+        if not isinstance(ids, list) or len(ids) != length or any(not isinstance(key, str) or not 1 <= len(key) <= 100 for key in ids) or len(set(ids)) != length:
+            return False
+    return all(isinstance(row, list) and len(row) == len(columns) and all(isinstance(cell, str) for cell in row) for row in rows)
+
+
+def table_cells(base, incoming, current):
+    try:
+        return choice(base, incoming, current)
+    except ReconciliationConflict:
+        pass
+    values = (base, incoming, current)
+    context = [{key: item for key, item in value.items() if key != "rows"} for value in values]
+    if not all(stable_cells(value) for value in values) or any(not same(context[0], value) for value in context[1:]):
+        raise ReconciliationConflict("Table axes, layout or embedded content changed")
+    # Select each complete original string. A single overlap refuses the whole
+    # operation; no partial cell writes, inferred identities or text synthesis.
+    rows = [[deepcopy(choice(*cells)) for cells in zip(*versions)] for versions in zip(*(value["rows"] for value in values))]
+    return {**deepcopy(current), "rows": rows}
+
+
 def grouped_node(base, incoming, current):
     if any(value is MISSING for value in (base, incoming, current)):
         return choice(base, incoming, current)
@@ -70,7 +99,8 @@ def grouped_node(base, incoming, current):
     for group in groups:
         values = [{key: value[key] for key in group if key in value}
                   for value in (base, incoming, current)]
-        result.update(deepcopy(choice(*values)))
+        selected = table_cells(*values) if base.get("type") == "table" and "rows" in group else choice(*values)
+        result.update(deepcopy(selected))
     return result
 
 

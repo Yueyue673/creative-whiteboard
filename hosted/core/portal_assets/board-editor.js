@@ -7,7 +7,7 @@ import {SpatialViews,fitRegion,safeViewport} from './board-views.js';
 import {FrameEditor,frameCard,framePatch} from './board-frames.js';
 import {TableEditor,tableCard} from './board-tables.js';
 import {MediaCues} from './media-cues.js';
-import {OwnHistory,valueEqual,validateLiveBoard} from './board-reconciliation.js';
+import {OwnHistory,valueEqual,validateLiveBoard,canReceiveTableCell} from './board-reconciliation.js';
 import {PaperReading} from './paper-reading.js';
 import {DistanceReading} from './space-reading.js';
 
@@ -292,7 +292,7 @@ function drawCanvas(allowResize=false) {
   drawEdges();drawOutline();applyView();
   if(resized)commit(false);
 }
-function selectNode(id) {
+function selectNode(id,retainTableFields=false) {
   selected=id;inputGroup=null;
   for(const card of $('cards').children)card.classList.toggle('selected',card.dataset.node===id);
   const chosen=selectedNode();$('noteFields').hidden=chosen?.type!=='note';$('frameFields').hidden=chosen?.type!=='frame';$('tableFields').hidden=chosen?.type!=='table';$('inspector').classList.toggle('table-inspector',chosen?.type==='table');
@@ -300,7 +300,7 @@ function selectNode(id) {
   if(!editableInspector()){$('inspector').hidden=true;refreshReferenceReturn();return;}
   $('inspector').hidden=false;
   if(chosen.type==='frame'){drawCanvas();frames.select();refreshState();return;}
-  if(chosen.type==='table'){tables.select();refreshState();return;}
+  if(chosen.type==='table'){tables.select(retainTableFields);refreshState();return;}
   const node=activeNode();
   for(const [field,key] of [['noteTitle','title'],['noteBody','body'],['noteUserText','userText'],['noteAnnotation','annotation']])$(field).value=node[key]||'';
   const colour=hex(node.color)?node.color:'#e8e5dc';$('noteColour').value=$('noteHex').value=colour;
@@ -501,7 +501,9 @@ function canReceiveCanonical(next){
   const active=document.activeElement;
   if(next&&active?.matches('input,textarea,select')&&($('inspector').contains(active)||active===$('boardName'))){
     if(active===$('boardName'))return board.name===next.name;
-    return valueEqual(selectedNode(),next.nodes.find(node=>node.id===selected));
+    const nextNode=next.nodes.find(node=>node.id===selected);
+    if(active.matches('[data-table-cell]')&&canReceiveTableCell(selectedNode(),nextNode,active.dataset.rowKey,active.dataset.columnKey,active.value))return true;
+    return valueEqual(selectedNode(),nextNode);
   }
   return true;
 }
@@ -533,7 +535,7 @@ function renderCanonical(){
   const node=selectedNode();
   drawCanvas();$('boardName').value=board.name;
   // Updating an unrelated note keeps the original field and range in place.
-  if(node&&!hidden){selectNode(selectedId);for(const[id,value]of inspectorValues){const input=$(id);if(input&&input.value===value&&field===id&&range){input.setSelectionRange(range[0],range[1],range[2]);input.scrollTop=range[3];}}$('inspector').scrollTop=scroll;}
+  if(node&&!hidden){selectNode(selectedId,true);for(const[id,value]of inspectorValues){const input=$(id);if(input&&input.value===value&&field===id&&range){input.setSelectionRange(range[0],range[1],range[2]);input.scrollTop=range[3];}}$('inspector').scrollTop=scroll;}
   else if(!node){selected=null;$('inspector').hidden=true;}
   if(selectedNode()?.type==='table')tables.restore(tablePlace,!hidden);
   if(field&&$(field)?.value===focusValue&&range){$(field).setSelectionRange(range[0],range[1],range[2]);$(field).scrollTop=range[3];}

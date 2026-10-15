@@ -26,6 +26,30 @@ function choose(base, incoming, current) {
   if (valueEqual(base,current)) return incoming;
   throw new ReconciliationError('这部分内容又被修改，原输入保持不变。');
 }
+function stableCells(value) {
+  const {rows,columns}=value;
+  if(!Array.isArray(rows)||rows.length>5000||!Array.isArray(columns)||columns.length<1||columns.length>100||columns.some(value=>typeof value!=='string'))return false;
+  for(const [name,length] of [['rowIds',rows.length],['columnIds',columns.length]]){
+    const ids=value[name];
+    if(!Array.isArray(ids)||ids.length!==length||ids.some(id=>typeof id!=='string'||![...id].length||[...id].length>100)||new Set(ids).size!==length)return false;
+  }
+  return rows.every(row=>Array.isArray(row)&&row.length===columns.length&&row.every(cell=>typeof cell==='string'));
+}
+const withoutRows=value=>pick(value,keys(value).filter(key=>key!=='rows'));
+function tableCells(base,incoming,current) {
+  try{return choose(base,incoming,current);}catch(error){if(!(error instanceof ReconciliationError))throw error;}
+  const values=[base,incoming,current],context=values.map(withoutRows);
+  if(!values.every(stableCells)||context.slice(1).some(value=>!valueEqual(context[0],value)))throw new ReconciliationError('表格行列、尺寸或格内资料又被修改，原输入保持不变。');
+  // A conflicting cell refuses the complete operation, before any write.
+  return {...current,rows:base.rows.map((row,r)=>row.map((_,c)=>choose(base.rows[r][c],incoming.rows[r][c],current.rows[r][c])))};
+}
+/* A clean focused cell can receive other cells without replacing its input.
+   Pending typing, composition, gestures and dialogs are guarded by the caller. */
+export function canReceiveTableCell(base,next,rowKey,columnKey,fieldValue) {
+  if(base?.type!=='table'||next?.type!=='table'||!stableCells(base)||!stableCells(next)||!valueEqual(withoutRows(base),withoutRows(next)))return false;
+  const row=base.rowIds.indexOf(rowKey),column=base.columnIds.indexOf(columnKey);
+  return row>=0&&column>=0&&typeof fieldValue==='string'&&base.rows[row][column]===fieldValue&&next.rows[row][column]===fieldValue;
+}
 function node(base,incoming,current) {
   if ([base,incoming,current].includes(missing)) return choose(base,incoming,current);
   if (incoming.type!==base.type || current.type!==base.type) return choose(base,incoming,current);
@@ -33,7 +57,7 @@ function node(base,incoming,current) {
   const opaque=[base,incoming,current].map(value=>pick(value,unknown));
   if (base.type==='image'||opaque.slice(1).some(value=>!valueEqual(opaque[0],value))) return choose(base,incoming,current);
   const selected=base.type==='table'?[union(groups[0],groups[5]),...groups.slice(1,5),unknown]:[...groups,unknown];
-  return Object.fromEntries(selected.flatMap(group=>Object.entries(choose(...[base,incoming,current].map(value=>pick(value,group))))));
+  return Object.fromEntries(selected.flatMap(group=>Object.entries((base.type==='table'&&group.includes('rows')?tableCells:choose)(...[base,incoming,current].map(value=>pick(value,group))))));
 }
 function sequence(base,incoming,current,isNodes) {
   try { return structuredClone(choose(base,incoming,current)); } catch(error) { if(!(error instanceof ReconciliationError))throw error; }
