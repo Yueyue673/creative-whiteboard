@@ -2136,3 +2136,13 @@ Optional PNGs come from the original reviewed renderer and selected-media captur
 Sourced replies require a task in the same workspace, bounded source fields and literal http(s) links. They persist separately without writing authored content; the original viewer labels outside claims as unverified. Legacy proposal listing/reading is scoped and read-only; existing migrated records, if any, may be read, but proposal/status write-back stays refused. No private desktop records are imported automatically.
 
 Migration0008 adds the immutable research table. Matching-schema full backups include tasks, sources and their exact image bytes. A schema downgrade refuses to drop retained research. New task/source writes default to disabled unless `CREATIVE_BOARD_HOSTED_NATIVE_RESEARCH=1`; setting it to0 preserves reads, downloads and existing references on the same migration-aware backend. Enable only after independent migration, permissions, original browser, backup/recovery and exact release acceptance. Source code or development checks alone do not establish that a deployment has this feature.
+# 邮箱注册与登录入口
+
+登录入口使用单纸面布局。未登录页面只载入入口需要的两份样式和一份脚本；账号管理等模块在登录后的页面载入。原工作台仍使用原编辑器。
+
+邮箱验证码注册默认为关闭。启用前须配置自己的 SMTP 发件服务、实际验证收信，并保留原账号。设置 `CREATIVE_BOARD_EMAIL_REGISTRATION=1`、`CREATIVE_BOARD_MAIL_HOST`、`CREATIVE_BOARD_MAIL_PORT`（默认465）、`CREATIVE_BOARD_MAIL_TLS`（`ssl` 或 `starttls`）、`CREATIVE_BOARD_MAIL_USER` 和可选 `CREATIVE_BOARD_MAIL_FROM`。密码使用只读挂载的秘密文件，再设置 `CREATIVE_BOARD_MAIL_PASSWORD_FILE` 为容器内路径；不要放入源码、镜像、日志或公开配置。Compose 操作覆盖文件须显式给应用挂载这份秘密文件。关闭注册开关不影响已有账号登录。
+
+验证码仅发往申请邮箱，10分钟有效，与申请浏览器和邮箱绑定。服务端保存摘要、限制发送及尝试次数，验证成功后原子创建账号及私有工作区；投递失败不会创建账号或假报已发送。邀请注册保持兼容。公开入口尚未配置发件服务时会如实提示未开通。
+
+保存遇到网络/暂时服务故障后会保留原输入、显示持续原因并有限频率重试；20秒未回复会结束等待。重试先核对上次尝试，避免已写入但回复丢失时产生假冲突；其他设备有不同更新时停下核对，不自动覆盖。可手动重试或导出当前内容。程序JS/CSS使用私有缓存并逐次重新验证；工作台程序仍先检查当前账号和权限，HTML及数据接口不缓存。
+

@@ -34,14 +34,15 @@ def recipient_role(value):
     return value
 
 
-def throttle(request, operation, subject, limit):
+def throttle(request, operation, subject, limit, seconds=None):
     now = timezone.now()
-    slot = int(now.timestamp()) // settings.THROTTLE_WINDOW_SECONDS
+    seconds = seconds or settings.THROTTLE_WINDOW_SECONDS
+    slot = int(now.timestamp()) // seconds
     material = f"{operation}\0{slot}\0{subject}".encode("utf-8")
     key = hmac.new(settings.SECRET_KEY.encode("utf-8"), material, hashlib.sha256).hexdigest()
     # Updates are atomic in SQLite too. A racing read may reject an extra attempt,
     # but can never grant an attempt beyond the limit.
-    ThrottleBucket.objects.get_or_create(key=key, defaults={"expires_at": now + timedelta(seconds=settings.THROTTLE_WINDOW_SECONDS * 2)})
+    ThrottleBucket.objects.get_or_create(key=key, defaults={"expires_at": now + timedelta(seconds=seconds * 2)})
     ThrottleBucket.objects.filter(key=key).update(count=F("count") + 1)
     count = ThrottleBucket.objects.values_list("count", flat=True).get(key=key)
     ThrottleBucket.objects.filter(expires_at__lt=now).delete()

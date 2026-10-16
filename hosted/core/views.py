@@ -125,12 +125,28 @@ def register(request):
     if request.user.is_authenticated:
         raise APIError("请先退出当前账号，或使用当前账号接受邀请", 409)
     throttle(request, "register-ip", client_address(request), settings.REGISTRATION_IP_LIMIT)
-    data = payload(request, ("token", "email", "password", "name"))
-    account = register_by_invitation(data["token"], data["email"], data["password"], data["name"])
+    data = payload(request, ("email", "password", "name"), ("token", "code"))
+    if 'code' in data and 'token' not in data:
+        from .email_registration import register_verified
+        account = register_verified(request, data['email'], data['password'], data['name'], data['code'])
+    elif 'token' in data and 'code' not in data:
+        account = register_by_invitation(data["token"], data["email"], data["password"], data["name"])
+    else:
+        raise APIError('请先验证邮箱')
     login(request, account, backend="django.contrib.auth.backends.ModelBackend")
     from .sessions import login_label
     request.session.login_label = login_label(request)
     return JsonResponse({"account": account_json(account)}, status=201)
+
+
+@endpoint(("POST",))
+def registration_code(request):
+    if request.user.is_authenticated:
+        raise APIError('当前已有登录账号，请先明确退出。', 409)
+    data = payload(request, ('email',))
+    from .email_registration import send_code
+    send_code(request, data['email'])
+    return JsonResponse({'sent': True, 'message': '如果这个邮箱可以注册，验证码将发到邮箱，10 分钟内有效；已有账号请直接登录。', 'retryAfter': 60})
 
 
 @endpoint(("GET", "HEAD", "POST"), signed_in=True, account_bound=True)

@@ -13,7 +13,7 @@ class ResponsePolicyMiddleware:
         # Validate Host on every request, including endpoints not using absolute URLs.
         request.get_host()
         response = self.get_response(request)
-        response["Cache-Control"] = "no-store"
+        response["Cache-Control"] = "private, no-cache" if getattr(response, 'creative_program_cache', False) else "no-store"
         response["X-Frame-Options"] = "DENY"
         policy = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         if getattr(response, "creative_portal", False):

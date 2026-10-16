@@ -37,6 +37,7 @@ urlpatterns = [
     path("api/health", views.health),
     path("api/session", views.session),
     path("api/login", views.sign_in),
+    path("api/register/code", views.registration_code),
     path("api/logout", views.sign_out),
     path("api/register", views.register),
     path("api/account/sessions", account_views.sessions),

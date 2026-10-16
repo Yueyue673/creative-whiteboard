@@ -15,6 +15,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import Membership
 from .scope import valid_membership
 from .views import account_json
+from .program_response import program_response
 
 PROGRAM_FILES = frozenset(json.loads((Path(__file__).resolve().parents[1] / 'deployment/native_files.json').read_text())['files'])
 
@@ -84,7 +85,8 @@ def file(request, workspace_id, name='shell.html'):
         response = HttpResponse(text, content_type='text/html; charset=utf-8')
         response.creative_workbench_nonce = nonce
         return response
-    return HttpResponse(text, content_type='text/css; charset=utf-8' if name.endswith('.css') else 'text/javascript; charset=utf-8')
+    # Revalidation is deliberately AFTER current account and membership checks.
+    return program_response(request, text, 'text/css; charset=utf-8' if name.endswith('.css') else 'text/javascript; charset=utf-8')
 
 
 # This view does its own fresh membership check for program and HTML requests;

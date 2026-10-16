@@ -21,7 +21,7 @@ ASSETS = {
     "board-cell-notes.js": "text/javascript", "board-cell-notes.css": "text/css", "cell-notes-model.js": "text/javascript",
     "board-cell-media.js": "text/javascript", "cell-media-model.js": "text/javascript",
     "media-cues.js": "text/javascript", "media-cues.css": "text/css", "media-cue-model.js": "text/javascript",
-    "portal.js": "text/javascript", "portal.css": "text/css",
+    "portal.js": "text/javascript", "portal.css": "text/css", "entry.css": "text/css",
     "workspace-search.js": "text/javascript",
     "board-transport.js": "text/javascript", "board-drafts.js": "text/javascript",
     "board-session.js": "text/javascript",
@@ -62,6 +62,7 @@ def page(request, workspace_id=None, key=None, create=False):
         "join": request.path == "/join",
         "key": key, "create": create,
         "destination": request.path if key is not None else None,
+        "emailRegistration": settings.HOSTED_EMAIL_REGISTRATION,
     }})
     response.creative_portal = True
     response.creative_editor = editor
@@ -81,4 +82,5 @@ def asset(request, name):
     path = Path(__file__).resolve().parents[2] / "vendor" / vendor[name] if name in vendor else ASSET_ROOT / name
     if path.resolve() != path.absolute() or not path.is_file():
         raise Http404
-    return HttpResponse(path.read_bytes(), content_type=ASSETS[name])
+    from .program_response import program_response
+    return program_response(request, path.read_bytes(), ASSETS[name])

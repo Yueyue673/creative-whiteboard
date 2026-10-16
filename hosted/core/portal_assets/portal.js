@@ -14,6 +14,7 @@
   if (location.hash) history.replaceState(null, '', location.pathname);
   if (!/^[A-Za-z0-9_-]{43}$/.test(invitationToken)) invitationToken = '';
   let channel;
+  let codeUntil = 0, codeClock;
   try { channel = new BroadcastChannel('creative-account-session'); } catch {}
 
   function message(text, error = false) {
@@ -112,17 +113,33 @@
     if (paused || $('authForm').dataset.busy === 'true') return;
     registerMode = register;
     $('nameField').hidden = !register; $('displayName').required = register;
-    $('authTokenField').hidden = !register; $('authToken').required = register;
+    const invited = Boolean(invitationToken);
+    $('authTokenField').hidden = !register || !invited; $('authToken').required = register && invited;
+    $('codeField').hidden = !register || invited; $('emailCode').required = register && !invited;
     $('password').autocomplete = register ? 'new-password' : 'current-password';
     $('password').minLength = register ? 12 : 1;
     $('accountRecoveryHelp').hidden = register;
     if (register) $('accountRecoveryHelp').open = false;
-    $('authTitle').textContent = register ? '受邀注册' : '登录';
-    $('authSubmit').textContent = register ? '创建账号并加入' : '登录';
+    $('authTitle').textContent = register ? '注册' : '登录';
+    const arrow = element('span', '↗'); arrow.setAttribute('aria-hidden', 'true');
+    $('authSubmit').replaceChildren(document.createTextNode(register ? (invited ? '创建账号并加入' : '创建我的白板') : '进入白板'), arrow);
     $('loginTab').setAttribute('aria-pressed', String(!register));
     $('registerTab').setAttribute('aria-pressed', String(register));
-    $('authHint').textContent = register ? '账号创建后，你还会拥有一个独立的私有工作区。' : (invitationToken ? '登录后先检查邮箱，再确认接受这份邀请。' : '没有账号时，需要工作区所有者先发给你邀请。');
+    $('authHint').textContent = register ? (invited || context.emailRegistration ? '验证后创建账号与私有工作区。密码至少 12 位。' : '邮箱验证正在开通，暂时无法注册；已有账号可以正常登录。') : (invitationToken ? '登录后先检查邮箱，再确认接受这份邀请。' : '你的白板默认私有，由你决定是否邀请他人。');
   }
+  $('sendCode').onclick = () => {
+    if (paused || Date.now() < codeUntil || !$('email').reportValidity()) return;
+    const email = $('email').value;
+    run($('authForm'), async () => {
+      const result = await request('/api/register/code', 'POST', {email});
+      if ($('email').value !== email) return;
+      message(result.message); setTimeout(() => { if (!paused && registerMode) $('emailCode').focus(); }, 0);
+      codeUntil = Date.now() + result.retryAfter * 1000;
+      clearInterval(codeClock);
+      const tick = () => { const left = Math.max(0, Math.ceil((codeUntil - Date.now()) / 1000)); $('sendCode').disabled = paused || left > 0; $('sendCode').textContent = left ? left + ' 秒后重发' : '重新获取'; if (!left) clearInterval(codeClock); };
+      codeClock = setInterval(tick, 1000); setTimeout(tick, 0);
+    });
+  };
   $('loginTab').onclick = () => setAuthMode(false);
   $('registerTab').onclick = () => setAuthMode(true);
   $('showPassword').onclick = () => {
@@ -133,11 +150,12 @@
     event.preventDefault();
     const registration = registerMode;
     const value = {email: $('email').value, password: $('password').value};
-    if (registration) Object.assign(value, {name: $('displayName').value, token: $('authToken').value.trim()});
+    if (registration) Object.assign(value, {name: $('displayName').value, ...(invitationToken ? {token: $('authToken').value.trim()} : {code: $('emailCode').value.trim()})});
     run($('authForm'), async () => {
       await request(registration ? '/api/register' : '/api/login', 'POST', value);
       $('password').value = ''; $('email').defaultValue = $('email').value; $('displayName').defaultValue = $('displayName').value;
       $('authToken').defaultValue = $('authToken').value;
+      $('emailCode').value = ''; clearInterval(codeClock);
       announceSessionChange();
       const destination = !registration && invitationToken ? `/join#token=${encodeURIComponent(invitationToken)}` : (context.destination || (workspaceID ? `/w/${workspaceID}/` : '/'));
       invitationToken = '';
@@ -318,6 +336,7 @@
     $('accountName').textContent = context.account?.name || '';
     $('logout').hidden = originalAccount === null;
     if (originalAccount === null) {
+      $('authFeedback').append($('status'));
       $('auth').hidden = false; $('authToken').value = invitationToken;
       if (invitationToken) $('authToken').defaultValue = invitationToken;
       setAuthMode(false); return;

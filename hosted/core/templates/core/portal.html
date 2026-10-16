@@ -6,16 +6,20 @@
   <meta name="color-scheme" content="dark">
   <title>创作白板 · 工作区</title>
   <link rel="stylesheet" href="/portal-assets/portal.css">
+  {% if not bootstrap.account %}<link rel="stylesheet" href="/portal-assets/entry.css">{% else %}
   <link rel="stylesheet" href="/portal-assets/browser-recovery.css">
   <link rel="stylesheet" href="/portal-assets/workspace-archive.css">
   <link rel="stylesheet" href="/portal-assets/account-panel.css">
+  {% endif %}
   <script defer src="/portal-assets/portal.js"></script>
+  {% if bootstrap.account %}
   <script defer src="/portal-assets/workspace-search.js"></script>
   <script type="module" src="/portal-assets/workspace-recovery.js"></script>
   <script type="module" src="/portal-assets/workspace-archive.js"></script>
   <script type="module" src="/portal-assets/account-panel.js"></script>
+  {% endif %}
 </head>
-<body>
+<body{% if not bootstrap.account %} class="entry"{% endif %}>
 {{ bootstrap|json_script:"portal-context" }}
 <header class="masthead">
   <a class="brand" href="/" aria-label="创作白板首页"><span class="brand-mark" aria-hidden="true">◈</span><span>创作白板<small>CREATIVE WHITEBOARD</small></span></a>
@@ -27,19 +31,25 @@
     <strong id="pausedTitle">这个页面已暂停</strong><p id="pausedText"></p><a href="/" target="_blank" rel="noopener">在新页面打开当前账号 ↗</a>
   </aside>
   <section id="auth" class="auth-layout" hidden>
-    <div class="intro"><span class="eyebrow">属于你的创作空间</span><h1>从这里，<br>回到你的想法。</h1><p>私有工作区留给自己。共享工作区，留给你邀请的人。</p><div class="spatial-study" aria-hidden="true"><i></i><i></i><i></i><b></b></div></div>
     <div class="panel auth-panel">
-      <div class="section-head"><h2 id="authTitle">登录</h2><span class="tag">邀请制内测</span></div>
-      <div class="segmented" id="authTabs"><button id="loginTab" type="button" aria-pressed="true">已有账号</button><button id="registerTab" type="button" aria-pressed="false">受邀注册</button></div>
+      <div class="entry-meta" aria-hidden="true"><span>你的创作，从这里继续</span><span class="entry-page">01 / WHITEBOARD</span></div>
+      <h1 class="entry-heading">创作白板<span class="entry-dot" aria-hidden="true">。</span></h1>
+      <p class="entry-description">便签、资料、线索，留在同一张白板上。</p>
+      <div class="entry-rule" aria-hidden="true"></div>
+      <div class="section-head"><h2 id="authTitle">登录</h2></div>
+      <div class="segmented" id="authTabs"><button id="loginTab" type="button" aria-pressed="true">登录</button><button id="registerTab" type="button" aria-pressed="false">注册</button></div>
+      <div id="authFeedback"></div>
       <form id="authForm">
         <label>邮箱<input id="email" name="email" type="email" autocomplete="username" maxlength="254" required></label>
         <label id="nameField" hidden>你的名字<input id="displayName" name="name" autocomplete="nickname" maxlength="80"></label>
+        <label id="codeField" hidden>邮箱验证码<div class="code-row"><input id="emailCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="6 位数字"><button id="sendCode" class="quiet" type="button">获取验证码</button></div><small id="codeHint">验证码 10 分钟内有效。</small></label>
         <label>密码<div class="password-row"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required><button id="showPassword" class="quiet" type="button" aria-pressed="false">显示</button></div></label>
         <label id="authTokenField" hidden>邀请码<input id="authToken" name="token" autocomplete="off" maxlength="43" spellcheck="false"><small>使用邀请中的邮箱；新密码至少 12 位。</small></label>
-        <button id="authSubmit" class="primary" type="submit">登录</button>
-        <p class="caption" id="authHint">没有账号时，需要工作区所有者先发给你邀请。</p>
+        <button id="authSubmit" class="primary" type="submit">进入白板 <span aria-hidden="true">↗</span></button>
+        <p class="caption" id="authHint">你的白板默认私有，由你决定是否邀请他人。</p>
       </form>
       <details id="accountRecoveryHelp" class="account-recovery-help"><summary>忘记密码？</summary><p class="caption">联系这项服务的服务器管理员，核实身份后恢复登录。恢复会退出这个账号的旧登录，白板、素材和成员权限保留。</p></details>
+      <div class="entry-bottom"><span aria-hidden="true">◇</span><span>给想法留一点空间</span></div>
     </div>
   </section>
   <section id="home" hidden>
@@ -79,7 +89,7 @@
   {% include "core/workspace_archive.html" %}
   <noscript><p class="panel">请启用 JavaScript 后使用登录与工作区界面。</p></noscript>
 </main>
-<footer>开发预览 · 完整编辑与实时协作仍在完善。</footer>
+<footer>{% if not bootstrap.account %}私有空间由你管理，分享由你决定。{% else %}创作白板 · 你的工作区{% endif %}</footer>
 {% include "core/account_panel.html" %}
 </body>
 </html>

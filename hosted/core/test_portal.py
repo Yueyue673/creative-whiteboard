@@ -148,7 +148,7 @@ class PortalTests(TestCase):
         asset = self.client.get('/portal-assets/board-finder.js')
         self.assertEqual(asset.status_code, 200)
         self.assertTrue(asset['Content-Type'].startswith('text/javascript'))
-        self.assertEqual(asset['Cache-Control'], 'no-store')
+        self.assertEqual(asset['Cache-Control'], 'private, no-cache')
         self.assertNotIn('unsafe-inline', response['Content-Security-Policy'])
 
     def test_editor_login_return_is_server_fixed_and_shell_does_not_grant_access(self):

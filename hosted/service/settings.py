@@ -109,6 +109,20 @@ ACCOUNT_REAUTH_IP_LIMIT = 30
 LOGIN_IP_LIMIT = 30
 LOGIN_ACCOUNT_LIMIT = 8
 REGISTRATION_IP_LIMIT = 20
+# SMTP credentials are operator environment values, never public program data.
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('CREATIVE_BOARD_MAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('CREATIVE_BOARD_MAIL_PORT', '465'))
+EMAIL_HOST_USER = os.environ.get('CREATIVE_BOARD_MAIL_USER', '')
+_mail_password_file = os.environ.get('CREATIVE_BOARD_MAIL_PASSWORD_FILE', '')
+EMAIL_HOST_PASSWORD = Path(_mail_password_file).read_text('utf-8').strip() if _mail_password_file else os.environ.get('CREATIVE_BOARD_MAIL_PASSWORD', '')
+EMAIL_USE_SSL = os.environ.get('CREATIVE_BOARD_MAIL_TLS', 'ssl') == 'ssl'
+EMAIL_USE_TLS = os.environ.get('CREATIVE_BOARD_MAIL_TLS', 'ssl') == 'starttls'
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.environ.get('CREATIVE_BOARD_MAIL_FROM', '') or EMAIL_HOST_USER
+HOSTED_EMAIL_REGISTRATION = os.environ.get('CREATIVE_BOARD_EMAIL_REGISTRATION') == '1' and bool(EMAIL_HOST and EMAIL_HOST_USER and EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL)
+if HOSTED_EMAIL_REGISTRATION and not (EMAIL_USE_SSL or EMAIL_USE_TLS):
+    raise ImproperlyConfigured('Email registration requires encrypted SMTP.')
 INVITATION_LIFETIME_DAYS = 7
 MAX_OWNED_SHARED_WORKSPACES = 100
 MAX_WORKSPACE_MEMBERS = 50
