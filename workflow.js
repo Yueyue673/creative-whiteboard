@@ -163,10 +163,10 @@ function pasteLocation(bundle,anchor,signature){const r=canvas.getBoundingClient
  const offset=count*24;x+=x+width+offset<=right?offset:-Math.min(offset,Math.max(0,x-left));y+=y+height+offset<=bottom?offset:-Math.min(offset,Math.max(0,y-top));lastPastePlacement={boardId,signature,count,anchor:{...anchor},view:JSON.stringify(view())};return worldPoint(x,y)}
 async function pastePayload(text,files,anchor=pasteAnchor()){
  if(!board||anchor.boardId!==boardId)return toast('白板已切换，请在当前白板重新粘贴');
- if(files.length){await importFiles(files,worldPoint(anchor.x,anchor.y));return}
+ if(files.length){await importFiles(files,anchor._insertionPoint || worldPoint(anchor.x,anchor.y));return}
  if(!text)return;text=text.replace(/\r\n?/g,'\n');let value;try{value=JSON.parse(text)}catch{}
  let bundle;if(value?.format==='creative-board-fragment'){if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error('剪贴板内容不完整');bundle=normalize(value)}else if(text.includes('\t')){bundle={nodes:[{id:uid(),type:'table',title:'粘贴的表格',body:'',x:0,y:0,w:620,h:360,color:'#ffffff',...tableData(parseDelimited(text,'\t'),false)}],edges:[]}}else{bundle={nodes:[{id:uid(),type:'note',sizeMode:'auto',title:text.split('\n')[0].slice(0,50),body:text,x:0,y:0,w:300,h:120,color:colors[0],tags:[]}],edges:[]}}
- if(!bundle.nodes.length)return;const point=pasteLocation(bundle,anchor,text);editorId=null;insertBundle(bundle,point);canvas.tabIndex=-1;canvas.focus({preventScroll:true});toast('已粘贴 '+bundle.nodes.length+' 块内容 · Ctrl+Z 撤销');
+ if(!bundle.nodes.length)return;if(anchor._insertionPoint){const r=canvas.getBoundingClientRect();anchor={...anchor,x:r.left+view().x+anchor._insertionPoint.x*view().z,y:r.top+view().y+anchor._insertionPoint.y*view().z}}const point=pasteLocation(bundle,anchor,text);if(anchor._insertionPoint)Object.assign(anchor._insertionPoint,point);editorId=null;insertBundle(bundle,point);canvas.tabIndex=-1;canvas.focus({preventScroll:true});toast('已粘贴 '+bundle.nodes.length+' 块内容 · Ctrl+Z 撤销');
 }
 
 // Corner handles resize a note's frame, leaving its text size unchanged.

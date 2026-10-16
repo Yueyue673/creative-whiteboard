@@ -4,26 +4,130 @@
  const explorer = new URLSearchParams(location.search).get('explorer') === '1';
  const tasks = new Map();
  const fileJobs = new Map();
+ const placements = new Map();
+ let placementFrame = 0, placementObserver = null;
+ function watchPlacements() {
+  if (!placements.size) {placementObserver?.disconnect();placementObserver=null;return;}
+  if (placementObserver) return;
+  placementObserver=new MutationObserver(records=>{if(records.some(record=>!record.target.closest?.('.import-placement')))schedulePlacements();});
+  for(const host of [$('nodes'),$('dialog')])placementObserver.observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['open','style']});
+ }
+ function positionPlacements() {
+  placementFrame = 0;
+  for (const placement of placements.values()) placement.align();
+  updateFeedback();
+ }
+ function schedulePlacements() {if (!placementFrame) placementFrame = requestAnimationFrame(positionPlacements);}
+ function beginInsertion(items, position, target) {
+  if (explorer || !board || loading) return null;
+  const existing = placements.get(position?._insertion);
+  if (existing?.owner === board) return existing;
+  const owner = board, ownerId = boardId, id = uid(), first = items[0] || {};
+  const point = {x:Number.isFinite(position?.x) ? position.x : center().x, y:Number.isFinite(position?.y) ? position.y : center().y, _insertion:id};
+  const dimensions=items.map(item=>{
+   const nodes=item.bundle?.nodes;
+   if(nodes?.length)return {w:Math.max(...nodes.map(n=>n.x+n.w))-Math.min(...nodes.map(n=>n.x)),h:Math.max(...nodes.map(n=>n.y+n.h))-Math.min(...nodes.map(n=>n.y))};
+   return window.whiteboardExperience?.fileFrame({title:item.name || item.title,mime:item.type || item.mime || ''}) || {w:340,h:200};
+  });
+  const columns=Math.min(4,Math.ceil(Math.sqrt(dimensions.length||1))),frame={w:0,h:0};let x=0,y=0,rowHeight=0;
+  for(const [index,size]of dimensions.entries()){frame.w=Math.max(frame.w,x+size.w);frame.h=Math.max(frame.h,y+size.h);x+=size.w+60;rowHeight=Math.max(rowHeight,size.h);if((index+1)%columns===0){x=0;y+=rowHeight+70;rowHeight=0;}}
+  if(!dimensions.length)Object.assign(frame,{w:340,h:200});
+  if (!position && !target) {
+   for (let i = 0; i <= board.nodes.length + placements.size; i++) {
+    const occupied = [...board.nodes, ...[...placements.values()].filter(value => !value.target).map(value => ({...value.point,...value.frame}))];
+    const hits = occupied.filter(n => n.x < point.x + frame.w && n.x + n.w > point.x && n.y < point.y + frame.h && n.y + n.h > point.y);
+    if (!hits.length) break;
+    point.y = Math.max(...hits.map(n => n.y + n.h)) + 70;
+   }
+  }
+  const element = document.createElement('div');element.className = 'import-placement inline-ui';element.dataset.insertion = id;
+  const copy=document.createElement('div');copy.className='import-placement-copy';
+  const symbol = document.createElement('span'), name = document.createElement('strong'), stage = document.createElement('span'), reason = document.createElement('p'), close = document.createElement('button');
+  symbol.className = 'import-placement-symbol';symbol.setAttribute('aria-hidden','true');symbol.innerHTML = '<svg viewBox="0 0 40 32" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="38" height="30" rx="4"/><circle cx="12" cy="10" r="3"/><path d="m3 26 10-9 7 6 7-11 11 14"/></svg>';
+  name.className = 'import-placement-name';name.textContent = first.name || first.title || '新内容';name.title = items.map(item => item.name || item.title || '新内容').join('、');
+  if (items.length > 1) name.textContent += ' 等 ' + items.length + ' 项';
+  stage.className = 'import-placement-stage';stage.textContent = '上传中';reason.hidden = close.hidden = true;
+  close.type = 'button';close.textContent = '×';close.setAttribute('aria-label','关闭失败提示');
+  copy.append(symbol,name,stage,reason,close);element.append(copy);$('world').append(element);
+  function fitCopy(clip) {
+   const rect=element.getBoundingClientRect(),scale=rect.width/element.offsetWidth || 1,left=Math.max(rect.left,clip.left),top=Math.max(rect.top,clip.top),width=Math.max(0,Math.min(rect.right,clip.right)-left),height=Math.max(0,Math.min(rect.bottom,clip.bottom)-top);
+   Object.assign(copy.style,{left:((left-rect.left)/scale)+'px',top:((top-rect.top)/scale)+'px',width:(width/scale)+'px',height:(height/scale)+'px'});
+   element.classList.toggle('is-cropped',width<180 || height<110);
+   return {width,height};
+  }
+  const placement = {
+   id, owner, ownerId, point, frame, target, element, failed:false,error:'',
+   onScreen:{width:0,height:0},
+   visible() {return !element.hidden&&this.onScreen.width>=(this.failed?120:80)&&this.onScreen.height>=(this.failed?100:50)&&(!frameElement||!!frameElement.getClientRects().length);},
+   align() {
+    element.hidden = board !== owner || boardId !== ownerId;
+    if (element.hidden) return;
+    let rect;
+    if (target) {
+     const resolved = resolveAttachment(target), node = resolved && [...$('nodes').children].find(el => el.dataset.id === resolved.nodeId);
+     const immersive=$('immersiveSurface'),surface=resolved&&(immersive?.closest('dialog[open]')&&immersive.dataset.id===resolved.nodeId?immersive:node);
+     const cell = surface && (Number.isInteger(resolved.r) ? surface.querySelector('[data-cell="'+resolved.r+','+resolved.c+'"]') : surface);
+     if (!cell?.isConnected) {element.hidden = true;return;}
+     rect = cell.getBoundingClientRect();element.classList.add('is-attachment');
+     const dialog = cell.closest('dialog[open]');
+     if (dialog) {
+      if (element.parentElement !== dialog) dialog.append(element);
+      const bounds=dialog.getBoundingClientRect(),scale=bounds.width/dialog.offsetWidth || 1;
+      Object.assign(element.style,{left:((rect.left-bounds.left)/scale+dialog.scrollLeft-dialog.clientLeft)+'px',top:((rect.top-bounds.top)/scale+dialog.scrollTop-dialog.clientTop)+'px',width:(rect.width/scale)+'px',height:(rect.height/scale)+'px'});this.onScreen=fitCopy(bounds);return;
+     }
+    }
+    if (element.parentElement !== $('world')) $('world').append(element);
+    const p = rect ? worldPoint(rect.left,rect.top) : point;
+    Object.assign(element.style,{left:p.x+'px',top:p.y+'px',width:(rect ? rect.width/view().z : frame.w)+'px',height:(rect ? rect.height/view().z : frame.h)+'px'});
+    this.onScreen=fitCopy(canvas.getBoundingClientRect());
+   },
+   phase(text) {if (!this.failed) stage.textContent = text;},
+   fail(text) {this.failed=true;this.error=text;element.classList.add('is-failed');stage.textContent='未添加';reason.textContent=text;reason.hidden=close.hidden=false;this.align();},
+   remove() {placements.delete(id);element.remove();watchPlacements();},
+   complete() {
+    if (this.failed) return;
+    placements.delete(id);watchPlacements();
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {element.remove();return;}
+    element.classList.add('is-complete');setTimeout(()=>element.remove(),160);
+   },
+   acknowledge() {if (!matchMedia('(prefers-reduced-motion: reduce)').matches) element.animate([{opacity:.55},{opacity:1}],{duration:180});}
+  };
+  close.onclick = event => {event.stopPropagation();placement.remove();updateFeedback();};
+  placements.set(id,placement);placement.align();watchPlacements();return placement;
+ }
+ const drawBeforePlacements=drawNodes;drawNodes=function(...args){const result=drawBeforePlacements(...args);if(placements.size)schedulePlacements();return result;};
+ const moveBeforePlacements=moveView;moveView=function(...args){const result=moveBeforePlacements(...args);if(placements.size){positionPlacements();updateFeedback();}return result;};
+ document.addEventListener('scroll',()=>{if(placements.size)schedulePlacements();},true);
+ window.addEventListener('resize',()=>{if(placements.size)schedulePlacements();});
  const feedback = document.createElement('aside');
  feedback.id = 'importFeedback'; feedback.hidden = true;
  feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
  feedback.setAttribute('aria-atomic', 'true');
  const heading = document.createElement('strong'), detail = document.createElement('span'), dismiss = document.createElement('button');
- dismiss.type = 'button'; dismiss.textContent = '知道了';
+ dismiss.type = 'button'; dismiss.textContent = '关闭';
  feedback.append(heading, detail, dismiss); document.body.append(feedback);
- let failure = '';
+ let failure = '', failurePlacement = null;
  function updateFeedback() {
-  const active = [...tasks.values()].filter(task => task.label), latest = active.at(-1);
-  feedback.hidden = !latest && !failure;
-  feedback.classList.toggle('import-failed', !!failure);
-  heading.textContent = failure ? '有文件尚未添加' : latest?.label || '';
-  detail.textContent = failure || (latest?.names ? latest.names + ' · 已接收，请稍候，不必重复拖入。' : '正在处理，请稍候，不必重复拖入。');
-  dismiss.hidden = !failure || !!latest;
+  const active = [...tasks.values()].filter(task => task.label && !matchingPlacements(task).some(placement=>placement.visible())), latest = active.at(-1);
+  const error=(failurePlacement?.visible()?'':failure)||[...placements.values()].filter(placement=>placement.failed&&!placement.visible()).at(-1)?.error||'';
+  feedback.hidden = !latest && !error;
+  feedback.classList.toggle('import-failed', !!error);
+  heading.textContent = error ? '未添加' : latest?.label || '';
+  detail.textContent = error || latest?.names || '';
+  dismiss.hidden = !error || !!latest;
  }
- dismiss.onclick = () => {failure = ''; updateFeedback();};
- function filesLabel(files, action = '正在导入') {
-  const images = files.length && files.every(file => file.type.startsWith('image/'));
-  return {label:action + ' ' + files.length + (images ? ' 张图片' : ' 个文件'), names:files.map(file => file.name).join('、')};
+ dismiss.onclick = () => {failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values()])if(placement.failed)placement.remove();updateFeedback();};
+ function filesLabel(files, action) {
+  return {label:action || (files.every(file=>/\.(md|txt|csv|tsv|json)$/i.test(file.name))?'读取中':'上传中'), names:files.map(file => file.name).join('、'), files};
+ }
+ function matchingPlacements(entry) {
+  return [...new Set([entry.placement,...[...tasks.values()].filter(other=>entry.filesKey && other.filesKey===entry.filesKey && other.owner===entry.owner).map(other=>other.placement)].filter(Boolean))];
+ }
+ function reportFailure(entry, message) {
+  const matching=matchingPlacements(entry);
+  for(const placement of matching) placement.fail(message);
+  if(!matching.length){failure=message;failurePlacement=null;}
+  else if(!matching.some(placement=>placements.get(placement.id)===placement)){failure=message;failurePlacement=matching[0];}
  }
  function fileKey(operation, files, destination = '') {
   if (!files.length) return '';
@@ -40,28 +144,33 @@
  };
  function run(action, kind = 'canvas', info = {}) {
   if (kind === 'canvas' && !explorer && (loading || !board)) {
-   notice('白板还在打开，内容尚未添加。请打开后再试。');
+   notice('白板打开后再试');
    return Promise.resolve(false);
   }
   if (info.key && fileJobs.has(info.key)) {
-   notice('这批文件正在导入，不必重复拖入。完成后仍可再次添加。');
+   fileJobs.get(info.key).placement?.acknowledge();
    return fileJobs.get(info.key).result;
   }
-  if (!tasks.size) failure = '';
-  const token = {}, entry = {kind, promise:null, ...info};
+  if (!tasks.size) {failure = '';failurePlacement=null;}
+  const token = {}, entry = {kind, promise:null, owner:board, ...info};
+  entry.filesKey = info.files?.length ? JSON.stringify(info.files.map(file=>[file.name,file.size,file.type,file.lastModified]).sort()) : '';
+  entry.placement = info.placement || (kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
+  entry.ownsPlacement = !!entry.placement && !info.borrowed;
+  for(const placement of matchingPlacements(entry))placement.phase(info.label || '添加中');
   let finish;
   entry.promise = new Promise(resolve => finish = resolve);
   tasks.set(token, entry); announce();
   if (info.key) fileJobs.set(info.key, entry);
   entry.result = (async () => {
    try {
-    const result = await action();
-    if (result === false && entry.label) failure ||= '本次内容尚未添加，请查看原白板或内容库的提示。';
+    const result = await action(entry.placement?.point);
+    if (result === false && entry.label && !entry.placement?.failed) reportFailure(entry,entry.placement?.point._insertionError || '未能添加');
     return result;
    } catch (error) {
-    if (entry.label) failure = (entry.names ? entry.names + '：' : '') + (error.message || '连接失败，请稍后重新拖入。');
+    if (entry.label) reportFailure(entry,error.message || '连接失败');
     throw error;
    } finally {
+    if(entry.ownsPlacement)entry.placement.complete();
     tasks.delete(token); if (info.key) fileJobs.delete(info.key);
     finish(); announce();
    }
@@ -82,7 +191,8 @@
    if (!pendingCanvas() && !dirty && !savePromise) return true;
   }
  }
- function notice(text) {
+ function notice(text, target) {
+  if(target){const matching=[...tasks.values()].filter(entry=>entry.target?._importDestination===target._importDestination);if(matching.length){for(const entry of matching)reportFailure(entry,text);updateFeedback();return;}}
   toast(text);
   if (parent !== window && !explorer) parent.postMessage({type:'pane-import-notice', text}, location.origin);
  }
@@ -115,34 +225,37 @@
    const preparation=window.whiteboardImagePreparation?.prepare(snapshot);
    try{const added=await upload(snapshot,folder);preparation?.remember(added);return added}
    finally{preparation?.dispose()}
-  }, 'library', snapshot.length ? {...filesLabel(snapshot, '正在上传'), key:fileKey('upload', snapshot, libraryFolderIdentity(folder))} : {});
+  }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), key:fileKey('upload', snapshot, libraryFolderIdentity(folder))} : {});
  };
  const importBefore = importFiles;
  importFiles = function(files, position) {
   const snapshot = [...files], point = position || (!explorer && board ? center() : undefined);
-  return run(() => importBefore(snapshot, point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), key:fileKey('import', snapshot)} : {});
+  return run(anchor => importBefore(snapshot, anchor || point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, key:fileKey('import', snapshot)} : {});
  };
  const pasteBefore = pastePayload;
  pastePayload = function(text, files = [], anchor = pasteAnchor()) {
-  const snapshot = [...files], point = {...anchor};
-  return run(() => pasteBefore(text, snapshot, point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), key:fileKey('paste', snapshot, text)} : {});
+  const snapshot = [...files], saved = {...anchor}, point=anchor._insertionPoint || (!explorer&&board?worldPoint(anchor.x,anchor.y):undefined);
+  return run(position => pasteBefore(text, snapshot, {...saved,...(position?{_insertionPoint:position}:{})}), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, borrowed:placements.has(point?._insertion), key:fileKey('paste', snapshot, text)} : {});
  };
  const pasteMenuBefore = pasteBlocks;
  pasteBlocks = function(anchor = pasteAnchor()) {
-  return run(() => pasteMenuBefore({...anchor}), explorer ? 'library' : 'canvas');
+  const saved={...anchor},point=!explorer&&board?worldPoint(anchor.x,anchor.y):undefined;
+  return run(position => pasteMenuBefore({...saved,...(position?{_insertionPoint:position}:{})}), explorer ? 'library' : 'canvas',{label:'读取中',names:'剪贴板',items:[{title:'剪贴板'}],point,spatial:true});
  };
  const placeBefore = placeAssets;
  placeAssets = function(ids, position) {
-  if (explorer && preparingPlacement) {toast('上一批内容还在添加，请稍候。'); return Promise.resolve(false);}
-  const snapshot = [...ids], point = position;
+  if (explorer && preparingPlacement) return Promise.resolve(false);
+  const snapshot = [...ids], items=snapshot.map(id=>assetById(id)).filter(Boolean), destination=explorer?parent.whiteboardLibraryTransfer?.destination():null;
+  const inherited=placements.get(position?._insertion), preview=inherited || (explorer?parent.whiteboardLibraryTransfer?.preview(destination,items):null);
+  const point = position || preview?.point;
   if (explorer) preparingPlacement = true;
-  return run(() => placeBefore(snapshot, point), explorer ? 'library' : 'canvas', {label:'正在准备并放入白板', names:snapshot.map(id => assetById(id)?.title || '素材').join('、')})
+  return run(anchor => placeBefore(snapshot, anchor || point), explorer ? 'library' : 'canvas', {label:'读取中', names:items.map(item=>item.title).join('、'), items, point, spatial:true, placement:preview, borrowed:!!inherited})
    .finally(() => {if (explorer) preparingPlacement = false;});
  };
  const attachBefore = attachFiles;
  attachFiles = function(files, target) {
   const snapshot = [...files], destination = attachmentTarget(target);
-  return run(() => attachBefore(snapshot, destination), 'canvas', {...filesLabel(snapshot), key:fileKey('attach', snapshot, destination._importDestination)});
+  return run(() => attachBefore(snapshot, destination), 'canvas', {...filesLabel(snapshot), spatial:true, target:destination, key:fileKey('attach', snapshot, destination._importDestination)});
  };
  const chooseBefore = chooseImages;
  chooseImages = function(target) {return chooseBefore(attachmentTarget(target));};
@@ -152,11 +265,11 @@
   const append = () => {
    const destination = resolveAttachment(saved);
    if (!destination) {
-    notice('原来的内容或单元格已改变，文件已保留在内容库中，可以重新放置。');
+    notice('原位置已移走，文件留在内容库。',saved);
     return false;
    }
    if (snapshot.some(id => !assetById(id) || assetById(id).archived)) {
-    notice('有内容已移除，整批尚未放入。请刷新内容库后重试。');
+    notice('所选内容已变动，刷新内容库后再试。',saved);
     return false;
    }
    return attachAssetsBefore(snapshot, destination);
@@ -164,9 +277,9 @@
   if (snapshot.every(id => assetById(id))) return append();
   // A shared-library upload may reach this cell before its catalog refresh.
   return run(async () => {
-   try {await loadAssets();} catch (error) {notice(error.message); return false;}
+   try {await loadAssets();} catch (error) {notice(error.message,saved); return false;}
    return append();
-  });
+  },'canvas',{label:'读取中',names:'附件',items:snapshot.map(id=>assetById(id) || {title:'附件'}),spatial:true,target:saved,key:JSON.stringify(['attach-assets',boardId,snapshot,saved._importDestination])});
  };
  for (const name of ['switchBoard', 'newBoard', 'confirmReload', 'saveCopy']) {
   const before = window[name];
@@ -175,6 +288,9 @@
  if (window.whiteboardPane) {
   const flushBefore = whiteboardPane.flush;
   whiteboardPane.flush = () => flush(flushBefore);
+  whiteboardPane.beginInsertion = (items,position) => beginInsertion(items,position);
+  const insertBefore=whiteboardPane.insertLibrary;
+  whiteboardPane.insertLibrary=(items,position)=>run(point=>insertBefore(items,point || position),'canvas',{label:'添加中',names:items.map(item=>item.asset?.title || '内容').join('、'),items:items.map(item=>({...item.asset,bundle:item.bundle})),point:position,spatial:true,borrowed:placements.has(position?._insertion)});
  }
  window.addEventListener('beforeunload', event => {
   if (!tasks.size) return;
