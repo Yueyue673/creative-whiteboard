@@ -351,3 +351,14 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 .appearance-pattern output{color:var(--ui-muted);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 #appearanceDialog footer{flex-wrap:wrap}#appearanceDone{margin-left:auto}
 @media(max-width:400px){#appearanceDialog .appearance-pattern label{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}.appearance-pattern input{grid-column:1/-1;grid-row:2}.appearance-pattern output{grid-column:2;grid-row:1}.appearance-save-row{flex-wrap:wrap}.appearance-save-row input{flex-basis:100%;width:100%}.appearance-save-row button{width:100%}}
+
+/* Named public palettes remain directly selectable at actual dialog widths. */
+#appearanceDialog .appearance-presets h4{grid-column:1/-1;margin:8px 0 0;font-size:12px;font-weight:500;color:var(--ui-muted)}
+#appearanceDialog .appearance-presets h4:first-child{margin-top:0}
+#appearanceDialog .appearance-presets button{display:flex;flex-direction:column;align-items:stretch;min-height:44px;text-align:left}
+#appearanceDialog .appearance-presets strong{font-size:13px;font-weight:500;line-height:1.4;overflow-wrap:anywhere}
+#appearanceDialog .appearance-presets small{display:block;margin-top:3px;color:var(--ui-muted);font-size:11px;line-height:1.4}
+#appearanceDialog .appearance-source{margin:12px 0 0;color:var(--ui-muted);font-size:12px;line-height:1.6}
+#appearanceDialog .appearance-source a{color:var(--ui-link);text-underline-offset:3px}
+#appearanceDialog .appearance-presets span{flex:none}
+@media(max-width:400px){#appearanceDialog .appearance-presets{grid-template-columns:repeat(2,minmax(0,1fr))}#appearanceDialog .appearance-presets span{height:52px}}
