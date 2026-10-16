@@ -60,7 +60,7 @@
   updateFeedback();
  }
  function schedulePlacements() {if (!placementFrame) placementFrame = requestAnimationFrame(positionPlacements);}
- function beginInsertion(items, position, target) {
+ function beginInsertion(items, position, target, viewportPlacement = false) {
   if (explorer || !board || loading) return null;
   const existing = placements.get(position?._insertion);
   if (existing?.ownerId === boardId && !existing.failed) return existing;
@@ -82,7 +82,9 @@
    const clip=canvas.getBoundingClientRect(),scale=view().z,insetX=Math.min(16,clip.width/4),insetY=Math.min(16,clip.height/4),start=worldPoint(clip.left+insetX,clip.top+insetY);
    point.x=frame.w*scale<=clip.width-insetX*2?point.x-frame.w/2:start.x;
    point.y=frame.h*scale<=clip.height-insetY*2?point.y-frame.h/2:start.y;
-   for (let i = 0; i <= board.nodes.length + placements.size; i++) {
+   // File picking targets the current viewport. Keep that original intent;
+   // library batches may instead seek unused space beside earlier content.
+   if(!viewportPlacement)for (let i = 0; i <= board.nodes.length + placements.size; i++) {
     const occupied = [...board.nodes, ...[...placements.values()].filter(value => !value.target).map(value => ({...value.point,...value.frame}))];
     const hits = occupied.filter(n => n.x < point.x + frame.w && n.x + n.w > point.x && n.y < point.y + frame.h && n.y + n.h > point.y);
     if (!hits.length) break;
@@ -203,7 +205,7 @@
   if (!tasks.size) {failure = '';failurePlacement=null;}
   const token = {}, entry = {kind, promise:null, ownerId:boardId, ...info};
   entry.filesKey = info.files?.length ? JSON.stringify(info.files.map(file=>[file.name,file.size,file.type,file.lastModified]).sort()) : '';
-   entry.placement = info.placement || (info.libraryUpload ? beginLibraryUpload(info.files,info.folder,info.key,info) : kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
+   entry.placement = info.placement || (info.libraryUpload ? beginLibraryUpload(info.files,info.folder,info.key,info) : kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target,info.viewportPlacement) : null);
   entry.ownsPlacement = !!entry.placement && !info.borrowed;
   for(const placement of matchingPlacements(entry))placement.phase(info.label || '添加中');
   let finish;
@@ -280,8 +282,10 @@
  };
  const importBefore = importFiles;
  importFiles = function(files, position) {
-  const snapshot = [...files], point = position || (!explorer && board ? center() : undefined);
-  return run(anchor => importBefore(snapshot, anchor || point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, key:fileKey('import', snapshot)} : {});
+  // An ordinary file selection has no chosen corner. Keep its viewport-centred
+  // intent, including on a board whose other papers already occupy that view.
+  const snapshot = [...files], point = position;
+  return run(anchor => importBefore(snapshot, anchor || point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, viewportPlacement:!position, key:fileKey('import', snapshot)} : {});
  };
  const pasteBefore = pastePayload;
  pastePayload = function(text, files = [], anchor = pasteAnchor()) {

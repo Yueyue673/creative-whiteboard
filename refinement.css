@@ -4,12 +4,26 @@ button,summary,select{transition:none}
 #empty{width:calc(100% - 24px);max-width:400px}
 #empty h1{font-size:clamp(18px,calc(18px + 1vw),23px);text-wrap:balance}
 #empty p{text-wrap:balance}
+#empty .empty-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:18px;pointer-events:auto}
+#empty .empty-actions button{min-height:44px;padding:10px 18px;font-size:14px}
+#emptyWrite{background:var(--ui-selected);border-color:var(--ui-accent);font-weight:600}
+#emptyImport{background:transparent}
+#canvas:has(.import-placement:not([hidden])) #empty{visibility:hidden}
 #empty .empty-sheet{max-width:100%;height:auto;aspect-ratio:7/8;display:grid;place-items:center;padding:0}
 @media(max-height:400px){
  #empty{top:calc(50% - 4px)}
  #empty .empty-sheet{display:none}
  #empty h1{margin:0 0 8px;line-height:1.4}
  #empty p{margin:0;line-height:1.6}
+}
+/* Very short panes give the two starting actions their own lane beside the
+   existing canvas tools; no competing controls are stacked on top of them. */
+@media(max-height:260px){
+ #empty{left:12px;top:50%;width:120px;max-width:calc(50% - 24px);transform:translateY(-50%)}
+ #empty h1{display:none}
+ #empty .empty-actions{margin:0;gap:6px}
+ #empty .empty-actions button{width:100%;padding:8px 6px}
+ #canvas:has(#empty:not([hidden])) #creationDock{left:auto;right:14px;transform:none}
 }
 #alignmentGuides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:9}#alignmentGuides line{stroke:var(--ui-canvas-focus,var(--ui-accent));stroke-width:1;stroke-dasharray:3 3}.hand-tool,.hand-tool .node,.hand-tool .inline-ui{cursor:grab!important}.canvas-gesture.hand-tool{cursor:grabbing!important}
 .navigation-settings{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:12px}.navigation-settings h3{font-size:14px;margin:0 0 10px}.navigation-settings>label{display:grid;gap:5px;font-size:12px;margin:10px 0}.navigation-settings .navigation-check{display:flex;align-items:center;gap:8px}.navigation-check input{width:16px;height:16px;min-width:16px;flex:0 0 16px;margin:0;accent-color:var(--ui-accent)}.navigation-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}.navigation-settings input{min-width:0}.navigation-settings p{font-size:12px;color:var(--ui-muted);line-height:1.8}.arrange-options{display:grid;gap:16px}.arrange-options>div{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrange-options>div>span{min-width:40px;font-size:13px}.arrange-options>label{display:grid;gap:6px;font-size:13px}

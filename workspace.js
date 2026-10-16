@@ -285,7 +285,9 @@ const menuBody=$('menu').querySelector('div');menuBody.prepend($('newBoard'));$(
 const zoomLabel=document.createElement('button');zoomLabel.id='zoomValue';zoomLabel.title='恢复画布至 100%';zoomLabel.onclick=()=>zoom(1/view().z);$('fit').before(zoomLabel);$('fit').textContent='全览';$('fit').title='查看全部内容 · Shift+1';
 const oldMoveViewShell=moveView;moveView=function(){oldMoveViewShell();if(board)zoomLabel.textContent=Math.round(view().z*100)+'%'};
 const guide=document.createElement('button');guide.id='canvasGuide';guide.textContent='?';guide.title='操作说明';guide.setAttribute('aria-label','操作说明');$('canvasTools').append(guide);guide.onclick=()=>showDialog('<h2>像摆桌面上的纸张一样使用</h2><p>双击空白处写便签；双击已有内容直接编辑。文字、图片和素材都可以拖进来。拖便签边缘的圆点可以连线。</p><p>左键选择和摆放，右键拖动画布。也可以按住空格拖动。选中内容后按 Delete 删除，Ctrl+Z 撤销。</p><p>左侧切换白板、素材和本页内容。文件夹能嵌套，右键查看操作；F2 改名。Ctrl+K 搜索本页内容，Ctrl+\\ 收起侧栏。</p><p>N 新便签 · T 新表格 · Shift+1 全览 · Escape 结束编辑。输入文字时不会触发这些单键快捷键。</p>',[['知道了',()=>$('dialog').close()]]);
-$('empty').innerHTML='<div class="empty-sheet">＋</div><h1>把想法放在这里</h1><p>双击开始写，或把文件拖进来。</p>';
+$('empty').innerHTML='<h1>把想法放在这里</h1><div class="empty-actions inline-ui"><button id="emptyWrite" type="button">写便签</button><button id="emptyImport" type="button">添加文件</button></div>';
+$('emptyWrite').onclick=()=>$('add').click();
+$('emptyImport').onclick=()=>$('files').click();
 $('hint').textContent='右键拖动 · 双击编辑 · 拖圆点连线';
 for(const [panel,treeId]of [['manager','folderTree'],['assetPane','assetTree']]){const controls=$(panel).querySelector('.explorer-location'),btn=document.createElement('button');btn.className='treeToggle';btn.textContent='目录';btn.title='展开或收起文件夹目录';btn.setAttribute('aria-expanded','false');btn.onclick=()=>{const open=$(panel).classList.toggle('tree-open');btn.setAttribute('aria-expanded',String(open))};controls.prepend(btn)}
 $('outline').querySelector('p').textContent='点一下，找到并编辑画布上的内容';
