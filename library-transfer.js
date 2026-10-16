@@ -1,7 +1,7 @@
 // A library insertion keeps its destination and reports the actual canvas result.
 (() => {
  'use strict';
- let active=null;
+ let active=null,completed=null;
  const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  async function ready(tab){
   const started=Date.now();
@@ -20,12 +20,13 @@
  window.whiteboardLibraryTransfer={
   destination(){const tab=current();return tab?{tabId:tab.id,boardId:tab.boardId}:null},
   preview(destination,items){const tab=destination&&model.tabs.find(tab=>tab.id===destination.tabId&&tab.boardId===destination.boardId),view=tab&&pane(tab),state=view?.state();return state?.boardId===tab?.boardId&&!state?.loading?view?.beginInsertion?.(items):null},
+  reveal(requestId,source){const result=completed;if(!result||result.requestId!==requestId||result.source!==source)return false;completed=null;if(current()?.id!==result.tabId||current()?.boardId!==result.boardId)return false;return !!window.whiteboardWorkspace?.returnFromInsertion?.(result.context)},
   async place(message,source){
    const requestId=message.requestId;
    const reply=value=>source.postMessage({type:'explorer-place-result',requestId,...value},location.origin);
    if(active){reply({error:'上一批还没添加完'});return}
    if(!Array.isArray(message.items)||!message.items.length){reply({error:'没有选中内容'});return}
-   active=requestId||uid();
+   active=requestId||uid();completed=null;
    try{
     const specified=Object.hasOwn(message,'destination'),target=message.destination;
     let tab=specified?(target?model.tabs.find(tab=>tab.id===target.tabId&&tab.boardId===target.boardId):null):current();
@@ -35,7 +36,7 @@
     // The tab selected at the start remains the destination, even after a later tab switch.
     const view=await ready(tab),ids=await view.insertLibrary(message.items,message.position);
     if(!Array.isArray(ids)||!ids.length){reply({error:'未能添加到目标白板'});return}
-    reply({ids,boardId:tab.boardId});
+    completed={requestId,source,tabId:tab.id,boardId:tab.boardId,context:message.returnContext};reply({ids,boardId:tab.boardId});
     if(current()?.id!==tab.id)toast('已放入「'+tab.name+'」');
    }catch(e){reply({error:e.message})}
    finally{active=null}

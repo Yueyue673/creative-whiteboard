@@ -45,20 +45,20 @@
   drawNodes=()=>{}; // This document presents lists, never a second hidden canvas.
   const show=showWorkspaceTab;showWorkspaceTab=async function(panel){const pending=show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel});await pending};
   toggleSidebar=()=>send('explorer-toggle');$('sidebarToggle').onclick=toggleSidebar;
-  const placements=new Map();let placementPending=false;
+  const placements=new Map(),returnRequests=new WeakMap();let placementPending=false;
   window.addEventListener('message',e=>{
    if(e.source!==parent||e.origin!==location.origin||e.data?.type!=='explorer-place-result')return;
    const request=placements.get(e.data.requestId);if(!request)return;
    placements.delete(e.data.requestId);placementPending=false;
    request.buttons.forEach(({button,disabled})=>{if(button.isConnected)button.disabled=disabled});
-   if(e.data.error){if(request.position)request.position._insertionError=e.data.error;toast(e.data.error)}request.resolve(e.data.ids||false);
+   if(e.data.error){if(request.position)request.position._insertionError=e.data.error;toast(e.data.error)}if(Array.isArray(e.data.ids)&&e.data.ids.length)returnRequests.set(e.data.ids,e.data.requestId);request.resolve(e.data.ids||false);
   });
   commitLibraryBatch=function(items,position,destination=parent.whiteboardLibraryTransfer?.destination()){
    if(placementPending){toast('上一批内容还在添加，请稍候。');return Promise.resolve(false)}
    if(!items.length){toast('没有可添加的内容');return Promise.resolve(false)}
    placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.hasAttribute('data-library-place')||['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
    buttons.forEach(({button})=>button.disabled=true);
-   return new Promise(resolve=>{placements.set(requestId,{resolve,buttons,position});send('explorer-place',{items,position,requestId,destination})});
+   const returnContext=$('dialog').open&&$('pieceList')?parent.whiteboardWorkspace?.captureInsertionReturn?.():null;return new Promise(resolve=>{placements.set(requestId,{resolve,buttons,position});send('explorer-place',{items,position,requestId,destination,returnContext})});
   };
   selectNode=function(id){send('explorer-focus',{nodeId:id})};focusNode=function(n){if(n)send('explorer-focus',{nodeId:n.id})};
   const captureOutline=renderOutline;renderOutline=function(){captureOutline();$('items').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>send('explorer-focus',{nodeId:b.dataset.open}))};
@@ -66,6 +66,7 @@
   const saveCatalog=saveAssets;saveAssets=async function(next){const ok=await saveCatalog(next);if(ok)send('explorer-catalog');return ok};
   $('assetList').addEventListener('click',()=>queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder})));
   window.whiteboardExplorer={show:showWorkspaceTab,pending:()=>window.whiteboardImports?.pending()||false,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline();window.dispatchEvent(new Event('creative-research-context'))},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
+  whiteboardExplorer.revealInserted=ids=>{const requestId=returnRequests.get(ids);if(!requestId)return;returnRequests.delete(ids);send('explorer-reveal-insertion',{requestId})};
   whiteboardExplorer.command=async function(name,extra={}){
    if(name==='ai'){
     await loadAssets();assetSelected=new Set(extra.libraryIds||[]);await whiteboardAI.compose();
