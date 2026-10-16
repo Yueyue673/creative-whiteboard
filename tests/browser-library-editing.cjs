@@ -98,10 +98,10 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   await save('保存',false);await arrived;await page.keyboard.press('Escape');release();await fulfilled;await page.unroute('**/api/assets',hold);await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,100)));
   assert.equal((await current()).assets.find(a=>a.id===fileCopy.id).notes,'核对期间继续写下的完整文字。');
   // New content follows a renamed destination, but not a deleted-and-recreated one.
-  await page.evaluate(()=>{enterAssetFolder('片段');writeLibraryContent()});await page.locator('#libraryName').fill('刚写的内容');await page.locator('#library-body').fill('这是我自己写的。');
+  await page.evaluate(()=>{enterAssetFolder('片段');writeLibraryContent()});await page.locator('#library-title').fill('刚写的内容');await page.locator('#library-body').fill('这是我自己写的。');
   await other.evaluate(async()=>{await loadAssets();await moveAssetFolder('片段','','新的片段')});await save();await page.waitForFunction(()=>!document.getElementById('dialog').open);
   assert.equal((await current()).assets.find(a=>a.title==='刚写的内容').folder,'新的片段');
-  await page.evaluate(()=>{enterAssetFolder('新的片段');writeLibraryContent()});await page.locator('#libraryName').fill('同名目录仍要区分');await page.locator('#library-body').fill('不能凭同名目录改变存放对象。');
+  await page.evaluate(()=>{enterAssetFolder('新的片段');writeLibraryContent()});await page.locator('#library-title').fill('同名目录仍要区分');await page.locator('#library-body').fill('不能凭同名目录改变存放对象。');
   await remote(next=>{next.assets.filter(a=>a.folder==='新的片段').forEach(a=>a.folder='');next.folderIds['新的片段']='replacement-folder'});await save();
   assert(!(await current()).assets.some(a=>a.title==='同名目录仍要区分'));
   assert((await page.locator('.library-edit-message').innerText()).includes('已删除'));

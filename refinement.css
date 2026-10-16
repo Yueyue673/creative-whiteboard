@@ -288,6 +288,16 @@ button,summary,select{transition:none}
 .library-content-form #library-body{min-height:300px;line-height:1.8}
 .library-content-form .destination-picker{margin:0 0 18px}.library-content-form .destination-label,.library-content-form .destination-change{font-size:12px;color:var(--ui-muted)}
 .library-content-form .destination-toggle{padding:9px 10px;gap:8px}.library-content-form .destination-current{font-size:13px}
+.library-note-create .library-content-heading{margin-bottom:18px}
+.library-note-create .library-content-layout{grid-template-columns:minmax(0,1fr);gap:0}
+.library-note-create .library-content-details{border:0;padding:0}
+.library-note-create .library-note-details{margin:0 0 18px;border-top:1px solid var(--ui-line)}
+.library-note-create .library-note-details>summary{display:flex;align-items:center;gap:8px;padding:12px 0;background:transparent;border:0;font-size:12px;color:var(--ui-muted);cursor:pointer}
+.library-note-caret{display:inline-block;font:18px/1 sans-serif}
+.library-note-details[open] .library-note-caret{transform:rotate(90deg)}
+.library-note-create .library-note-details[open]>summary{margin-bottom:4px}
+#dialog[open]:has(.library-note-create){width:min(720px,calc(100vw - 32px))}
+.library-content-form.library-note-create #library-body{height:clamp(112px,36dvh,320px);min-height:112px;max-height:320px}
 @media(max-width:780px){.library-content-layout{grid-template-columns:minmax(0,1fr);gap:6px}.library-content-details{border-left:0;border-top:1px solid var(--ui-line);padding:18px 0 0}.library-content-form #library-body{min-height:220px}#dialog:has(.library-content-form) #dialogBody{padding:20px}#dialog:has(.library-content-form) #dialogActions{padding:12px 20px}}
 @media(max-width:420px){.media-marker-editor{grid-template-columns:minmax(0,1fr)}.media-marker-description,.media-marker-actions,.media-marker-error{grid-column:1}.media-marker-heading{flex-wrap:wrap}.media-marker-heading strong{flex-basis:100%}.media-marker-actions{flex-wrap:wrap}}
 .hand-tool .web-frame-host::after,.space-panning .web-frame-host::after{content:"";position:absolute;inset:0;background:transparent;z-index:4;cursor:grab;pointer-events:auto}.hand-tool.document-panning .web-frame-host::after,.space-panning.document-panning .web-frame-host::after{cursor:grabbing}
