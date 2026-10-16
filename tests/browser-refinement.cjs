@@ -46,11 +46,11 @@ const {chromium}=require('playwright');
    await p.setViewportSize({width,height});await p.locator('#appearanceDialog [data-preset='+preset+']').click();
    const panel=await p.locator('#appearanceDialog').evaluate(el=>{
     const rect=e=>{const r=e.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom,width:r.width}};
-    const body=el.querySelector('.appearance-body');return {dialog:rect(el),body:{...rect(body),client:body.clientWidth,scroll:body.scrollWidth},heading:rect(el.querySelector('.appearance-heading')),footer:rect(el.querySelector('footer')),presets:[...el.querySelectorAll('[data-preset]')].map(b=>({...rect(b),client:b.clientWidth,scroll:b.scrollWidth})),inputs:[...el.querySelectorAll('.appearance-colors input,.appearance-size input')].map(rect)};
+    const body=el.querySelector('.appearance-body');return {dialog:rect(el),body:{...rect(body),client:body.clientWidth,scroll:body.scrollWidth},heading:rect(el.querySelector('.appearance-heading')),footer:rect(el.querySelector('footer')),columns:getComputedStyle(el.querySelector('.appearance-presets')).gridTemplateColumns.split(' ').length,presets:[...el.querySelectorAll('[data-preset]')].map(b=>({...rect(b),client:b.clientWidth,scroll:b.scrollWidth})),inputs:[...el.querySelectorAll('.appearance-colors input,.appearance-size input')].map(rect)};
    });
    assert(panel.dialog.x>=15&&panel.dialog.right<=width-15&&panel.heading.y>=0&&panel.footer.bottom<=height,'Heading and completion stay inside the window: '+JSON.stringify({preset,width,height,panel}));
    assert(panel.body.scroll<=panel.body.client+1,'Settings scroll vertically without hiding a theme off to the side');
-   assert.equal(panel.presets.length,6);for(const [i,button] of panel.presets.entries()){assert(Math.abs(button.y-panel.presets[Math.floor(i/3)*3].y)<1&&button.x>=panel.body.x&&button.right<=panel.body.right+1&&button.scroll<=button.client+1,'All six preset names and previews fit in their complete rows')}
+   assert.equal(panel.presets.length,17);assert.equal(panel.columns,width<=400?2:3);for(const [i,button] of panel.presets.entries()){assert(Math.abs(button.y-panel.presets[Math.floor(i/panel.columns)*panel.columns].y)<1&&button.x>=panel.body.x&&button.right<=panel.body.right+1&&button.scroll<=button.client+1,'All seventeen preset names and previews fit in their responsive complete rows')}
    for(const input of panel.inputs)assert(input.width>30&&input.x>=panel.body.x&&input.right<=panel.body.right+1,'Every colour and sizing control has usable bounded space');
    if(width<=400)assert(panel.inputs.slice(-2).every(input=>input.width>=panel.body.client-1),'Compact windows give sizing sliders the complete settings width');
   }
