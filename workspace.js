@@ -303,7 +303,7 @@ function fitContentLayouts(){
 }
 function scheduleContentFit(){cancelAnimationFrame(contentFitFrame);contentFitFrame=requestAnimationFrame(fitContentLayouts)}
 const beforeContentDraw=drawNodes;drawNodes=function(){beforeContentDraw();scheduleContentFit()};
-document.addEventListener('input',e=>{if(e.target.closest('.node'))scheduleContentFit()});
+// Input already grows its own card above; media, resize and redraw still refresh all layouts.
 document.addEventListener('load',e=>{if(e.target.matches?.('.node img'))scheduleContentFit()},true);
 window.addEventListener('resize',scheduleContentFit);
 
