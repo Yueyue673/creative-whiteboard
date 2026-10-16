@@ -2136,6 +2136,12 @@ Optional PNGs come from the original reviewed renderer and selected-media captur
 Sourced replies require a task in the same workspace, bounded source fields and literal http(s) links. They persist separately without writing authored content; the original viewer labels outside claims as unverified. Legacy proposal listing/reading is scoped and read-only; existing migrated records, if any, may be read, but proposal/status write-back stays refused. No private desktop records are imported automatically.
 
 Migration0008 adds the immutable research table. Matching-schema full backups include tasks, sources and their exact image bytes. A schema downgrade refuses to drop retained research. New task/source writes default to disabled unless `CREATIVE_BOARD_HOSTED_NATIVE_RESEARCH=1`; setting it to0 preserves reads, downloads and existing references on the same migration-aware backend. Enable only after independent migration, permissions, original browser, backup/recovery and exact release acceptance. Source code or development checks alone do not establish that a deployment has this feature.
+# 压缩传输与版本核对
+
+压缩代理可以把 HTTP 表示层的 ETag 改为弱标记。数据回复另带 `X-Creative-Revision`，浏览器使用它核对白板、资料与账号操作的应用版本，避免将压缩标记当作保存前版本。压缩、权限检查和条件保存都保留。
+
+已经打开的旧工作台可在明确开启 `CREATIVE_BOARD_HOSTED_LEGACY_COMPRESSED_REVISION=1` 后接续保存。此兼容默认关闭，只识别 `W/` 包住的原64位小写十六进制版本，仍逐项验证原账号、工作区、当前版本和配额；不接受通配符、列表或任意弱实体标记。这个开关用于旧页面过渡，不是通用的 HTTP 弱 If-Match 支持。停用不改变已有内容或数据库结构。
+
 # 邮箱注册与登录入口
 
 登录入口使用单纸面布局。未登录页面只载入入口需要的两份样式和一份脚本；账号管理等模块在登录后的页面载入。原工作台仍使用原编辑器。

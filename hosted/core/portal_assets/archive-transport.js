@@ -88,7 +88,7 @@ export class ArchiveTransport{
       if(new TextEncoder().encode(text).length>16*1024*1024)fail('服务器返回内容超过读取范围。');
       let value;try{value=JSON.parse(text);}catch{fail('服务器没有返回可核对的记录。');}
       if(!response.ok)throw new BoardError(value?.error||'记录读取或操作未完成。',response.status,value?.code||'request_failed',value);
-      return {value,etag:response.headers.get('ETag')};
+      return {value,etag:(response.headers.get('X-Creative-Revision')||response.headers.get('ETag'))};
     }finally{clearTimeout(timer);}
   }
   async #read(path){await this.access();const result=await this.#request(path);const space=await this.access();return {...result,role:space.role};}

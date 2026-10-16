@@ -56,7 +56,7 @@ export class BoardTransport {
         return role;
       };
       if(live && response.status===304){
-        if(method!=='GET'||!validETag(expected)||response.headers.get('ETag')!==expected)throw new BoardError('共同编辑版本无法核对。',0,'protocol');
+        if(method!=='GET'||!validETag(expected)||(response.headers.get('X-Creative-Revision')||response.headers.get('ETag'))!==expected)throw new BoardError('共同编辑版本无法核对。',0,'protocol');
         return {unchanged:true,etag:expected,role:scopeHeaders()};
       }
       let value, originalRaw;
@@ -65,7 +65,7 @@ export class BoardTransport {
         throw new BoardError('服务器没有返回可核对的结果，请保留输入后再检查。', response.status, 'protocol');
       }
       if (!response.ok) throw new BoardError(value?.error || '操作未完成，请保留当前输入。', response.status, value?.code || 'request_failed', value);
-      return {value, originalRaw, etag: response.headers.get('ETag'),...(live?{role:scopeHeaders()}:{})};
+      return {value, originalRaw, etag: (response.headers.get('X-Creative-Revision')||response.headers.get('ETag')),...(live?{role:scopeHeaders()}:{})};
     } finally { clearTimeout(timeout); }
   }
 

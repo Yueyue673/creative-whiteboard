@@ -19,7 +19,7 @@ export class AccountTransport{
       if(new TextEncoder().encode(text).length>65536)protocol('回复超出核对范围，请重新读取。');
       let data;try{data=JSON.parse(text);}catch{protocol('回复无法核对；若已提交操作，请先检查结果，勿直接重试。');}
       if(!response.ok)throw new AccountError(typeof data?.error==='string'?data.error:'账号操作未完成。',response.status,data?.code||'request');
-      return {data,tag:response.headers.get('ETag')};
+      return {data,tag:(response.headers.get('X-Creative-Revision')||response.headers.get('ETag'))};
     }finally{clearTimeout(timer);}
   }
   async guard(){const {data}=await this.request('/api/session');if(data.account?.id!==this.account)throw new AccountError('原账号的登录已失效或改变。保留原页面的创作输入，请在新页面重新登录原账号后处理。',401,'account_changed');}

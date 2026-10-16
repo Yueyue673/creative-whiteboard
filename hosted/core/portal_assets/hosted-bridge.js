@@ -64,6 +64,11 @@
    else{const value=await preview.json();if(typeof value.plan!=='string')throw Error('整夹删除范围无法核对，原内容保留');headers.set('Content-Type','application/json');options={...options,body:JSON.stringify({plan:value.plan})};}
   }
   response=response||await rawFetch(url,{...options,method,headers,credentials:'same-origin',cache:'no-store',redirect:'error'});
+  const revision=response.headers.get('X-Creative-Revision');
+  if(revision&&(revision==='new'||/^"[a-f0-9]{64}"$/.test(revision))&&revision!==response.headers.get('ETag')){
+   const stable=new Headers(response.headers);stable.set('ETag',revision);stable.delete('Content-Length');stable.delete('Content-Encoding');
+   response=new Response(response.body,{status:response.status,statusText:response.statusText,headers:stable});
+  }
   if(response.status===401)freeze('原登录已经失效。');
   if(response.status===409){const value=await response.clone().json().catch(()=>({}));if(value.code==='account_changed')freeze('登录账号已经改变。');}
   if(response.ok&&method==='GET'&&suffix==='trash')return jsonResponse(await trashRows(await response.json()),response);

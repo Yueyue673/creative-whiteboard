@@ -97,6 +97,11 @@ def document_etag(document):
 def require_precondition(value):
     if not value:
         raise APIError("缺少保存前的版本，请保留输入并重新检查当前内容", 428)
+    # Narrow transition support for already-open native pages that received a
+    # gzip-weakened copy of our exact revision token. Namespace/current-version
+    # checks below still run. This is opt-in, not general weak If-Match support.
+    if getattr(settings, 'HOSTED_LEGACY_COMPRESSED_REVISION', False) and isinstance(value, str) and re.fullmatch(r'W/"[a-f0-9]{64}"', value):
+        value = value[2:]
     if value != "new" and not re.fullmatch(r'"[a-f0-9]{64}"', value):
         raise APIError("内容版本格式无效")
     return value

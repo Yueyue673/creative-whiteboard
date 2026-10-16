@@ -13,6 +13,10 @@ class ResponsePolicyMiddleware:
         # Validate Host on every request, including endpoints not using absolute URLs.
         request.get_host()
         response = self.get_response(request)
+        # A compression proxy may weaken the representation ETag. The opaque
+        # application revision is independent of its transfer encoding.
+        if response.get('ETag') and not getattr(response, 'creative_program_cache', False):
+            response['X-Creative-Revision'] = response['ETag']
         response["Cache-Control"] = "private, no-cache" if getattr(response, 'creative_program_cache', False) else "no-store"
         response["X-Frame-Options"] = "DENY"
         policy = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"

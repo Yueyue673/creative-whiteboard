@@ -87,7 +87,7 @@ export class BoardMedia {
       catch{throw new BoardError(method==='GET'?'连接中断，未读取素材；请检查连接后再试。':'未确认保存结果，输入仍在当前页面；请先核对服务器版本。',0,method==='GET'?'offline':'uncertain');}
       let value;try{value=await response.json();}catch{throw new BoardError('素材返回结果无法核对。',response.status,'protocol');}
       if(!response.ok)throw new BoardError(value?.error||'原工作区的操作未完成，请保留输入。',response.status,value?.code||'request_failed',value);
-      return {value,etag:response.headers.get('ETag')};
+      return {value,etag:(response.headers.get('X-Creative-Revision')||response.headers.get('ETag'))};
     }finally{clearTimeout(timeout);}
   }
   async #get(path){return (await this.#request(path)).value;}
