@@ -9,6 +9,15 @@
  $('workspaceSidebar').hidden=!explorer;
  const send=(type,extra={})=>parent.postMessage({type,...extra},location.origin);
  const parentHasDialog=()=>{try{return !!parent.document.querySelector('dialog[open]')}catch{return false}};
+ function syncDialogClosing(sync){
+  const dialog=$('dialog'),close=dialog.close;
+  dialog.close=function(...args){
+   if(this.open)document.documentElement.classList.remove('pane-dialog-open');
+   try{return close.apply(this,args)}finally{sync()}
+  };
+  // Original dismissal cleanups restore focus synchronously; expose their source first.
+  dialog.addEventListener('close',sync,true);
+ }
  let visible=true,reporting=false,lastState='';
  let editingPlace=null;
  function captureEditingPlace(field=document.activeElement){
@@ -66,11 +75,11 @@
   askCollectSelection=()=>send('explorer-command',{command:'collect'});
   const oldNew=newBoard;newBoard=async name=>{if(board){send('explorer-create',{name,folder:folderSelected});return}return oldNew(name)};
   let modal=false;const syncDialog=()=>{const next=!!document.querySelector('dialog[open]');document.documentElement.classList.toggle('pane-dialog-open',next);if(next!==modal){modal=next;send('explorer-dialog',{open:modal})}};
-  new MutationObserver(syncDialog).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});syncDialog();
+  new MutationObserver(syncDialog).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});syncDialogClosing(syncDialog);syncDialog();
   const modalStyle=document.createElement('style');modalStyle.textContent='.explorer-pane.pane-dialog-open body{background:transparent!important}.explorer-pane.pane-dialog-open main{visibility:hidden}.explorer-pane.pane-dialog-open{background:transparent}';document.head.append(modalStyle);
  }else{
   let modal=false;const syncDialog=()=>{const next=$('dialog').open&&$('dialog').classList.contains('immersive-dialog');document.documentElement.classList.toggle('pane-dialog-open',next);if(next!==modal){modal=next;send('pane-dialog',{open:modal})}};
-  new MutationObserver(syncDialog).observe($('dialog'),{attributes:true,attributeFilter:['open','class']});syncDialog();
+  new MutationObserver(syncDialog).observe($('dialog'),{attributes:true,attributeFilter:['open','class']});syncDialogClosing(syncDialog);syncDialog();
   // The existing dialog observer owns this state; avoid a root :has() query on every content mutation.
   const modalStyle=document.createElement('style');modalStyle.textContent='.canvas-pane.pane-dialog-open body{background:transparent!important}.canvas-pane.pane-dialog-open main{visibility:hidden}.canvas-pane.pane-dialog-open{background:transparent}';document.head.append(modalStyle);
   toggleSidebar=()=>send('pane-sidebar');showWorkspaceTab=async panel=>send('pane-sidebar',{panel});$('sidebarToggle').onclick=toggleSidebar;
