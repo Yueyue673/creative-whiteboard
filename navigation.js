@@ -202,6 +202,25 @@
  window.addEventListener('pointercancel',cancelRightClick,true);
  window.addEventListener('keydown',e=>{if(e.key==='Escape')cancelRightClick();else if(!rightClick||rightClick.ended)clearRightClick()},true);
  window.addEventListener('blur',cancelRightClick);
+ // Overview includes the relationships that explain the papers, not only their rectangles.
+ const paperOnlyFit=fit;
+ fit=function(){
+  if(!board?.nodes.length||!board.edges.length)return paperOnlyFit();
+  cancelCanvasGesture();drawEdges();
+  let left=Math.min(...board.nodes.map(n=>n.x)),top=Math.min(...board.nodes.map(n=>n.y));
+  let right=Math.max(...board.nodes.map(n=>n.x+n.w)),bottom=Math.max(...board.nodes.map(n=>n.y+n.h));
+  const original={left,top,right,bottom};
+  for(const connector of $('edgePaths').children){
+   if(!connector.dataset.edge)continue;
+   const r=connector.getBBox();if(![r.x,r.y,r.width,r.height].every(Number.isFinite))continue;
+   left=Math.min(left,r.x);top=Math.min(top,r.y);right=Math.max(right,r.x+r.width);bottom=Math.max(bottom,r.y+r.height);
+  }
+  if(left===original.left&&top===original.top&&right===original.right&&bottom===original.bottom)return paperOnlyFit();
+  const r=canvas.getBoundingClientRect(),w=right-left,h=bottom-top;
+  const z=Math.max(.15,Math.min(1.1,(r.width-100)/w,(r.height-100)/h));
+  board.view={x:(r.width-w*z)/2-left*z,y:(r.height-h*z)/2-top*z,z};moveView();change(true);
+ };
+ $('fit').onclick=fit;
  window.whiteboardNavigation={read,write,fitSelection,arrange,revealCaret};
 })();
 
