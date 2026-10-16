@@ -111,7 +111,11 @@
  const upload = uploadFiles;
  uploadFiles = function(files, folder = assetFolder) {
   const snapshot = [...files];
-  return run(() => upload(snapshot, folder), 'library', snapshot.length ? {...filesLabel(snapshot, '正在上传'), key:fileKey('upload', snapshot, libraryFolderIdentity(folder))} : {});
+  return run(async () => {
+   const preparation=window.whiteboardImagePreparation?.prepare(snapshot);
+   try{const added=await upload(snapshot,folder);preparation?.remember(added);return added}
+   finally{preparation?.dispose()}
+  }, 'library', snapshot.length ? {...filesLabel(snapshot, '正在上传'), key:fileKey('upload', snapshot, libraryFolderIdentity(folder))} : {});
  };
  const importBefore = importFiles;
  importFiles = function(files, position) {

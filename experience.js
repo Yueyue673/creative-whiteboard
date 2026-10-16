@@ -45,9 +45,45 @@
   const promise=new Promise(resolve=>{
    const img=new Image(),timer=setTimeout(()=>resolve(4/3),3000);
    const finish=value=>{clearTimeout(timer);resolve(value)};
-   img.onload=()=>finish(img.naturalWidth/Math.max(1,img.naturalHeight));img.onerror=()=>finish(4/3);img.src=mediaURL(a.id);
+   img.onload=()=>{const ratio=img.naturalWidth/Math.max(1,img.naturalHeight);imageRatios.set(a.id,Promise.resolve(ratio));finish(ratio)};img.onerror=()=>finish(4/3);img.src=mediaURL(a.id);
   });imageRatios.set(a.id,promise);return promise;
  }
+ // Newly dropped files already exist in this browser. Read a bounded set locally
+ // alongside upload instead of downloading them again before placing the cards.
+ window.whiteboardImagePreparation={prepare(files){
+  const jobs=new Map();let committed=false;
+  for(const [index,file]of files.entries()){
+   if(jobs.size>=8)break;
+   if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))continue;
+   let stop;
+   const promise=new Promise(resolve=>{
+    let url,img,timer,settled=false;
+    const finish=ratio=>{if(settled)return;settled=true;clearTimeout(timer);if(img){img.onload=img.onerror=null;img.src=''}if(url)URL.revokeObjectURL(url);resolve(ratio)};
+    stop=()=>finish(null);
+    try{
+     url=URL.createObjectURL(file);img=new Image();timer=setTimeout(stop,1000);
+     img.onload=()=>finish(img.naturalWidth>0&&img.naturalHeight>0?img.naturalWidth/img.naturalHeight:null);img.onerror=stop;img.src=url;
+    }catch{stop()}
+   });jobs.set(index,{promise,stop});
+  }
+  return {
+   remember(assets){
+    committed=true;
+    for(const [index,job]of jobs){
+     const asset=assets[index];
+     if(!asset?.id||!asset.mime?.startsWith('image/')){job.stop();continue}
+     const prepared=job.promise.then(ratio=>{
+      if(ratio)return ratio;
+      // A decode failure uses the original scoped media path, never local data
+      // in a persisted document. Remove this promise before the remote fallback.
+      if(imageRatios.get(asset.id)===prepared)imageRatios.delete(asset.id);
+      return imageRatio(asset);
+     });imageRatios.set(asset.id,prepared);
+    }
+   },
+   dispose(){if(!committed)for(const job of jobs.values())job.stop()}
+  };
+ }};
  placeAssets=async function(ids,p){
   const destination=window.whiteboardExplorer?parent.whiteboardLibraryTransfer?.destination():undefined;
   const unique=[...new Set(ids)],target=board,targetId=boardId;
