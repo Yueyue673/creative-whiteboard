@@ -21,6 +21,7 @@ class ProgramCacheTests(TestCase):
         self.assertEqual(cached.status_code, 304)
         self.assertEqual(cached.content, b'')
         self.assertEqual(cached['Cache-Control'], 'private, no-cache')
+        self.assertEqual(self.client.get(self.url, HTTP_IF_NONE_MATCH='W/' + original['ETag']).status_code, 304)
         html = self.client.get(f'/w/{self.space.pk}/app/')
         self.assertEqual(html['Cache-Control'], 'no-store')
         self.assertNotIn('ETag', html)
@@ -33,6 +34,7 @@ class ProgramCacheTests(TestCase):
         self.client.force_login(self.account)
         Membership.objects.filter(workspace=self.space).delete()
         self.assertEqual(self.client.get(self.url, HTTP_IF_NONE_MATCH=version).status_code, 404)
+        self.assertEqual(self.client.get(self.url, HTTP_IF_NONE_MATCH='W/' + version).status_code, 404)
         self.client.logout()
         self.assertEqual(self.client.get(self.url, HTTP_IF_NONE_MATCH=version).status_code, 401)
 
