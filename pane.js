@@ -56,7 +56,7 @@
   commitLibraryBatch=function(items,position,destination=parent.whiteboardLibraryTransfer?.destination()){
    if(placementPending){toast('上一批内容还在添加，请稍候。');return Promise.resolve(false)}
    if(!items.length){toast('没有可添加的内容');return Promise.resolve(false)}
-   placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
+   placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.hasAttribute('data-library-place')||['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
    buttons.forEach(({button})=>button.disabled=true);
    return new Promise(resolve=>{placements.set(requestId,{resolve,buttons,position});send('explorer-place',{items,position,requestId,destination})});
   };
