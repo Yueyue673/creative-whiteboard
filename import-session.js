@@ -3,25 +3,70 @@
  'use strict';
  const explorer = new URLSearchParams(location.search).get('explorer') === '1';
  const tasks = new Map();
+ const fileJobs = new Map();
+ const feedback = document.createElement('aside');
+ feedback.id = 'importFeedback'; feedback.hidden = true;
+ feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+ feedback.setAttribute('aria-atomic', 'true');
+ const heading = document.createElement('strong'), detail = document.createElement('span'), dismiss = document.createElement('button');
+ dismiss.type = 'button'; dismiss.textContent = '知道了';
+ feedback.append(heading, detail, dismiss); document.body.append(feedback);
+ let failure = '';
+ function updateFeedback() {
+  const active = [...tasks.values()].filter(task => task.label), latest = active.at(-1);
+  feedback.hidden = !latest && !failure;
+  feedback.classList.toggle('import-failed', !!failure);
+  heading.textContent = failure ? '有文件尚未添加' : latest?.label || '';
+  detail.textContent = failure || (latest?.names ? latest.names + ' · 已接收，请稍候，不必重复拖入。' : '正在处理，请稍候，不必重复拖入。');
+  dismiss.hidden = !failure || !!latest;
+ }
+ dismiss.onclick = () => {failure = ''; updateFeedback();};
+ function filesLabel(files, action = '正在导入') {
+  const images = files.length && files.every(file => file.type.startsWith('image/'));
+  return {label:action + ' ' + files.length + (images ? ' 张图片' : ' 个文件'), names:files.map(file => file.name).join('、')};
+ }
+ function fileKey(operation, files, destination = '') {
+  if (!files.length) return '';
+  // Only coalesce a matching in-flight selection at the same destination.
+  // Once settled, the author can intentionally insert that file again.
+  return JSON.stringify([operation, boardId, destination, files.map(file => [file.name, file.size, file.type, file.lastModified]).sort()]);
+ }
  let preparingPlacement = false;
  const pendingCanvas = () => [...tasks.values()].some(task => task.kind === 'canvas');
  const announce = () => {
+  updateFeedback();
   window.dispatchEvent(new Event('creative-import-state'));
   if (explorer && parent !== window) parent.postMessage({type:'explorer-import-state'}, location.origin);
  };
- function run(action, kind = 'canvas') {
+ function run(action, kind = 'canvas', info = {}) {
   if (kind === 'canvas' && !explorer && (loading || !board)) {
    notice('白板还在打开，内容尚未添加。请打开后再试。');
    return Promise.resolve(false);
   }
-  const token = {}, entry = {kind, promise:null};
+  if (info.key && fileJobs.has(info.key)) {
+   notice('这批文件正在导入，不必重复拖入。完成后仍可再次添加。');
+   return fileJobs.get(info.key).result;
+  }
+  if (!tasks.size) failure = '';
+  const token = {}, entry = {kind, promise:null, ...info};
   let finish;
   entry.promise = new Promise(resolve => finish = resolve);
   tasks.set(token, entry); announce();
-  return (async () => {
-   try {return await action();}
-   finally {tasks.delete(token); finish(); announce();}
+  if (info.key) fileJobs.set(info.key, entry);
+  entry.result = (async () => {
+   try {
+    const result = await action();
+    if (result === false && entry.label) failure ||= '本次内容尚未添加，请查看原白板或内容库的提示。';
+    return result;
+   } catch (error) {
+    if (entry.label) failure = (entry.names ? entry.names + '：' : '') + (error.message || '连接失败，请稍后重新拖入。');
+    throw error;
+   } finally {
+    tasks.delete(token); if (info.key) fileJobs.delete(info.key);
+    finish(); announce();
+   }
   })();
+  return entry.result;
  }
  async function idle() {
   for (;;) {
@@ -66,17 +111,17 @@
  const upload = uploadFiles;
  uploadFiles = function(files, folder = assetFolder) {
   const snapshot = [...files];
-  return run(() => upload(snapshot, folder), 'library');
+  return run(() => upload(snapshot, folder), 'library', snapshot.length ? {...filesLabel(snapshot, '正在上传'), key:fileKey('upload', snapshot, libraryFolderIdentity(folder))} : {});
  };
  const importBefore = importFiles;
  importFiles = function(files, position) {
   const snapshot = [...files], point = position || (!explorer && board ? center() : undefined);
-  return run(() => importBefore(snapshot, point), explorer ? 'library' : 'canvas');
+  return run(() => importBefore(snapshot, point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), key:fileKey('import', snapshot)} : {});
  };
  const pasteBefore = pastePayload;
  pastePayload = function(text, files = [], anchor = pasteAnchor()) {
   const snapshot = [...files], point = {...anchor};
-  return run(() => pasteBefore(text, snapshot, point), explorer ? 'library' : 'canvas');
+  return run(() => pasteBefore(text, snapshot, point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), key:fileKey('paste', snapshot, text)} : {});
  };
  const pasteMenuBefore = pasteBlocks;
  pasteBlocks = function(anchor = pasteAnchor()) {
@@ -87,13 +132,13 @@
   if (explorer && preparingPlacement) {toast('上一批内容还在添加，请稍候。'); return Promise.resolve(false);}
   const snapshot = [...ids], point = position;
   if (explorer) preparingPlacement = true;
-  return run(() => placeBefore(snapshot, point), explorer ? 'library' : 'canvas')
+  return run(() => placeBefore(snapshot, point), explorer ? 'library' : 'canvas', {label:'正在准备并放入白板', names:snapshot.map(id => assetById(id)?.title || '素材').join('、')})
    .finally(() => {if (explorer) preparingPlacement = false;});
  };
  const attachBefore = attachFiles;
  attachFiles = function(files, target) {
   const snapshot = [...files], destination = attachmentTarget(target);
-  return run(() => attachBefore(snapshot, destination));
+  return run(() => attachBefore(snapshot, destination), 'canvas', {...filesLabel(snapshot), key:fileKey('attach', snapshot, destination._importDestination)});
  };
  const chooseBefore = chooseImages;
  chooseImages = function(target) {return chooseBefore(attachmentTarget(target));};
