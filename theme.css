@@ -256,7 +256,7 @@ body #boardChoices button{border-radius:8px;border-bottom:0;margin:3px 0;padding
 body #boardPicker .new-board button,body .empty-pane .choose-board{background:var(--ui-selected);border-color:var(--ui-line);border-radius:9px;color:var(--ui-text)}
 body .empty-pane h2{font-weight:600;font-size:22px;color:var(--ui-canvas-text,var(--ui-text))}
 body .empty-pane p{font-size:13px;line-height:1.8;margin:12px 0 20px}
-body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002}
+body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002;width:max-content;max-width:min(650px,calc(100% - 24px));padding:10px 14px;overflow-wrap:anywhere;pointer-events:none}
 @media(max-width:900px){body #shellHeader{gap:7px;padding:0 10px}#shellHeader .studio-brand{padding-right:9px;font-size:13px;gap:7px}}
 @media(max-width:600px){#shellHeader .studio-brand span,body #shellHeader .shell-ai span{display:none}#shellHeader .studio-brand{padding-right:7px;border:0}body #shellHeader{gap:5px;padding:0 8px}body #shellHeader .shell-ai{width:32px;height:32px;padding:0;justify-content:center;border:0}body #shellStatus{width:88px;min-width:88px;max-width:88px;font-size:11px}body #canvas #creationDock{padding:5px;gap:2px}body #canvas #creationDock button{padding-left:8px;padding-right:8px}}
 @media(max-width:360px){body #shellStatus{width:68px;min-width:68px;max-width:68px}body #shellHeader{gap:3px}}

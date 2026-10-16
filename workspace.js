@@ -1,5 +1,6 @@
 
 'use strict';
+$('toast').setAttribute('role','status');$('toast').setAttribute('aria-live','polite');$('toast').setAttribute('aria-atomic','true');
 function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]),...(a.bundle?.nodes||[]).map(n=>[n.title,n.body,n.userText,n.annotation,...(n.tags||[]),...(n.rows||[]).flat()].join(' '))].filter(Boolean).join(' ')}
 let assetIndex={assets:[],folders:[]},assetETag='new',assetFolder='',assetSelected=new Set(),assetLimit=80,pickTarget=null,tableDrag=null;
 const mediaURL=id=>'/api/media/'+encodeURIComponent(id);
@@ -107,7 +108,7 @@ async function uploadFiles(files,folder=assetFolder){
   const item=await r.json();added.push(item);if(!target.id&&target.path&&item.importFolderId)target.id=item.importFolderId;
  }
  await loadAssets();
- if(added.some(a=>a.destinationMissing))toast('原文件夹已删除，新导入的文件保留在内容库根目录，可以重新放置。');
+ if(added.some(a=>a.destinationMissing))toast('原文件夹已移除，文件留在内容库根目录。');
  return added.map(a=>({...a,...assetById(a.id)}));
 }
 function chooseImages(target){pickTarget=target;$('imageFiles').click()}
@@ -202,8 +203,8 @@ function assetAncestors(path){const parts=path.split('/').filter(Boolean);return
 function enterAssetFolder(path){assetFolder=path;assetSelected.clear();assetLimit=80;$('assetSearch').value='';assetAncestors(path).forEach(p=>assetExpanded.add(p));renderAssets()}
 function assetFolderTree(parent='',depth=0){return assetChildren(parent).map(path=>{const child=assetChildren(path).length,open=assetExpanded.has(path);return '<div class="explorer-tree-row '+(assetFolder===path?'current':'')+'" data-afolder="'+esc(path)+'" draggable="true" style="padding-left:'+(8+depth*14)+'px"><button data-atoggle="'+esc(path)+'" '+(!child?'disabled':'')+'>'+(child?(open?'▾':'▸'):'·')+'</button><span>▱ '+esc(path.split('/').at(-1))+'</span></div>'+(open?assetFolderTree(path,depth+1):'')}).join('')}
 function bindAssetFolderDrop(el,path){el.ondragover=e=>{if([...e.dataTransfer.types].some(t=>t==='application/x-creative-assets'||t==='application/x-asset-folder'||t==='Files')){e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('folder-drop')}};el.ondragleave=()=>el.classList.remove('folder-drop');el.ondrop=async e=>{e.preventDefault();e.stopPropagation();el.classList.remove('folder-drop');try{const folder=e.dataTransfer.getData('application/x-asset-folder');if(folder)return moveAssetFolder(folder,path());const ids=e.dataTransfer.getData('application/x-creative-assets');if(ids)return moveAssetItems(JSON.parse(ids),path());if(e.dataTransfer.files.length){const destination=path(),target=libraryFolderTarget(destination),startedAt=assetFolder;const added=await uploadFiles(e.dataTransfer.files,destination);selectLibraryImports(added,target,startedAt)}}catch(err){libraryImportError(err)}}}
-async function moveAssetItems(ids,path){const next=clone(assetIndex),set=new Set(ids);next.assets.forEach(a=>{if(set.has(a.id))a.folder=path});if(await saveAssets(next)){enterAssetFolder(path);toast('内容已移动到所选文件夹 · Ctrl+Z 撤销');return true}return false}
-async function moveAssetFolder(old,parent,newName){if(parent===old||parent.startsWith(old+'/'))return toast('不能移进自己或自己的子文件夹');const dest=(parent?parent+'/':'')+(newName||old.split('/').at(-1));if(dest===old)return;if(allAssetFolders().includes(dest))return toast('目标位置已有同名文件夹');const next=clone(assetIndex),replace=f=>f===old?dest:f.startsWith(old+'/')?dest+f.slice(old.length):f;moveLibraryFolderIds(next,old,dest);next.folders=next.folders.map(replace);if(!next.folders.includes(dest))next.folders.push(dest);next.assets.forEach(a=>a.folder=replace(a.folder));if(await saveAssets(next)){toast('文件夹已更新，原文件路径不变');return true}}
+async function moveAssetItems(ids,path){const next=clone(assetIndex),set=new Set(ids);next.assets.forEach(a=>{if(set.has(a.id))a.folder=path});if(await saveAssets(next)){enterAssetFolder(path);toast('已移动 · Ctrl+Z 撤销');return true}return false}
+async function moveAssetFolder(old,parent,newName){if(parent===old||parent.startsWith(old+'/'))return toast('不能移进自己或自己的子文件夹');const dest=(parent?parent+'/':'')+(newName||old.split('/').at(-1));if(dest===old)return;if(allAssetFolders().includes(dest))return toast('目标位置已有同名文件夹');const next=clone(assetIndex),replace=f=>f===old?dest:f.startsWith(old+'/')?dest+f.slice(old.length):f;moveLibraryFolderIds(next,old,dest);next.folders=next.folders.map(replace);if(!next.folders.includes(dest))next.folders.push(dest);next.assets.forEach(a=>a.folder=replace(a.folder));if(await saveAssets(next)){toast('文件夹已更新');return true}}
 function renameAssetFolder(path=assetFolder){
  if(!path)return;const target=libraryFolderTarget(path);let busy=false;
  showDialog('<h2>重命名文件夹</h2><input id="nameInput" aria-label="名称" value="'+esc(path.split('/').at(-1))+'"><p id="folderRenameError" role="status" hidden></p>',[['取消',()=>$('dialog').close()],['确定',async()=>{
