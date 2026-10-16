@@ -1,23 +1,38 @@
-# Hosted service foundation — in development
+# Hosted service and original workbench
 
-The code in this development branch is not a released or deployed service.
+This development branch contains a separate Django account/data service and an
+adapter for the original `shell.html`, `index.html` and reviewed modules. With
+`CREATIVE_BOARD_HOSTED_NATIVE_WORKBENCH=1`, signed-in navigation opens that same
+workbench, including tabs, split panes, notes, tables and the content library.
+The earlier simplified spatial editor remains a separate legacy entry; its
+behavior and collaboration model must not be attributed to the original editor.
 
-This separate Django service currently implements accounts, private and shared
-workspace identities, member permissions, email-bound invitations, and scoped
-JSON board/catalog storage with history and rejected-save copies, protected
-streaming uploads/media access, reviewed interrupted-upload recovery and offline
-current-store snapshots with verified empty-store restoration. A separate
-responsive portal serves login, invited registration, workspace selection and
-owner-managed members/invitations, a scoped board shelf and a first responsive
-spatial note editor with a protected media library. Saved-text search and a
-bounded static preview of registered HTML are staged below. Research tasks and
-remaining unsupported scoped routes deliberately return `501` after
-checking membership. Unscoped desktop file APIs are unavailable.
+Accounts, fixed private/shared workspaces, member permissions and invitations
+protect board/catalog history, media, static previews, saved-text search and
+research material. The original adapter also supports conditional saving with
+visible recovery, periodic device reception, signed folder deletion/restoration
+and retained research context/images/sources/downloads. New folder deletion and
+research writes have separate opt-in flags; disabling new operations keeps
+existing records and recovery available. Email-code registration requires an
+operator-configured encrypted SMTP sender and otherwise stays disabled. Unscoped
+desktop file APIs are unavailable; no desktop data is imported automatically.
 
-Do not expose this foundation as a complete hosted whiteboard. Complete node editing, password recovery, real-time
-collaboration, full browser integration, registered-file cleanup,
-operational/offsite backups and deployment are unfinished. No
-desktop data is read or imported by this service.
+Source availability and CI do not certify an operator's deployment, external TLS,
+physical devices, backup schedule or offsite copies. Independently accept the
+exact release and preserve existing accounts, creations and signing keys before
+switching a service. Original-editor periodic reception is not character-level
+realtime collaboration or automatic merging of simultaneous saves. Appearance
+preferences remain browser-local. Password recovery and full device acceptance
+remain incomplete.
+
+See [original integration](#original-workbench-integration),
+[device reception](#original-workbench-device-reception),
+[folder recovery](#original-workbench-folder-recovery) and
+[research material](#original-research-material-candidate-deployment-acceptance-required)
+for the current original-editor contracts. The detailed entries below also
+retain earlier development/acceptance history; their historical counts and
+deployment status are not a current inventory. The reviewed runtime inventory
+is `deployment/program_files.json`.
 
 The independent [development container package](deployment/README.md) separates
 operator configuration, offline initialization, application serving and recovery.
@@ -2094,7 +2109,7 @@ The hosted branch remains unmerged and undeployed.
 
 ### Original workbench integration
 
-The authenticated service can serve the actual root `shell.html`, `index.html` and their reviewed JavaScript/CSS, including the existing tabs, split panes, canvas, note/table editing, appearance controls and reusable content library. These original program files remain unchanged. `CREATIVE_BOARD_HOSTED_NATIVE_WORKBENCH=1` selects it for signed-in home/workspace/board navigation; `/spaces` and `/w/<workspace>/manage/` retain account, workspace and membership management. Leave the flag unset to retain the previous editor while reviewing an independent deployment.
+The authenticated service can serve the actual root `shell.html`, `index.html` and their reviewed JavaScript/CSS, including the existing tabs, split panes, canvas, note/table editing, appearance controls and reusable content library. Integration reuses that original product rather than replacing it with the simplified editor; subsequent shared interface improvements live in the original modules. `CREATIVE_BOARD_HOSTED_NATIVE_WORKBENCH=1` selects it for signed-in home/workspace/board navigation; `/spaces` and `/w/<workspace>/manage/` retain account, workspace and membership management. Leave the flag unset to retain the previous editor while reviewing an independent deployment.
 
 Each original pane is bound to the account and workspace that opened it. Its legacy API requests use protected workspace URLs, CSRF and the original account header; media and inert HTML previews carry the original account. Preferences/session state and original coordination channels are separated by account/workspace. Changed-login pages preserve inputs and refuse writes. Server membership and exact-version checks remain authoritative. There is no desktop global-root adapter or filesystem-path file service.
 

@@ -1,12 +1,14 @@
 # Independent hosted development deployment
 
-This is a **development package**, not authorization to deploy and not a completed
-web product. Account ownership and scoped invitations are implemented; real-time
-merge, full device acceptance, registered-file lifecycle controls, external DNS
-and certificate acceptance remain unfinished. It never imports desktop data.
+This is an independent **deployment package**. Source availability does not
+authorize deployment or establish acceptance of a particular server. It can
+serve the original workbench through its scoped account/data adapter; see the
+[current entry and limits](../README.md). Physical-device support, external
+DNS/TLS, operational backup schedules and offsite copies require independent
+operator acceptance. It never imports desktop data automatically.
 
 The image uses the reviewed Python manifest digest and Gunicorn 26.2.0. Its exact
-116 runtime files are declared in `program_files.json` and mirrored by literal
+170 runtime files are declared in `program_files.json` and mirrored by literal
 file exceptions in `.dockerignore`. Do not unignore parent directories: their
 children can become build inputs too. The contract includes current portal
 assets and migrations, while excluding desktop `server.py`, local data, keys,
