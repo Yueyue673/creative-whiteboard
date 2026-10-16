@@ -53,6 +53,8 @@
   for(const field of root.querySelectorAll('textarea,input'))if(authorFields.has(field.id))for(const name of ['focusin','focusout','select','input','keyup','pointerup'])field.addEventListener(name,()=>{rememberPosition(field,scope);if(name==='focusin')watchPosition(field,scope);else if(name==='focusout'&&watchedField===field){writingResize.disconnect();watchedField=watchedScope=null}});
   for(const area of root.querySelectorAll('.edit-scroll,#inlineMeta'))area.addEventListener('scroll',()=>{const current=positions.get(n);if(!current)return;const field=root.querySelector('#'+current.field);if(field)rememberPosition(field,scope)});
   const details=root.querySelector('#inlineMeta');details?.addEventListener('toggle',()=>{if(!details.isConnected||!ownsPosition(scope))return;const state=positions.get(n);if(state)state.detailsOpen=details.open});
+  // Size the source panel in the initiating action, before its next pointer target appears.
+  for(const id of ['inlineDetails','inlineMetaClose'])root.querySelector('#'+id)?.addEventListener('click',positionActions);
  };
  const openBeforePosition=openEditor;
  openEditor=function(id){cancelWidth();activePosition();openBeforePosition(id);const n=board?.nodes.find(n=>n.id===id);if(n)restorePosition(positions.get(n))};
