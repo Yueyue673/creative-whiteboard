@@ -4,7 +4,48 @@
  const explorer = new URLSearchParams(location.search).get('explorer') === '1';
  const tasks = new Map();
  const fileJobs = new Map();
+ const libraryFailures = new WeakSet();
  const placements = new Map();
+ const libraryUploads = new Map(), libraryShelf = document.createElement('div');
+ libraryShelf.className='library-imports';
+ let libraryObserver=null;
+ function libraryLocation(target) {
+  if(!target.path)return '';
+  if(target.id)return Object.entries(assetIndex.folderIds || {}).find(([,id])=>id===target.id)?.[0] ?? null;
+  return libraryFolderPaths().includes(target.path)?target.path:null;
+ }
+ function alignLibraryUploads() {
+  const list=$('assetList'),query=$('assetSearch')?.value.trim().toLowerCase() || '';
+  if(!list)return;
+  const shown=[...libraryUploads.values()].filter(value=>libraryLocation(value.target)===assetFolder&&(!query||value.names.toLowerCase().includes(query)));
+  for(const value of libraryUploads.values())value.element.hidden=!shown.includes(value);
+  if(shown.length){if(libraryShelf.parentElement!==list)list.prepend(libraryShelf);}
+  else libraryShelf.remove();
+ }
+ function beginLibraryUpload(files,folder,key) {
+  for(const value of [...libraryUploads.values()])if(value.failed&&value.key===key)value.remove();
+  const id=uid(),target=libraryFolderTarget(folder),element=document.createElement('div');
+  element.className='library-import-row';element.setAttribute('role','status');element.setAttribute('aria-live','polite');
+  const icon=document.createElement('span'),copy=document.createElement('div'),name=document.createElement('b'),stage=document.createElement('small'),reason=document.createElement('p'),close=document.createElement('button');
+  icon.className='library-import-symbol';icon.setAttribute('aria-hidden','true');icon.textContent='↑';
+  name.textContent=files[0].name+(files.length>1?' 等 '+files.length+' 项':'');
+  name.title=files.map(file=>file.name).join('、');stage.textContent='上传中';reason.hidden=close.hidden=true;
+  close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭上传提示');
+  copy.append(name,stage,reason);element.append(icon,copy,close);libraryShelf.append(element);
+  const preview={id,key,target,element,names:name.title,failed:false,error:'',
+   visible(){const r=element.getBoundingClientRect(),list=$('assetList').getBoundingClientRect();return element.isConnected&&!element.hidden&&!$('assetPane').hidden&&r.width>0&&r.height>0&&r.bottom>list.top&&r.top<list.bottom;},
+   acknowledge(){},phase(){},
+   fail(message){this.failed=true;this.error=message;stage.textContent='未完成';reason.textContent=message;reason.hidden=close.hidden=false;element.classList.add('is-failed');},
+   remove(){libraryUploads.delete(id);element.remove();if(!libraryUploads.size){libraryShelf.remove();libraryObserver?.disconnect();libraryObserver=null;}},
+   complete(){if(!this.failed)this.remove();}
+  };
+  close.onclick=event=>{event.stopPropagation();preview.remove();if(failurePlacement===preview){failure='';failurePlacement=null;}updateFeedback();};
+  libraryUploads.set(id,preview);alignLibraryUploads();
+  if(!libraryObserver){libraryObserver=new MutationObserver(()=>updateFeedback());libraryObserver.observe($('assetPane'),{attributes:true,attributeFilter:['hidden']});}
+  return preview;
+ }
+ const renderBeforeUploads=renderAssets;
+ renderAssets=function(...args){const result=renderBeforeUploads(...args);if(libraryUploads.size){alignLibraryUploads();updateFeedback();}return result;};
  let placementFrame = 0, placementObserver = null;
  function watchPlacements() {
   if (!placements.size) {placementObserver?.disconnect();placementObserver=null;return;}
@@ -99,8 +140,8 @@
  }
  const drawBeforePlacements=drawNodes;drawNodes=function(...args){const result=drawBeforePlacements(...args);if(placements.size)schedulePlacements();return result;};
  const moveBeforePlacements=moveView;moveView=function(...args){const result=moveBeforePlacements(...args);if(placements.size){positionPlacements();updateFeedback();}return result;};
- document.addEventListener('scroll',()=>{if(placements.size)schedulePlacements();},true);
- window.addEventListener('resize',()=>{if(placements.size)schedulePlacements();});
+ document.addEventListener('scroll',()=>{if(placements.size)schedulePlacements();else if(libraryUploads.size)updateFeedback();},true);
+ window.addEventListener('resize',()=>{if(placements.size)schedulePlacements();else if(libraryUploads.size)updateFeedback();});
  const feedback = document.createElement('aside');
  feedback.id = 'importFeedback'; feedback.hidden = true;
  feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
@@ -111,19 +152,19 @@
  let failure = '', failurePlacement = null;
  function updateFeedback() {
   const active = [...tasks.values()].filter(task => task.label && !matchingPlacements(task).some(placement=>placement.visible())), latest = active.at(-1);
-  const error=(failurePlacement?.visible()?'':failure)||[...placements.values()].filter(placement=>placement.failed&&!placement.visible()).at(-1)?.error||'';
+   const error=(failurePlacement?.visible()?'':failure)||[...placements.values(),...libraryUploads.values()].filter(placement=>placement.failed&&!placement.visible()).at(-1)?.error||'';
   feedback.hidden = !latest && !error;
   feedback.classList.toggle('import-failed', !!error);
   heading.textContent = error ? '未添加' : latest?.label || '';
   detail.textContent = error || latest?.names || '';
   dismiss.hidden = !error || !!latest;
  }
- dismiss.onclick = () => {failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values()])if(placement.failed)placement.remove();updateFeedback();};
+  dismiss.onclick = () => {failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values(),...libraryUploads.values()])if(placement.failed)placement.remove();updateFeedback();};
  function filesLabel(files, action) {
   return {label:action || (files.every(file=>/\.(md|txt|csv|tsv|json)$/i.test(file.name))?'读取中':'上传中'), names:files.map(file => file.name).join('、'), files};
  }
  function matchingPlacements(entry) {
-  return [...new Set([entry.placement,...[...tasks.values()].filter(other=>entry.filesKey && other.filesKey===entry.filesKey && other.ownerId===entry.ownerId).map(other=>other.placement)].filter(Boolean))];
+  return [...new Set([entry.placement,...[...tasks.values()].filter(other=>!entry.libraryUpload&&!other.libraryUpload&&entry.filesKey && other.filesKey===entry.filesKey && other.ownerId===entry.ownerId).map(other=>other.placement)].filter(Boolean))];
  }
  function reportFailure(entry, message) {
   const matching=matchingPlacements(entry);
@@ -131,11 +172,11 @@
   if(!matching.length){failure=message;failurePlacement=null;}
   else if(!matching.some(placement=>placements.get(placement.id)===placement)){failure=message;failurePlacement=matching[0];}
  }
- function fileKey(operation, files, destination = '') {
+  function fileKey(operation, files, destination = '', owner = boardId) {
   if (!files.length) return '';
   // Only coalesce a matching in-flight selection at the same destination.
   // Once settled, the author can intentionally insert that file again.
-  return JSON.stringify([operation, boardId, destination, files.map(file => [file.name, file.size, file.type, file.lastModified]).sort()]);
+   return JSON.stringify([operation, owner, destination, files.map(file => [file.name, file.size, file.type, file.lastModified]).sort()]);
  }
  let preparingPlacement = false;
  const pendingCanvas = () => [...tasks.values()].some(task => task.kind === 'canvas');
@@ -156,7 +197,7 @@
   if (!tasks.size) {failure = '';failurePlacement=null;}
   const token = {}, entry = {kind, promise:null, ownerId:boardId, ...info};
   entry.filesKey = info.files?.length ? JSON.stringify(info.files.map(file=>[file.name,file.size,file.type,file.lastModified]).sort()) : '';
-  entry.placement = info.placement || (kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
+   entry.placement = info.placement || (info.libraryUpload ? beginLibraryUpload(info.files,info.folder,info.key) : kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
   entry.ownsPlacement = !!entry.placement && !info.borrowed;
   for(const placement of matchingPlacements(entry))placement.phase(info.label || '添加中');
   let finish;
@@ -166,10 +207,11 @@
   entry.result = (async () => {
    try {
     const result = await action(entry.placement?.point);
-    if (result === false && entry.label && !entry.placement?.failed) reportFailure(entry,entry.placement?.point._insertionError || '未能添加');
+     if (result === false && entry.label && !entry.placement?.failed) reportFailure(entry,entry.placement?.point?._insertionError || '未能添加');
     return result;
    } catch (error) {
     if (entry.label) reportFailure(entry,error.message || '连接失败');
+     if(entry.libraryUpload && error && typeof error==='object')libraryFailures.add(error);
     throw error;
    } finally {
     if(entry.ownsPlacement)entry.placement.complete();
@@ -223,11 +265,12 @@
  const upload = uploadFiles;
  uploadFiles = function(files, folder = assetFolder) {
   const snapshot = [...files];
+   const canvasOwner=[...tasks.values()].some(task=>task.kind==='canvas'&&snapshot.every(file=>task.files?.includes(file)));
   return run(async () => {
    const preparation=window.whiteboardImagePreparation?.prepare(snapshot);
    try{const added=await upload(snapshot,folder);preparation?.remember(added);return added}
    finally{preparation?.dispose()}
-  }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), key:fileKey('upload', snapshot, libraryFolderIdentity(folder))} : {});
+   }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), libraryUpload:!canvasOwner, folder, key:fileKey('upload', snapshot, libraryFolderIdentity(folder),canvasOwner?boardId:'library')} : {});
  };
  const importBefore = importFiles;
  importFiles = function(files, position) {
@@ -301,6 +344,7 @@
  window.whiteboardImports = {
   idle,
   flush,
+   handlesLibraryError:error=>!!error&&typeof error==='object'&&libraryFailures.has(error),
   pending:() => tasks.size > 0,
   pendingCanvas
  };
