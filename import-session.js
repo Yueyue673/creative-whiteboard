@@ -21,8 +21,10 @@
  function beginInsertion(items, position, target) {
   if (explorer || !board || loading) return null;
   const existing = placements.get(position?._insertion);
-  if (existing?.owner === board) return existing;
-  const owner = board, ownerId = boardId, id = uid(), first = items[0] || {};
+  if (existing?.ownerId === boardId && !existing.failed) return existing;
+  const ownerId = boardId, id = uid(), first = items[0] || {};
+  const signature=JSON.stringify([ownerId,target?._importDestination || null,items.map(item=>[item.id || '',item.name || item.title || '',item.type || item.mime || '',item.size || 0,item.lastModified || 0]),position?{x:position.x,y:position.y}:null]);
+  for(const previous of [...placements.values()])if(previous.failed&&previous.signature===signature)previous.remove();
   const point = {x:Number.isFinite(position?.x) ? position.x : center().x, y:Number.isFinite(position?.y) ? position.y : center().y, _insertion:id};
   const dimensions=items.map(item=>{
    const nodes=item.bundle?.nodes;
@@ -56,11 +58,11 @@
    return {width,height};
   }
   const placement = {
-   id, owner, ownerId, point, frame, target, element, failed:false,error:'',
+   id, ownerId, signature, point, frame, target, element, failed:false,error:'',
    onScreen:{width:0,height:0},
    visible() {return !element.hidden&&this.onScreen.width>=(this.failed?120:80)&&this.onScreen.height>=(this.failed?100:50)&&(!frameElement||!!frameElement.getClientRects().length);},
    align() {
-    element.hidden = board !== owner || boardId !== ownerId;
+    element.hidden = boardId !== ownerId;
     if (element.hidden) return;
     let rect;
     if (target) {
@@ -121,7 +123,7 @@
   return {label:action || (files.every(file=>/\.(md|txt|csv|tsv|json)$/i.test(file.name))?'读取中':'上传中'), names:files.map(file => file.name).join('、'), files};
  }
  function matchingPlacements(entry) {
-  return [...new Set([entry.placement,...[...tasks.values()].filter(other=>entry.filesKey && other.filesKey===entry.filesKey && other.owner===entry.owner).map(other=>other.placement)].filter(Boolean))];
+  return [...new Set([entry.placement,...[...tasks.values()].filter(other=>entry.filesKey && other.filesKey===entry.filesKey && other.ownerId===entry.ownerId).map(other=>other.placement)].filter(Boolean))];
  }
  function reportFailure(entry, message) {
   const matching=matchingPlacements(entry);
@@ -152,7 +154,7 @@
    return fileJobs.get(info.key).result;
   }
   if (!tasks.size) {failure = '';failurePlacement=null;}
-  const token = {}, entry = {kind, promise:null, owner:board, ...info};
+  const token = {}, entry = {kind, promise:null, ownerId:boardId, ...info};
   entry.filesKey = info.files?.length ? JSON.stringify(info.files.map(file=>[file.name,file.size,file.type,file.lastModified]).sort()) : '';
   entry.placement = info.placement || (kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
   entry.ownsPlacement = !!entry.placement && !info.borrowed;
@@ -279,7 +281,7 @@
   return run(async () => {
    try {await loadAssets();} catch (error) {notice(error.message,saved); return false;}
    return append();
-  },'canvas',{label:'读取中',names:'附件',items:snapshot.map(id=>assetById(id) || {title:'附件'}),spatial:true,target:saved,key:JSON.stringify(['attach-assets',boardId,snapshot,saved._importDestination])});
+  },'canvas',{label:'读取中',names:'附件',items:snapshot.map(id=>assetById(id) || {id,title:'附件'}),spatial:true,target:saved,key:JSON.stringify(['attach-assets',boardId,snapshot,saved._importDestination])});
  };
  for (const name of ['switchBoard', 'newBoard', 'confirmReload', 'saveCopy']) {
   const before = window[name];
