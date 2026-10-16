@@ -111,8 +111,10 @@ def library(request, workspace_id):
                 # No partial metadata commit when catalog validation/refusal fails.
                 raise APIError(saved.get('error', '内容库没有保存，原输入保留'), 409)
             check_quota(workspace_id)
-            _, tag, _, _ = snapshot(scope, request.user)
-            response = JsonResponse(saved)
+            committed, tag, _, _ = snapshot(scope, request.user)
+            # The original workbench uses the acknowledgement for its next
+            # upload or folder rename without requiring a catalog reload.
+            response = JsonResponse({**saved, 'folderIds': committed.get('folderIds', {})})
         response['ETag'] = tag
         return response
 

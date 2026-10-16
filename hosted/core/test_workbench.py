@@ -96,6 +96,33 @@ class OriginalWorkbenchTests(TestCase):
         self.assertEqual(self.call(self.base+'native/assets','PUT',value,read['ETag']).status_code,409)
         self.assertFalse(WorkspaceDocument.objects.filter(workspace=self.space,kind='library').exists())
 
+    def test_original_folder_save_acknowledgement_can_immediately_target_an_upload(self):
+        current=self.read();value=current.json()
+        value['folders']=['Incoming'];value['folderIds']={'Incoming':'original-folder'}
+        saved=self.call(self.base+'native/assets','PUT',value,current['ETag'])
+        self.assertEqual(saved.status_code,200,saved.content)
+        self.assertEqual(saved.json().get('folderIds'),{'Incoming':'original-folder'})
+        uploaded=self.client.post(self.base+'assets/upload',data=b'original file in chosen folder',content_type='application/octet-stream',
+            HTTP_X_CREATIVE_ACCOUNT=str(self.owner.pk),HTTP_X_FILE_NAME='chosen.txt',HTTP_X_FOLDER_ID=saved.json()['folderIds']['Incoming'])
+        self.assertEqual(uploaded.status_code,201,uploaded.content)
+        self.assertEqual(uploaded.json()['folder'],'Incoming')
+        self.assertEqual(uploaded.json()['folderId'],'original-folder')
+
+    def test_original_folder_rename_acknowledgement_preserves_identity_without_reload(self):
+        current=self.read();value=current.json()
+        value['folders']=['Before'];value['folderIds']={'Before':'retained-folder'}
+        saved=self.call(self.base+'native/assets','PUT',value,current['ETag'])
+        self.assertEqual(saved.status_code,200,saved.content)
+        renamed=copy.deepcopy(value);renamed['folders']=['After'];renamed['folderIds']={'After':'retained-folder'}
+        result=self.call(self.base+'native/assets','PUT',renamed,saved['ETag'])
+        self.assertEqual(result.status_code,200,result.content)
+        self.assertEqual(result.json().get('folderIds'),{'After':'retained-folder'})
+        uploaded=self.client.post(self.base+'assets/upload',data=b'original file after rename',content_type='application/octet-stream',
+            HTTP_X_CREATIVE_ACCOUNT=str(self.owner.pk),HTTP_X_FILE_NAME='renamed.txt',HTTP_X_FOLDER_ID=result.json()['folderIds']['After'])
+        self.assertEqual(uploaded.status_code,201,uploaded.content)
+        self.assertEqual(uploaded.json()['folder'],'After')
+        self.assertNotIn('Before',self.read().json()['folderIds'])
+
     def test_reusable_literal_original_note_bundle_roundtrips_without_file_authority(self):
         read=self.read();value=read.json()
         item={'id':str(uuid.uuid4()),'title':'Original content','path':'','folder':'','mime':'application/x-creative-bundle','size':0,'notes':'','tags':[],
