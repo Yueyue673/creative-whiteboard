@@ -12,6 +12,7 @@
   if(moved){board.view={...view(),x:view().x-dx,y:view().y-dy};canvas.scrollLeft=canvas.scrollTop=0;moveView()}
   // Browsers cannot scroll to negative world coordinates. Reveal a hidden
   // focus target there without changing the selected content or its geometry.
+  if(writingField(e.target)&&window.whiteboardCaret){revealCaret(e.target);if(moved)change(true);return}
   const c=canvas.getBoundingClientRect(),r=e.target.getBoundingClientRect();
   const hiddenX=r.width<=c.width?r.left<c.left||r.right>c.right:r.right<=c.left||r.left>=c.right;
   const hiddenY=r.height<=c.height?r.top<c.top||r.bottom>c.bottom:r.bottom<=c.top||r.top>=c.bottom;
@@ -24,6 +25,22 @@
   }
   if(moved)change(true);
  });
+ function writingField(field){return !!(field?.isConnected&&field.matches('textarea,input[type=text],input:not([type])')&&!field.readOnly&&!field.disabled&&!field.closest('[hidden]')&&field.closest('#nodes>.node .live-layout')&&field.getClientRects().length)}
+ // Author fields follow their insertion point, not an offscreen textarea's full height.
+ function revealCaret(field,scroll=true){
+  if(!board||loading||gesture||$('dialog').open||document.activeElement!==field||!writingField(field)||!window.whiteboardCaret)return false;
+  if(frameElement&&(frameElement.closest('[inert]')||frameElement.hidden||getComputedStyle(frameElement).visibility==='hidden'||!frameElement.getClientRects().length))return false;
+  if(scroll)whiteboardCaret.follow(field,false);
+  const c=canvas.getBoundingClientRect(),r=field.getBoundingClientRect(),area=field.closest('#inlineMeta,.edit-scroll,.table-scroll')||field,a=area.getBoundingClientRect(),margin=Math.min(16,c.width/8,c.height/8);
+  if(c.width<1||c.height<1)return false;
+  if(r.left>=c.left+margin&&r.right<=c.right-margin&&a.top>=c.top+margin&&a.bottom<=c.bottom-margin)return false;
+  const caret=whiteboardCaret.box(field),inset=Math.max(0,Math.min(margin,(c.width-r.width)/2)),fits=r.width<=c.width,x=fits?(r.left<c.left+inset?c.left+inset-r.left:r.right>c.right-inset?c.right-inset-r.right:0):(caret.left<c.left+margin?c.left+margin-caret.left:caret.left>c.right-margin?c.right-margin-caret.left:0);
+  let top=c.top+margin,bottom=c.bottom-margin;const tools=$('canvasTools'),dock=$('creationDock');if(tools?.getClientRects().length)top=Math.max(top,tools.getBoundingClientRect().bottom+8);if(dock?.getClientRects().length)bottom=Math.min(bottom,dock.getBoundingClientRect().top-8);if(bottom-top<caret.height+16){top=c.top+margin;bottom=c.bottom-margin}
+  let y=caret.top<top?top-caret.top:caret.top+caret.height>bottom?bottom-caret.top-caret.height:0;
+  if(y&&a.height<=bottom-top)y=a.top<top?top-a.top:a.bottom>bottom?bottom-a.bottom:y;
+  if(!Number.isFinite(x)||!Number.isFinite(y)||!x&&!y)return false;
+  board.view={...view(),x:view().x+x,y:view().y+y};moveView();change(true);return true;
+ }
  function effectiveSelection(){const ids=new Set(selected);for(const f of board.nodes.filter(n=>selected.has(n.id)&&n.type==='frame'))for(const n of board.nodes)if(groupOf(n)?.id===f.id)ids.add(n.id);return board.nodes.filter(n=>ids.has(n.id))}
  function fitSelection(){const ns=effectiveSelection();if(!ns.length)return;const x=Math.min(...ns.map(n=>n.x)),y=Math.min(...ns.map(n=>n.y)),w=Math.max(...ns.map(n=>n.x+n.w))-x,h=Math.max(...ns.map(n=>n.y+n.h))-y,r=canvas.getBoundingClientRect(),z=Math.max(.15,Math.min(4,(r.width-100)/w,(r.height-100)/h));board.view={x:(r.width-w*z)/2-x*z,y:(r.height-h*z)/2-y*z,z};moveView();change(true)}
  function arrangementMoves(axis,mode,gap){
@@ -185,7 +202,7 @@
  window.addEventListener('pointercancel',cancelRightClick,true);
  window.addEventListener('keydown',e=>{if(e.key==='Escape')cancelRightClick();else if(!rightClick||rightClick.ended)clearRightClick()},true);
  window.addEventListener('blur',cancelRightClick);
- window.whiteboardNavigation={read,write,fitSelection,arrange};
+ window.whiteboardNavigation={read,write,fitSelection,arrange,revealCaret};
 })();
 
 // Two fingers navigate the canvas; a remaining finger never turns into a card drag.
