@@ -18,3 +18,12 @@
 #shellStatus .other-board-issue{display:block;width:100%;max-width:100%;min-height:44px;padding:0 4px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ui-accent);font:inherit;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 #shellStatus .other-board-issue:hover{background:var(--ui-hover)}
 #shellStatus .other-board-issue:focus-visible{outline:2px solid var(--ui-accent);outline-offset:1px}
+
+/* Keep both logical sides; use one working surface when two would be cramped. */
+#workspace.workspace-focus #splitter{display:none}
+#workspace.workspace-focus .tab-group[data-side=left],#workspace.workspace-focus .tab-group[data-side=right]{width:50%}
+#workspace.workspace-focus .empty-pane{inset:0}
+#workspace.workspace-focus[data-focus-side=left] .empty-pane[data-side=right],#workspace.workspace-focus[data-focus-side=right] .empty-pane[data-side=left]{display:none}
+#workspace.explorer-overlay{--explorer-width:0px!important}
+#workspace.explorer-overlay #globalExplorer{width:100%;max-width:none;border-right:0}
+#workspace.explorer-overlay #explorerGrip{display:none}

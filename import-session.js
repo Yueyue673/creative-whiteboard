@@ -77,6 +77,11 @@
   for(const [index,size]of dimensions.entries()){frame.w=Math.max(frame.w,x+size.w);frame.h=Math.max(frame.h,y+size.h);x+=size.w+60;rowHeight=Math.max(rowHeight,size.h);if((index+1)%columns===0){x=0;y+=rowHeight+70;rowHeight=0;}}
   if(!dimensions.length)Object.assign(frame,{w:340,h:200});
   if (!position && !target) {
+   // An implicit add has no chosen drop point: center its bounds, not its corner.
+   // Oversized originals keep their geometry and begin inside the visible area.
+   const clip=canvas.getBoundingClientRect(),scale=view().z,insetX=Math.min(16,clip.width/4),insetY=Math.min(16,clip.height/4),start=worldPoint(clip.left+insetX,clip.top+insetY);
+   point.x=frame.w*scale<=clip.width-insetX*2?point.x-frame.w/2:start.x;
+   point.y=frame.h*scale<=clip.height-insetY*2?point.y-frame.h/2:start.y;
    for (let i = 0; i <= board.nodes.length + placements.size; i++) {
     const occupied = [...board.nodes, ...[...placements.values()].filter(value => !value.target).map(value => ({...value.point,...value.frame}))];
     const hits = occupied.filter(n => n.x < point.x + frame.w && n.x + n.w > point.x && n.y < point.y + frame.h && n.y + n.h > point.y);

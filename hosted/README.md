@@ -2119,6 +2119,16 @@ The native library facade combines registered cloud file metadata with literal r
 
 This integration does not promise complete desktop endpoint parity: features are enabled only after their exact release is accepted, and no endpoint falls back to desktop files. Shared edits retain the existing conditional saves/conflict protection; no character-level real-time merge is claimed. Verify each deployment in an independent synthetic store before enabling the flag for existing users. Accounts, documents, originals and signing keys must not be reinitialized or automatically migrated from a private desktop workspace.
 
+The shared original shell can present one active working surface when its usable
+width cannot fit both panes, retaining logical sides, tabs and the chosen split
+ratio for a wider window. On narrow screens the shared explorer uses its own
+full-width view and the existing sidebar action becomes a return arrow. Crossing
+the breakpoint retains whichever writing field or library search was active;
+it does not replace the document or resize authored cards. Implicit library
+insertion centers the new bounds, while explicit drop coordinates remain literal.
+These are source capabilities requiring exact-release deployment acceptance,
+not evidence of physical-phone testing.
+
 ### Original workbench device reception
 
 The original workbench can periodically check its protected live-board endpoint and receive a complete update while its own content is saved and idle. It checks the original account, current workspace access, response scope and version, then rechecks that no typing, save, gesture, dialog or import began while waiting. Active input and composition defer reception. An interrupted connection preserves the current document and resumes checking; it does not establish logout or lost permission.
