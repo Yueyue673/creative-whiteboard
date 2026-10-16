@@ -22,7 +22,7 @@ const fs=require('fs'),os=require('os'),path=require('path'),assert=require('ass
    await a.locator('[data-id="writing-note"]').dblclick();await a.locator('#body').focus();await a.locator('#body').evaluate(el=>el.setSelectionRange(2,13,'backward'));
    const before=await a.evaluate(()=>({value:$('body').value,nodes:clone(board.nodes),history:clone(history),future:clone(future)}));
    for(const size of [{width:820,height:650},{width:390,height:700}]){
-    await p.setViewportSize(size);await p.waitForFunction(()=>document.querySelector('#workspace').classList.contains('workspace-focus'));
+    await p.setViewportSize(size);await p.waitForFunction(()=>document.querySelector('#workspace').classList.contains('workspace-focus'));await a.waitForFunction(()=>document.getElementById('canvas').clientWidth>=380);
     assert.equal(await p.locator('#frameDeck iframe:visible').count(),1);assert(await a.locator('#canvas').evaluate(el=>el.clientWidth>=380));
     assert.deepEqual(await a.locator('#body').evaluate(el=>[el.value,el.selectionStart,el.selectionEnd,el.selectionDirection,el===document.activeElement]),[before.value,2,13,'backward',true]);
     if(size.width===390){assert(await p.locator('#globalExplorer').isHidden());assert.equal(await p.locator('#frameDeck').evaluate(el=>el.inert),false)}
