@@ -10,7 +10,7 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   const original={format:'creative-board',version:1,name:'Library upload',nodes:[],edges:[],view:{x:0,y:0,z:1}};
   assert((await fetch(base+'/api/boards/library-upload',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(original)})).ok);
   const cat=await fetch(base+'/api/assets'),catalog=await cat.json();catalog.folders=['Incoming','Other','Replace'];catalog.folderIds={Incoming:'incoming-folder',Other:'other-folder',Replace:'replace-folder'};
-  const from=process.env.LIBRARY_UPLOAD_FROM,resumed=['parallel','failure'].includes(from);
+  const from=process.env.LIBRARY_UPLOAD_FROM,resumed=['parallel','failure','clipboard'].includes(from);
   if(resumed){catalog.folders=['Renamed','Other','Replace'];catalog.folderIds={Renamed:'incoming-folder',Other:'other-folder',Replace:'replace-folder'};}
   assert((await fetch(base+'/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':cat.headers.get('ETag')},body:JSON.stringify(catalog)})).ok);
   if(resumed)for(const name of from==='failure'?['photomode_fixture.png']:['photomode_fixture.png','retry_fixture.png'])assert((await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':name,'X-Folder':'Renamed','X-Folder-Id':'incoming-folder'},body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64')})).ok);
@@ -53,7 +53,8 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   }
 
   if(from!=='parallel'){
-  if(from==='failure')await page.setViewportSize({width:390,height:650});
+  if(['failure','clipboard'].includes(from))await page.setViewportSize({width:390,height:650});
+  if(from!=='clipboard'){
   const failure=await hold('retry_fixture.png',{fail:true});await drop('retry_fixture.png');await failure.arrival;await failure.finish();
   await failed.waitFor();assert((await failed.innerText()).includes('Synthetic destination upload unavailable'));assert(await library.locator('#importFeedback').isHidden());
   assert(await library.locator('#toast').evaluate(el=>el.hidden||el.textContent!=='Synthetic destination upload unavailable'),'A contextual upload failure does not also open an identical toast');
@@ -62,7 +63,8 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   await library.evaluate(()=>{window.originalUploadDocument=boardId;boardId='another-library-document'});const retry=await hold('retry_fixture.png');await drop('retry_fixture.png');await retry.arrival;await library.evaluate(()=>boardId=originalUploadDocument);assert.equal(await library.locator('.library-import-row').count(),1,'Folder upload retry is independent of the hidden explorer document identity');assert.equal(await failed.count(),0,'Retry removes only the corresponding obsolete failure');
   await library.locator('#assetSearch').fill('not-the-upload');assert.equal(await row.count(),0);assert(await library.locator('#importFeedback').isVisible());await library.locator('#assetSearch').fill('');await row.waitFor();await retry.finish();assert.equal(await library.locator('[data-asset]').count(),2);
   console.log('Library upload failure: reason and close fit narrow layout; retry and search retain correct scope');
-  const clipboard=await hold('clipboard_failure.png',{fail:true});await library.evaluate(bytes=>{window.clipboardUpload=whiteboardLibraryClipboard.paste('',[new File([new Uint8Array(bytes)],'clipboard_failure.png',{type:'image/png',lastModified:44})])},bytes);await clipboard.arrival;await clipboard.finish();await library.evaluate(()=>clipboardUpload);await failed.waitFor();assert((await failed.innerText()).includes('Synthetic destination upload unavailable'));await failed.getByRole('button',{name:'关闭上传提示'}).click();assert(await library.locator('#importFeedback').isHidden());
+  }
+  const clipboard=await hold('clipboard_failure.png',{fail:true});await library.evaluate(bytes=>{window.clipboardUpload=whiteboardLibraryClipboard.paste('',[new File([new Uint8Array(bytes)],'clipboard_failure.png',{type:'image/png',lastModified:44})])},bytes);await clipboard.arrival;await clipboard.finish();await library.evaluate(()=>clipboardUpload);await failed.waitFor();assert((await failed.innerText()).includes('Synthetic destination upload unavailable'));await failed.getByRole('button',{name:'关闭粘贴提示'}).click();assert(await library.locator('#importFeedback').isHidden());
   if(from==='failure'){assert.deepEqual(fs.readFileSync(path.join(tmp,'内容','library-upload.json')),boardBytes);assert.deepEqual(errors,[]);console.log('Focused drop/clipboard contextual-error delta passed; original board exact');return;}
   }
 

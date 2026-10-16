@@ -46,8 +46,42 @@
  }
  function decode(text){try{return JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''))}catch{return null}}
  async function storeFragment(bundle,destination,startedView){if(!bundle.nodes?.length)return;if(bundle.nodes.length>5000||(bundle.edges||[]).length>10000)throw Error('内容超过单组上限，请分批收录');checkDestination(destination);const next=clone(assetIndex),id=uid(),title=bundle.nodes[0].title||'未命名内容',names=new Set(next.assets.filter(a=>!a.archived&&a.folder===destination).map(a=>a.title));next.assets.push({id,title:uniqueName(title,names),path:'',mime:bundleMime,size:0,tags:[],notes:'',folder:destination,bundle:clone(bundle),updated:Date.now()});if(await saveAssets(next)){selectResult([id],destination,startedView);toast('已收进内容库 · Ctrl+Z 撤销')}}
- async function paste(text,files=[],destination=assetFolder){if(busy)return toast('上一批内容还在粘贴，请稍候');const target=typeof destination==='string'?captureDestination(destination):destination;busy=true;try{const payload=await pendingPayload(text,files);if(!payload)return;({text,files}=payload);const parsed=decode(text);if(parsed?.format==='creative-board-references'||parsed?.format==='creative-board-proposal')return await pastePayload(text,[],pasteAnchor());await loadAssets();destination=resolveDestination(target.folder);if(files.length){try{const added=await uploadFiles(files,destination);selectLibraryImports(added,target.folder,target.path)}catch(error){if(!window.whiteboardImports?.handlesLibraryError?.(error))throw error}return}if(parsed?.format==='creative-board-fragment'){if(parsed.library)return await pasteLibrary(parsed.library,destination,target.view);return await storeFragment(normalize(parsed),destination,target.view)}if(!text)return;await storeFragment({nodes:[{id:uid(),type:'note',title:text.split(/\r?\n/)[0].slice(0,60),body:text,userText:'',annotation:'',tags:[],color:'#fff2a8',x:0,y:0,w:340,h:120,sizeMode:'auto'}],edges:[]},destination,target.view)}finally{busy=false}}
- async function pasteFromMenu(destination){if(!await ready())return;let text,files=[];try{text=await navigator.clipboard.readText();if(!text)for(const item of await navigator.clipboard.read())for(const type of item.types)if(type.startsWith('image/')){const blob=await item.getType(type);files.push(new File([blob],'粘贴图片.'+(type.split('/')[1]||'png'),{type}))}}catch{return toast('请在内容库中按 Ctrl+V 粘贴')}if(text||files.length)await paste(text,files,destination)}
+ async function runPaste(read,destination=assetFolder){
+  if(busy)return;
+  const target=typeof destination==='string'?captureDestination(destination):destination;
+  busy=true;
+  const action=async (preview,forward)=>{
+   const payload=await read();if(!payload)return;
+   const {text,files}=payload,parsed=decode(text);
+   if(parsed?.format==='creative-board-references'||parsed?.format==='creative-board-proposal'){
+    forward?.();return await pastePayload(text,[],pasteAnchor());
+   }
+   if(!text&&!files.length)return;
+   if(files.length)preview?.describe(files);
+   await loadAssets();destination=resolveDestination(target.folder);
+   if(files.length){
+    try{const added=await uploadFiles(files,destination,preview);selectLibraryImports(added,target.folder,target.path)}
+    catch(error){if(!window.whiteboardImports?.handlesLibraryError?.(error))throw error}
+    return;
+   }
+   preview?.phase('添加中');
+   if(parsed?.format==='creative-board-fragment'){
+    if(parsed.library)return await pasteLibrary(parsed.library,destination,target.view);
+    return await storeFragment(normalize(parsed),destination,target.view);
+   }
+   return await storeFragment({nodes:[{id:uid(),type:'note',title:text.split(/\r?\n/)[0].slice(0,60),body:text,userText:'',annotation:'',tags:[],color:'#fff2a8',x:0,y:0,w:340,h:120,sizeMode:'auto'}],edges:[]},destination,target.view);
+  };
+  try{return await (window.whiteboardImports?.libraryPaste?whiteboardImports.libraryPaste(action,target.folder):action())}
+  finally{busy=false}
+ }
+ function paste(text,files=[],destination=assetFolder){return runPaste(()=>pendingPayload(text,files),destination)}
+ function pasteFromMenu(destination){return runPaste(async()=>{
+  if(!await ready())return null;
+  let text,files=[];
+  try{text=await navigator.clipboard.readText();if(!text)for(const item of await navigator.clipboard.read())for(const type of item.types)if(type.startsWith('image/')){const blob=await item.getType(type);files.push(new File([blob],'粘贴图片.'+(type.split('/')[1]||'png'),{type}))}}
+  catch{toast('请在内容库中按 Ctrl+V 粘贴');return null}
+  return {text,files};
+ },destination)}
  const menuBefore=fileMenu;fileMenu=function(e,items){if(e.target.closest?.('#assetPane')&&!e.target.closest('input,textarea,[contenteditable=true]')){const f=e.target.closest('[data-asub],[data-afolder]'),destination=captureDestination(f?(f.dataset.asub??f.dataset.afolder):assetFolder);items=[...(assetFolderPick||assetSelected.size?[['复制  Ctrl+C',()=>write(false)],['剪切  Ctrl+X',()=>write(true)]]:[]),['粘贴  Ctrl+V',()=>pasteFromMenu(destination)],...items]}return menuBefore(e,items)};
  function cancel({silent=false}={}){const writing=clipboard.pending?.pack?.library?.operation==='cut'?clipboard.pending:null;if(writing)writing.cancelled=true;if(!cutState()&&!writing)return false;clearCut();if(!silent)toast('已取消剪切，原件保留');return true}
  async function refreshPending(){if(!pendingRefresh||busy||editorId||$('dialog').open)return;pendingRefresh=false;try{await loadAssets();assetSelected=new Set([...assetSelected].filter(id=>assetById(id)&&!assetById(id).archived));if(assetFolder&&!allAssetFolders().includes(assetFolder))enterAssetFolder('');renderAssets()}catch{pendingRefresh=true}}

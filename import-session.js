@@ -22,19 +22,20 @@
   if(shown.length){if(libraryShelf.parentElement!==list)list.prepend(libraryShelf);}
   else libraryShelf.remove();
  }
- function beginLibraryUpload(files,folder,key) {
+ function beginLibraryUpload(files,folder,key,options={}) {
   for(const value of [...libraryUploads.values()])if(value.failed&&value.key===key)value.remove();
-  const id=uid(),target=libraryFolderTarget(folder),element=document.createElement('div');
+  const id=uid(),target=options.target || libraryFolderTarget(folder),element=document.createElement('div');
   element.className='library-import-row';element.setAttribute('role','status');element.setAttribute('aria-live','polite');
   const icon=document.createElement('span'),copy=document.createElement('div'),name=document.createElement('b'),stage=document.createElement('small'),reason=document.createElement('p'),close=document.createElement('button');
   icon.className='library-import-symbol';icon.setAttribute('aria-hidden','true');icon.textContent='↑';
   name.textContent=files[0].name+(files.length>1?' 等 '+files.length+' 项':'');
-  name.title=files.map(file=>file.name).join('、');stage.textContent='上传中';reason.hidden=close.hidden=true;
-  close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭上传提示');
+  name.title=files.map(file=>file.name).join('、');stage.textContent=options.label || '上传中';reason.hidden=close.hidden=true;
+  close.type='button';close.textContent='×';close.setAttribute('aria-label',options.paste?'关闭粘贴提示':'关闭上传提示');
   copy.append(name,stage,reason);element.append(icon,copy,close);libraryShelf.append(element);
   const preview={id,key,target,element,names:name.title,failed:false,error:'',
    visible(){const r=element.getBoundingClientRect(),list=$('assetList').getBoundingClientRect();return element.isConnected&&!element.hidden&&!$('assetPane').hidden&&r.width>0&&r.height>0&&r.bottom>list.top&&r.top<list.bottom;},
-   acknowledge(){},phase(){},
+   acknowledge(){},phase(text){if(!this.failed)stage.textContent=text;},
+   describe(files){name.textContent=files[0].name+(files.length>1?' 等 '+files.length+' 项':'');name.title=this.names=files.map(file=>file.name).join('、');alignLibraryUploads();},
    fail(message){this.failed=true;this.error=message;stage.textContent='未完成';reason.textContent=message;reason.hidden=close.hidden=false;element.classList.add('is-failed');},
    remove(){libraryUploads.delete(id);element.remove();if(!libraryUploads.size){libraryShelf.remove();libraryObserver?.disconnect();libraryObserver=null;}},
    complete(){if(!this.failed)this.remove();}
@@ -197,7 +198,7 @@
   if (!tasks.size) {failure = '';failurePlacement=null;}
   const token = {}, entry = {kind, promise:null, ownerId:boardId, ...info};
   entry.filesKey = info.files?.length ? JSON.stringify(info.files.map(file=>[file.name,file.size,file.type,file.lastModified]).sort()) : '';
-   entry.placement = info.placement || (info.libraryUpload ? beginLibraryUpload(info.files,info.folder,info.key) : kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
+   entry.placement = info.placement || (info.libraryUpload ? beginLibraryUpload(info.files,info.folder,info.key,info) : kind==='canvas' && info.spatial ? beginInsertion(info.items || info.files || [],info.point,info.target) : null);
   entry.ownsPlacement = !!entry.placement && !info.borrowed;
   for(const placement of matchingPlacements(entry))placement.phase(info.label || '添加中');
   let finish;
@@ -206,7 +207,7 @@
   if (info.key) fileJobs.set(info.key, entry);
   entry.result = (async () => {
    try {
-    const result = await action(entry.placement?.point);
+    const result = await action(entry.placement?.point,entry.placement,entry);
      if (result === false && entry.label && !entry.placement?.failed) reportFailure(entry,entry.placement?.point?._insertionError || '未能添加');
     return result;
    } catch (error) {
@@ -263,14 +264,14 @@
   return target;
  }
  const upload = uploadFiles;
- uploadFiles = function(files, folder = assetFolder) {
+ uploadFiles = function(files, folder = assetFolder, feedback) {
   const snapshot = [...files];
    const canvasOwner=[...tasks.values()].some(task=>task.kind==='canvas'&&snapshot.every(file=>task.files?.includes(file)));
   return run(async () => {
    const preparation=window.whiteboardImagePreparation?.prepare(snapshot);
    try{const added=await upload(snapshot,folder);preparation?.remember(added);return added}
    finally{preparation?.dispose()}
-   }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), libraryUpload:!canvasOwner, folder, key:fileKey('upload', snapshot, libraryFolderIdentity(folder),canvasOwner?boardId:'library')} : {});
+   }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), libraryUpload:!canvasOwner, folder, ...(feedback&&libraryUploads.get(feedback.id)===feedback?{placement:feedback,borrowed:true}:{}), key:fileKey('upload', snapshot, libraryFolderIdentity(folder),canvasOwner?boardId:'library')} : {});
  };
  const importBefore = importFiles;
  importFiles = function(files, position) {
@@ -344,6 +345,7 @@
  window.whiteboardImports = {
   idle,
   flush,
+  libraryPaste:(action,target)=>run((point,preview,entry)=>action(preview,()=>{preview.remove();entry.placement=null;entry.ownsPlacement=false;entry.label='';entry.libraryUpload=false;}),'library',{label:'读取中',names:'剪贴板',files:[{name:'剪贴板'}],libraryUpload:true,paste:true,target,key:'library-paste:'+JSON.stringify(target)}),
    handlesLibraryError:error=>!!error&&typeof error==='object'&&libraryFailures.has(error),
   pending:() => tasks.size > 0,
   pendingCanvas
