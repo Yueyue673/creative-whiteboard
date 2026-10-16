@@ -37,7 +37,7 @@ function updateStatus(){
 }
 function updateTabStates(){for(const item of document.querySelectorAll('.tab[data-tab]')){const t=model.tabs.find(t=>t.id===item.dataset.tab);if(!t)continue;const active=model.active[t.side]===t.id,s=pane(t)?.state();item.setAttribute('aria-current',String(active));item.querySelector('.tab-open').setAttribute('aria-selected',String(active));const mark=item.querySelector('.state');mark.textContent=s?.blocked||s?.saveError||s?.loadError?'!':'';mark.title=s?.loadError?'白板暂时无法读取':mark.textContent?'修改尚未保存':''}}
 function layoutPaneFrames(){
- const focused=model.split&&$('frameDeck').getBoundingClientRect().width<720;
+ const focused=model.split&&model.narrowView!=='split'&&$('frameDeck').getBoundingClientRect().width<720;
  $('workspace').classList.toggle('workspace-focus',focused);$('workspace').dataset.focusSide=model.side;
  for(const t of model.tabs){const visible=(t.side==='left'||model.split)&&model.active[t.side]===t.id&&(!focused||t.side===model.side);if(visible&&!frames.has(t.id))createFrame(t);const frame=frames.get(t.id);if(!frame)continue;if(!visible)pane(t)?.setVisible(false);frame.hidden=!visible;frame.style.left=focused?'0':t.side==='right'?model.ratio+'%':'0';frame.style.width=focused||!model.split?'100%':t.side==='left'?model.ratio+'%':(100-model.ratio)+'%';frame.setAttribute('aria-hidden',String(!visible));if(visible)pane(t)?.setVisible(true)}
 }
