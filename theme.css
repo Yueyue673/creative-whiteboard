@@ -236,6 +236,21 @@ body #selection{background:color-mix(in srgb,var(--ui-canvas-focus,var(--ui-acce
 body #shellMore>div,body #tabContext,body #fileContext{border-radius:11px;padding:6px;box-shadow:0 8px 30px #0004}
 body #shellMore button,body #tabContext button,body #fileContext button{border-radius:6px;font-size:13px}
 body #boardPicker{border-radius:16px;padding:24px}
+body #boardPicker[open]{display:flex;flex-direction:column;max-height:calc(100dvh - 24px);overflow:auto;scroll-padding-top:64px}
+body #boardPicker>form,body #boardPicker>#boardQuery,body #boardPicker>.new-board,body #boardPicker>#pickerHint{flex-shrink:0}
+body #boardPicker>form{position:sticky;top:0;z-index:2;background:var(--ui-panel)}
+body #boardChoices{flex:0 1 auto;min-height:min(96px,20dvh)}
+@media(max-height:500px){
+ body #boardPicker{padding:16px}
+ body #boardPicker h2{font-size:18px;margin-bottom:8px}
+ body #boardPicker #boardQuery{margin-bottom:6px}
+ body #boardPicker .new-board{margin-top:8px;padding-top:10px}
+ body #boardPicker #pickerHint{margin-top:8px;line-height:1.5}
+}
+@media(max-height:280px){
+ body #boardPicker[open]{display:block;scroll-padding-top:56px}
+ body #boardPicker #boardChoices{max-height:28dvh;min-height:48px}
+}
 body #boardQuery,body #newBoardName{border-radius:9px}
 body #boardChoices button{border-radius:8px;border-bottom:0;margin:3px 0;padding:12px}
 body #boardPicker .new-board button,body .empty-pane .choose-board{background:var(--ui-selected);border-color:var(--ui-line);border-radius:9px;color:var(--ui-text)}
