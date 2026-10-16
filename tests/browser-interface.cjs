@@ -252,9 +252,9 @@ const {chromium} = require('playwright');
   await p.locator('#shellMore>summary').click();await frame.locator('#canvas').click({position:{x:200,y:60}});
   await p.waitForFunction(()=>!document.getElementById('shellMore').open);
   await p.locator('#openBoards').click();await p.waitForFunction(()=>window.whiteboardWorkspace.explorer());const shared=p.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');await shared.locator('#manage').click();await frame.evaluate(()=>fit());
-  // The shared explorer can be narrower than the main browser viewport.
+  // A narrow workspace gives the shared explorer its own complete view.
   for(const width of [320,390]){
-   await p.setViewportSize({width,height:844});await shared.waitForFunction(()=>innerWidth<240);
+   await p.setViewportSize({width,height:844});await shared.waitForFunction(()=>innerWidth===parent.innerWidth);
    for(const panel of ['manager','assetPane']){
     await shared.evaluate(panel=>showWorkspaceTab(panel),panel);
     assert(await shared.evaluate(()=>[...document.querySelectorAll('.workspace-tabs button,.library-bottom-actions button')].filter(el=>el.getClientRects().length).every(el=>{
