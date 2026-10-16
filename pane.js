@@ -80,4 +80,7 @@
   if($('windowWorkspace'))$('windowWorkspace').onclick=()=>send('pane-split');
   window.addEventListener('creative-board-loading',report);window.addEventListener('creative-import-state',report);if(board)report();
  }
+ // Reveal the original layout when its owner is ready; later optional programs
+ // and pending data must not block controls that are already usable.
+ send('pane-ready');
 })();
