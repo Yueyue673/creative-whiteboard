@@ -14,7 +14,7 @@ window.addEventListener('keydown',function(e){
  if(gesture){cancelCanvasGesture();e.preventDefault();e.stopImmediatePropagation();return;}
  var viewer=document.getElementById('imageViewer'),dialog=document.getElementById('dialog'),menu=document.getElementById('fileContext'),meta=document.getElementById('inlineMeta');
  var close=null;
- if(viewer&&!viewer.hidden)close=function(){viewer.hidden=true};
+ if(viewer&&!viewer.hidden)close=function(){if(typeof closeImageView==='function')closeImageView();else viewer.hidden=true};
  else if(dialog&&dialog.open)close=function(){dialog.querySelectorAll('video,audio').forEach(function(m){m.pause()});dialog.close()};
  else if(menu&&!menu.hidden)close=function(){if(typeof closeFileContext==='function')closeFileContext();else menu.hidden=true};
  else if(meta&&meta.open)close=function(){meta.open=false};
