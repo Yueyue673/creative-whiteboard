@@ -82,13 +82,15 @@ const {chromium} = require('playwright');
   await p.locator('#nodes [data-id=n] .block-actions button').last().focus();
   await p.keyboard.press('Tab');
   assert(await p.locator('#nodes [data-id=m] .block-read').evaluate(el=>el===document.activeElement));
+  const focusedWidth=await p.locator('#nodes [data-id=m] .block-read').evaluate(el=>el.offsetWidth);
+  assert.equal(await p.locator('#nodes [data-id=m] .block-read').innerText(),'编辑','The primary verb stays visible instead of returning to an unlabeled icon');
   for(const z of [.6,.4,1.6]){
    await p.evaluate(z=>{board.view.z=z;moveView()},z);
    const control=await p.evaluate(()=>{
     const r=document.activeElement.getBoundingClientRect(),c=canvas.getBoundingClientRect();
     return {w:r.width,h:r.height,inside:r.top>=c.top&&r.bottom<=c.bottom&&r.left>=c.left&&r.right<=c.right,scrollTop:canvas.scrollTop,scrollLeft:canvas.scrollLeft};
    });
-   assert(Math.abs(control.w-25)<.2&&Math.abs(control.h-25)<.2,'Focused controls keep screen size at '+z+': '+JSON.stringify(control));
+   assert(Math.abs(control.w-focusedWidth)<.2&&Math.abs(control.h-25)<.2,'Focused controls keep their unscaled screen size at '+z+': '+JSON.stringify(control));
    assert(control.inside,'Focused controls stay inside the canvas near its top edge: '+JSON.stringify(control));
    assert.equal(control.scrollTop,0);assert.equal(control.scrollLeft,0);
    assert.deepEqual(await p.evaluate(()=>({nodes:board.nodes,undo:history.length,revision:contentRevision})),focusContent,'Focus and zoom do not change authored fields, geometry or editing history');
