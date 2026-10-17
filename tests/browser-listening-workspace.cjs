@@ -95,7 +95,7 @@ async function exercise(p,appURL,fixture,options={}){
  await f.waitForFunction(()=>!document.querySelector('#dialog').open&&document.querySelector('#dialog audio').paused);
  await p.waitForFunction(()=>document.querySelector('#globalExplorer').hidden&&!document.querySelector('#workspace').classList.contains('listening-active'));
  await b.evaluate(()=>persist());
- const saved=await(await p.request.get(appURL+'api/boards/'+fixture.key)).json();assert.equal(saved.nodes[0].body,expected);assert.deepEqual({...saved.nodes[0],body:original.nodes[0].body},original.nodes[0]);assert.deepEqual(saved.edges,original.edges);
+ const saved=await(await p.request.get((options.apiURL||appURL+'api/')+'boards/'+fixture.key)).json();assert.equal(saved.nodes[0].body,expected);assert.deepEqual({...saved.nodes[0],body:original.nodes[0].body},original.nodes[0]);assert.deepEqual(saved.edges,original.edges);
  await p.reload({waitUntil:'domcontentloaded'});await p.waitForFunction(key=>pane(current())?.state()?.boardId===key&&!pane(current()).state().loading,fixture.key);
  assert.equal(await boardFrame(fixture.key).evaluate(()=>board.nodes[0].body),expected);
  accept('Replacement, Escape and fresh return have a single playback owner, keep original media paused after exit, and preserve exact saved writing.');
