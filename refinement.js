@@ -118,6 +118,8 @@
   fileMenu({target:e.currentTarget,clientX:r.left,clientY:r.bottom+4,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},[
    ...(!selectionTools.querySelector('[data-selection-align]').getClientRects().length?[['对齐与间距…',guard(()=>whiteboardNavigation.openArrangement())]]:[]),
    ...(!selectionTools.querySelector('[data-selection-group]').hidden&&!selectionTools.querySelector('[data-selection-group]').getClientRects().length?[['组成一组',guard(groupSelection)]]:[]),
+   ...(canvas.classList.contains('short-selection')&&!$('undo').disabled?[['撤销  Ctrl+Z',guard(()=>$('undo').click())]]:[]),
+   ...(canvas.classList.contains('short-selection')&&!$('redo').disabled?[['重做  Ctrl+Shift+Z',guard(()=>$('redo').click())]]:[]),
    ['复制内容  Ctrl+C',guard(copyBlocks)],['创建副本  Ctrl+D',guard(duplicate)],['收进内容库  Ctrl+Shift+L',guard(askCollectSelection)],['删除  Delete',guard(removeSelected)],
    ['取消选择',guard(()=>{selected.clear();refreshSelectionUI();canvas.focus({preventScroll:true})})]
   ]);
@@ -134,7 +136,7 @@
   if(!board)return;const bounds=canvas.getBoundingClientRect(),z=view().z,scale=String(1/z);
   // Keep the primary verb readable; shorten the drag action before stacking.
   canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<132);
-  canvas.classList.toggle('short-selection',!!selectionScope&&bounds.width<132&&bounds.height<220);
+  canvas.classList.toggle('short-selection',!!selectionScope&&bounds.height<300);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
