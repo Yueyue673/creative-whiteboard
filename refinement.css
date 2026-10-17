@@ -75,6 +75,21 @@ button,summary,select{transition:none}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer{width:25px;padding:0;justify-content:center}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer span{display:none}
 #canvas.stacked-actions #nodes>.node .block-actions{flex-direction:column}
+/* Keep one set of batch actions, while Edit/View stays beside its own paper. */
+#canvas.multi-actions #nodes>.node.active .block-actions>.block-transfer,#canvas.multi-actions #nodes>.node.active .block-actions>button[aria-label="内容操作"]{display:none}
+#selectionTools{position:absolute;z-index:10;display:flex;align-items:center;flex-wrap:wrap;gap:3px;padding:4px;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 3px 10px #0003}
+#selectionTools[hidden]{display:none}
+#selectionTools .selection-count{padding:0 7px;font-size:12px;color:var(--ui-muted);white-space:nowrap}
+#selectionTools button{height:30px;min-width:30px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:inherit;font-size:12px;white-space:nowrap}
+#selectionTools button:hover{background:var(--ui-hover)}
+#selectionTools .selection-transfer{display:flex;align-items:center;gap:4px;cursor:grab}
+#selectionTools button[hidden]{display:none}
+#canvas.compact-actions #selectionTools .transfer-caption{display:none}
+#canvas.tight-tools #selectionTools{gap:1px}
+#canvas.tight-tools #selectionTools button{padding:0 6px}
+#canvas.stacked-actions #selectionTools{width:max-content;justify-content:center}
+#canvas.stacked-actions #selectionTools>[data-selection-align],#canvas.stacked-actions #selectionTools>[data-selection-group]{display:none}
+#canvas.short-selection #selectionTools>.selection-transfer,#canvas.short-selection #creationDock{display:none}
 .node.frame .group-actions{display:none;gap:5px}
 .node.frame.active .group-actions{display:flex}
 .node.frame .group-actions button{width:auto;padding:0 7px;font-size:12px;white-space:nowrap}
