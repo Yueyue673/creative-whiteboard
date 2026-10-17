@@ -70,6 +70,7 @@ button,summary,select{transition:none}
 .node.theme-surface .block-actions,.node.theme-dark .block-actions{color:var(--ui-text)}
 .node .block-actions button{opacity:.75;font-size:17px}.node .block-actions button:hover{opacity:1;background:#8882}
 .node .block-actions svg{width:16px;height:16px}
+.node .block-actions .block-read{display:flex;width:auto;gap:5px;padding:0 7px;font-size:12px;font-weight:500;opacity:1}
 .node .block-actions .block-transfer{cursor:grab;width:auto;gap:4px;display:flex;padding:0 7px;font-size:12px}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer{width:25px;padding:0;justify-content:center}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer span{display:none}

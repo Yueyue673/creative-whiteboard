@@ -96,8 +96,8 @@
  textTools.addEventListener('keydown',e=>{if(e.key==='Escape'&&e.defaultPrevented&&canvas.classList.contains('compact-tools'))more.focus({preventScroll:true})});
  function positionActions(){
   if(!board)return;const bounds=canvas.getBoundingClientRect(),z=view().z,scale=String(1/z);
-  // Keep the same click targets: hide the drag caption, then stack only when three icons cannot fit.
-  canvas.classList.toggle('compact-actions',bounds.width<156);canvas.classList.toggle('stacked-actions',bounds.width<99);
+  // Keep the primary verb readable; shorten the drag action before stacking.
+  canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<99);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
@@ -139,7 +139,18 @@
  let tableToolbar=null,sourceDetails=null;const canvasBounds=new ResizeObserver(positionActions);for(const el of [canvas,$('canvasTools'),$('creationDock'),$('textSizeTools')])if(el)canvasBounds.observe(el);
  $('nodes').addEventListener('focusin',e=>{if(e.target.closest('.block-actions,.inline-toolbar'))positionActions()});
  $('nodes').addEventListener('toggle',e=>{if(e.target.matches('.node.table>.inner.live-layout>.inline-toolbar .table-options,.node>.inner.live-layout>#inlineMeta'))positionActions()},true);
- function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');if(actions&&!actions.querySelector('.block-read')&&n.type!=='frame'){const b=document.createElement('button');b.className='block-read';b.title='展开编辑';b.setAttribute('aria-label','展开编辑');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/></svg>';b.onclick=e=>{e.stopPropagation();readNote(n.id)};actions.prepend(b)}const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
+ function mountPrimaryAction(actions,n){
+  if(!actions||n.type==='frame')return;
+  let button=actions.querySelector('.block-read');if(!button){button=document.createElement('button');button.type='button';button.className='block-read';actions.prepend(button)}
+  const mode=n.assetId?'view':'edit';
+  if(button.dataset.primaryMode!==mode){
+   button.dataset.primaryMode=mode;button.title=mode==='view'?'打开查看':'展开编辑';button.setAttribute('aria-label',button.title);
+   button.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 9V4h5m6 0h5v5M4 15v5h5m6 0h5v-5"/></svg><span>'+(mode==='view'?'查看':'编辑')+'</span>';
+  }
+  const source=board,sourceId=boardId;
+  button.onclick=e=>{e.stopPropagation();if(!button.isConnected||board!==source||boardId!==sourceId||loading||!board.nodes.includes(n))return;if(n.assetId)wfSafe(()=>previewAsset(n.assetId));else readNote(n.id)};
+ }
+ function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');mountPrimaryAction(actions,n);const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
   for(const handle of el.querySelectorAll('.table-column-resize'))bindWidth(handle,n);
  }const toolbar=$('nodes').querySelector(':scope>.node.table>.inner.live-layout>.inline-toolbar');if(toolbar!==tableToolbar){if(tableToolbar)canvasBounds.unobserve(tableToolbar);tableToolbar=toolbar;if(tableToolbar)canvasBounds.observe(tableToolbar)}positionActions()}
  const draw=drawNodes;drawNodes=function(){cancelWidth();const position=activePosition();restoreEditor();draw();mount();expandEditor();if(position)restorePosition(position)};const select=refreshSelectionUI;refreshSelectionUI=function(){select();mount()};
