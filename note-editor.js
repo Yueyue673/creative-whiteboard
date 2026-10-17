@@ -235,7 +235,7 @@
   window.whiteboardReading?.placeActions?.();
  }
  function writeFrom(id){
-  const n=board?.nodes.find(v=>v.id===id);if(!n||n.type==='frame'||loading||blocked||!selected.has(id)||$('dialog').open)return;
+  const n=board?.nodes.find(v=>v.id===id);if(!n||n.type==='frame'||loading||blocked||selected.size!==1||!selected.has(id)||$('dialog').open)return;
   addNote();const note=board.nodes.find(v=>v.id===editorId);if(!note||note===n||!board.nodes.includes(n))return;
   board.edges.push({id:uid(),from:note.id,to:n.id,fromSide:'top',toSide:'bottom',label:''});drawEdges();change();syncRelations();$('body')?.focus({preventScroll:true});
  }

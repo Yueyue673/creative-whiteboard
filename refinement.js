@@ -80,7 +80,7 @@
  }
  const originalFit=whiteboardExperience.fitBlock;
  whiteboardExperience.fitBlock=function(id){const el=canvasBlock(id),n=board.nodes.find(n=>n.id===id),area=el?.querySelector('.edit-scroll'),gallery=area?.querySelector(':scope>.single-image'),img=gallery?.querySelector('img');if(!n||!img?.naturalWidth)return originalFit(id);const style=getComputedStyle(area),width=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),other=[...area.children].filter(c=>c!==gallery&&getComputedStyle(c).display!=='none').reduce((sum,c)=>{const s=getComputedStyle(c);return sum+c.offsetHeight+parseFloat(s.marginTop||0)+parseFloat(s.marginBottom||0)},0);undoPoint();n.h=Math.ceil(Math.max(120,Math.min(5000,width*img.naturalHeight/img.naturalWidth+other+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+10)));drawNodes();change()};
- const previousMenu=fileMenu;fileMenu=function(e,items){const el=e.target.closest?.('.node[data-id]');if(el&&!e.target.closest('[data-edge]'))items=[['展开编辑',()=>readNote(el.dataset.id)],...items.map(([label,fn])=>[label,label==='按内容调整大小'?()=>whiteboardExperience.fitBlock(el.dataset.id):fn])];return previousMenu(e,items)};
+ const previousMenu=fileMenu;fileMenu=function(e,items){const el=e.target.closest?.('.node[data-id]');if(el&&!e.target.closest('[data-edge]')){const source=board,sourceId=boardId,n=board.nodes.find(n=>n.id===el.dataset.id),record=n&&n.type!=='frame'&&selected.size===1&&selected.has(n.id)&&canvas.classList.contains('record-in-menu')&&window.whiteboardNoteEditor?.writeFrom;items=[['展开编辑',()=>readNote(el.dataset.id)],...(record?[['写记录',()=>{if(board===source&&boardId===sourceId&&board.nodes.includes(n))whiteboardNoteEditor.writeFrom(n.id)}]]:[]),...items.map(([label,fn])=>[label,label==='按内容调整大小'?()=>whiteboardExperience.fitBlock(el.dataset.id):fn])]}return previousMenu(e,items)};
  // Keep the existing actions and fields; narrow panes only change how they are reached.
  const dock=$('creationDock'),textTools=$('textSizeTools'),more=document.createElement('button');
  more.id='creationMore';more.textContent='⋯';more.title='创作工具';more.setAttribute('aria-label','创作工具');more.setAttribute('aria-haspopup','menu');more.setAttribute('aria-controls','fileContext');more.setAttribute('aria-expanded','false');dock.append(more);
@@ -138,6 +138,7 @@
   if(!board)return;const bounds=canvas.getBoundingClientRect(),z=view().z,scale=String(1/z);
   // Keep the primary verb readable; shorten the drag action before stacking.
   canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<132);
+  canvas.classList.toggle('record-in-menu',bounds.width<280);
   canvas.classList.toggle('short-selection',!!selectionScope&&bounds.height<300);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);

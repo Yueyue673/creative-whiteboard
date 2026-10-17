@@ -20,6 +20,9 @@ async function exerciseSourceRecord(p,url,fixture,options={}){
  await act(a.locator('#inlineDone'));await a.locator('#canvas').focus();await p.keyboard.press('Control+z');
  assert.deepEqual(await a.evaluate(()=>board.nodes),original.nodes);assert.deepEqual(await a.evaluate(()=>board.edges),original.edges);
  await p.keyboard.press('Control+Shift+z');assert.deepEqual(await a.evaluate(()=>board.nodes),created.nodes);assert.deepEqual(await a.evaluate(()=>board.edges),created.edges);
+ const multiple=await a.evaluate(ids=>{selected=new Set(ids);refreshSelectionUI();return {nodes:clone(board.nodes),edges:clone(board.edges),history:history.length}},[fixture.sourceId,id]);
+ await a.evaluate(id=>document.querySelector('#nodes>[data-id="'+id+'"] .block-write-record').click(),fixture.sourceId);
+ assert.deepEqual(await a.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:history.length})),multiple);
  accept('The selected source creates one blank record and one plain relationship; one native Undo/Redo removes/restores both, keeping every supplied source field.');
  await a.locator('#nodes>[data-id="'+id+'"]').dblclick({position:{x:70,y:25}});await a.locator('#body').waitFor({state:'visible'});
  await act(a.locator('#body'));await p.keyboard.insertText(fixture.textA);

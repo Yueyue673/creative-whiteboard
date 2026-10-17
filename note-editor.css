@@ -131,6 +131,8 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 
 /* Related objects use the existing tool surface, outside authored content measurement. */
 .node .block-actions .block-write-record{width:auto;padding:0 8px;font-size:12px;opacity:1}
+#canvas.record-in-menu #nodes>.node .block-actions .block-write-record{display:none}
+#canvas.multi-actions #nodes>.node .block-actions .block-write-record{display:none}
 .note-related-links{display:inline-flex;align-items:center;gap:0;min-width:0;max-width:160px;font-size:12px;border:1px solid var(--ui-line);border-radius:5px;overflow:hidden}
 .node .note-related-links button{display:block;min-width:0;width:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font:inherit;opacity:1}
 .node .note-related-links button[data-note-link]{max-width:100px}
