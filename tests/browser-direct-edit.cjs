@@ -66,7 +66,7 @@ async function verifyInlineEditingStability(p){
  for(const z of [.15,.35,1,2,4])for(const edge of ['left','top','right','bottom','partial-left']){
   await p.evaluate(({fixture,z,edge})=>{board.nodes=[clone(fixture)];board.edges=[];selected=new Set([fixture.id]);editorId=null;const r=canvas.getBoundingClientRect();let x=8,y=60;if(edge==='top')y=4;if(edge==='right')x=r.width-fixture.w*z-8;if(edge==='bottom')y=r.height-16;if(edge==='partial-left')x=-fixture.w*z+20;board.view={x,y,z};render();openEditor(fixture.id)}, {fixture,z,edge});await settled();
   const original=await p.evaluate(()=>({node:clone(board.nodes[0]),view:clone(board.view)})),tools=await loc.locator('.inline-toolbar').boundingBox(),area=await p.locator('#canvas').boundingBox();assert(tools.x>=area.x+5.8&&tools.y>=area.y+5.8&&tools.x+tools.width<=area.x+area.width-5.8&&tools.y+tools.height<=area.y+area.height-5.8,'Visible writing controls at '+z+' '+edge+' '+JSON.stringify({tools,area}));assert(Math.abs(tools.height-34)<.1,'Zoom retains writing control height');
-  await p.locator('#inlineDetails').click();assert(await p.locator('#inlineMeta').isVisible(),'Visible writing controls open details');
+  await p.locator('#inlineDetails').click();if(!await p.locator('#sourceExtras').evaluate(el=>el.open))await p.locator('#sourceExtras>summary').click();assert(await p.locator('#inlineMeta').isVisible(),'Visible writing controls open details');
   await settled();const details=await p.locator('#inlineMeta').boundingBox(),tagField=await p.locator('#tags').boundingBox();
   assert(details.x>=area.x+5.8&&details.y>=area.y+5.8&&details.x+details.width<=area.x+area.width-5.8&&details.y+details.height<=area.y+area.height-5.8,'Source details stay inside the canvas at '+z+' '+edge+' '+JSON.stringify({details,area}));
   assert(Math.abs(details.width-360)<.1&&tagField.height>=30,'Source fields keep usable screen dimensions at '+z+' '+edge);
@@ -85,7 +85,7 @@ async function verifySourcePanelEditing(p,fixture){
  await p.setViewportSize({width:360,height:320});
  await p.evaluate(fixture=>{$('workspaceSidebar').hidden=true;editorId=null;selected.clear();board.nodes=[clone(fixture)];board.edges=[];board.view={x:8,y:50,z:.35};history=[];future=[];render()},fixture);
  await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
- await p.evaluate(()=>openEditor('writing-card'));await p.locator('#inlineDetails').click();
+ await p.evaluate(()=>openEditor('writing-card'));await p.locator('#inlineDetails').click();if(!await p.locator('#sourceExtras').evaluate(el=>el.open))await p.locator('#sourceExtras>summary').click();
  await p.waitForFunction(()=>$('inlineMeta').style.maxHeight&&$('inlineMeta').scrollHeight>$('inlineMeta').clientHeight);
  const popup=p.locator('#inlineMeta'),r=await popup.boundingBox(),camera=await p.evaluate(()=>clone(board.view));
  const point={x:r.x+4,y:r.y+r.height/2};assert(await p.evaluate(({x,y})=>$('inlineMeta').contains(document.elementFromPoint(x,y)),point),'The scroll pointer is inside the visible source panel');
@@ -95,7 +95,7 @@ async function verifySourcePanelEditing(p,fixture){
  await p.locator('#url').click();await p.locator('#url').fill('https://example.com/checked-source');
  assert.deepEqual(await p.evaluate(()=>board.nodes[0]),{...fixture,url:'https://example.com/checked-source'},'Source input edits only the chosen metadata field');
  await p.evaluate(()=>{canvas.focus();undo()});assert.deepEqual(await p.evaluate(()=>board.nodes[0]),fixture,'The metadata edit can be undone without changing content or manual size');
- await p.evaluate(()=>openEditor('writing-card'));await p.locator('#inlineDetails').click();
+ await p.evaluate(()=>openEditor('writing-card'));await p.locator('#inlineDetails').click();if(!await p.locator('#sourceExtras').evaluate(el=>el.open))await p.locator('#sourceExtras>summary').click();
  await p.evaluate(()=>whiteboardReading.open('writing-card'));await p.locator('#immersiveSurface').waitFor();
  if(!await p.locator('#immersiveSurface #inlineMeta').evaluate(el=>el.open))await p.locator('#immersiveDetails').click();
  assert(await p.locator('#immersiveSurface #inlineMeta').evaluate(el=>['left','top','width','max-height'].every(key=>!el.style.getPropertyValue(key))),'Expanded editing discards transient canvas popup placement');

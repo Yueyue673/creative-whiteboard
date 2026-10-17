@@ -12,11 +12,11 @@
  function rememberPosition(field,scope){
   if(restoringPosition||!field?.isConnected||!authorFields.has(field.id)||!field.matches('textarea,input'))return;
   const n=board?.nodes.find(n=>n.id===editorId),root=field.closest('.inner');if(!n||!root||root.closest('.node')?.dataset.id!==n.id||scope&&!ownsPosition(scope))return;
-  const previous=positions.get(n),mode=field.closest('.immersive-surface')?'expanded':'canvas',area=root.querySelector('.edit-scroll'),details=root.querySelector('#inlineMeta');
-  const state={board,boardId,node:n,field:field.id,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,detailsOpen:!!details?.open,scrolls:previous?.field===field.id?{...previous.scrolls}:{}};
+  const previous=positions.get(n),mode=field.closest('.immersive-surface')?'expanded':'canvas',area=root.querySelector('.edit-scroll'),details=root.querySelector('#inlineMeta'),extras=root.querySelector('#sourceExtras');
+  const state={board,boardId,node:n,field:field.id,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,detailsOpen:!!details?.open,extrasOpen:!!extras?.open,scrolls:previous?.field===field.id?{...previous.scrolls}:{}};
   state.scrolls[mode]={width:field.clientWidth,area:area?.scrollTop||0,details:details?.scrollTop||0,top:field.scrollTop,left:field.scrollLeft};positions.set(n,state);return state;
  }
- function activePosition(){const active=rememberPosition(document.activeElement),root=immersion?.surface||$('nodes').querySelector(':scope>.node>.inner.live-layout')?.parentElement,n=board?.nodes.find(n=>n.id===root?.dataset.id),state=n&&positions.get(n),details=root?.querySelector('#inlineMeta');if(ownsPosition(state)&&details?.isConnected)state.detailsOpen=details.open;return active}
+ function activePosition(){const active=rememberPosition(document.activeElement),root=immersion?.surface||$('nodes').querySelector(':scope>.node>.inner.live-layout')?.parentElement,n=board?.nodes.find(n=>n.id===root?.dataset.id),state=n&&positions.get(n),details=root?.querySelector('#inlineMeta'),extras=root?.querySelector('#sourceExtras');if(ownsPosition(state)&&details?.isConnected){state.detailsOpen=details.open;state.extrasOpen=!!extras?.open}return active}
  function caretLine(field,offset){
   if(field.tagName!=='TEXTAREA')return {top:0,height:field.clientHeight};
   const s=getComputedStyle(field),mirror=document.createElement('div'),marker=document.createElement('span');
@@ -39,11 +39,12 @@
   if(!ownsPosition(state)||editorId!==state.node.id)return;
   const root=immersion?.node===state.node?immersion.surface:canvasBlock(state.node.id);if(!root||$('dialog').open&&!root.closest('#dialog'))return;
   const field=root.querySelector('#'+state.field);if(!field||field.value!==state.value)return;
-  const area=root.querySelector('.edit-scroll'),details=root.querySelector('#inlineMeta'),mode=root.closest('.immersive-surface')?'expanded':'canvas',scroll=state.scrolls[mode];
+  const area=root.querySelector('.edit-scroll'),details=root.querySelector('#inlineMeta'),extras=root.querySelector('#sourceExtras'),mode=root.closest('.immersive-surface')?'expanded':'canvas',scroll=state.scrolls[mode];
   if(details?.contains(field)&&!state.detailsOpen)return;
   restoringPosition=true;
   try{
-   if(details)details.open=state.detailsOpen;growContentFields(root);
+   if(details)details.open=state.detailsOpen;if(extras)extras.open=state.extrasOpen;growContentFields(root);
+   if(extras?.contains(field)&&!state.extrasOpen){extras.querySelector('summary')?.focus({preventScroll:true});return}
    if(scroll&&Math.abs(scroll.width-field.clientWidth)<1){if(area)area.scrollTop=scroll.area;if(details)details.scrollTop=scroll.details;field.scrollTop=scroll.top;field.scrollLeft=scroll.left}
    field.focus({preventScroll:true});field.setSelectionRange(state.start,state.end,state.direction);revealPosition(field);
   }finally{restoringPosition=false}
@@ -53,6 +54,7 @@
   for(const field of root.querySelectorAll('textarea,input'))if(authorFields.has(field.id))for(const name of ['focusin','focusout','select','input','keyup','pointerup'])field.addEventListener(name,()=>{rememberPosition(field,scope);if(name==='focusin')watchPosition(field,scope);else if(name==='focusout'&&watchedField===field){writingResize.disconnect();watchedField=watchedScope=null}});
   for(const area of root.querySelectorAll('.edit-scroll,#inlineMeta'))area.addEventListener('scroll',()=>{const current=positions.get(n);if(!current)return;const field=root.querySelector('#'+current.field);if(field)rememberPosition(field,scope)});
   const details=root.querySelector('#inlineMeta');details?.addEventListener('toggle',()=>{if(!details.isConnected||!ownsPosition(scope))return;const state=positions.get(n);if(state)state.detailsOpen=details.open});
+  const extras=root.querySelector('#sourceExtras');extras?.addEventListener('toggle',()=>{if(!extras.isConnected||!ownsPosition(scope))return;const state=positions.get(n);if(state)state.extrasOpen=extras.open;if(!extras.open&&extras.contains(document.activeElement)&&document.activeElement!==extras.querySelector('summary'))extras.querySelector('summary')?.focus({preventScroll:true});growContentFields(root);positionActions()});
   // Size the source panel in the initiating action, before its next pointer target appears.
   for(const id of ['inlineDetails','inlineMetaClose'])root.querySelector('#'+id)?.addEventListener('click',positionActions);
  };
@@ -71,7 +73,7 @@
   const n=board?.nodes.find(n=>n.id===id);if(!n)return;if(blocked)return toast('请先处理保存冲突');if(n.type==='frame')return openEditor(id);if(immersion){finishImmersion();$('dialog').close()}
   const originalScroll=canvasBlock(id)?.querySelector('.edit-scroll')?.scrollTop||0;
   openEditor(id);
-  showDialog('<div class="immersive-heading"><span>展开编辑</span><div><button id="immersiveDetails" aria-controls="inlineMeta" aria-expanded="false">补充与来源</button><button id="immersiveReturn">返回白板 <small>Esc</small></button></div></div><article class="reading-sheet node immersive-surface" id="immersiveSurface"></article>',[]);
+  showDialog('<div class="immersive-heading"><span>展开编辑</span><div><button id="immersiveDetails" aria-controls="inlineMeta" aria-expanded="false">来源与备注</button><button id="immersiveReturn">返回白板 <small>Esc</small></button></div></div><article class="reading-sheet node immersive-surface" id="immersiveSurface"></article>',[]);
   const dialog=$('dialog');dialog.classList.add('reading-dialog','immersive-dialog');immersion={id,board,boardId,node:n,surface:$('immersiveSurface'),originalScroll};immersion.surface.dataset.id=id;const session=immersion;
   $('immersiveReturn').onclick=()=>dialog.close();$('immersiveDetails').onclick=()=>{$('inlineMeta').open=!$('inlineMeta').open;growContentFields()};expandEditor();
   restorePosition(positions.get(n));onDialogDismiss(()=>finishImmersion(session));

@@ -134,6 +134,7 @@ button,summary,select{transition:none}
 #nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar{max-width:calc(100vw - 12px);height:auto;flex-wrap:wrap;gap:4px;padding:2px}
 #nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar>.note-edit-tools{display:contents}
 #nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar button{padding:4px 8px;line-height:18px}
+@media(max-width:320px){#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar{gap:2px}#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar button{padding:4px 6px}}
 #nodes>.node>.inner.live-layout>.inline-toolbar #inlineDone{margin-left:0}
 /* Source controls keep their screen size and scroll within the available pane. */
 #nodes>.node>.inner.live-layout>#inlineMeta{max-width:none;transform:scale(var(--canvas-control-scale,1));transform-origin:top left;overscroll-behavior:contain;scrollbar-gutter:stable;z-index:20}
@@ -141,6 +142,7 @@ button,summary,select{transition:none}
 .node #inlineMeta .meta-heading{gap:8px}
 .node #inlineMetaClose{flex:none}
 .node #inlineMeta label{color:var(--ui-muted)}
+.node #sourceExtras{margin-top:12px}.node #sourceExtras>summary{display:flex;align-items:center;gap:6px;padding:8px 0 2px;border:0;border-top:1px solid var(--ui-line);border-radius:0;background:transparent;color:var(--ui-text);font-size:12px;font-weight:400}.node #sourceExtras>summary::before{content:'›';font-size:18px;line-height:1;transform-origin:center}.node #sourceExtras[open]>summary::before{transform:rotate(90deg)}.node #sourceExtras label{display:block;margin:10px 0 4px}
 @media(max-width:180px){#nodes>.node>.inner.live-layout>#inlineMeta{padding:8px}}
 #canvas.stacked-actions #nodes>.node>.inner.live-layout>.inline-toolbar{flex-direction:column;height:auto}
 #nodes>.node.table>.inner.live-layout>.inline-toolbar{max-width:calc(100vw - 12px);height:auto;flex-wrap:wrap;gap:4px}
