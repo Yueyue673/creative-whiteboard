@@ -98,7 +98,8 @@ function previewAsset(id){
  const url=mediaURL(a.id),media=a.mime?.startsWith('video/')||a.mime?.startsWith('audio/'),
  content=a.mime?.startsWith('image/')?'<img class="asset-full" src="'+url+'">':a.mime?.startsWith('video/')?'<video class="asset-full" controls src="'+url+'"></video>':a.mime?.startsWith('audio/')?'<audio controls src="'+url+'"></audio>':'<p>此格式可打开原文件查看。</p>',
  body='<h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2>'+content+'<p class="source-path">'+esc(a.path)+'</p><a href="'+url+'" target="_blank" rel="noopener">打开 / 下载文件</a>';
- showDialog(media?'<div class="media-preview">'+body+'</div>':body,[['修改说明',()=>{$('dialog').close();editAsset(id)}],['关闭',()=>$('dialog').close()]])
+ showDialog(media?'<div class="media-preview">'+body+'</div>':body,[['修改说明',()=>{$('dialog').close();editAsset(id)}],['关闭',()=>$('dialog').close()]]);
+ if(media){const player=$('dialogBody').querySelector('audio,video');onDialogDismiss(()=>{player?.pause();player?._captureReading?.()})}
 }
 function editAsset(id){return window.whiteboardLibraryEditing.editFile(id)}
 function libraryImportError(error){if(!window.whiteboardImports?.handlesLibraryError?.(error))toast(error.message)}
