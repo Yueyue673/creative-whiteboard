@@ -81,8 +81,8 @@ button,summary,select{transition:none}
 .node.frame .group-actions.group-naming{width:280px}
 .node.frame .group-actions input{flex:1;min-width:0;width:0;height:28px;padding:3px 6px;font-size:14px;line-height:20px;color:var(--ui-text);background:var(--ui-field);border:1px solid var(--ui-line);border-radius:3px}
 /* Lift only the naming controls above grouped papers; the group surface lets clicks through. */
-.node.frame:has(.group-naming){z-index:9;pointer-events:none;background:transparent!important}
-.node.frame:has(.group-naming)>.port,.node.frame:has(.group-naming)>.resize{pointer-events:none}
+.node.frame.naming-group{z-index:9;pointer-events:none;background:transparent!important}
+.node.frame.naming-group>.port,.node.frame.naming-group>.resize{pointer-events:none}
 #canvas.stacked-actions #nodes>.node.frame .group-actions{flex-direction:row}
 #canvas.stacked-actions #nodes>.node.frame .group-naming{flex-direction:column;align-items:stretch}
 #canvas.stacked-actions #nodes>.node.frame .group-naming input{flex:auto;width:100%}

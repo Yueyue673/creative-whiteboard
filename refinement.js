@@ -108,7 +108,7 @@
   const neighbours=editedTable?[...$('nodes').children].filter(el=>el!==editedTable&&!el.classList.contains('frame')).map(el=>el.getBoundingClientRect()).filter(r=>r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom):[];
   for(const el of elements){const group=el.querySelector('.group-actions');if(group)group.style.maxWidth=Math.max(1,bounds.width-12)+'px'}
   const placements=elements.map(el=>{const actions=el.querySelector(':scope>.inner.live-layout>.inline-toolbar')||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),group=el.classList.contains('frame'),below=!group&&r.top-bounds.top<42,style=getComputedStyle(actions),width=parseFloat(style.width)||actions.offsetWidth,height=parseFloat(style.height)||actions.offsetHeight;
-   const originLeft=r.right-z-width,left=group?r.left:originLeft,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
+   const originLeft=r.right-z-width,left=group&&actions.classList.contains('group-naming')?r.left:originLeft,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
     const avoid=el===editedTable?[...obstacles,...neighbours]:obstacles,start=clamp({x,y}),choices=group?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
@@ -143,6 +143,7 @@
  function mountGroupActions(el,n){
   let actions=el.querySelector('.group-actions');if(!actions){actions=document.createElement('div');actions.className='block-actions group-actions inline-ui';el.append(actions)}
   const editing=editorId===n.id&&selected.has(n.id),source=board,sourceId=boardId,owns=()=>actions.isConnected&&board===source&&boardId===sourceId&&!loading&&board.nodes.includes(n);
+  el.classList.toggle('naming-group',editing);
   const mode=editing?'name':'read';if(actions.dataset.groupMode===mode&&actions._groupNode===n&&actions._groupBoard===source)return;actions.dataset.groupMode=mode;actions._groupNode=n;actions._groupBoard=source;actions.classList.toggle('group-naming',editing);
   if(!editing){const rename=document.createElement('button');rename.type='button';rename.textContent='改名';rename.setAttribute('aria-label','分组改名');rename.onclick=e=>{e.stopPropagation();if(owns()&&!blocked)openEditor(n.id)};actions.replaceChildren(rename);return}
   const field=document.createElement('input');field.id='title';field.dataset.groupName='';field.setAttribute('aria-label','分组名称');field.placeholder='分组名称';field.value=n.title||'';
