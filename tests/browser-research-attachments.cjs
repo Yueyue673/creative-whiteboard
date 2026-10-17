@@ -36,7 +36,7 @@ const {chromium} = require('playwright');
   await page.waitForFunction(() => boardId === 'research' && !loading);
   await page.evaluate(() => {selected = new Set(['chosen']); refreshSelectionUI(); whiteboardAI.compose();});
   await page.locator('#aiTaskText').fill('查找已有图像资料的来源与使用说明。');
-  await page.locator('.ai-context-details summary').click();
+  await page.locator('.ai-context-details>summary').click();
   const prepare = () => page.evaluate(() => whiteboardAI.makePack());
   const first = await prepare();
   assert(first.visuals.images.length >= 3);

@@ -163,8 +163,10 @@ const {chromium} = require('playwright');
   await page.setViewportSize({width:320,height:568});
   await page.evaluate(()=>whiteboardAI.compose());
   assert.equal(await page.evaluate(()=>document.activeElement.textContent),'查资料与参考');
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(()=>document.activeElement.id),'aiTaskScope');
+  for(const id of ['aiResearchClose','aiCompose','aiHaveReply','aiTaskText']){
+   await page.keyboard.press('Tab');
+   assert.equal(await page.evaluate(()=>document.activeElement.id),id);
+  }
   await page.locator('#aiTaskText').fill('窗口改变时保留的问题。');
   await page.locator('#aiHaveReply').click();
   await page.locator('#aiReplyText').fill('尚未提交的资料回复。');
@@ -173,7 +175,7 @@ const {chromium} = require('playwright');
    await page.locator('#aiReplyText').evaluate(el=>el.scrollIntoView({block:'end'}));
    assert(await page.locator('#dialog').evaluate(dialog=>{
     const d=dialog.getBoundingClientRect(),title=dialog.querySelector('h2').getBoundingClientRect();
-    return title.top>=d.top&&title.bottom<=d.bottom&&[...document.querySelectorAll('#dialogActions button')].every(button=>{
+    return title.top>=d.top&&title.bottom<=d.bottom&&[...document.querySelectorAll('#dialogActions button:not([hidden])')].every(button=>{
      const r=button.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=d.top&&r.bottom<=innerHeight;
     });
    }));

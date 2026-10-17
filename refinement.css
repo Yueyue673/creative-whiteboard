@@ -321,6 +321,18 @@ button,summary,select{transition:none}
 #dialog:has(.research-panel) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:650px),(max-height:500px){#dialog[open]:has(.research-panel){max-height:calc(100dvh - 24px)}.research-panel>h2{padding:14px 18px 12px}.research-panel-content{padding:14px 18px}#dialog:has(.research-panel) #dialogActions{padding:10px 14px}}
 .ai-compose>p{line-height:1.75}.ai-compose>.wf-explain{margin-top:4px;margin-bottom:18px}.ai-compose .ai-context-details{margin:12px 0}.media-controls{position:relative}.media-controls .media-marker-tick{top:0!important}
+.research-panel:has(.research-compose)>h2{padding-right:88px}
+.research-close{position:absolute;right:18px;top:13px}
+.research-modes{display:flex;gap:8px}.research-modes button{flex:1;min-width:0;white-space:normal;font-size:13px}
+.research-modes [aria-pressed=true],#dialog .research-primary{background:var(--ui-selected);color:var(--ui-text);border-color:var(--ui-accent)}
+.research-question{display:grid;gap:12px;min-width:0}.research-question[hidden],#dialog:has(.research-compose) button[hidden]{display:none!important}
+.research-question>label{display:grid;gap:6px;font-size:13px}.research-question>#aiTaskScopeHint{margin:0;font-size:12px;line-height:1.65;color:var(--ui-muted)}
+.research-question>.ai-visual-option{display:flex;align-items:center;gap:6px}.research-question>.ai-visual-option input{flex:none}
+.research-question>details>summary{padding:5px 0;background:transparent;border:0;font-size:13px;color:var(--ui-muted)}
+.research-question .ai-context-details{margin:0}.research-history button{margin-top:8px;margin-right:8px}
+#dialog:has(.research-compose) #dialogActions>#aiReplyStatus{flex-basis:100%;margin:0;max-height:min(5.5em,20dvh);overflow:auto;overscroll-behavior:contain;font-size:12px;line-height:1.65;white-space:normal;overflow-wrap:anywhere}
+#dialog:has(.research-compose) #aiReplyStatus:empty{display:none}
+@media(max-width:650px),(max-height:500px){.research-close{right:14px;top:10px}}
 /* Give authored text the writing space; keep its library information nearby. */
 #dialog[open]:has(.library-content-form){display:flex;flex-direction:column;width:min(900px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 48px);padding:0;overflow:hidden}
 #dialog:has(.library-content-form) #dialogBody{min-width:0;min-height:0;overflow:auto;scrollbar-gutter:stable;padding:24px}
