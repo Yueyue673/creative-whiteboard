@@ -75,6 +75,17 @@ button,summary,select{transition:none}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer{width:25px;padding:0;justify-content:center}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer span{display:none}
 #canvas.stacked-actions #nodes>.node .block-actions{flex-direction:column}
+.node.frame .group-actions{display:none;gap:5px}
+.node.frame.active .group-actions{display:flex}
+.node.frame .group-actions button{width:auto;padding:0 7px;font-size:12px;white-space:nowrap}
+.node.frame .group-actions.group-naming{width:280px}
+.node.frame .group-actions input{flex:1;min-width:0;width:0;height:28px;padding:3px 6px;font-size:14px;line-height:20px;color:var(--ui-text);background:var(--ui-field);border:1px solid var(--ui-line);border-radius:3px}
+/* Lift only the naming controls above grouped papers; the group surface lets clicks through. */
+.node.frame:has(.group-naming){z-index:9;pointer-events:none;background:transparent!important}
+.node.frame:has(.group-naming)>.port,.node.frame:has(.group-naming)>.resize{pointer-events:none}
+#canvas.stacked-actions #nodes>.node.frame .group-actions{flex-direction:row}
+#canvas.stacked-actions #nodes>.node.frame .group-naming{flex-direction:column;align-items:stretch}
+#canvas.stacked-actions #nodes>.node.frame .group-naming input{flex:auto;width:100%}
 /* One calm row of tools, even when the shared workspace is split into narrow panes. */
 #canvas #creationMore{display:none}
 #canvas.compact-tools #creationDock{flex-wrap:nowrap}
