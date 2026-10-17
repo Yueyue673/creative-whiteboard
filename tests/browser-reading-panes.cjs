@@ -40,12 +40,12 @@ async function exercise(p,url,keys,{from=0,to=5,accept=()=>{},snapshot=null}={})
   if(!await p.evaluate(()=>model.split))await p.locator('#splitToggle').click();await (await tab(a)).click();
   if(!await a.locator('#dialog').evaluate(el=>el.open)){await a.locator('#nodes>[data-id=author]').click({position:{x:70,y:30}});await a.locator('#nodes>[data-id=author] .block-read').click()}
   await a.getByRole('button',{name:'全屏编辑',exact:true}).waitFor();await p.locator('#shellMore summary').click();await p.locator('#narrowLayout').click();assert.equal(await p.evaluate(()=>model.narrowView),'split');
-  for(const [width,height]of [[390,320],[320,220]]){
+  for(const [width,height]of [[264,900],[164,900],[390,320],[320,220]]){
    await p.setViewportSize({width,height});await waitLayout();if(snapshot)await snapshot(p,'compact-'+width+'x'+height+'-before-check');
    for(const selector of ['#readingFullWindow','#immersiveReturn']){const button=a.locator(selector),r=await button.boundingBox(),owner=await a.frameElement(),f=await owner.boundingBox();assert(r&&f);assert(r.x>=f.x&&r.y>=f.y&&r.x+r.width<=f.x+f.width+1&&r.y+r.height<=f.y+f.height+1,'Compact editor keeps focus and exit controls inside its pane: '+JSON.stringify({width,height,selector,r,f}));assert(await button.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),'Compact editor controls receive the original click')}
    await a.getByRole('button',{name:'全屏编辑',exact:true}).click();await a.getByRole('button',{name:'返回分栏编辑',exact:true}).waitFor();await a.getByRole('button',{name:'返回分栏编辑',exact:true}).click();await a.getByRole('button',{name:'全屏编辑',exact:true}).waitFor();
   }
-  await record('short-forced-split-exit','Forced split at390×320 and320×220 keeps full-window and original return controls inside the active pane and clickable, with an explicit escape to a larger writing surface.');await a.getByRole('button',{name:'返回白板 Esc',exact:true}).click();assert.deepEqual(await author(a),originalA);assert.deepEqual(await author(b),originalB);
+  await record('short-forced-split-exit','132px/82px forced panes and390×320/320×220 short windows keep full-window and original return controls inside the active pane and clickable, with an explicit escape to a larger writing surface.');await a.locator('#immersiveReturn').click();assert.deepEqual(await author(a),originalA);assert.deepEqual(await author(b),originalB);
  }
  return checks;
 }
