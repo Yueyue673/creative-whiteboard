@@ -36,13 +36,16 @@ const assert=require('node:assert/strict'),{spawn}=require('node:child_process')
     authoredBefore=await f.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)}));
    }
    async function preview(asset){await f.locator('[data-asset="'+asset.id+'"]').dblclick();await f.waitForFunction(()=>{const el=document.querySelector('#dialog audio,#dialog video');return el?._readingRestored&&el.readyState>=1&&el.duration>0});return f.locator('#dialog audio,#dialog video')}
-   async function play(media){const handle=await media.elementHandle();await handle.evaluate(async el=>{el.muted=true;el.currentTime=Math.min(el.duration/3,4);await el.play()});assert.equal(await handle.evaluate(el=>el.paused),false);return handle}
+   async function play(media){const handle=await media.elementHandle();await handle.evaluate(el=>{el.muted=true;el.currentTime=Math.min(el.duration/3,4)});if(await handle.evaluate(el=>el.tagName==='AUDIO')){const box=await media.boundingBox();await p.mouse.click(box.x+26,box.y+27)}else await handle.evaluate(el=>el.play());await f.waitForFunction(el=>!el.paused,handle);assert.equal(await handle.evaluate(el=>el.paused),false);return handle}
    for(const asset of [audioAsset,videoAsset])for(const action of ['button','escape','description']){
     const media=await preview(asset),player=await play(media),position=await player.evaluate(el=>el.currentTime);
     if(action==='button')await f.locator('#dialogActions').getByRole('button',{name:'关闭',exact:true}).click();
     else if(action==='escape')await p.keyboard.press('Escape');
     else await f.locator('#dialogActions').getByRole('button',{name:'修改说明',exact:true}).click();
     await f.waitForFunction(()=>!document.querySelector('#dialog audio,#dialog video')||!document.querySelector('#dialog').open);
+    // Escape closes natively, then queues the dialog's close event. Check the
+    // completed dismissal within a bound, rather than racing that native task.
+    await f.waitForFunction(el=>el.paused,player,{timeout:1000});
     assert.equal(await player.evaluate(el=>el.paused),true,group+' '+asset.mime+' '+action+' stops dismissed playback');
     const stopped=await player.evaluate(el=>el.currentTime);assert(stopped>=position&&stopped-position<1);
     await f.evaluate(()=>{if(document.getElementById('dialog').open)document.getElementById('dialog').close()});
