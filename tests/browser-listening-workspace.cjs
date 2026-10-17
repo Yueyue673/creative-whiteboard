@@ -101,7 +101,75 @@ async function exercise(p,appURL,fixture,options={}){
  accept('Replacement, Escape and fresh return have a single playback owner, keep original media paused after exit, and preserve exact saved writing.');
  return checks;
 }
-module.exports={exercise};
+async function exerciseDestination(p,appURL,fixture,options={}){
+ const apiURL=options.apiURL||appURL+'api/',snapshot=async name=>options.snapshot?.(p,name),checks=[];
+ const accept=text=>{checks.push(text);options.accept?.(text)};
+ const boardFrame=key=>p.frames().find(f=>f.parentFrame()&&f.url().startsWith(appURL)&&new URL(f.url()).searchParams.get('board')===key);
+ const read=async key=>(await p.request.get(apiURL+'boards/'+key)).json();
+ await p.goto(appURL+'?board='+encodeURIComponent(fixture.key),{waitUntil:'domcontentloaded'});
+ await p.waitForFunction(key=>pane(current())?.state()?.boardId===key&&!pane(current()).state().loading,fixture.key);
+ const before=await read(fixture.key),otherBefore=await read(fixture.otherKey);
+ await p.locator('#openBoards').click();await p.waitForFunction(()=>whiteboardWorkspace.explorer());
+ const f=p.frames().find(f=>f.parentFrame()&&f.url().startsWith(appURL)&&new URL(f.url()).searchParams.get('explorer')==='1');
+ if(!await f.locator('#assetPane').isVisible())await f.locator('#assetsButton').click();
+ await f.locator('[data-asset-preview="'+fixture.assetId+'"]').click();
+ await f.waitForFunction(()=>document.querySelector('#dialog audio')?._readingRestored&&document.querySelector('#dialog audio').readyState>=1);
+ const media=f.locator('#dialog audio'),player=await media.elementHandle(),resume=f.locator('#listeningResume');
+ const r=await media.boundingBox();await media.click({position:{x:26,y:Math.min(27,r.height/2)}});await f.waitForFunction(()=>!document.querySelector('#dialog audio').paused);
+ await f.locator('#listenWhileWriting').click();
+ // Closing a tab still uses the original save boundary. The listening action
+ // must not reopen a deliberately closed tab or pretend that it has a target.
+ for(const id of await p.locator('.tab').evaluateAll(es=>es.map(el=>el.dataset.tab))){await p.locator('.tab[data-tab="'+id+'"] .tab-close').click();await p.waitForFunction(id=>!model.tabs.some(t=>t.id===id),id)}
+ await f.waitForFunction(()=>document.querySelector('#listeningResume').textContent==='打开白板'&&!document.querySelector('#listeningResume').disabled);
+ assert.equal(await player.evaluate(el=>el===document.querySelector('#dialog audio')&&!el.paused),true);
+ await snapshot('empty-writing-target');await resume.click();await p.locator('#boardPicker[open]').waitFor({state:'visible'});
+ await f.waitForFunction(()=>document.querySelector('#dialog audio').paused);const paused=await player.evaluate(el=>el.currentTime);
+ await p.keyboard.press('Escape');assert.equal(await p.evaluate(()=>model.tabs.length),0);
+ assert.equal(await player.evaluate(el=>el===document.querySelector('#dialog audio')&&el.paused),true);assert.equal(await player.evaluate(el=>el.currentTime),paused);
+ accept('Closing the last tab offers the original board picker; cancelling keeps the same paused reference without reopening or writing a board.');
+
+ const targetURL=apiURL+'boards/'+fixture.key;
+ let release;const gate=new Promise(resolve=>release=resolve),hold=async route=>{if(route.request().method()==='GET')await gate;await route.continue()};
+ await p.route(targetURL,hold);
+ try{
+  await resume.click();await p.locator('#boardPicker[open]').waitFor({state:'visible'});
+  const requested=p.waitForRequest(r=>r.url()===targetURL&&r.method()==='GET');
+  await p.locator('[data-board-choice="'+fixture.key+'"]').click();await requested;
+  await f.waitForFunction(()=>document.querySelector('#listeningResume').textContent==='正在打开…'&&document.querySelector('#listeningResume').disabled);
+  await snapshot('loading-writing-target');release();
+  await p.waitForFunction(key=>pane(current())?.state()?.boardId===key&&!pane(current()).state().loading,fixture.key);
+ }finally{release();await p.unroute(targetURL,hold)}
+ await f.waitForFunction(()=>document.querySelector('#listeningResume').textContent==='继续写'&&!document.querySelector('#listeningResume').disabled);
+ const b=boardFrame(fixture.key),note=b.locator('#nodes>[data-id="'+before.nodes[0].id+'"]');
+ await note.click();await note.locator('.block-read').click();const body=b.locator('#dialog #body');await body.click();await body.press('Control+End');await body.press('Shift+ArrowLeft');
+ const selection=await body.evaluate(el=>({start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection}));
+ await resume.click();assert(await body.evaluate(el=>document.activeElement===el));assert.deepEqual(await body.evaluate(el=>({start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection})),selection);
+ assert.equal(await body.inputValue(),before.nodes[0].body);assert.equal(await player.evaluate(el=>el===document.querySelector('#dialog audio')&&el.paused),true);assert.equal(await player.evaluate(el=>el.currentTime),paused);
+ await snapshot('ready-writing-target');await b.locator('#immersiveReturn').click();
+ accept('A loading board cannot accept Continue writing; readiness restores the action and the original field, range and reference position.');
+
+ await p.locator('.tab-close').click();await p.waitForFunction(()=>model.tabs.length===0);
+ await f.waitForFunction(()=>document.querySelector('#listeningResume').textContent==='打开白板');
+ const fail=async route=>{if(route.request().method()==='GET')await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Supplied unavailable board'})});else await route.continue()};
+ await p.route(targetURL,fail);
+ try{
+  await resume.click();await p.locator('#boardPicker[open]').waitFor({state:'visible'});await p.locator('[data-board-choice="'+fixture.key+'"]').click();
+  await p.waitForFunction(()=>!!pane(current())?.state()?.loadError);
+  await f.waitForFunction(()=>document.querySelector('#listeningResume').textContent==='白板未打开'&&document.querySelector('#listeningResume').disabled);
+  await snapshot('unavailable-writing-target');
+ }finally{await p.unroute(targetURL,fail)}
+ await p.locator('.add-tab[data-side=left]').click();await p.locator('[data-board-choice="'+fixture.otherKey+'"]').click();
+ await p.waitForFunction(key=>pane(current())?.state()?.boardId===key&&!pane(current()).state().loading,fixture.otherKey);
+ await f.waitForFunction(()=>document.querySelector('#listeningResume').textContent==='继续写'&&!document.querySelector('#listeningResume').disabled);
+ await resume.click();assert(await boardFrame(fixture.otherKey).evaluate(()=>document.activeElement===canvas));
+ assert.equal(await player.evaluate(el=>el===document.querySelector('#dialog audio')&&el.paused),true);assert.equal(await player.evaluate(el=>el.currentTime),paused);
+ for(const [key,original]of [[fixture.key,before],[fixture.otherKey,otherBefore]]){const saved=await read(key);assert.deepEqual(saved.nodes,original.nodes);assert.deepEqual(saved.edges,original.edges);assert.equal(saved.name,original.name);assert.equal(saved.folder,original.folder)}
+ await f.getByRole('button',{name:'结束试听',exact:true}).click();
+ await p.waitForFunction(()=>!document.querySelector('#workspace').classList.contains('listening-active'));
+ accept('An unavailable board stays unavailable; choosing another original board restores a real target without changing either board or restarting playback.');
+ return checks;
+}
+module.exports={exercise,exerciseDestination};
 
 if(require.main===module)(async()=>{
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{chromium}=require('playwright');
@@ -119,7 +187,9 @@ if(require.main===module)(async()=>{
    for(const [id,title]of [[key,name],[otherKey,'Supplied other '+group]]){const r=await fetch(base+'api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify({format:'creative-board',version:1,name:title,folder:'',nodes:[node],edges:[],view:{x:0,y:0,z:1}})});assert(r.ok);await r.arrayBuffer()}
    const context=await browser.newContext({viewport:{width:group==='narrow'?390:1440,height:group==='narrow'?844:950},hasTouch:group==='narrow',isMobile:group==='narrow',reducedMotion:'reduce'});await context.route('**/*',route=>route.request().url().startsWith(base)?route.continue():route.abort());
    const p=await context.newPage();p.setDefaultTimeout(5000);p.on('pageerror',e=>{proof.errors.push(e.stack);record()});
-   await exercise(p,base,{key,otherKey,name,assetId:asset.id},{from:proof.from,writingOnly:proof.writingOnly,narrow:group==='narrow',accept:check=>{proof.groups.push({group,check});record();console.log(group+': '+check)},snapshot:process.env.LISTENING_IMAGES?async(page,name)=>{fs.mkdirSync(process.env.LISTENING_IMAGES,{recursive:true});await page.screenshot({path:path.join(process.env.LISTENING_IMAGES,group+'-'+name+'.png')})}:null});
+   const fixture={key,otherKey,name,assetId:asset.id},options={from:proof.from,writingOnly:proof.writingOnly,narrow:group==='narrow',accept:check=>{proof.groups.push({group,check});record();console.log(group+': '+check)},snapshot:process.env.LISTENING_IMAGES?async(page,name)=>{fs.mkdirSync(process.env.LISTENING_IMAGES,{recursive:true});await page.screenshot({path:path.join(process.env.LISTENING_IMAGES,group+'-'+name+'.png')})}:null};
+   if(!process.env.LISTENING_DESTINATION_ONLY)await exercise(p,base,fixture,options);
+   if(!proof.writingOnly&&!proof.from)await exerciseDestination(p,base,fixture,options);
    await context.close();
   }
   assert.deepEqual(proof.errors,[]);assert.deepEqual(await(await fetch(base+'api/assets')).json(),catalog);assert(Buffer.from(await(await fetch(base+'api/media/'+asset.id)).arrayBuffer()).equals(wav));proof.complete=true;record();

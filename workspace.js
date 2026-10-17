@@ -108,7 +108,7 @@ function previewAsset(id){
   if(player?.tagName==='AUDIO'&&host?.canListen?.(window)){
    const dialog=$('dialog'),description=$('dialogActions').firstElementChild,close=$('dialogActions').lastElementChild;
    let ended=false;
-   const session={current:()=>!ended&&dialog.open&&player.isConnected&&$('dialogBody').contains(player),pause:()=>{player.pause();player._captureReading?.()},expand:()=>mode(false),close:()=>{if(session.current())dialog.close()}};
+   const session={current:()=>!ended&&dialog.open&&player.isConnected&&$('dialogBody').contains(player),pause:()=>{player.pause();player._captureReading?.()},expand:()=>mode(false),close:()=>{if(session.current())dialog.close()},setWritingTarget:target=>{resume.textContent=target.text;resume.disabled=target.disabled}};
    function mode(compact){if(!session.current()||!host.setListening(window,session,compact))return;document.documentElement.classList.toggle('listening-preview',compact);description.hidden=compact;start.hidden=compact;resume.hidden=expand.hidden=!compact;close.textContent=compact?'结束试听':'关闭'}
    const start=document.createElement('button');start.id='listenWhileWriting';start.textContent='边听边写';start.onclick=()=>mode(true);
    const resume=document.createElement('button');resume.id='listeningResume';resume.textContent='继续写';resume.hidden=true;resume.onclick=()=>{if(session.current())host.resumeWriting(window,session)};

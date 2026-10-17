@@ -18,11 +18,21 @@
  const explorer=()=>explorerFrame?.contentWindow.whiteboardExplorer;
  const shown=()=>!listening&&open&&(!compact||compactLibrary);
  function canListen(source){const tab=current(),state=pane(tab)?.state();return source===explorerFrame?.contentWindow&&!!tab&&state?.boardId===tab.boardId&&!state.loading&&!state.loadError}
+ function writingTarget(){
+  if(!listening)return;
+  const tab=current(),state=pane(tab)?.state();
+  listening.session.setWritingTarget?.(!tab?{text:'打开白板',disabled:false}:state?.loadError?{text:'白板未打开',disabled:true}:!canListen(listening.source)?{text:'正在打开…',disabled:true}:{text:'继续写',disabled:false});
+ }
  function setListening(source,session,next){
   if(source!==explorerFrame?.contentWindow||!session?.current?.()||listening&&listening.session!==session||!listening&&!canListen(source))return false;
   listening={source,session,compact:!!next};invalidateReturn();sizing();return true;
  }
- function resumeWriting(source,session){if(!listening||listening.source!==source||listening.session!==session||!listening.compact||document.querySelector('dialog[open]'))return false;pane(current())?.focus();return true}
+ function resumeWriting(source,session){
+  if(!listening||listening.source!==source||listening.session!==session||!listening.compact||document.querySelector('dialog[open]'))return false;
+  if(!current()){picker(model.side).catch(error=>toast(error.message));return true}
+  if(!canListen(source))return false;
+  pane(current()).focus();return true;
+ }
  function endListening(source,session){
   if(!listening||listening.source!==source||listening.session!==session)return;
   const returning=document.activeElement===explorerFrame;listening=null;open=false;compactLibrary=false;sizing();localStorage.setItem('creative-sidebar-state',JSON.stringify({open,tab:panel}));
@@ -44,7 +54,7 @@
   let p;try{p=JSON.parse(localStorage.getItem('creative-interface')||'{}')}catch{p={}}
   const visible=shown(),covering=compact&&visible,width=Math.min(innerWidth*.45,Math.max(260,Math.min(520,dragWidth??p.width??340)));
   work.style.setProperty('--explorer-width',visible?width+'px':'0px');work.style.setProperty('--split-number',model.ratio/100);work.classList.toggle('explorer-overlay',covering);work.classList.toggle('listening-active',!!listening?.compact);host.classList.toggle('listening-session',!!listening);host.setAttribute('aria-label',listening?'试听资料':'内容与白板');$('shellHeader').style.zoom=p.scale||1;work.style.height=(innerHeight-$('shellHeader').getBoundingClientRect().height)+'px';host.hidden=!visible&&!listening&&!explorerModal;
-  readingLayout();$('frameDeck').inert=covering&&!document.querySelector('.board-frame.pane-modal:not([hidden])');$('tabHeaders').inert=covering;
+  readingLayout();writingTarget();$('frameDeck').inert=covering&&!document.querySelector('.board-frame.pane-modal:not([hidden])');$('tabHeaders').inert=covering;
   const button=$('openBoards');button.setAttribute('aria-expanded',String(visible));button.setAttribute('aria-label',covering?'返回白板':'展开或收起内容与白板');button.title=covering?'返回白板':'内容与白板 · Ctrl+\\';
   if(listening?.compact){button.setAttribute('aria-label','展开试听资料');button.title='展开试听资料'}
   if(button.dataset.returning!==String(covering)){button.dataset.returning=String(covering);button.innerHTML=covering?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12"/></svg>':sidebarIcon}
@@ -66,7 +76,7 @@
  }
  function focusExplorer(){if(!compact||!shown())return;const field=explorerFrame?.contentDocument?.getElementById(panel==='assetPane'?'assetSearch':panel==='outline'?'search':'boardSearch');if(field&&!field.closest('[hidden]'))field.focus({preventScroll:true})}
  function ensure(){if(explorerFrame)return;explorerFrame=document.createElement('iframe');explorerFrame.id='explorerFrame';explorerFrame.title='内容与白板';explorerFrame.style.visibility='hidden';explorerFrame.setAttribute('aria-busy','true');explorerFrame.src='/index.html?pane=1&explorer=1&panel='+encodeURIComponent(panel);explorerFrame.onload=()=>{invalidateReturn('explorer-ready');trackReturnContext(explorerFrame.contentDocument);explorerFrame.style.removeProperty('visibility');explorerFrame.removeAttribute('aria-busy');lastOutlineKey='';const ready=explorer();if(ready)ready.show(ready.selection().panel||panel);sync();updateStatus();focusExplorer()};host.prepend(explorerFrame)}
- function sync(){clearTimeout(outlineTimer);outlineTimer=setTimeout(()=>{if(!open||drag||resizing||!explorer())return;const view=pane(current()),state=view?.state();if(!state){if(!current()){lastOutlineKey='';explorer().setBoard(null)}return}const key=JSON.stringify([state.boardId,state.name,state.revision,panel,panel==='outline'?view.selection():null]);if(key===lastOutlineKey)return;lastOutlineKey=key;explorer().setBoard(view.snapshot())},60)}
+ function sync(){writingTarget();clearTimeout(outlineTimer);outlineTimer=setTimeout(()=>{if(!open||drag||resizing||!explorer())return;const view=pane(current()),state=view?.state();if(!state){if(!current()){lastOutlineKey='';explorer().setBoard(null)}return}const key=JSON.stringify([state.boardId,state.name,state.revision,panel,panel==='outline'?view.selection():null]);if(key===lastOutlineKey)return;lastOutlineKey=key;explorer().setBoard(view.snapshot())},60)}
  function toggle(nextPanel){if(listening){if(!nextPanel&&listening.compact)return listening.session.expand();listening.session.close()}invalidateReturn();if(nextPanel){panel=nextPanel;open=true;compactLibrary=true}else if(compact&&!shown()){open=true;compactLibrary=true}else{open=!open;compactLibrary=open}if(open){ensure();explorer()?.show(panel);sync()}sizing();localStorage.setItem('creative-sidebar-state',JSON.stringify({open,tab:panel}));if(shown())focusExplorer();else pane(current())?.focus()}
  const narrowLayout=document.createElement('button');narrowLayout.id='narrowLayout';narrowLayout.onclick=()=>{model.narrowView=model.narrowView==='split'?'focus':'split';$('shellMore').open=false;renderTabs();if(!shown())pane(current())?.focus()};$('externalWindow').before(narrowLayout);
  const beforeRender=renderTabs;renderTabs=function(){beforeRender();const b=$('splitToggle');b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>';b.title=model.split?'合并分栏':'左右分栏';b.setAttribute('aria-label',b.title);narrowLayout.hidden=!model.split;narrowLayout.textContent=model.narrowView==='split'?'小窗口聚焦当前白板':'小窗口始终并排';sizing();if(open||!current())ensure();sync()};
