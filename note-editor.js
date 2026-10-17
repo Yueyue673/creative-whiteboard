@@ -223,7 +223,8 @@
   tools.querySelector('#noteFormat')?.addEventListener('click',()=>openFormat(tools.querySelector('#noteFormat'),n));
   tools.querySelector('#noteLinks')?.addEventListener('click',()=>openLinks(tools.querySelector('#noteLinks'),n));
   tools.querySelector('#notePreview')?.addEventListener('click',()=>{closePanel();togglePreview(tools.querySelector('#notePreview'),n,root)});
-  root.querySelectorAll('textarea').forEach(el=>{for(const name of ['focus','select','keyup','pointerup'])el.addEventListener(name,()=>remember(el));el.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.isComposing&&['b','i'].includes(e.key.toLowerCase())&&['body','userText','annotation'].includes(el.id)){e.preventDefault();e.stopPropagation();remember(el);format(n,e.key.toLowerCase()==='b'?'bold':'italic')}})});
+  // Input and focus loss also cover text entry without a keyboard keyup.
+  root.querySelectorAll('textarea').forEach(el=>{for(const name of ['focus','select','keyup','pointerup','input','blur'])el.addEventListener(name,()=>remember(el));el.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.isComposing&&['b','i'].includes(e.key.toLowerCase())&&['body','userText','annotation'].includes(el.id)){e.preventDefault();e.stopPropagation();remember(el);format(n,e.key.toLowerCase()==='b'?'bold':'italic')}})});
  };
  document.addEventListener('pointerdown',e=>{if(panel&&!panel.contains(e.target)&&!owner?.contains(e.target))closePanel()},true);
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}},true);
