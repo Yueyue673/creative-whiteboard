@@ -18,7 +18,7 @@ async function exerciseInputRange(p,url,fixture,options={}){
   await p.keyboard.insertText('【仅输入追加】');const fresh=before+'【仅输入追加】';assert.equal(await field.inputValue(),fresh);
   assert.deepEqual(await field.evaluate(el=>[el.selectionStart,el.selectionEnd]),[fresh.length,fresh.length]);
   if(name==='body'){
-   await p.locator('#noteLinks').click();await p.locator('.note-link-results .note-link-row').filter({hasText:fixture.targetTitle}).click();
+   await p.locator('#noteLinks').click();await p.getByRole('button',{name:'引用：'+fixture.targetTitle,exact:true}).click();
    assert.equal(await field.inputValue(),fresh+'[[@'+fixture.key+'/'+fixture.targetId+'|'+fixture.targetTitle+']]');
   }else{
    await p.locator('#noteFormat').click();await p.getByRole('button',{name:'粗体',exact:true}).click();
