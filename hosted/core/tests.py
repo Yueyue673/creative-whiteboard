@@ -262,15 +262,30 @@ class HostedFoundationTests(TestCase):
 
     @override_settings(LOGIN_ACCOUNT_LIMIT=2, LOGIN_IP_LIMIT=4)
     def test_database_throttle_survives_new_clients_and_spoofed_ip_header(self):
-        for _ in range(2):
-            self.assertEqual(self.api("/api/login", "POST", {"email": self.owner.email, "password": "wrong"}, client=Client()).status_code, 401)
-        self.assertEqual(self.api("/api/login", "POST", {"email": self.owner.email, "password": PASSWORD}, client=Client()).status_code, 429)
-        self.assertEqual(self.api("/api/login", "POST", {"email": "unused@example.test", "password": "wrong"}, client=Client()).status_code, 401)
-        self.assertEqual(self.api("/api/login", "POST", {"email": "new@example.test", "password": "wrong"}, client=Client(), HTTP_X_REAL_IP="192.0.2.200", HTTP_X_FORWARDED_FOR="192.0.2.200").status_code, 429)
+        now = timezone.now()
+        # These attempts test one window, even when CI crosses a real boundary.
+        with patch("core.services.timezone.now", return_value=now):
+            for _ in range(2):
+                self.assertEqual(self.api("/api/login", "POST", {"email": self.owner.email, "password": "wrong"}, client=Client()).status_code, 401)
+            self.assertEqual(self.api("/api/login", "POST", {"email": self.owner.email, "password": PASSWORD}, client=Client()).status_code, 429)
+            self.assertEqual(self.api("/api/login", "POST", {"email": "unused@example.test", "password": "wrong"}, client=Client()).status_code, 401)
+            self.assertEqual(self.api("/api/login", "POST", {"email": "new@example.test", "password": "wrong"}, client=Client(), HTTP_X_REAL_IP="192.0.2.200", HTTP_X_FORWARDED_FOR="192.0.2.200").status_code, 429)
         for bucket in ThrottleBucket.objects.all():
             self.assertEqual(len(bucket.key), 64)
             self.assertNotIn("@", bucket.key)
             self.assertNotIn("127.0.0.1", bucket.key)
+
+    @override_settings(LOGIN_ACCOUNT_LIMIT=2, LOGIN_IP_LIMIT=4)
+    def test_login_ip_limit_rejects_last_window_attempt_and_allows_next_window(self):
+        seconds = settings.THROTTLE_WINDOW_SECONDS
+        now = timezone.now().replace(microsecond=0)
+        start = now - timedelta(seconds=int(now.timestamp()) % seconds)
+        with patch("core.services.timezone.now", return_value=start + timedelta(seconds=seconds - 1)):
+            for index in range(4):
+                self.assertEqual(self.api("/api/login", "POST", {"email": f"unused-{index}@example.test", "password": "wrong"}, client=Client()).status_code, 401)
+            self.assertEqual(self.api("/api/login", "POST", {"email": "next@example.test", "password": "wrong"}, client=Client()).status_code, 429)
+        with patch("core.services.timezone.now", return_value=start + timedelta(seconds=seconds)):
+            self.assertEqual(self.api("/api/login", "POST", {"email": "next@example.test", "password": "wrong"}, client=Client()).status_code, 401)
 
     def test_secure_response_policy_host_and_bounded_json(self):
         response = self.api("/api/session")
