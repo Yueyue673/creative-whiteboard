@@ -149,11 +149,25 @@
   const editedTable=$('nodes').querySelector(':scope>.node.table>.inner.live-layout')?.parentElement;
   const neighbours=editedTable?[...$('nodes').children].filter(el=>el!==editedTable&&!el.classList.contains('frame')).map(el=>el.getBoundingClientRect()).filter(r=>r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom):[];
   for(const el of elements){const group=el.querySelector('.group-actions');if(group)group.style.maxWidth=Math.max(1,bounds.width-12)+'px'}
+  // A card's actions must leave its connections and their other end readable.
+  const connectionObstacles=new Map(),peerBounds=new Map(),actionIds=new Set(elements.filter(el=>!el.querySelector(':scope>.inner.live-layout')&&el.querySelector(':scope>.block-actions:not(.group-actions)')).map(el=>el.dataset.id));
+  if(actionIds.size)for(const edge of board.edges){
+   if(!actionIds.has(edge.from)&&!actionIds.has(edge.to))continue;
+   const path=$('edgePaths').querySelector('[data-edge="'+CSS.escape(edge.id)+'"] .connector-line');if(!path)continue;
+   const r=path.getBoundingClientRect();if(r.right<bounds.left||r.left>bounds.right||r.bottom<bounds.top||r.top>bounds.bottom)continue;
+   const area={left:r.left-3,right:r.right+3,top:r.top-3,bottom:r.bottom+3};
+   for(const id of new Set([edge.from,edge.to]))if(actionIds.has(id)){
+    if(!connectionObstacles.has(id))connectionObstacles.set(id,[]);const areas=connectionObstacles.get(id);areas.push(area);
+    const peerId=id===edge.from?edge.to:edge.from;
+    if(!peerBounds.has(peerId)){const peer=$('nodes').querySelector(':scope>[data-id="'+CSS.escape(peerId)+'"]');peerBounds.set(peerId,peer&&!peer.classList.contains('frame')?peer.getBoundingClientRect():null)}
+    const peer=peerBounds.get(peerId);if(peer)areas.push(peer);
+   }
+  }
   const placements=elements.map(el=>{const actions=el.querySelector(':scope>.inner.live-layout>.inline-toolbar')||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),group=el.classList.contains('frame'),below=!group&&r.top-bounds.top<42,style=getComputedStyle(actions),width=parseFloat(style.width)||actions.offsetWidth,height=parseFloat(style.height)||actions.offsetHeight;
    const originLeft=r.right-z-width,left=group&&actions.classList.contains('group-naming')?r.left:originLeft,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
-    const avoid=el===editedTable?[...obstacles,...neighbours]:obstacles,start=clamp({x,y}),choices=group?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
+    const links=connectionObstacles.get(el.dataset.id)||[],avoid=[...obstacles,...links,...(el===editedTable?neighbours:[])],start=clamp({x,y}),choices=group?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
     for(const b of avoid)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));
     const free=choices.filter(p=>!avoid.some(b=>overlap(p,b,5.8)));free.sort((a,b)=>Number(!group&&overlap(a,r))-Number(!group&&overlap(b,r))||(a.x-left)**2+(a.y-top)**2-(b.x-left)**2-(b.y-top)**2);
     ({x,y}=free[0]||start);
