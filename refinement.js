@@ -97,7 +97,7 @@
  function positionActions(){
   if(!board)return;const bounds=canvas.getBoundingClientRect(),z=view().z,scale=String(1/z);
   // Keep the primary verb readable; shorten the drag action before stacking.
-  canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<99);
+  canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<132);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
