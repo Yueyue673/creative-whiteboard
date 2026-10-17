@@ -2,7 +2,7 @@
 (() => {
  'use strict';
  const basePack=whiteboardAI.makePack,policy=wfResearchPolicy,rules=wfReferenceRules;
- let prepared=null,preparing=null;
+ let prepared=null,preparing=null,referenceProgress=null;
  function state(){
   const form=$('aiTaskText'),scope=$('aiTaskScope')?.value;
   if(!form||!$('dialog').open)throw changedError();
@@ -89,7 +89,21 @@
   if(prepared?.pack.requestId!==event.detail?.requestId)return;
   prepared=null;status('有图片未能加载，请重新准备材料后再提供给 AI。');
  });
- async function receive(text){const value=JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));if(value.format!=='creative-board-references')throw Error('这里只接收带来源的资料回复，不能导入修改提案或创作文案。');const view=researchView(),epoch=++researchViewEpoch,id=uid(),progress=$('aiReplyStatus');status('正在保存资料…');await api('/api/ai/references/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});if(progress?.isConnected&&progress===$('aiReplyStatus')&&progress.textContent==='正在保存资料…')progress.textContent='资料已保存。';if(sameResearchView(view,epoch))await showReference(id)}
+ function finishReferenceProgress(job,text){
+  const progress=job.progress;
+  if(referenceProgress===job&&progress?.isConnected&&progress===$('aiReplyStatus')&&progress.textContent==='正在保存资料…')progress.textContent=text;
+  if(referenceProgress===job)referenceProgress=null;
+ }
+ async function receive(text,{inline=false}={}){
+  const view=researchView(),epoch=++researchViewEpoch,id=uid(),job={progress:$('aiReplyStatus')};referenceProgress=job;status('正在保存资料…');
+  try{
+   const value=JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
+   if(value.format!=='creative-board-references')throw Error('这里只接收带来源的资料回复，不能导入修改提案或创作文案。');
+   await api('/api/ai/references/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});
+  }catch(error){finishReferenceProgress(job,error.message);if(inline)return false;throw error}
+  finishReferenceProgress(job,'资料已保存。');
+  if(sameResearchView(view,epoch))await showReference(id);
+ }
  // Keep the panel name outside its scrollable content, including on small screens.
  function researchDialog(html,actions){
   const titleEnd=html.indexOf('</h2>')+5;
@@ -146,7 +160,7 @@
    });
   });
   $('aiReadClipboard').onclick=async()=>{try{$('aiReplyText').value=await navigator.clipboard.readText()}catch{status('请按 Ctrl＋V 粘贴。')}};
-  $('aiReviewReply').onclick=()=>wfSafe(async()=>{const button=$('aiReviewReply');button.disabled=true;try{await receive($('aiReplyText').value)}finally{if(button.isConnected)button.disabled=false}});
+  $('aiReviewReply').onclick=()=>wfSafe(async()=>{const button=$('aiReviewReply');button.disabled=true;try{await receive($('aiReplyText').value,{inline:true})}finally{if(button.isConnected)button.disabled=false}});
  }
  const oldImport=importFiles;importFiles=async function(files,p){const ordinary=[];for(const f of files){if(/\.json$/i.test(f.name)&&f.size<4*1024*1024){let v;try{v=JSON.parse(await f.text())}catch{}if(v?.format==='creative-board-references'){await receive(JSON.stringify(v));continue}if(v?.format==='creative-board-proposal')cannotWrite()}ordinary.push(f)}if(ordinary.length)return oldImport(ordinary,p)};
  const oldPaste=pastePayload;pastePayload=async function(text,files,anchor){if(!files.length){let v;try{v=JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''))}catch{}if(v?.format==='creative-board-references'){await receive(text);return}if(v?.format==='creative-board-proposal')cannotWrite()}return oldPaste(text,files,anchor)};
