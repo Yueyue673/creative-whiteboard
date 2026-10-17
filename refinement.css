@@ -207,6 +207,8 @@ button,summary,select{transition:none}
 .immersive-dialog #dialogBody{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:0}
 .immersive-dialog #dialogActions{display:none}
 .immersive-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line);flex-shrink:0;color:var(--ui-muted);font-size:13px}
+.immersive-heading.reading-switchable{flex-wrap:wrap;gap:6px}.immersive-heading.reading-switchable>div{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px}
+@media(max-width:300px) and (max-height:240px){.immersive-heading.reading-switchable>span{display:none}.immersive-heading.reading-switchable{padding:6px 8px}.immersive-heading.reading-switchable>div{justify-content:flex-start}.immersive-heading.reading-switchable button{padding:4px 6px}}
 .immersive-heading button{background:transparent;border:0;padding:5px 7px;font-size:13px;white-space:nowrap}.immersive-heading small{color:var(--ui-muted);margin-left:8px;font-size:11px}
 .node.immersive-surface{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;max-width:none;padding:0;margin:0;border:0;outline:0;box-shadow:none;flex:1;min-height:0;border-radius:0;white-space:normal;overflow:hidden}
 .node.immersive-surface .inner{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
