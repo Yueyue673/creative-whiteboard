@@ -4,8 +4,8 @@
   "name": "从想法到画面",
   "folder": "",
   "view": {
-    "x": 70,
-    "y": 80,
+    "x": 60,
+    "y": 40,
     "z": 1
   },
   "nodes": [
@@ -16,22 +16,28 @@
       "body": "这段内容想让观众看见什么？\n\n把观察、疑问和暂时没想清的部分写在这里。",
       "x": 0,
       "y": 0,
-      "w": 310,
-      "h": 290,
+      "w": 335,
+      "h": 270,
       "color": "#fff0aa",
-      "tags": []
+      "tags": [],
+      "sizeMode": "manual",
+      "fontSize": 18,
+      "titleFontSize": 26
     },
     {
       "id": "observation",
       "type": "note",
       "title": "留住具体的观察",
       "body": "光从窗边照进来。\n同一张纸，转过一个角度，表面的折痕就变得清楚。",
-      "x": 390,
+      "x": 425,
       "y": 0,
-      "w": 310,
-      "h": 290,
+      "w": 335,
+      "h": 270,
       "color": "#dfead8",
-      "tags": []
+      "tags": [],
+      "sizeMode": "manual",
+      "fontSize": 18,
+      "titleFontSize": 26
     },
     {
       "id": "shots",
@@ -71,23 +77,29 @@
         ]
       ],
       "x": 0,
-      "y": 370,
-      "w": 700,
-      "h": 320,
+      "y": 320,
+      "w": 760,
+      "h": 350,
       "color": "#ffffff",
-      "tags": []
+      "tags": [],
+      "sizeMode": "manual",
+      "fontSize": 18,
+      "titleFontSize": 26
     },
     {
       "id": "next",
       "type": "note",
       "title": "下一步，动手试一次",
       "body": "先拍十秒，再决定。\n\n选择这些内容后可以整组复制，也可以收进内容库。",
-      "x": 800,
-      "y": 90,
-      "w": 300,
-      "h": 280,
+      "x": 850,
+      "y": 60,
+      "w": 290,
+      "h": 310,
       "color": "#e4e4f1",
-      "tags": []
+      "tags": [],
+      "sizeMode": "manual",
+      "fontSize": 18,
+      "titleFontSize": 26
     }
   ],
   "edges": [
