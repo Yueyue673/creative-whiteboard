@@ -7,7 +7,6 @@
 | [默认分支 main](https://github.com/Yueyue673/creative-whiteboard/tree/main) | 原工作台：便签、媒体、表格、内容库、标签与分栏 | 本机使用入口，按仓库首页启动 |
 | [开发分支](https://github.com/Yueyue673/creative-whiteboard/tree/codex/hosted-linux-checks) | 在同一套原工作台上集成账号、工作区、成员权限和托管服务，并继续改善创作流程 | [草稿 PR #1](https://github.com/Yueyue673/creative-whiteboard/pull/1)，尚未合并到 main |
 | 资料对照（开发版） | 从正在写的记录直接看关联资料，再返回接着写；需要编辑来源时可打开原白板 | [8c50c51](https://github.com/Yueyue673/creative-whiteboard/commit/8c50c51ee8d47f4c0e134fe8d91ea1845a8eb0c9) 已发布，尚未并入 main |
-
 | 暂时打不开的资料（开发版） | 保留你写的资料名称，恢复可用后点原项继续查看 | [194efd7](https://github.com/Yueyue673/creative-whiteboard/commit/194efd70228e266ca644d4e5dd2416cdf4e101fe) 已发布，尚未并入 main |
 
 开发分支中的账号与数据服务接入原 `shell.html` / `index.html` 工作台。早期简化编辑器属于旧入口，不能代表现在的默认界面或原工作台的能力。
