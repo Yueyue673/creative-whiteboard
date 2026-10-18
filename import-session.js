@@ -133,7 +133,7 @@
     this.onScreen=fitCopy(canvas.getBoundingClientRect());
    },
    phase(text) {if (!this.failed) stage.textContent = text;},
-   fail(text) {this.failed=true;this.error=text;element.classList.add('is-failed');stage.textContent='未添加';reason.textContent=text;reason.hidden=close.hidden=false;this.align();},
+   fail(text,label='未添加') {this.failed=true;this.error=text;element.classList.add('is-failed');stage.textContent=label;reason.textContent=text;reason.hidden=close.hidden=false;this.align();},
    remove() {placements.delete(id);element.remove();watchPlacements();},
    complete() {
     if (this.failed) return;
@@ -280,12 +280,74 @@
    finally{preparation?.dispose()}
    }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), libraryUpload:!canvasOwner, folder, ...(feedback&&libraryUploads.get(feedback.id)===feedback?{placement:feedback,borrowed:true}:{}), key:fileKey('upload', snapshot, libraryFolderIdentity(folder),canvasOwner?boardId:'library')} : {});
  };
+ // One explicit file selection owns one prepared batch; unrelated edits never
+ // enter this transaction because its insertion point has a unique scope.
+ // loadBoard waits for pending imports before replacing its committed board.
+ // A requested switch may advance loadGeneration while that old board still owns
+ // the pending read, so validate the actual board and loading state here.
+ const fileBatches=new Map(),insertBeforeFileBatch=insertBundle,composingFields=new Set();
+ document.addEventListener('compositionstart',event=>composingFields.add(event.target),true);
+ document.addEventListener('compositionend',event=>composingFields.delete(event.target),true);
+ function canvasInsertionReady(){for(const field of composingFields)if(!field.isConnected||document.activeElement!==field)composingFields.delete(field);return !gesture&&!composingFields.size&&!document.querySelector('.table-column-resize.resizing')}
+ function waitForCanvasTurn(){
+  if(canvasInsertionReady())return Promise.resolve();
+  return new Promise(resolve=>{
+   const events=['pointerup','pointercancel','lostpointercapture','keyup','compositionend','focusout','blur'];let queued=false;
+   const check=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;if(!canvasInsertionReady())return;for(const event of events)window.removeEventListener(event,check,true);resolve()},0)};
+   for(const event of events)window.addEventListener(event,check,true);check();
+  });
+ }
+ insertBundle=function(bundle,point){
+  const batch=fileBatches.get(point?._insertion);
+  if(!batch)return insertBeforeFileBatch(bundle,point);
+  if(!board||boardId!==batch.owner||loading||blocked)throw Error('原白板已改变，这批内容尚未放入。');
+  if(bundle.nodes?.length)batch.entries.push({...clone(bundle),freshText:/\.(md|txt)$/i.test(point._importFile?.name||'')});
+  return {deferred:true,ids:(bundle.nodes||[]).map(n=>n.id)};
+ };
+ function commitFileBatch(batch,point){
+  if(!board||boardId!==batch.owner||loading||blocked)throw Error('原白板已改变，这批内容尚未放入。');
+  const items=batch.entries.filter(bundle=>bundle.nodes?.length),built=[],edges=[];
+  if(!items.length)return;
+  for(const bundle of items){const ids=new Map(bundle.nodes.map(n=>[n.id,uid()]));bundle.nodes=bundle.nodes.map(n=>({...n,id:ids.get(n.id)}));for(const e of bundle.edges||[]){e.id=uid();e.from=ids.get(e.from);e.to=ids.get(e.to)}
+   for(const n of bundle.nodes)if(window.whiteboardSizing?.automatic(n)){if(bundle.freshText)n.w=Math.min(n.w,Math.max(180,(batch.viewport.width-32)/batch.viewport.z));
+    // A lone file keeps the original asynchronous sizing/copy boundary.
+    if(batch.fileCount===1)continue;
+    const template=document.createElement('template');template.innerHTML=noteMarkup(n);const el=template.content.firstElementChild;el.inert=true;el.setAttribute('aria-hidden','true');Object.assign(el.style,{position:'fixed',left:'-100000px',top:'0',visibility:'hidden',pointerEvents:'none'});$('nodes').append(el);
+    try{growContentFields(el);const height=whiteboardSizing.measure(n,el);if(height!=null)n.h=height}finally{el.remove()}
+   }
+  }
+  const available=Math.max(1,(batch.viewport.width-32)/batch.viewport.z);let x=0,y=0,rowHeight=0,width=0,height=0;
+  for(const bundle of items){const minX=Math.min(...bundle.nodes.map(n=>n.x)),minY=Math.min(...bundle.nodes.map(n=>n.y)),w=Math.max(...bundle.nodes.map(n=>n.x+n.w))-minX,h=Math.max(...bundle.nodes.map(n=>n.y+n.h))-minY;
+   if(x&&x+w>available){x=0;y+=rowHeight+48;rowHeight=0}
+   for(const n of bundle.nodes){n.x=n.x-minX+x;n.y=n.y-minY+y;built.push(n)}edges.push(...(bundle.edges||[]));width=Math.max(width,x+w);height=Math.max(height,y+h);x+=w+48;rowHeight=Math.max(rowHeight,h);
+  }
+  if(board.nodes.length+built.length>5000||board.edges.length+edges.length>10000)throw Error('这批内容超出白板容量，请分批添加。');
+  const at={...point};if(batch.implicit&&batch.fileCount>1){at.x=width*batch.viewport.z<=batch.viewport.width-32?batch.viewport.center.x-width/2:batch.viewport.start.x;at.y=height*batch.viewport.z<=batch.viewport.height-32?batch.viewport.center.y-height/2:batch.viewport.start.y;}
+  if(batch.touched){
+   const protectedNodes=board.nodes;
+   for(let i=0;i<=protectedNodes.length;i++){const hits=protectedNodes.filter(n=>n.x<at.x+width&&n.x+n.w>at.x&&n.y<at.y+height&&n.y+n.h>at.y);if(!hits.length)break;at.y=Math.max(...hits.map(n=>n.y+n.h))+48}
+   at._keepContext=true;
+  }
+  insertBeforeFileBatch({nodes:built,edges},at);return built.map(n=>n.id);
+ }
  const importBefore = importFiles;
  importFiles = function(files, position) {
   // An ordinary file selection has no chosen corner. Keep its viewport-centred
   // intent, including on a board whose other papers already occupy that view.
   const snapshot = [...files], point = position;
-  return run(anchor => importBefore(snapshot, anchor || point), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, viewportPlacement:!position, key:fileKey('import', snapshot)} : {});
+  return run(async (anchor,preview) => {
+   if(explorer||!snapshot.length)return importBefore(snapshot,anchor||point);
+   const rect=canvas.getBoundingClientRect(),batch={owner:boardId,fileCount:snapshot.length,entries:[],implicit:!position,viewport:{width:rect.width,height:rect.height,z:view().z,center:worldPoint(rect.left+rect.width/2,rect.top+rect.height/2),start:worldPoint(rect.left+16,rect.top+16)}};
+   batch.touched=false;const events=['pointerdown','keydown','input','change','wheel','touchmove'],touch=()=>batch.touched=true;
+   for(const event of events)document.addEventListener(event,touch,{capture:true,passive:true});fileBatches.set(anchor._insertion,batch);
+   try{
+    const failed=[];let added=0;
+    for(const file of snapshot){const count=batch.entries.length,at={...anchor,_importErrors:[]};try{await importBefore([file],at)}catch(error){batch.entries.splice(count);at._importErrors.push(error.message||'读取失败')}if(batch.entries.length>count)added++;else failed.push({name:file.name,error:at._importErrors.join('；')||preview?.error||''})}
+    if(!canvasInsertionReady())preview?.phase('操作结束后放入');await waitForCanvasTurn();const ids=commitFileBatch(batch,anchor);
+    if(failed.length)preview?.fail('未添加：'+failed.map(file=>file.name+(file.error?'（'+file.error+'）':'')).join('、')+'。可单独重试。',added?'已添加 '+added+' 份，'+failed.length+' 份未添加':'未添加');
+    return ids;
+   }finally{fileBatches.delete(anchor._insertion);for(const event of events)document.removeEventListener(event,touch,true)}
+  }, explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, viewportPlacement:!position, key:fileKey('import', snapshot)} : {});
  };
  const pasteBefore = pastePayload;
  pastePayload = function(text, files = [], anchor = pasteAnchor()) {
