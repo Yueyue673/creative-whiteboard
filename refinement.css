@@ -442,3 +442,9 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 #appearanceDialog .appearance-source a{color:var(--ui-link);text-underline-offset:3px}
 #appearanceDialog .appearance-presets span{flex:none}
 @media(max-width:400px){#appearanceDialog .appearance-presets{grid-template-columns:repeat(2,minmax(0,1fr))}#appearanceDialog .appearance-presets span{height:52px}}
+
+/* Keep collection beside the selection; short panes retain the count in its accessible name. */
+#canvas.multi-actions #creationDock>#collectToLibrary{display:none}
+#selectionTools [data-selection-collect]{font-weight:600;background:var(--ui-hover)}
+#canvas.compact-tools #selectionTools>[data-selection-align],#canvas.compact-tools #selectionTools>[data-selection-group]{display:none}
+#canvas.short-selection.stacked-actions #selectionTools .selection-count{display:none}

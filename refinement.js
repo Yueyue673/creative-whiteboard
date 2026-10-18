@@ -90,7 +90,7 @@
   items.push(...whiteboardExperience.importOptions());
   if(!$('undo').disabled)items.push(['撤销  Ctrl+Z',()=>$('undo').click()]);
   if(!$('redo').disabled)items.push(['重做  Ctrl+Shift+Z',()=>$('redo').click()]);
-  if(!$('collectToLibrary').hidden)items.push(['保存到库  Ctrl+Shift+L',()=>$('collectToLibrary').click()]);
+  if(!$('collectToLibrary').hidden&&!canvas.classList.contains('multi-actions'))items.push(['保存到库  Ctrl+Shift+L',()=>$('collectToLibrary').click()]);
   if(!textTools.hidden)items.push(['调整字号…',()=>{textTools.open=true;positionActions();$('noteTitleSize').focus({preventScroll:true})}]);
   fileMenu({target:more,clientX:r.left,clientY:r.top,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},items);
  };
@@ -98,18 +98,19 @@
  textTools.addEventListener('keydown',e=>{if(e.key==='Escape'&&e.defaultPrevented&&canvas.classList.contains('compact-tools'))more.focus({preventScroll:true})});
  // Batch actions belong to the selection; each paper keeps its own Edit/View.
  const selectionTools=document.createElement('div');selectionTools.id='selectionTools';selectionTools.className='block-actions selection-tools inline-ui';selectionTools.hidden=true;selectionTools.setAttribute('role','group');selectionTools.setAttribute('aria-label','选中内容的操作');
- selectionTools.innerHTML='<span class="selection-count"></span><button type="button" data-selection-align>对齐</button><button type="button" data-selection-group>分组</button><button type="button" class="selection-transfer" draggable="true" aria-label="拖出所选内容副本" title="按住拖动，把选中内容的副本放到表格、内容库或另一张白板"><span aria-hidden="true">⠿</span><span class="transfer-caption">拖出副本</span></button><button type="button" id="selectionMore" aria-label="选中内容的更多操作" aria-haspopup="menu" aria-controls="fileContext" aria-expanded="false">⋯</button>';canvas.append(selectionTools);
+ selectionTools.innerHTML='<span class="selection-count"></span><button type="button" data-selection-collect>保存到库</button><button type="button" data-selection-align>对齐</button><button type="button" data-selection-group>分组</button><button type="button" class="selection-transfer" draggable="true" aria-label="拖出所选内容副本" title="按住拖动，把选中内容的副本放到表格、内容库或另一张白板"><span aria-hidden="true">⠿</span><span class="transfer-caption">拖出副本</span></button><button type="button" id="selectionMore" aria-label="选中内容的更多操作" aria-haspopup="menu" aria-controls="fileContext" aria-expanded="false">⋯</button>';canvas.append(selectionTools);
  let selectionScope=null;
  function ownsSelection(scope=selectionScope){return !!(scope&&board===scope.board&&boardId===scope.id&&!loading&&!blocked&&selected.size===scope.nodes.length&&scope.nodes.every(n=>selected.has(n.id)&&board.nodes.includes(n)))}
  function syncSelectionTools(){
   const nodes=board?.nodes.filter(n=>selected.has(n.id))||[],active=nodes.length>1&&!editorId;
   canvas.classList.toggle('multi-actions',active);selectionTools.hidden=!active;selectionScope=active?{board,id:boardId,nodes}:null;
   if(!active){if(selectionTools.contains(document.activeElement))canvas.focus({preventScroll:true});return}
-  const count=nodes.length+' 项',label=selectionTools.querySelector('.selection-count');if(label.textContent!==count)label.textContent=count;
+  const count=nodes.length+' 项',label=selectionTools.querySelector('.selection-count');if(label.textContent!==count)label.textContent=count;selectionTools.setAttribute('aria-label','所选'+nodes.length+'项的操作');
   selectionTools.querySelector('[data-selection-group]').hidden=nodes.some(n=>n.type==='frame');
   selectionTools.querySelector('.selection-transfer').hidden=!nodes.some(n=>canvasBlock(n.id)?.querySelector('.block-transfer'));
   for(const b of selectionTools.querySelectorAll('button'))b.disabled=blocked;
  }
+ selectionTools.querySelector('[data-selection-collect]').onclick=()=>{if(ownsSelection())askCollectSelection()};
  selectionTools.querySelector('[data-selection-align]').onclick=()=>{if(ownsSelection())whiteboardNavigation.openArrangement()};
  selectionTools.querySelector('[data-selection-group]').onclick=()=>{if(ownsSelection())groupSelection()};
  const transfer=selectionTools.querySelector('.selection-transfer');
@@ -122,7 +123,7 @@
    ...(!selectionTools.querySelector('[data-selection-group]').hidden&&!selectionTools.querySelector('[data-selection-group]').getClientRects().length?[['组成一组',guard(groupSelection)]]:[]),
    ...(canvas.classList.contains('short-selection')&&!$('undo').disabled?[['撤销  Ctrl+Z',guard(()=>$('undo').click())]]:[]),
    ...(canvas.classList.contains('short-selection')&&!$('redo').disabled?[['重做  Ctrl+Shift+Z',guard(()=>$('redo').click())]]:[]),
-   ['复制内容  Ctrl+C',guard(copyBlocks)],['创建副本  Ctrl+D',guard(duplicate)],['收进内容库  Ctrl+Shift+L',guard(askCollectSelection)],['删除  Delete',guard(removeSelected)],
+   ['复制内容  Ctrl+C',guard(copyBlocks)],['创建副本  Ctrl+D',guard(duplicate)],...(!selectionTools.querySelector('[data-selection-collect]').getClientRects().length?[['保存到库  Ctrl+Shift+L',guard(askCollectSelection)]]:[]),['删除  Delete',guard(removeSelected)],
    ['取消选择',guard(()=>{selected.clear();refreshSelectionUI();canvas.focus({preventScroll:true})})]
   ]);
  };
@@ -164,15 +165,21 @@
     const peer=peerBounds.get(peerId);if(peer)areas.push(peer);
    }
   }
+  const placedActions=[];
   const placements=elements.map(el=>{const actions=el.querySelector(':scope>.inner.live-layout>.inline-toolbar')||el.querySelector('.block-actions');if(!actions)return null;const r=el.getBoundingClientRect(),group=el.classList.contains('frame'),below=!group&&r.top-bounds.top<42,style=getComputedStyle(actions),width=parseFloat(style.width)||actions.offsetWidth,height=parseFloat(style.height)||actions.offsetHeight;
    const originLeft=r.right-z-width,left=group&&actions.classList.contains('group-naming')?r.left:originLeft,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
-    const links=connectionObstacles.get(el.dataset.id)||[],avoid=[...obstacles,...links,...(el===editedTable?neighbours:[])],start=clamp({x,y}),choices=group?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
-    for(const b of avoid)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));
-    const free=choices.filter(p=>!avoid.some(b=>overlap(p,b,5.8)));free.sort((a,b)=>Number(!group&&overlap(a,r))-Number(!group&&overlap(b,r))||(a.x-left)**2+(a.y-top)**2-(b.x-left)**2-(b.y-top)**2);
+    const links=connectionObstacles.get(el.dataset.id)||[],baseAvoid=[...obstacles,...links,...(el===editedTable?neighbours:[])],start=clamp({x,y}),preferred=group?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
+    // Generate alternatives near the preferred positions; still validate every reserved action.
+    const nearby=placedActions.filter(b=>preferred.some(p=>overlap(p,b,5.8))),freePositions=avoid=>{
+     const choices=[...preferred];for(const b of avoid)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));
+     const free=choices.filter(p=>!avoid.some(b=>overlap(p,b,5.8))&&!placedActions.some(b=>overlap(p,b,5.8)));free.sort((a,b)=>Number(!group&&overlap(a,r))-Number(!group&&overlap(b,r))||(a.x-left)**2+(a.y-top)**2-(b.x-left)**2-(b.y-top)**2);return free;
+    };
+    const free=freePositions([...baseAvoid,...nearby]);
     ({x,y}=free[0]||start);
    }
+   if(visible&&width&&height)placedActions.push({left:x,right:x+width,top:y,bottom:y+height});
    return {actions,below,dx:x-originLeft,dy:y-top};
   });
   for(const p of placements){if(!p)continue;const {actions,below,dx,dy}=p,key=[z,below,dx,dy].join('|');if(actions.dataset.position===key)continue;actions.dataset.position=key;actions.style.transform='scale('+1/z+')';actions.style.right=(-dx/z)+'px';actions.style.bottom=below?'auto':'calc(100% + '+(7-dy)/z+'px)';actions.style.top=below?'calc(100% + '+(7+dy)/z+'px)':'auto';actions.style.transformOrigin=below?'top right':'bottom right'}
