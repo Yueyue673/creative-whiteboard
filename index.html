@@ -16,6 +16,7 @@ window.addEventListener('keydown',function(e){
  var close=null;
  if(viewer&&!viewer.hidden)close=function(){if(typeof closeImageView==='function')closeImageView();else viewer.hidden=true};
  else if(window.whiteboardNoteEditor?.dismissSource?.()){e.preventDefault();e.stopImmediatePropagation();return;}
+ else if(dialog&&dialog.open&&dialog.querySelector('.reuse-original[open]'))close=function(){var original=dialog.querySelector('.reuse-original[open]');original.open=false;original.querySelector('summary').focus()};
  else if(dialog&&dialog.open)close=function(){dialog.querySelectorAll('video,audio').forEach(function(m){m.pause()});dialog.close()};
  else if(menu&&!menu.hidden)close=function(){if(typeof closeFileContext==='function')closeFileContext();else menu.hidden=true};
  else if(meta&&meta.open)close=function(){meta.open=false};
