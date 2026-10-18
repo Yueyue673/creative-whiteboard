@@ -293,7 +293,7 @@
     await visit(target,epoch,[...session.trail,from].slice(-32));
    }catch(error){failed(error,epoch)}
   });
-  host.append(aside);host.classList.add(expanded?'note-comparing':'source-comparing-canvas');const pending=document.createElement('option');pending.value=key(row);pending.textContent=noteLabel(row.node);select.append(pending);const epoch=begin();visit(row,epoch,[]).catch(error=>failed(error,epoch));layoutSourcePeek();aside.querySelector('.source-peek-return').focus({preventScroll:true});return true;
+  host.append(aside);host.classList.add(expanded?'note-comparing':'source-comparing-canvas');include(row);for(const item of session.rows){const option=document.createElement('option');option.value=key(item);option.textContent=noteLabel(item.node)+(item.board!==session.board?' · '+item.name:'');select.append(option)}select.value=key(row);const epoch=begin();visit(row,epoch,[]).catch(error=>failed(error,epoch));layoutSourcePeek();aside.querySelector('.source-peek-return').focus({preventScroll:true});return true;
  }
  window.addEventListener('resize',()=>{layoutSourcePeek();const card=sourcePeek?.aside.querySelector('.note-source-card');if(card)growContentFields(card)});
  window.addEventListener('creative-board-loading',()=>closeSourcePeek(false));
