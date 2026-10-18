@@ -342,7 +342,11 @@
    for(const event of events)document.addEventListener(event,touch,{capture:true,passive:true});fileBatches.set(anchor._insertion,batch);
    try{
     const failed=[];let added=0;
-    for(const file of snapshot){const count=batch.entries.length,at={...anchor,_importErrors:[]};try{await importBefore([file],at)}catch(error){batch.entries.splice(count);at._importErrors.push(error.message||'读取失败')}if(batch.entries.length>count)added++;else failed.push({name:file.name,error:at._importErrors.join('；')||preview?.error||''})}
+    // Keep the original outer preflight (including research-only policy) intact.
+    // The existing per-file compatibility layer reports prepared results, rather
+    // than splitting this selection above those guards or swallowing rejection.
+    const tracked={...anchor,_fileImportProgress:(file,errors)=>{const count=batch.entries.length;return()=>{if(batch.entries.length>count)added++;else failed.push({name:file.name,error:errors.join('；')||preview?.error||''})}}};
+    await importBefore(snapshot,tracked);
     if(!canvasInsertionReady())preview?.phase('操作结束后放入');await waitForCanvasTurn();const ids=commitFileBatch(batch,anchor);
     if(failed.length)preview?.fail('未添加：'+failed.map(file=>file.name+(file.error?'（'+file.error+'）':'')).join('、')+'。可单独重试。',added?'已添加 '+added+' 份，'+failed.length+' 份未添加':'未添加');
     return ids;

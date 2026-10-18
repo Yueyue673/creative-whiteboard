@@ -84,6 +84,16 @@ const {chromium} = require('playwright');
    catch (error) {return error.message.includes('不能修改');}
   }, proposal);
   assert(blockedImport);
+  const blockedMixedImport = await page.evaluate(async proposal => {
+   try {
+    await importFiles([
+     new File(['Supplied ordinary human file.'], 'supplied-human.txt', {type:'text/plain'}),
+     new File([JSON.stringify(proposal)], 'old-proposal.json', {type:'application/json'})
+    ], {x:600,y:100});
+    return false;
+   } catch (error) {return error.message.includes('不能修改');}
+  }, proposal);
+  assert(blockedMixedImport, 'The complete original selection is checked before any ordinary file is inserted');
   assert.deepEqual(writes, []);
   assert.deepEqual(downloads, []);
   assert.equal(await fetch(base + '/api/boards/own').then(r => r.text()), originalBoard);
