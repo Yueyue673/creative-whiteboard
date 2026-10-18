@@ -15,6 +15,7 @@ window.addEventListener('keydown',function(e){
  var viewer=document.getElementById('imageViewer'),dialog=document.getElementById('dialog'),menu=document.getElementById('fileContext'),meta=document.getElementById('inlineMeta');
  var close=null;
  if(viewer&&!viewer.hidden)close=function(){if(typeof closeImageView==='function')closeImageView();else viewer.hidden=true};
+ else if(window.whiteboardNoteEditor?.dismissSource?.()){e.preventDefault();e.stopImmediatePropagation();return;}
  else if(dialog&&dialog.open)close=function(){dialog.querySelectorAll('video,audio').forEach(function(m){m.pause()});dialog.close()};
  else if(menu&&!menu.hidden)close=function(){if(typeof closeFileContext==='function')closeFileContext();else menu.hidden=true};
  else if(meta&&meta.open)close=function(){meta.open=false};
@@ -129,7 +130,8 @@ function noteMarkup(n){const image=n.type==='image'&&/^data:image\/(png|jpeg|web
 function retainLiveEditor(n,el,signature){
  if(n.type==='table'||n.type==='frame'||editorId!==n.id||!selected.has(n.id)||!el?.isConnected)return;
  const keys=['title','body','userText','annotation','url','tags'];
- for(const key of keys){const field=el.querySelector('#'+key);if(!field)return;const value=key==='tags'?field.value.split(/[,，\n]/).map(v=>v.trim()).filter(Boolean):field.value,expected=key==='tags'?(n.tags||[]):(n[key]||'');if(JSON.stringify(value)!==JSON.stringify(expected))return}
+ const surface=document.getElementById('immersiveSurface'),root=el.querySelector('.inner')?el:surface?.dataset.id===n.id&&surface.closest('#dialog.immersive-dialog')&&surface.isConnected?surface:el;
+ for(const key of keys){const field=root.querySelector('#'+key);if(!field)return;const value=key==='tags'?field.value.split(/[,，\n]/).map(v=>v.trim()).filter(Boolean):field.value,expected=key==='tags'?(n.tags||[]):(n[key]||'');if(JSON.stringify(value)!==JSON.stringify(expected))return}
  let before,next;try{before=JSON.parse(el.dataset.documentSignature);next=JSON.parse(signature)}catch{return}
  if(!before||!next)return;
  for(const key of new Set([...Object.keys(before),...Object.keys(next)]))if(!keys.includes(key)&&JSON.stringify(before[key])!==JSON.stringify(next[key]))return;

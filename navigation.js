@@ -6,7 +6,10 @@
  function write(p){localStorage.setItem(key,JSON.stringify({...defaults,...p}))}
  // Native Tab navigation can scroll the hidden canvas container. Keep that
  // visible movement in the board view so pointer coordinates and reopening agree.
+ let preservingFocusView=false;
+ function focusPreservingView(field){preservingFocusView=true;try{field?.focus({preventScroll:true})}finally{preservingFocusView=false}}
  canvas.addEventListener('focusin',e=>{
+  if(preservingFocusView)return;
   const node=e.target.closest?.('#nodes > .node');if(!board||loading||!node)return;
   const dx=canvas.scrollLeft,dy=canvas.scrollTop;let moved=!!(dx||dy);
   if(moved){board.view={...view(),x:view().x-dx,y:view().y-dy};canvas.scrollLeft=canvas.scrollTop=0;moveView()}
@@ -221,7 +224,7 @@
   board.view={x:(r.width-w*z)/2-left*z,y:(r.height-h*z)/2-top*z,z};moveView();change(true);
  };
  $('fit').onclick=fit;
- window.whiteboardNavigation={read,write,fitSelection,arrange,openArrangement:arrangement,revealCaret};
+ window.whiteboardNavigation={read,write,fitSelection,arrange,openArrangement:arrangement,revealCaret,focusPreservingView};
 })();
 
 // Two fingers navigate the canvas; a remaining finger never turns into a card drag.

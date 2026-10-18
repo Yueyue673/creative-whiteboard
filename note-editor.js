@@ -32,7 +32,7 @@
  function scheduleScrollSurfaces(){if(!scrollFrame)scrollFrame=requestAnimationFrame(syncScrollSurfaces)}
  function syncScrollSurfaces(){
   scrollFrame=0;for(const el of scrollSurfaces)if(!el.isConnected){scrollObserver.unobserve(el);scrollSurfaces.delete(el)}
-  for(const el of document.querySelectorAll('#nodes .note-text-scroll,#dialog .note-text-scroll')){
+  for(const el of document.querySelectorAll('#nodes .note-text-scroll,#dialog .note-text-scroll,.source-from-canvas .note-text-scroll')){
    if(!scrollSurfaces.has(el)){scrollSurfaces.add(el);scrollObserver.observe(el)}
    const overflow=el.clientWidth>0&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1);
    el.classList.toggle('note-text-overflow',overflow);
@@ -58,10 +58,11 @@
  const originalInlineMarkup=inlineMarkup;inlineMarkup=function(n){return preserveTextareaLines(originalInlineMarkup(n))};
  const originalTableLayout=tableLayout;tableLayout=function(n){const html=originalTableLayout(n).replace(/<input\b([^>]*\bdata-column="(\d+)"[^>]*)>/g,(_,attrs,column)=>'<textarea rows="1"'+attrs.replace(/\svalue="[^"]*"/,'')+'>'+esc(n.columns[Number(column)]||'')+'</textarea>');return preserveTextareaLines(html)};
  const originalMarkup=noteMarkup;
- noteMarkup=function(n){
+ noteMarkup=function(n,readOnly=false){
   let html=originalMarkup(n);
+  if(readOnly){const begin=html.indexOf('<div class="inner'),end=html.indexOf('<span class="port');html=html.slice(0,begin)+'<div class="inner editing read-layout">'+readableLayout(n)+'</div>'+html.slice(end)}
   if(n.type==='note'&&!n.assetId&&!n.mediaId&&!n.images?.length)html=html.replace('class="node ','class="node paper-card paper-'+(['lined','grid'].includes(n.paperStyle)?n.paperStyle:'plain')+' ');
-  if(n.textFormat==='markdown'&&!(editorId===n.id&&selected.has(n.id))){
+  if(n.textFormat==='markdown'&&(readOnly||!(editorId===n.id&&selected.has(n.id)))){
    for(const key of ['body','userText','annotation'])html=html.replace(new RegExp('<textarea\\b[^>]*data-preview-id="'+key+'"[^>]*>[\\s\\S]*?</textarea>'),'<div class="note-markdown" data-markdown-field="'+key+'">'+rendered(n[key])+'</div>');
   }
   return html;
@@ -71,7 +72,7 @@
  const referenceTrail=[];let referenceEpoch=0,referenceReturning=false,referenceBar=null;
  function captureReferencePlace(id){
   const n=board?.nodes.find(node=>node.id===id);if(!n||n.type!=='note'||loading||blocked)return null;
-  const root=document.getElementById('immersiveSurface')?.dataset.id===id?document.getElementById('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===id);
+  const expanded=$('dialog').open&&$('dialog').classList.contains('immersive-dialog')&&$('immersiveSurface')?.dataset.id===id,root=expanded?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===id);
   const focused=document.activeElement,source=focused?.matches('textarea,input[type=text],input:not([type])')&&root?.contains(focused)?focused:field?.isConnected&&root?.contains(field)?field:null,area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
   const viewport=window.whiteboardPane?.viewport?.()||{width:canvas.clientWidth,height:canvas.clientHeight};
   return {board:boardId,id,name:noteLabel(n),view:{x:view().x,y:view().y,z:view().z},selected:[...selected],mode:editorId===id?(root?.id==='immersiveSurface'?'expanded':'canvas'):'read',preview:editorId===id&&preview,width:viewport.width,height:viewport.height,
@@ -203,8 +204,108 @@
   for(let start=0;start<list.length;start+=4)await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();for(const node of data.nodes||[])if(node.type!=='frame')records.push({board:b.id,name:data.name,node})}catch{incomplete=true}}));
   return {records,incomplete};
  }
- async function jumpReference(row,place=null,epoch=++referenceEpoch){
+
+ // Experimental comparison keeps the author field mounted throughout source visits.
+ let sourcePeek=null;
+ function closeSourcePeek(focus=true){
+  const session=sourcePeek;if(!session)return;sourcePeek=null;session.epoch++;session.root.removeEventListener('focusin',session.rememberFocus);
+  for(const type of ['input','select','pointerdown','keydown'])session.root.removeEventListener(type,session.authorActivity,true);
+  for(const view of session.views.values())pauseSource(view.paper);whiteboardMedia.close();session.aside.remove();session.host.classList.remove('note-comparing','source-reading-full','source-focused','source-comparing-canvas');session.root.inert=false;session.root.removeAttribute('aria-hidden');
+  if(session.returnAction){session.returnAction.removeEventListener('click',session.returnClick,true);session.returnAction.innerHTML=session.returnMarkup}const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=session.heading;
+  session.host.querySelector('#immersiveDetails')?.removeAttribute('hidden');
+  if(focus&&session.root.isConnected&&board===session.source&&boardId===session.board&&editorId===session.author.id){
+   const input=session.input;if(input?.isConnected){const hiddenDetails=input.closest('details:not([open])'),target=input.hidden?session.root.querySelector('#notePreview'):hiddenDetails?hiddenDetails.querySelector('summary'):input;if(target){if(session.mode==='canvas'&&window.whiteboardNavigation?.focusPreservingView)whiteboardNavigation.focusPreservingView(target);else target.focus({preventScroll:true})}remember(input)}
+  }
+ }
+ function ownsSourcePeek(session){return session===sourcePeek&&board===session.source&&boardId===session.board&&!loading&&!blocked&&board.nodes.includes(session.author)&&editorId===session.author.id&&session.root.isConnected&&(!session.input||session.input.isConnected)&&(session.mode==='expanded'?$('dialog').open:!$('dialog').open)}
+ function layoutSourcePeek(){
+  const session=sourcePeek;if(!session)return;if(!ownsSourcePeek(session)){closeSourcePeek(false);return}
+  let covering=false;if(session.mode==='canvas'){const rect=session.root.getBoundingClientRect(),left=Math.max(0,rect.left-16),right=Math.max(0,innerWidth-rect.right-16),space=Math.max(left,right);covering=innerWidth<=820||session.full||space<340;session.aside.style.width=covering?'100%':Math.min(680,space,innerWidth*.46)+'px';session.aside.style.left=!covering&&left>right?'0':'auto';session.aside.style.right=!covering&&left>right?'auto':'0'}
+  const narrow=innerWidth<=820||!!session.full||covering;session.host.classList.toggle('source-focused',narrow);session.aside.classList.toggle('source-reading-full',!!session.full);if(session.returnAction){const markup=narrow?'返回记录 <small>Esc</small>':session.returnMarkup;if(session.returnAction.innerHTML!==markup)session.returnAction.innerHTML=markup}session.root.inert=narrow;session.root.setAttribute('aria-hidden',String(narrow));
+  const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=narrow?'查看资料':session.heading;
+  session.host.querySelector('#immersiveDetails')?.toggleAttribute('hidden',narrow);
+  if(narrow&&session.root.contains(document.activeElement))session.aside.querySelector('.source-peek-return').focus({preventScroll:true});
+  if(session.row?.board===boardId){const node=board.nodes.find(n=>n.id===session.row.node.id);if(node!==session.row.node||JSON.stringify(node)!==session.signature)session.render(node?{...session.row,node}:null)}
+ }
+ function canCompare(row){return row&&['note','image','table'].includes(row.node.type)}
+ function sourceAssetIds(node,ids=new Set()){for(const id of [node.assetId,node.mediaId])if(id)ids.add(id);for(const image of node.images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellImages||[])for(const images of row||[])for(const image of images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellItems||[])for(const items of row||[])for(const item of items||[])sourceAssetIds(item,ids);return [...ids]}
+ function pauseSource(root){for(const el of root.querySelectorAll('audio,video')){el.pause();el._captureReading?.()}for(const el of root.querySelectorAll('.json-reader'))el._captureReading?.()}
+ function sourceContext(el){const session=sourcePeek;if(!session||!ownsSourcePeek(session))return null;const root=el?.closest?.('.note-source-card');if(!root||!session.aside.contains(root))return null;const view=[...session.views.values()].find(view=>view.paper===root);return view?{board:view.row.board,node:view.row.node,readOnly:true}:null}
+ function peekReference(row,place,records){
+  const author=board.nodes.find(node=>node.id===editorId),expanded=place?.mode==='expanded',root=expanded?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===author?.id);
+  if(!canCompare(row)||!['expanded','canvas'].includes(place?.mode)||!root||root.dataset.id!==author?.id||(row.board===boardId&&row.node===author)||expanded!==$('dialog').open)return false;
+  closeSourcePeek(false);closePanel();const host=expanded?$('dialogBody'):document.body,aside=document.createElement('aside');aside.className='note-source-peek inline-ui'+(expanded?'':' source-from-canvas');aside.setAttribute('aria-label','对照资料');
+  const heading=host.querySelector('.immersive-heading>span'),input=(place.field&&root.querySelector('#'+CSS.escape(place.field.id)))||root.querySelector('#body');
+  const returnAction=expanded?host.querySelector('#immersiveReturn'):null,session={aside,host,root,author,mode:place.mode,source:board,board:boardId,input,returnAction,returnMarkup:returnAction?.innerHTML,heading:heading?.textContent||'展开编辑',epoch:0,trail:[],positions:new Map(),views:new Map(),rows:relatedRows(author,records).filter(canCompare)};sourcePeek=session;session.returnClick=event=>{if(innerWidth<=820||session.full){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}};returnAction?.addEventListener('click',session.returnClick,true);
+  aside.innerHTML='<header><label>资料<select aria-label="对照资料"></select></label><button type="button" class="source-peek-return">返回记录</button></header><nav class="note-source-path" aria-label="资料浏览" hidden><button type="button" class="source-peek-back">上一份资料</button><span></span><button type="button" class="source-peek-open" hidden>打开白板</button></nav><p class="note-source-status" role="status" hidden></p><div class="note-source-paper"></div>';
+  const select=aside.querySelector('select'),status=aside.querySelector('[role=status]'),path=aside.querySelector('nav'),back=path.querySelector('.source-peek-back'),open=path.querySelector('.source-peek-open'),key=item=>item.board+'/'+item.node.id;
+  const live=epoch=>ownsSourcePeek(session)&&session.epoch===epoch;
+  const message=text=>{status.textContent=text;status.hidden=!text;aside.removeAttribute('aria-busy');open.disabled=false};
+  const cancel=()=>{session.epoch++;if(!session.row){closeSourcePeek(false);return}if(aside.hasAttribute('aria-busy'))message('');select.value=key(session.row)};
+  session.authorActivity=cancel;session.rememberFocus=event=>{if(event.target.matches('textarea,input')&&root.contains(event.target)){session.input=event.target;cancel()}};root.addEventListener('focusin',session.rememberFocus);
+  for(const type of ['input','select','pointerdown','keydown'])root.addEventListener(type,session.authorActivity,true);
+  const include=item=>{const old=session.rows.findIndex(r=>key(r)===key(item));if(old<0)session.rows.push(item);else session.rows[old]=item};
+  session.render=item=>{
+   if(!ownsSourcePeek(session))return closeSourcePeek(false);
+   const box=aside.querySelector('.note-source-paper');if(session.row&&box.firstElementChild)session.positions.set(key(session.row),box.scrollTop);if(!item){session.signature=JSON.stringify(null);for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}message('这份资料已移走或删除。');return}
+   if(!canCompare(item)){for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}message('这份资料的类型已有变化，请从白板查看。');return}
+   session.row=item;session.signature=JSON.stringify(item.node);include(item);select.replaceChildren();
+   for(const current of session.rows){const option=document.createElement('option');option.value=key(current);option.textContent=noteLabel(current.node)+(current.board!==session.board?' · '+current.name:'');select.append(option)}
+   for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}whiteboardMedia.close();
+   let view=session.views.get(key(item));if(view&&view.signature!==session.signature){pauseSource(view.paper);view.paper.remove();session.views.delete(key(item));view=null}
+   if(!view){const template=document.createElement('template');template.innerHTML=noteMarkup(item.node,true);const paper=template.content.firstElementChild;paper.classList.remove('active');paper.classList.add('note-source-card');paper.removeAttribute('data-id');paper.style.setProperty('--body-size',(item.node.fontSize||16)+'px');paper.style.setProperty('--title-size',(item.node.titleFontSize||24)+'px');for(const table of paper.querySelectorAll('.table-scroll')){table.classList.add('note-text-scroll');table.dataset.noteScroll='table'}paper.querySelectorAll('.port,.resize,.block-actions,.space-card-label,.inline-toolbar,.table-actions,.table-help,.table-grip,.col-remove,.add-cell-image,button[disabled]').forEach(el=>el.remove());
+    view={paper,row:item,signature:session.signature};session.views.set(key(item),view);box.append(paper);
+    for(const img of paper.querySelectorAll('.cell-images img')){const button=document.createElement('button');button.type='button';button.className='note-source-image inline-ui';button.setAttribute('aria-label','查看原图：'+(img.alt||item.node.title||'图片'));img.before(button);button.append(img);button.onclick=()=>{if(ownsSourcePeek(session))openImageView(img.currentSrc||img.src,img.alt||item.node.title||'图片')}}
+    for(const link of paper.querySelectorAll('a[data-file-link]')){const asset=assetById(item.node.assetId);if(!documentKind(asset))continue;const button=document.createElement('button');button.type='button';button.className='note-source-expand inline-ui';button.textContent='放大查看';button.onclick=()=>{session.full=!session.full;session.host.classList.toggle('source-reading-full',session.full);button.textContent=session.full?'并排查看':'放大查看';layoutSourcePeek()};link.replaceWith(button)}
+   }else{view.row=item;session.views.delete(key(item));session.views.set(key(item),view)}
+   view.paper.hidden=false;view.paper.querySelectorAll('.note-source-expand').forEach(button=>button.textContent=session.full?'并排查看':'放大查看');growContentFields(view.paper);select.value=key(item);box.scrollTop=session.positions.get(key(item))||0;
+   while(session.views.size>6){const [id,old]=session.views.entries().next().value;pauseSource(old.paper);old.paper.remove();session.views.delete(id)}
+   fillTextPreviews(view.paper);mountInlineDocuments();mountReadingState();whiteboardMedia.mount();whiteboardMedia.markers.mount();scheduleScrollSurfaces();
+
+   path.hidden=!session.trail.length&&item.board===session.board;back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.board===session.board;open.title='打开白板：'+item.name;message('');
+  };
+  const recordsFor=async id=>{if(id===session.board)return board.nodes.filter(n=>n.type!=='frame').map(node=>({board:id,name:board.name,node}));const value=await(await api('/api/boards/'+encodeURIComponent(id))).json();return(value.nodes||[]).filter(n=>n.type!=='frame').map(node=>({board:id,name:value.name,node}))};
+  const visit=async(item,epoch,trail)=>{
+   const records=await recordsFor(item.board);if(!live(epoch))return;const current=records.find(r=>r.node.id===item.node.id);
+   if(!current){message('这份资料已移走或删除。');select.value=session.row?key(session.row):'';return}
+   if(current.board===session.board&&current.node===session.author){closeSourcePeek();return}
+   if(!canCompare(current)){message('这份内容暂时不能在这里查看。');select.value=session.row?key(session.row):'';return}
+   const ids=sourceAssetIds(current.node);if(ids.some(id=>!assetById(id))){await loadAssets();if(!live(epoch))return}
+   session.trail=trail;session.render(current);
+  };
+  const begin=()=>{const epoch=++session.epoch;message('正在打开资料…');open.disabled=true;aside.setAttribute('aria-busy','true');return epoch};
+  const failed=(error,epoch)=>{if(live(epoch)){message('暂时无法打开资料：'+error.message);select.value=session.row?key(session.row):''}};
+  select.onchange=()=>{const item=session.rows.find(r=>key(r)===select.value);if(item){const epoch=begin();visit(item,epoch,[]).catch(error=>failed(error,epoch))}};
+  back.onclick=()=>{const item=session.trail.at(-1);if(item){const epoch=begin();visit(item,epoch,session.trail.slice(0,-1)).catch(error=>failed(error,epoch))}};
+  open.onclick=()=>{if(!ownsSourcePeek(session)||!session.row||aside.hasAttribute('aria-busy'))return;const row=session.row,place=captureReferencePlace(session.author.id);closeSourcePeek();jumpReference(row,place,++referenceEpoch,undefined,false).catch(error=>toast('暂时无法打开白板：'+error.message))};
+  aside.querySelector('.source-peek-return').onclick=()=>closeSourcePeek();
+  aside.addEventListener('pointerdown',event=>event.stopPropagation());aside.addEventListener('click',async event=>{
+   event.stopPropagation();const link=event.target.closest('[data-note-link]');if(!link)return;event.preventDefault();if(!ownsSourcePeek(session)||!session.row)return;
+   const from=session.row,value=link.dataset.noteLink,epoch=begin();try{
+    const local=await recordsFor(from.board);if(!live(epoch))return;const current=local.find(r=>r.node.id===from.node.id);
+    if(!current){message('这份资料已移走或删除。');return}
+    if(!references(current.node).includes(value)){session.render(current);message('资料已有变化，请查看当前原文。');return}
+    let target=resolveReference(value,local,from.board);
+    const explicit=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/.exec(value);
+    if(!target&&explicit){const rows=await recordsFor(explicit[1]);if(!live(epoch))return;target=rows.find(r=>r.node.id===explicit[2])}
+    else if(!target){const result=await allNotes();if(!live(epoch))return;target=resolveReference(value,result.records,from.board)}
+    if(!target){message('没有找到唯一的资料，请从“关联”重新选择。');return}
+    await visit(target,epoch,[...session.trail,from].slice(-32));
+   }catch(error){failed(error,epoch)}
+  });
+  host.append(aside);host.classList.add(expanded?'note-comparing':'source-comparing-canvas');const pending=document.createElement('option');pending.value=key(row);pending.textContent=noteLabel(row.node);select.append(pending);const epoch=begin();visit(row,epoch,[]).catch(error=>failed(error,epoch));layoutSourcePeek();aside.querySelector('.source-peek-return').focus({preventScroll:true});return true;
+ }
+ window.addEventListener('resize',()=>{layoutSourcePeek();const card=sourcePeek?.aside.querySelector('.note-source-card');if(card)growContentFields(card)});
+ window.addEventListener('creative-board-loading',()=>closeSourcePeek(false));
+ window.addEventListener('message',event=>{if(event.data?.type!=='creative-preview-close'||!sourcePeek)return;const session=sourcePeek;if(ownsSourcePeek(session)&&[...session.aside.querySelectorAll('.note-source-card:not([hidden]) .inline-document iframe')].some(frame=>frame.contentWindow===event.source))closeSourcePeek()});
+ $('dialog').addEventListener('close',()=>closeSourcePeek(false));
+ $('dialog').addEventListener('cancel',event=>{if(sourcePeek&&!panel){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}},true);
+ window.addEventListener('keydown',event=>{if(event.key==='Escape'){if(sourcePeek&&!panel){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}}},true);
+ new MutationObserver(()=>{if(sourcePeek&&!ownsSourcePeek(sourcePeek))closeSourcePeek(false)}).observe($('dialog'),{attributes:true,attributeFilter:['open','class']});
+
+ async function jumpReference(row,place=null,epoch=++referenceEpoch,records=undefined,compare=true){
   if(loading||blocked||epoch!==referenceEpoch)return;
+  if(compare&&peekReference(row,place,records))return;
   if(row.board!==boardId&&window.whiteboardPane&&typeof parent.whiteboardWorkspace?.openReference==='function'){
    closePanel();const source=board,sourceBoard=boardId;
    await parent.whiteboardWorkspace.openReference(window,{board:row.board,id:row.node.id,returnName:place?.name||board.name},()=>epoch===referenceEpoch&&board===source&&boardId===sourceBoard&&!loading&&!blocked);return;
@@ -261,7 +362,7 @@
   const sourceBoard=boardId,source=board;let result;try{result=await allNotes()}catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message;return}if(panel!==box||board!==source||boardId!==sourceBoard||!board.nodes.includes(n))return;
   const records=result.records,backlinks=relatedRows(n,records);
   box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><label class="note-link-search">查找内容<input type="search" placeholder="搜索便签与白板" aria-label="搜索关联内容"></label><div class="note-link-results"></div><div class="note-backlinks"><b>已关联 · '+backlinks.length+'</b><div></div></div>'+(result.incomplete?'<p role="status">部分白板暂时无法读取，引用列表可能不完整。</p>':'');box.querySelector('header button').onclick=closePanel;
-  const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=noteLabel(row.node);location.textContent=row.name;b.append(title,location);if(insert){b.className='note-link-cite';b.replaceChildren(document.createTextNode('引用'));b.setAttribute('aria-label','引用：'+(noteLabel(row.node)))}else b.title='查看：'+(noteLabel(row.node));b.onclick=()=>{if(panel!==box||board!==source||boardId!==sourceBoard||!board.nodes.includes(n)||editorId!==n.id||loading||blocked||document.getElementById('dialog').open&&!trigger.closest('#dialog.immersive-dialog'))return;if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!ownsField(n))return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||noteLabel(row.node),safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))closePanel()}else jumpReference(row,captureReferencePlace(n.id)).catch(error=>toast('暂时无法打开关联：'+error.message))};return b};
+  const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=noteLabel(row.node);location.textContent=row.name;b.append(title,location);if(insert){b.className='note-link-cite';b.replaceChildren(document.createTextNode('引用'));b.setAttribute('aria-label','引用：'+(noteLabel(row.node)))}else b.title='查看：'+(noteLabel(row.node));b.onclick=()=>{if(panel!==box||board!==source||boardId!==sourceBoard||!board.nodes.includes(n)||editorId!==n.id||loading||blocked||document.getElementById('dialog').open&&!trigger.closest('#dialog.immersive-dialog'))return;if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!ownsField(n))return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||noteLabel(row.node),safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))closePanel()}else jumpReference(row,captureReferencePlace(n.id),++referenceEpoch,records).catch(error=>toast('暂时无法打开关联：'+error.message))};return b};
   const list=box.querySelector('.note-link-results'),search=box.querySelector('input'),incoming=box.querySelector('.note-backlinks>div'),section=incoming.parentElement,related=new Set(backlinks.map(row=>row.board+'/'+row.node.id));let limit=30;
   const otherHeading=document.createElement('b');otherHeading.className='note-other-heading';otherHeading.textContent='其他内容';list.before(section,otherHeading);
   const entry=row=>{const el=document.createElement('div');el.className='note-link-entry';el.append(rowButton(row,false),rowButton(row,true));return el};
@@ -283,8 +384,8 @@
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}},true);
  document.getElementById('dialog').addEventListener('cancel',e=>{if(!panel)return;e.preventDefault();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})});
  window.addEventListener('resize',closePanel);
- document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row,place,epoch);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
- const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw();syncReferenceReturn();syncRelations()};
+ document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row,place,epoch,records);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
+ const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw();syncReferenceReturn();syncRelations();layoutSourcePeek()};
  const originalSelection=refreshSelectionUI;refreshSelectionUI=function(){originalSelection();syncRelations()};
  window.addEventListener('creative-board-loading',()=>{if(referenceBar)referenceBar.hidden=true;});
  new MutationObserver(syncReferenceReturn).observe(document.getElementById('dialog'),{attributes:true,attributeFilter:['open','class']});
@@ -301,7 +402,7 @@
   if(n?.type==='note'&&!e.target.closest('[data-edge]'))items=[['便签颜色与纸面',()=>openAppearance(id)],...items];
   return previousMenu(e,items);
  };
- window.whiteboardNoteEditor={visitReference,render:rendered,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
+ window.whiteboardNoteEditor={sourceContext,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.

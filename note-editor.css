@@ -147,3 +147,26 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 
 .note-other-heading{display:block;margin:0 0 8px;font-size:12px;color:var(--ui-muted)}
 .note-other-heading[hidden]{display:none}
+
+/* Experimental comparison reuses the original read-only note renderer. */
+.immersive-dialog #dialogBody.note-comparing{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.note-comparing>.immersive-heading{grid-column:1/-1;grid-row:1}.note-comparing>#immersiveSurface{grid-column:1;grid-row:2;min-width:0;height:100%!important}
+.note-source-peek{grid-column:2;grid-row:2;display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid var(--ui-line);background:var(--ui-panel)}
+.note-source-peek>header{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:10px 14px;flex:none;background:var(--ui-panel);color:var(--ui-muted);border-bottom:1px solid var(--ui-line);height:auto;position:relative}
+.note-source-peek>header label{display:flex;align-items:center;gap:8px;min-width:0;flex:1;font-size:12px}.note-source-peek select{min-width:0;max-width:100%;flex:1;font-size:13px;min-height:36px}.note-source-peek>header button{flex:none;min-height:36px;font-size:12px;white-space:nowrap}
+.note-source-paper{min-width:0;min-height:0;overflow:auto;flex:1}.note-source-card.node{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:100%;margin:0;border:0;border-radius:0;box-shadow:none;outline:none;--body-size:16px}
+.note-source-card.node>.inner{height:auto;min-height:100%;overflow:visible}.note-source-card .edit-scroll{height:auto;min-height:0;max-height:none;padding:22px;overflow:visible}.note-source-card [data-preview-id=body]{font-size:var(--body-size,16px)!important;line-height:1.85!important}.note-source-card [data-preview-id=title]{font-size:var(--title-size,24px)!important}
+@media(max-width:820px){.immersive-dialog #dialogBody.note-comparing{grid-template-columns:minmax(0,1fr)}.note-comparing>#immersiveSurface{visibility:hidden;pointer-events:none}.note-source-peek{grid-column:1;position:relative;z-index:1;border-left:0}.note-source-peek>header{padding:10px 12px}.note-source-peek>header button,.note-source-peek select{min-height:44px}.note-source-card .edit-scroll{padding:20px}}
+
+.note-source-path{display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--ui-line);flex:none;min-width:0}.note-source-path[hidden],.note-source-status[hidden]{display:none}.note-source-path button{min-height:44px;flex:none;font-size:12px}.note-source-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--ui-muted)}.note-source-path button[hidden]{display:none}.note-source-status{padding:10px 14px;font-size:13px;margin:0;flex:none;color:var(--ui-muted)}
+#dialog .note-source-card .note-markdown,#dialog .note-source-card .note-markdown :where(*){color:inherit}
+
+.note-source-paper>.note-source-card[hidden]{display:none!important}.note-source-image{display:block;width:100%;border:0;padding:0;background:transparent;cursor:zoom-in}.note-source-image img{display:block;max-width:100%;margin:auto}.note-source-card .media-controls button[hidden],.media-markers [hidden]{display:none!important}.note-comparing.source-reading-full>#immersiveSurface{visibility:hidden;pointer-events:none}.note-comparing.source-reading-full>.note-source-peek{grid-column:1/-1;z-index:1;border-left:0}.note-source-card .edit-table textarea,.note-source-card .edit-table input{font-size:16px}.note-source-card .note-source-expand{margin:8px 0;min-height:36px}@media(max-width:820px){.note-source-expand{display:none}}
+.note-source-image{min-height:44px;align-items:center;justify-content:center}
+.note-source-card .read-layout :is(button,input,textarea,summary){pointer-events:auto}.note-source-card .read-layout figure .note-source-image{position:static;visibility:visible;width:100%;height:auto;min-height:44px;border:0;border-radius:0;background:transparent}
+.note-source-card :is([data-preview-id=body],[data-preview-id=userText],[data-preview-id=annotation],.edit-table textarea,.edit-table input){font-size:var(--body-size,16px)!important}
+
+/* The same source surface also leaves canvas writing in its original parent. */
+.note-source-peek.source-from-canvas{position:fixed;inset:0 0 0 auto;width:min(46vw,680px);height:100%;z-index:900;box-shadow:-12px 0 32px #0002}.note-source-peek.source-from-canvas.source-reading-full{width:100%}.note-comparing.source-focused>.note-source-peek>header .source-peek-return{display:none}.note-comparing.source-focused #immersiveReturn{min-height:44px}
+.note-source-path>span{flex:1;min-width:0}.note-source-path>.source-peek-open{margin-left:auto}
+@media(max-width:820px){.note-source-peek.source-from-canvas{width:100%;border-left:0}}
