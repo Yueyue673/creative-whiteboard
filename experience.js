@@ -45,9 +45,45 @@
   const promise=new Promise(resolve=>{
    const img=new Image(),timer=setTimeout(()=>resolve(4/3),3000);
    const finish=value=>{clearTimeout(timer);resolve(value)};
-   img.onload=()=>finish(img.naturalWidth/Math.max(1,img.naturalHeight));img.onerror=()=>finish(4/3);img.src=mediaURL(a.id);
+   img.onload=()=>{const ratio=img.naturalWidth/Math.max(1,img.naturalHeight);imageRatios.set(a.id,Promise.resolve(ratio));finish(ratio)};img.onerror=()=>finish(4/3);img.src=mediaURL(a.id);
   });imageRatios.set(a.id,promise);return promise;
  }
+ // Newly dropped files already exist in this browser. Read a bounded set locally
+ // alongside upload instead of downloading them again before placing the cards.
+ window.whiteboardImagePreparation={prepare(files){
+  const jobs=new Map();let committed=false;
+  for(const [index,file]of files.entries()){
+   if(jobs.size>=8)break;
+   if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))continue;
+   let stop;
+   const promise=new Promise(resolve=>{
+    let url,img,timer,settled=false;
+    const finish=ratio=>{if(settled)return;settled=true;clearTimeout(timer);if(img){img.onload=img.onerror=null;img.src=''}if(url)URL.revokeObjectURL(url);resolve(ratio)};
+    stop=()=>finish(null);
+    try{
+     url=URL.createObjectURL(file);img=new Image();timer=setTimeout(stop,1000);
+     img.onload=()=>finish(img.naturalWidth>0&&img.naturalHeight>0?img.naturalWidth/img.naturalHeight:null);img.onerror=stop;img.src=url;
+    }catch{stop()}
+   });jobs.set(index,{promise,stop});
+  }
+  return {
+   remember(assets){
+    committed=true;
+    for(const [index,job]of jobs){
+     const asset=assets[index];
+     if(!asset?.id||!asset.mime?.startsWith('image/')){job.stop();continue}
+     const prepared=job.promise.then(ratio=>{
+      if(ratio)return ratio;
+      // A decode failure uses the original scoped media path, never local data
+      // in a persisted document. Remove this promise before the remote fallback.
+      if(imageRatios.get(asset.id)===prepared)imageRatios.delete(asset.id);
+      return imageRatio(asset);
+     });imageRatios.set(asset.id,prepared);
+    }
+   },
+   dispose(){if(!committed)for(const job of jobs.values())job.stop()}
+  };
+ }};
  placeAssets=async function(ids,p){
   const destination=window.whiteboardExplorer?parent.whiteboardLibraryTransfer?.destination():undefined;
   const unique=[...new Set(ids)],target=board,targetId=boardId;
@@ -184,6 +220,56 @@
  };
  wfHelp=function(){showDialog('<h2>使用白板</h2><div class="experience-help"><h3>写下来，放在一起</h3><p>双击空白处写便签，双击内容编辑。右键拖动画布，Ctrl＋滚轮缩放。新便签默认随内容增高；拖动四角后固定为你的尺寸，点“内容操作”可恢复自动适应。从选中内容边缘的圆点拉出连线。长内容可点击“展开编辑”，在大空间直接修改，返回后保留白板位置。</p><h3>放进表格，或者继续复用</h3><p>选中内容后，按住内容旁的“拖出副本”，拖到表格单元格、库中文件夹或另一张白板。也可以按 Ctrl＋C / V 复制粘贴。原内容保留，复制的内容可以独立修改；媒体文件仍共用原文件。表格列宽可拖动列名右侧的边界调整。</p><h3>白板和内容库</h3><p>左上角的侧栏图标打开白板、内容库和本页内容。整个窗口共用这一处；没有白板时也能整理内容库，不会另建空白板。分栏时，内容会放进你刚操作的那一栏；还没有白板时，会先让你选择。取消后保留原来的勾选。更多菜单里的“外观”可以调整主题、界面大小和侧栏宽度。</p><h3>在侧栏里连续整理</h3><p>方向键选择，Enter 打开，F2 编辑，Alt＋上方向键返回上一层。Shift＋方向键连续选择内容，Ctrl＋方向键只移动焦点，空格切换是否选中。Ctrl＋C / X / V 在内容库复制、剪切和粘贴，Ctrl＋Z 撤销，Ctrl＋Shift＋Z 重做。进入文件夹、刷新和关闭预览后，焦点会留在列表。</p><h3>看资料时顺手记录</h3><p>文件内容按 Enter 打开查看，按 F2 编辑说明。Ctrl＋C / V 复制粘贴，Delete 删除内容块，Ctrl＋Z 撤销。删除白板里的内容不会删除硬盘上的原文件。</p><h3>请 AI 帮忙</h3><p>点击顶部“参考”（独立白板页面为 AI），写下要查的问题，提供所选背景。AI 仅查资料或介绍已有参考体系，不能创作文案或修改白板。带来源的回复单独存为参考资料，由你核对原文并决定如何使用。图片可附真实预览，音频不自动转写。</p><h3>导入期间也能切换标签</h3><p>读取或上传文件时，可以继续使用其他白板。内容会放到原先选定的白板；关闭原标签时先等导入完成并保存。表格行列移动后，附件跟随原单元格；原位置已删除时，文件保留在内容库供你重新放置。</p><h3>打开失败时</h3><p>画布会说明原因，可以直接重试或选择其他白板。内容库仍可使用。切换前先等当前修改保存；保存失败时留在原白板。读取另一张失败时，当前内容仍保留，可以继续使用。</p><h3>下次接着做</h3><p>内容自动保存，标签、分栏、播放器进度和支持的文档阅读位置会恢复。更多菜单中的“恢复与历史”可查看旧记录。回收站能一起恢复删掉的文件夹和内容，包括空目录。删除白板前会先保存修改；另一窗口的未保存草稿会保留，并提示另存。旧内容可以另存为副本，再与当前版本对照。</p></div>',[['关闭',()=>$('dialog').close()]])};
  $('help').onclick=wfHelp;
+ // Unspecified new notes use nearby space. Explicit points and old papers stay literal.
+ function newNotePoint(data){
+  const p=center(),w=Number(data.w)||300,h=Number(data.h)||120;
+  const base={x:p.x-150,y:p.y-50,w,h},v=view(),box=canvas.getBoundingClientRect();
+  if(![base.x,base.y,w,h,v.z].every(Number.isFinite)||w<=0||h<=0||v.z<=0)return p;
+  const gap=window.whiteboardNavigation?.read?.().gap??32;
+  const valid=n=>[n.x,n.y,n.w,n.h].every(Number.isFinite)&&n.w>0&&n.h>0;
+  const inside=(a,b)=>a.x>=b.x&&a.y>=b.y&&a.x+a.w<=b.x+b.w&&a.y+a.h<=b.y+b.h;
+  // Match the original top-left group ownership; never leave that group to find space.
+  const frames=board.nodes.filter(n=>n.type==='frame'&&valid(n));
+  const container=frames.filter(f=>base.x>=f.x&&base.x<f.x+f.w&&base.y>=f.y&&base.y<f.y+f.h).sort((a,b)=>a.w*a.h-b.w*b.h)[0];
+  const obstacles=board.nodes.filter(n=>valid(n)&&(n.type!=='frame'||n!==container&&!(container&&inside(container,n))));
+  const collides=r=>obstacles.some(n=>r.x<n.x+n.w+gap&&r.x+r.w+gap>n.x&&r.y<n.y+n.h+gap&&r.y+r.h+gap>n.y);
+  if(!collides(base))return p;
+  const anchor=board.nodes.find(n=>selected.has(n.id)&&n.type!=='frame'&&valid(n))||base;
+  const visible={x:(16-v.x)/v.z,y:(64-v.y)/v.z,w:Math.max(0,(box.width-32)/v.z),h:Math.max(0,(box.height-128)/v.z)};
+  // Bounded local search: no distant jumps, global reflow or changes to authored geometry.
+  const near=obstacles.filter(n=>Math.abs(n.x-base.x)<=box.width/v.z+w*2&&Math.abs(n.y-base.y)<=box.height/v.z+h*2)
+   .sort((a,b)=>Math.hypot(a.x-anchor.x,a.y-anchor.y)-Math.hypot(b.x-anchor.x,b.y-anchor.y)).slice(0,32);
+  let best;
+  for(const n of [anchor,...near])for(const [x,y] of [[n.x+n.w+gap,n.y],[n.x,n.y+n.h+gap],[n.x-w-gap,n.y],[n.x,n.y-h-gap]]){
+   const r={x,y,w,h};
+   if(container&&!inside(r,container)||Math.abs(x-base.x)>box.width/v.z+w||Math.abs(y-base.y)>box.height/v.z+h||collides(r))continue;
+   const overflowX=Math.max(0,visible.x-x,x+w-visible.x-visible.w)/Math.max(1,visible.w);
+   const overflowY=Math.max(0,visible.y-y,y+h-visible.y-visible.h)/Math.max(1,visible.h);
+   const distance=((x+w/2-anchor.x-anchor.w/2)/(w+gap))**2+((y+h/2-anchor.y-anchor.h/2)/(h+gap))**2;
+   const score=distance+2*(overflowX**2+overflowY**2);
+   if(!best||score<best.score)best={r,score};
+  }
+  return best?{x:best.r.x+150,y:best.r.y+50}:p;
+ }
+ const spaceAware=new WeakSet();
+ function installNewPaperSpace(){
+  const create=addNote;if(spaceAware.has(create))return;
+  const next=function(p,data={}){
+   if(p===undefined&&(!data.type||data.type==='note')&&!Object.hasOwn(data,'x')&&!Object.hasOwn(data,'y')){
+    cancelCanvasGesture();p=newNotePoint(data);
+   }
+   return create.call(this,p,data);
+  };
+  spaceAware.add(next);addNote=next;
+ }
+ installNewPaperSpace();
+ // Size/editor decorators later supply default points too. Keep unspecified
+ // intent after each script, including before a delayed optional tail arrives.
+ const afterScript=event=>{if(event.target instanceof HTMLScriptElement)installNewPaperSpace()};
+ if(document.readyState==='loading'){
+  document.addEventListener('load',afterScript,true);
+  document.addEventListener('DOMContentLoaded',()=>{document.removeEventListener('load',afterScript,true);installNewPaperSpace()},{once:true});
+ }
  window.whiteboardExperience={fileFrame,fitBlock,referenceDialog,importOptions,composeAI:()=>whiteboardAI.compose(),parseProposal};
  if(board)mountBlocks();
 })();

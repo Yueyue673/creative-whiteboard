@@ -1,0 +1,2179 @@
+# Hosted service and original workbench
+
+This development branch contains a separate Django account/data service and an
+adapter for the original `shell.html`, `index.html` and reviewed modules. With
+`CREATIVE_BOARD_HOSTED_NATIVE_WORKBENCH=1`, signed-in navigation opens that same
+workbench, including tabs, split panes, notes, tables and the content library.
+The earlier simplified spatial editor remains a separate legacy entry; its
+behavior and collaboration model must not be attributed to the original editor.
+
+Accounts, fixed private/shared workspaces, member permissions and invitations
+protect board/catalog history, media, static previews, saved-text search and
+research material. The original adapter also supports conditional saving with
+visible recovery, periodic device reception, signed folder deletion/restoration
+and retained research context/images/sources/downloads. New folder deletion and
+research writes have separate opt-in flags; disabling new operations keeps
+existing records and recovery available. Email-code registration requires an
+operator-configured encrypted SMTP sender and otherwise stays disabled. Unscoped
+desktop file APIs are unavailable; no desktop data is imported automatically.
+
+Source availability and CI do not certify an operator's deployment, external TLS,
+physical devices, backup schedule or offsite copies. Independently accept the
+exact release and preserve existing accounts, creations and signing keys before
+switching a service. Original-editor periodic reception is not character-level
+realtime collaboration or automatic merging of simultaneous saves. Appearance
+preferences remain browser-local. Password recovery and full device acceptance
+remain incomplete.
+
+See [original integration](#original-workbench-integration),
+[device reception](#original-workbench-device-reception),
+[folder recovery](#original-workbench-folder-recovery) and
+[research material](#original-research-material-candidate-deployment-acceptance-required)
+for the current original-editor contracts. The detailed entries below also
+retain earlier development/acceptance history; their historical counts and
+deployment status are not a current inventory. The reviewed runtime inventory
+is `deployment/program_files.json`.
+
+The independent [development container package](deployment/README.md) separates
+operator configuration, offline initialization, application serving and recovery.
+It is not a deployment authorization or evidence of external HTTPS, full device
+support, safe file cleanup or real-time merging. Actual Linux/container workflow
+results are required; desktop Linux tests do not substitute for hosted checks.
+
+Browser tabs identify the current literal board name and the workspace loaded by
+that fixed page. Local edits remain marked as awaiting confirmation until the
+session adopts the accepted result; offline, read-only, paused and conflicting
+states are named separately. An uncertain acknowledgement is not described as
+proof that nothing reached the server. Empty-name display fallbacks do not change
+stored names, and tab labels never use a newer login or workspace selection.
+
+## Original-value reconciliation and limited editor collaboration (development)
+
+An explicit `POST /w/<workspace>/api/boards/<key>/reconcile` accepts only
+`{"baseETag": "the original strong tag", "board": <the complete author input>}`.
+For reconciling an older tag, the base must be a complete retained server revision in that exact board and
+workspace, with uninterrupted history and no intervening trash/restore transition.
+Client-supplied base documents and private conflict copies never supply authority.
+The server rechecks the original account and fresh editor role under the same
+workspace transaction as the write, then returns the complete accepted board and
+its strong ETag. Regular conditional PUT behavior is unchanged.
+
+Independent nodes and independent known note field groups can retain both
+original submissions. Text/format, geometry, appearance and table structure stay
+in groups; attachment nodes and changed unknown extensions stay whole. Existing
+textual table cells can retain different authors' changes when all three versions
+have the same stored, unique row/column IDs, rectangular string rows, headings,
+widths, geometry and embedded content. Each complete cell string is selected
+unchanged. An overlap in even one cell refuses the whole submission without
+partially writing other cells. Legacy tables without stored IDs and concurrent
+axis, heading, width, geometry or attachment changes remain conservative; the
+merge never invents IDs or moves a cell by its current index. Concurrent
+ordering changes, deletion versus editing, identity collisions, overlapping text,
+missing bases and invalid combined references refuse reconciliation. The exact
+submitting author's input follows the existing private conflict-copy/quota policy;
+no text is synthesized, silently concatenated, normalized or transferred to
+another workspace. Appended nodes follow the already committed order before this
+submission's new nodes. A stale no-op creates no revision or false author update.
+
+A successful response is the authoritative combined board. An editor must adopt
+or safely rebase that full result before its next save; keeping the old local
+snapshot with the new ETag would overwrite the other author's changes. The
+spatial editor now calls this endpoint for existing boards. After acknowledgement,
+it rechecks identity/membership, adopts the full result and rebases subsequent
+local typing only when original-value groups remain independent. An overlap after
+acknowledgement keeps later input and its old recovery base; it does not label that
+later input saved or automatically retry a failed write.
+
+Clean visible pages check `GET /boards/<key>/live` approximately every 2.5 seconds.
+Conditional replies include the fixed original account/workspace/board and fresh
+role even when the version is unchanged. Dirty input, composition, a captured
+gesture and pending modal operations defer receiving. Changes to the clean focused
+note wait until the author leaves that field; unrelated note updates preserve its
+caret and selection. Local camera/navigation do not follow another page's view.
+An unchanged clean focused table cell can receive changes to other cells on the
+same stored axes. Its original textarea stays mounted, with its selection and
+scroll retained; changes to that focused string or table context still wait.
+Accepted saves wait for active composition/gestures before adopting a result.
+
+Undo applies the inverse of this page's own operation to the current originals.
+Independent peer fields, stable table cells and appended nodes survive; a later overlapping edit
+refuses Undo without popping its history entry. In small windows the same existing
+Undo/Redo and library buttons move into the sticky editor heading, where the
+inspector no longer covers them. The same account-bound library button remains
+available while writing a note, frame or table; closing or widening returns
+each single original control to its canvas position. A real 390px/320px
+whole-editor HTTPS check reproduced the covered library entry before this
+change and verified actual clicks after scrolling, lookup, preview, exit and
+reopening afterward. The note input remains unchanged; the library retains
+its submitted lookup on reopening. This does not claim physical-device testing.
+Updates use a polite status line without moving keyboard focus, informed by
+[W3C status messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html)
+and [focus visibility](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
+These are implementation choices checked with real operations, not an
+accessibility certification.
+
+Additional isolated whole-page localhost HTTPS acceptance now covers saved-text
+results opening the fixed-workspace board with original manual geometry,
+registered metadata lookup beyond the first forty items and original pagination,
+static HTML layout in the full editor with opaque-origin isolation and blocked
+author scripts/external requests, exact original download, both narrow widths,
+real viewer access and refusal of foreign-workspace identities. Logging in as
+another actual member of the same workspace pauses the old original-account
+library and clears its results/preview while preserving note input. These six
+distinct behavior groups were completed across focused fixtures, not one
+uninterrupted suite. Stored board/history rows and registered original hashes
+remain unchanged. The temporary service/browser close afterward. A verified
+local certificate probe accompanies the browser's local certificate exception;
+external DNS/TLS, physical devices and deployment remain unaccepted.
+
+Unsupported JavaScript number representations stop editing before lossy conversion;
+the exact originally returned JSON remains exportable. This includes unsafe
+integers, excessive decimal precision and integral decimal tokens whose integer
+type would otherwise change. Recovery input has the same guard.
+
+This is bounded original-value collaboration, with periodic reads rather than a
+push transport. It is not character CRDT merging, full concurrent table editing,
+hardware input-method/device acceptance or deployed collaboration. Isolated native
+Windows Chromium HTTPS operations use synthetic accounts and data; browser TLS
+errors are ignored only for that temporary local certificate. They do not prove
+external-domain HTTPS or actual multi-device acceptance. Independent trusted-CA
+preflight and Linux/container recovery checks are separate.
+
+Exact-cell checks: `python manage.py test core.test_table_reconciliation
+core.test_reconciliation --settings=service.test_settings` and
+`node tests/table-cell-reconciliation.mjs`. They include simultaneous real
+database transactions, retained server bases, canonical author history, exact
+private overlap copies, quota rollback, malformed/legacy identity refusal,
+own Undo/Redo, later typing and clean focused-cell receive guards. No storage
+schema, endpoint or desktop installation changes are required.
+Six native two-account localhost HTTPS groups also pass in an independent
+synthetic store: disjoint cell saves, own Undo/Redo, later input during a held
+accepted response, overlapping-cell private copies, an actual concurrent row
+addition, and 320px focused-cell periodic receiving. The last check retains the
+same mounted textarea, selection, scroll and camera. A separate two-group native
+delta verifies that newly added embedded notes refresh counts/list contents
+while unchanged focused-cell receiving still retains its input. Earlier history, unrelated
+documents, registered metadata and all 45 synthetic original file hashes remain
+unchanged. The local service and test browsers close afterward; this is still
+development evidence, not external TLS, physical-device or deployed acceptance.
+
+The related no-op guard now compares canonical JSON bytes, so opaque Boolean,
+integer and decimal changes are actually stored instead of Python equality
+incorrectly treating them as unchanged. Original author strings remain exact.
+
+The retained-base approach is informed by the three-way merge model described
+in [Git's merge documentation](https://git-scm.com/docs/git-merge); field grouping
+and refusal rules here are conservative application choices. Keeping reconciliation
+separate from ordinary conditional PUT follows the precondition distinction in
+[RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#name-if-match).
+
+## Media time notes (staged experiment)
+
+An opened, registered audio/video canvas card offers **留便签** at the current
+native media position. It captures the position before asynchronous checks,
+verifies original workspace edit access and the registered asset's exact ID and
+byte hash, then creates a blank auto-sized author note beside the original card.
+No observation text is generated. Original nodes, file bytes, manual sizes and
+unrecognized metadata remain unchanged; existing desktop timeline markers are
+not converted into this separate `mediaCue` extension.
+
+The note's **回到原片段** action opens a small original-context viewer, seeks after
+metadata is available and stays paused until the author explicitly plays.
+Closing stops that viewer and returns to the previous camera, selection and
+field range. Detaching the time association requires confirmation and supports
+Undo; it does not delete the author's note or file. Each read/download uses the
+page's fixed original account/workspace and protected media route. Unsupported
+metadata, unavailable times, a changed file hash or lost access remain explicit
+and never redirect to a different file. Late responses cannot replace a newer
+viewer or create a note after the original target changes.
+
+Independent Windows Chromium HTTPS checks use a registered synthetic PCM WAV
+for actual native playback/seek, return, author save, Undo, narrow viewport,
+read-only/downgraded membership, delayed responses, original-file byte equality
+and cross-workspace refusal. Video shares the guarded native-media path but its
+decoder/playback is not verified by these WAV checks. Finite-file duration must
+be available; live streams are not supported. Saved seconds retain native
+precision; the badge only rounds its display to milliseconds. Decoder seek
+accuracy can vary. This experiment is unreleased and undeployed; it does not
+establish real-time collaboration, physical-device support or full editor parity.
+
+The interaction uses the native [HTMLMediaElement currentTime model](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/currentTime)
+and follows [W3C guidance on author-initiated audio](https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html).
+These sources inform seeking after metadata, explicit playback and a visible
+exit; the layout and exact return behavior are implementation choices checked
+with synthetic operations, not an accessibility certification.
+
+## Account password and login controls (staged)
+
+The portal and board editor share an account panel with original-account-bound
+password changes and login records. Every operation checks the page's fixed
+`X-Creative-Account`, fresh session credential and current password; mutations
+require CSRF protection and have account/address attempt limits. New passwords
+use the configured strength validators and Argon2 in production. Changing a
+password rotates the current session key and keeps that login, atomically
+removing the account's other sessions. A failed transaction restores the
+original password/session state. Passwords are never written to browser draft
+storage, and panel close/account loss/completed submission clears its inputs.
+
+Records contain opaque public UUIDs, start/expiry times and a coarse self-reported
+browser/platform label. They never expose the cookie session key, raw user agent,
+IP or a claim of verified hardware/last activity. Reads cover at most 100 live
+records for the authenticated account; an oversized list refuses review instead
+of hiding additional targets. An exact reviewed ETag, current password and explicit
+confirmation are required to revoke one other login or the listed other logins.
+A changed list requires a new review. The current record uses normal explicit
+logout. This does not revoke future logins or cancel already authorized in-flight
+requests; revoked pages lose access at their next check/request and retain their
+own local editor input/export. Save conflict checks remain distinct from realtime
+collaboration. Closed panel callbacks cannot repopulate new choices/passwords.
+
+Sent, acknowledged and subsequently verified results have different messages.
+A missing/truncated response never triggers an automatic retry. An acknowledged
+operation followed by loss of access stays acknowledged but unverified.
+Forgotten-password recovery is available through the staged trusted server
+operator command described below. Self-service email recovery/delivery is
+**not implemented**; an email input alone does not provide it.
+
+This unreleased preview uses `core.sessions` and the `core_accountsession` table
+(migration 0005), whose account index avoids scanning other accounts' session data.
+Existing preview cookies from the earlier default Django session engine require
+a new login; they are not silently promoted or copied. Offline backup verification
+now requires the new table and compatible migrations, and preserves public IDs,
+start times, labels, credential data and prior revocations in the exact SQL copy.
+Older preview snapshots need their matching program version and a separately
+reviewed migration procedure; do not bypass validation or overwrite an original
+store. Linux/device/external TLS/operations/deployment remain unverified.
+
+Implementation references: [Django session invalidation and preserving the
+current login](https://docs.djangoproject.com/en/5.2/topics/auth/default/#session-invalidation-on-password-change),
+[extending database sessions](https://docs.djangoproject.com/en/5.2/topics/http/sessions/#extending-database-backed-session-engines).
+
+## Board session and browser recovery modules (staged)
+
+The portal's explicit asset whitelist also serves three ES modules:
+`board-transport.js`, `board-drafts.js` and `board-session.js`. They form the
+editor's data boundary and now support the spatial note editor described below.
+Construct one `BoardSession({account, workspace, key})` per page. Its account,
+workspace UUID and board key are copied and frozen. All requests use that fixed
+URL and original account header; cookies or a mutable active-space preference
+cannot redirect an older page. `open()` reads the server version and role.
+`open(rawJSON)` starts an explicitly supplied new board under `If-Match: new`.
+No authored content is invented or merged. Unknown original JSON fields remain
+in the raw snapshot; the server remains the complete format/permission authority.
+
+`updateRaw(rawJSON)` retains exact input and attempts an IndexedDB recovery row.
+Each page has its own random identity beneath its account/workspace/board index;
+two pages cannot overwrite or automatically clear each other's inputs. A local
+write is confirmed only by transaction completion, never just request success.
+Rows are bounded to 8 MiB each, 64 MiB of raw input and 128 rows per origin. Full,
+blocked, incompatible or denied browser storage is an explicit local failure;
+older inputs are not silently expired to free space. The page retains its memory
+copy and `exportRaw()` even if local storage fails. This is browser-only recovery,
+not a cross-device copy, encrypted store, server backup or guarantee against
+browser eviction/profile deletion. Explicit inspection/application/export is available
+in the board editor; reviewed deletion and workspace-wide recovery controls
+still need a user interface.
+
+`save()` captures one input/version and sends at most one pending request. Typing
+while it waits remains dirty; a successful response updates the remaining draft's
+base version instead of clearing it. A confirmed save clears only this page's
+exact acknowledged row. Conflicts stop further saving and preserve the submitted
+input separately from later typing. `state.conflict.draftSaved` refers only to
+the submitted snapshot's server conflict copy; quota may prevent that copy.
+Missing acknowledgement versions are unconfirmed, even when a server may have
+committed the request. No new ETag is silently adopted after a conflict.
+
+`checkAccess()` diagnoses the original account and membership without replacing
+input. Logout/account change, missing access and viewer downgrades stop old-page
+writes. A late diagnostic or acknowledgement cannot resume a stopped page.
+Connection failure does not itself prove logout: an available session/ACL is
+checked without automatically retrying the write. `recoverableDrafts()` explicitly
+checks fresh original-account access before reading this board's browser rows.
+`recoverWorkspaceDrafts({account, workspace})` checks before and after listing
+that account's workspace rows, including input for a board since deleted. It
+never reads/recreates the deleted board or automatically applies a row. A newer
+account's valid membership in the same workspace does not authorize old-account
+recovery. These data modules perform no real-time synchronization. Actual localhost HTTPS/Chromium/IndexedDB checks cover held
+saves, conflicts, cookie changes, role/deletion changes, transaction aborts and
+storage bounds. Physical devices, Linux serving and external deployment
+remain unverified.
+
+## Spatial note editor (staged)
+
+`/w/<workspace-uuid>/b/<document-key>/` binds a page to its original account,
+workspace and board. `/w/<workspace-uuid>/new/<document-key>/` requests a new
+blank document with an author-entered name. Anonymous visitors sign in and return
+to that server-fixed route; query parameters cannot choose another destination.
+HTML embeds no board or workspace contents. Fresh scoped APIs authorize every
+read/save. New creation uses `If-Match: new`, and the URL becomes a saved board
+only after acknowledgement. A viewer cannot create or edit.
+
+The editor renders notes on a charcoal spatial canvas with a separate focus pane.
+It supports author-entered title/body/supplementary text, native text selection
+formatting (bold, italic, strike, code, headings, quotes, lists, tasks, fences),
+plain/Markdown display, seven paper colours, exact hex choices, plain/lined/grid
+paper, font size and auto/manual dimensions. New notes contain empty authored
+fields and grow with content; manual dimensions and original unknown fields are
+preserved. Undo/redo retains complete JSON snapshots in bounded page memory.
+
+Pointer drag moves content; blank-space drag pans; wheel/buttons/fit zoom. A
+narrowing viewport reveals an otherwise offscreen selection/content. Camera
+changes are page-local: the original saved view is retained rather than claiming
+camera synchronization. Tables show a limited canvas preview with a separate
+text/row/column inspector; frame boundaries and current-board note references
+also have staged editing controls, described below. Complete embedded-cell
+media/content editing and cross-board reference discovery are still unfinished.
+Other original nodes and edges remain in the JSON and can move. The editor never
+invokes desktop filesystem APIs or reads supplied file
+paths. Markdown HTML and images are inert; links retain the parser's URL checks.
+
+Autosave waits briefly after an edit, always within the original session, with
+one pending save. Conflicts stop autosave, preserve the accepted version, and
+retain the submitted input separately from later typing. Recovery explicitly
+checks original-account access, shows original excerpts and full JSON, and offers
+inspection/export before an author-confirmed whole-board replacement. Applying
+on a fresh page uses its current version and is undoable; it does not merge other
+authors' words. Browser rows cannot be treated as a durable server backup. Inputs
+that exceed the raw byte bound remain in the page and can be exported; the editor
+does not save an older snapshot or claim the extra input is in its browser row.
+Reducing the input can make saving possible again.
+
+Focus, restored pages, visibility and session notifications check access. A
+changed account or read-only downgrade stops editing while retaining exact input
+export. Reloading never automatically applies another page's recovery row. The
+workspace-wide recovery API exists, but recovery for deleted boards, reviewed
+row cleanup, history/trash/capacity controls and complete account
+operations still require interfaces. This staged editor is not a deployed service
+or real-time collaborative editor. Local HTTPS browser tests cover desktop and
+320px layouts, emulated touch, actual save delays/conflicts and data preservation;
+physical-device and external-domain acceptance remain required.
+
+## Protected media library (staged)
+
+The editor's library lists bounded pages of safe asset metadata in its original
+workspace. Opening a file is explicit; listing or reopening a board never starts
+all its media downloads. Recognized images/audio/video use native elements with
+same-origin protected URLs, bound to the page's original account. Unknown or
+active content, including HTML/SVG/PDF, remains a download attachment. No frames,
+desktop paths, arbitrary external image URLs or automatic media playback are used.
+The editor HTML alone permits same-origin image/media sources; API and attachment
+responses keep their restrictive content policy.
+
+Selecting or dropping one File retains it in page memory. Confirmed raw upload
+sends its exact bytes to a captured stable library folder ID, never a later folder
+label or active-workspace preference. The visible single-file limit rejects
+obviously oversized selections before sending; fresh server quotas/permissions
+remain authoritative. Progress reports bytes sent separately from server
+confirmation. Cancel, timeout, lost response or failed final identity verification
+can leave an upload unconfirmed even if already registered. The original File
+stays available; check the original workspace list before explicitly confirming
+a retry that could duplicate it. Cancel before the identity check finishes prevents
+the request from being sent. Closing/reloading a pending upload prompts first.
+
+An upload does not add anything to the board automatically. Explicit placement
+adds a movable reference with a safe `assetId`; all original board fields remain.
+Opened native media stays mounted while another note is edited, and its controls
+do not drag the card. Connection/access loss clears mounted media; an explicit
+successful save can restore lazy media controls without resuming playback. Viewer
+downgrades disable upload/placement while retaining permitted viewing. Account or
+membership changes clear the library and pause its original destination. A late
+preview cannot reopen a closed dialog. The selected details reserve preview space,
+keep keyboard focus and offer a visible exit after scrolling on narrow viewports.
+
+Actual local HTTPS tests cover PNG/WAV bytes, native WAV controls, upload progress,
+stable folder changes, early connection closure, cancel/delayed responses, account
+and membership changes, original-scope isolation and desktop/320px layouts. Video
+decoder and physical-device acceptance remain unverified. The author-controlled
+metadata and reviewed directory forms are described below. Directory moves, safe registered-file
+removal and complete media lifecycle controls remain unfinished. This library
+is neither realtime collaboration nor a deployed cloud service.
+
+### Distance reading in the original canvas (staged)
+
+Below 45% zoom, the existing note and table cards show a wrapped name view at
+9–12 projected pixels. The literal original title is used; an untitled note uses
+its first nonblank authored body line, and empty cards use an explicit empty
+label. Names have at most three lines within their own projected card, retain the
+complete text in the native title and card name, and open the original inspector
+through the same point or Enter operation. They do not invent or rewrite content.
+At closer zoom the original paper returns. Current protected media stays mounted
+and retains its explicit playback state; media cards and frame boundaries keep
+their existing view.
+
+The existing Reading dialog can switch back to original paper, restore the
+opening choice or return to defaults. Only the fixed original account/workspace
+browser preference records the font and `smart`/`paper` mode; old font-only values
+retain their font and use adaptive names. Other accounts/spaces do not inherit
+the choice, and refused storage remains an explicitly temporary preview. Gesture
+and composition boundaries defer incoming changes without rebuilding captured
+cards or rewriting active inspector input. Rendering is batched per animation
+frame and preserves actual automatic-paper height and original geometry/versions.
+Existing short manual notes/tables use their already displayed 96px minimum for
+names, connection centres and Fit; their smaller authored dimensions stay intact.
+
+Using visible original names for navigation follows the recognition principle
+in [NN/G's recognition-versus-recall guidance](https://www.nngroup.com/articles/recognition-and-recall/).
+Native projected-font, paint/hit bounds, neighbouring selection and before/after
+screenshots determine this implementation's usable limits; extreme zoom may show
+only paper shapes. This is not per-note authored typography, synchronized/named
+hosted appearances, physical-device/IME acceptance or deployment.
+
+### Author-controlled metadata form (staged)
+
+The library now offers an explicit title, notes, individual tags and existing
+stable-folder destination form. It keeps the original file, byte hash and asset
+identity unchanged; changing a library description does not rewrite author-entered
+board titles. Opening alone does not normalize untouched line endings, multiline
+labels, empty labels or duplicate tags. Viewers can inspect and export but not edit.
+
+One retained form owns an immutable original account, workspace, asset and strong
+version. Closing, refreshing the list or selecting another asset cannot discard
+or retarget unsaved input. Before replacing this form, save or explicitly discard
+its edits; it can always be exported as a scoped JSON input. Its pending input is
+held in this page only, with an unload warning, not in browser storage or a server
+metadata-conflict snapshot. Save or export before leaving or reloading.
+
+Confirming sends one exact-version PATCH. Typing during the wait remains separate
+from the submitted snapshot; an accepted reply advances the confirmed base without
+replacing later input. A conflict or unverifiable response blocks resubmission and
+keeps the old basis. Read the server's complete name, description, labels and
+location, explicitly choose that inspected basis, then confirm a separate save
+of the user's full four fields. No automatic merging, retry or adoption occurs;
+another intervening edit still conflicts. Missing destinations retain their old
+stable ID until explicitly replaced, and permission/account changes pause writes
+while keeping the author's own form available for copying/export.
+
+Ctrl/Command+S in the open metadata form confirms that form only; other modal
+windows do not send canvas save commands. Native text undo and Escape remain
+local to the active window. A closed form or detached tag row cannot replace
+retained input through a late DOM event; continuing restores the retained fields.
+Save feedback shares the sticky confirmation area, so its current result remains
+visible above the actions on both desktop and short narrow windows.
+An exact unchanged PATCH still verifies the original account, current editor,
+workspace, folder and version, but preserves the asset row, timestamp and ETag.
+It therefore does not consume extra quota or invalidate another author's basis.
+Stale equal fields still require conflict review; this is not automatic merging.
+
+The form has reachable exits and confirmation actions on narrow viewports. Media
+players remain mounted when their description is saved. Metadata input recovery across reload, registered-file
+lifecycle and real-time collaboration remain unfinished. Local synthetic HTTPS
+browser checks do not replace physical-device or external TLS acceptance.
+
+### Reviewed library directories (staged)
+
+The library can now create an empty directory under an explicitly selected
+stable parent, rename a directory with all descendants, or remove a reviewed
+directory range. Each operation first lists its complete affected paths without
+writing; separate confirmation sends one exact-version catalog PUT. Rename keeps
+all position IDs, adjacent name prefixes and original media bytes. Removal is
+refused by the backend if any registered media still references that range. It
+never deletes files or implicitly moves them to root. Folder moves/reparenting
+and registered-file removal are not provided by this form.
+
+The page retains one operation under its original account and workspace.
+Closing, delayed replies, changed login, lost roles and interrupted connections
+cannot redirect its destination. An accepted response is checked against a
+fresh catalog and original identity; later typed names remain separate and must
+be reviewed again. Unverifiable replies block retries. Missing selected IDs stay
+visible as missing, including in the upload destination selector; they never
+become root or a new directory with the same name.
+
+After a conflict, inspection alone does not adopt a version. Explicitly choose
+the inspected tree and review this single operation again, preserving other
+authors' new directories. The old complete catalog is never blindly retried
+with a fresh tag. Another intervening change still conflicts. Native media
+players stay mounted during a successful rename; only their captions and
+destination labels are updated.
+
+Own operation export contains the selected scope, original version, own intent
+and reviewed changes rather than an unrelated full tree. Input is retained in
+this page only, with an unload warning; save or export before reload. No durable
+operation recovery or automatic exported-input application is claimed. Read-only
+members can inspect the tree; revoked access clears fetched trees. Real local
+HTTPS browser flows cover concurrent edits, held acknowledgements, bad versions,
+initial-read failure, 320px layout/focus and top-dialog Escape. These are staged
+checks, not deployment, realtime or physical-device acceptance.
+
+## Account and workspace portal
+
+Open `/` over HTTPS for login and workspace selection. Each account has a private
+space and can create shared spaces. `/w/<workspace-uuid>/` is an immutable
+destination: its HTML shell embeds only the original account and requested UUID,
+and authorized APIs load the actual workspace/member data. An unavailable space
+never falls back to a different space. Its board shelf links to fixed editor
+destinations and offers author-named blank creation to editors and owners.
+
+Owners issue an email-bound invitation and manually copy/share its one-time link.
+The `/join#token=...` fragment is handled locally, removed from the address bar,
+and submitted only inside a JSON body after explicit registration/acceptance.
+Reload/close prompts before dropping an invitation still held in page memory;
+canceling keeps its exact code. Successful login carries it to the new account
+page; acceptance remains explicit. An existing account signs in first and confirms acceptance under its displayed
+email. A failed operation retains fields; duplicate pending submissions are
+blocked. Invite links are not automatically sent and original tokens cannot be
+retrieved again. Read-only/editor members see names/roles, without owner email or
+management controls. Server checks remain authoritative.
+
+Generated owner links also remain page-only: ordinary native reload/navigation
+warns until the owner explicitly chooses **saved, hide link**. This removes the
+local display, not the server invitation. Replacing an existing displayed link
+requires explicit confirmation; cancellation sends no new invitation, and a
+failed request retains the prior link plus the next recipient. Reissuing for the
+same email still follows the server's existing old-token invalidation rules.
+Each new link starts with its own uncopied reminder. A delayed clipboard success
+or refusal cannot relabel a later link, revive a hidden link or focus its hidden
+field. A failed logout retains it; a confirmed successful logout clears page-only
+state before leaving, avoiding a second leave prompt. Account pause still blocks
+server actions while permitting local copy/hide. Nothing stores these tokens in
+browser storage, the URL query, public logs or an automatic email. Native leave
+prompts depend on browser support and user activation; they are not crash or
+mobile-process recovery.
+
+Actual isolated Chromium HTTPS first reproduced silent generated-link loss on
+reload and replacement plus a stale copied hint. Eight affected native flows then
+passed in one fresh store: canceled reload/replacement, failed and successful
+replacement, delayed clipboard completion, local hide,320px fallback/leave and
+failed/successful logout. Clipboard completion/refusal is simulated; native
+clicks, browser confirmation/leave dialogs, real scoped requests and connection
+failure are exercised. A separate final320px/logout-wording delta verifies a
+nonwrapping44px history action beside a long recipient. Both final stores preserve
+all original workspace rows/memberships/media metadata/reservations and45 original
+file hashes, with only the exact expected synthetic invitations created. Thirteen
+existing portal cases pass. These are local flows, not server deployment,
+external TLS, physical-device or hardware-IME acceptance.
+
+The page retains its original account for **all** workspace/member/invitation
+reads and actions, including creating a space, accepting a link and logging out.
+Send `X-Creative-Account` on these authenticated requests. Missing identity is
+`428`; a newer valid cookie cannot authorize an older page (`409 account_changed`).
+Login cannot silently replace an already authenticated account; explicit logout
+from that account's page is required. Cross-tab notifications contain no account
+data: a fresh session read decides whether to pause the old page. Focus, restored
+pages and visibility changes also recheck. A paused page retains author inputs
+and choices in memory, clears the password, disables submissions and offers a new
+page. Closing/reloading portal forms is separate from the board editor’s explicit
+browser input recovery. Browser storage has no portal forms/passwords.
+
+HTML loads only explicitly whitelisted program assets. The editor also uses
+the existing repository-vendored markdown-it file through one fixed alias; its
+license remains in `../vendor/`. Its content policy allows
+same-origin external scripts/styles/API connections with no inline execution;
+JSON and active file responses retain the restrictive policy. There is no generic
+static file server or desktop API fallback. Locally verified layouts cover desktop
+and 375/320px browser viewports, not physical-device or external-domain acceptance.
+
+## Development checks
+
+Create an independent Python virtual environment and install `requirements.txt`.
+From this directory, run:
+
+```sh
+python manage.py test core --settings=service.test_settings
+python manage.py makemigrations --check --dry-run --settings=service.test_settings
+```
+
+The explicit test settings create temporary data outside the checkout. Their
+fast password hasher and insecure localhost cookies must never be used in a
+deployment. Default settings require a long independent secret, explicit host
+names, and an absolute data directory outside the program directory. Default
+cookies require HTTPS. Proxy header trust is disabled unless explicitly enabled;
+an enabled proxy must overwrite forwarded protocol and `X-Real-IP` headers and
+prevent clients reaching the application directly.
+
+The first account can later be initialized locally with `bootstrap_owner`, which
+prompts twice for the password rather than accepting it in command arguments.
+Subsequent registration requires a valid invitation. There is no anonymous
+registration endpoint, exposed admin site, self-service password recovery or
+email delivery yet. A forgotten password uses the reviewed local
+`recover_account` command described below.
+
+## Current API boundary
+
+Use `GET /api/session` to establish a CSRF cookie, then send the current cookie's
+value as `X-CSRFToken` for every mutation, including login. Login rotates both the
+session and CSRF token. Credentials and invitations belong in JSON request bodies,
+never query parameters. Account mutation requests are JSON, bounded to 64 KiB.
+Document JSON has a separate default 8 MiB limit.
+
+- Account: `POST /api/login`, `POST /api/logout`, `POST /api/register` (invited).
+- Own login records: `GET /api/account/sessions`; reviewed `POST /api/account/sessions/<public-uuid>/revoke` or `POST /api/account/sessions/revoke-others`.
+- Own password: `POST /api/account/password` with current password, validated new password and confirmation.
+- Workspaces: `GET /api/workspaces`, `POST /api/workspaces` (shared, author names).
+- Scope: `/w/<workspace-uuid>/api/workspace` fixes the workspace for that request.
+- Members: scoped `GET /api/members`, owner-only `PATCH` or `DELETE /api/members/<account-id>`.
+- Invitations: scoped owner-only `GET` or `POST /api/invitations`, `DELETE /api/invitations/<invitation-uuid>`.
+- Accept: `POST /api/invitations/accept` with the one-time token for the logged-in recipient.
+
+Owners can invite editors or viewers; personal workspaces cannot be shared.
+Reissuing an invitation invalidates the older token. Tokens expire after seven
+days and only their SHA-256 digests are stored. The plaintext is returned once to
+the owner for future manual sharing; this service sends no messages. Revoking an
+accepted invitation does not silently remove a member: use explicit membership
+removal instead. Membership and account status are rechecked on later requests,
+including requests from an existing session. Superusers have no automatic access
+to another person's workspace.
+
+The SQLite database currently serializes workspace membership writes to enforce
+invitation consumption and member limits. Authentication attempts use persistent
+bounded buckets, keyed by HMACs rather than clear-text addresses. These limits
+have not been capacity-tested or tuned for a public service.
+
+## Staged document API
+
+Document requests must include `X-Creative-Account` with the account ID captured
+when the page opened, in addition to the workspace fixed in its URL. A missing
+identity returns `428`; a changed logged-in account returns `409` and preserves
+the caller's draft. Knowing an account ID grants no access: session authentication
+and fresh membership checks still apply. Mutations also recheck the member's role
+under the workspace transaction lock. These safeguards are implemented at the API
+boundary; the staged editor sends them on every scoped document request.
+
+Within `/w/<workspace-uuid>/api`:
+
+- `GET /boards` lists boards; `GET`, `PUT`, `DELETE /boards/<key>` read, save, or soft-delete one.
+- `POST /boards/<key>/restore` explicitly restores a deleted board.
+- `GET`, `PUT /folders` manage the board folder catalog.
+- `GET`, `PUT /assets` currently manage **library folders only**. Nonempty asset arrays return `501`; client filesystem references are never read.
+- `GET /history/<board|boards|folders|library>/<key>` lists retained revisions; append `/<revision-uuid>` to read an immutable version. Catalog keys are `catalog`.
+- `GET /trash` lists deleted boards and their current ETags.
+- `GET /conflicts` and `GET /conflicts/<draft-uuid>` retrieve the current account's rejected inputs; `DELETE` explicitly removes one while edit permission remains.
+- `GET /quota` reports JSON payload bytes for current state, retained history, and rejected input copies.
+- Owner-only `GET /history/<kind>/<key>/cleanup?keep=<count>` previews permanent
+  history cleanup, keeping at least the current version; `POST` to the same path
+  applies the reviewed plan with `{"keep": <count>, "confirm": "discard_history"}`.
+- Owner-only `GET /boards/<key>/purge` previews permanent removal of a board
+  already in the trash; `POST` uses `{"confirm": "discard_board"}` to apply it.
+
+Ordinary document saves, deletes, and restores need the exact strong `If-Match` ETag returned by
+a read, or `new` for creating an absent document. ETags include the workspace and
+document namespace. A stale save does not overwrite or merge. The server stores
+the submitted valid JSON separately for its author and returns `409` with
+`draftSaved`, `draftId`, and `draftURL`. Identical retries reuse the same copy.
+Workspace owners cannot read another member's uncommitted copy. If the copy cannot
+fit within its quota or count limit, `draftSaved` is explicitly false; the page
+must retain its own input. Lost membership also denies later access to shared
+versions and copies. A deleted document cannot be silently recreated by a stale
+save or a reused `new` ID.
+
+Retained history defaults to forty versions per document. The default 128 MiB
+workspace limit counts current document payloads, history, and rejected copies;
+it is **not** a physical disk limit or a media quota. Failed writes roll back
+content, history, and pruning together. Exact authored text, formatting fields,
+manual dimensions, node ordering, and links are preserved. Folder removal cannot
+orphan existing boards; its full interface flow remains to be implemented.
+
+Both cleanup mutations require the exact strong `If-Match` **plan** ETag from
+their preview, not the board's ETag. The plan binds the workspace, document,
+action, retention choice and complete current version list. A changed document,
+restoration or history list invalidates the plan; viewing a plan performs no
+cleanup. Missing confirmation does not discard data. Current content and another
+author's uncommitted input copies are never removed by history cleanup. Edits,
+membership changes and cleanup serialize under the same workspace lock.
+
+Cleanup can run when the configured JSON quota is already full or has been
+lowered. This makes it possible to explicitly remove old history and retry a
+soft delete that could not fit its new history record. A permanent board removal
+clears its content and history but keeps a compact title/identity tombstone:
+old saves or a reused `new` ID cannot silently resurrect it. Restoration returns
+`410`, and rejected new input can still be retained privately when there is
+capacity. These identity tombstones continue to count toward the document-count
+limit. Private input copies are unaffected and retain their author's access rules.
+
+The reported reclaimed bytes are JSON payload accounting, **not** a promise that
+the SQLite file shrinks or a secure erasure of old backups. The cleanup interface,
+full disk limits and physical database maintenance are not implemented yet.
+
+API conflict-copy preservation is not real-time collaboration, and no automatic
+merging or generation of authored content occurs.
+
+## Required next integration
+
+All remaining preview, search, and research-task
+storage must receive the same explicit immutable request scope. Never change the desktop
+server's global `ROOT` between requests, use an active-workspace cookie to route
+saves, or allow server filesystem paths in hosted references. Every tab must keep
+its account/workspace context, including local storage, clipboard coordination,
+and background requests. Changing accounts must preserve unsaved drafts and stop
+older tabs writing under the new account. Read-only members must be denied by the
+server, not merely by hidden interface controls.
+
+Reliable concurrent editing, migration copies, deployment quota/load tuning,
+Linux filesystem/recovery checks, operational backups, container configuration
+and external HTTPS checks remain mandatory before deployment. The staged offline
+snapshot/recovery checks cover the current store; save-conflict protection alone
+is not real-time collaboration.
+
+## Staged file and media API
+
+File records are separate from the folder catalog and have server-generated UUIDs.
+No record contains a caller-supplied server path. Within the same scoped API:
+
+- `POST /assets/upload` sends the raw file body as `application/octet-stream`,
+  its exact `Content-Length`, a UTF-8 percent-encoded `X-File-Name`, and optionally
+  a stable `X-Folder-Id`. CSRF and the original account header remain required.
+- `GET /assets/items?limit=100&after=<uuid>` returns bounded pages of file metadata.
+- `GET /assets/items/<uuid>` reads a record; `PATCH` edits author-supplied
+  `title`, `notes`, `tags`, or `folderId` with its exact `If-Match` ETag.
+- `GET /media/<uuid>?account=<original-account-id>` reads registered content.
+  The account query is needed for media elements that cannot send custom headers;
+  it grants no permission, and a changed session account rejects the old URL.
+- `GET /media-quota` shows the workspace's usage/reservations and the current
+  account's own upload budget, without exposing other accounts' usage.
+
+Uploads read 64 KiB chunks into an opaque pending file and hash the exact original
+bytes. A storage budget lock reserves space before reading the body, including
+concurrent uploads. Defaults are 128 MiB per file, 2 GiB per workspace, 4 GiB per
+uploading account, 8 GiB globally, a 512 MiB free-disk floor, and three pending
+uploads per account. Those defaults still need deployment tuning and load checks.
+Asset metadata also counts toward the workspace's JSON payload quota. Roles and
+the stable destination folder are rechecked before atomic promotion/registration.
+A renamed folder retains the upload; a removed folder never reroutes it to a new
+same-name folder. Registered files remain immutable; replacement, archival and
+file cleanup are not implemented yet.
+
+Media responses support one byte range, suffix ranges, `If-Range`, and `HEAD`.
+Metadata-only edits do not change the underlying content ETag. Membership and
+account status are checked again between streamed chunks, so removing access
+stops further delivery; already delivered bytes cannot be recalled. Files and
+directories that resolve through a redirect, including one into another
+workspace, are rejected. A missing or size-mismatched registered file fails
+closed instead of falling back to a filesystem reference.
+
+Only recognized inert image/audio/video types are served inline. HTML, SVG,
+PDF and unrecognized content remain download attachments with `nosniff` and a
+restrictive policy; HTML previews require a separate sandbox implementation.
+Media URLs use `no-store` and never provide unauthenticated public links.
+
+Normal interrupted/rejected transfers remove their own unregistered pending file
+and release their reservation. If a database failure makes commit status
+ambiguous, the file/reservation remains accounted for rather than risking a
+registered asset. A reviewed offline reconciliation command is now staged below.
+Unreserved-file audits, registered-file cleanup, browser media/editor integration
+and real device checks are unfinished. Offline snapshots/restoration are staged
+below; scheduled/offsite backup operation remains unfinished.
+
+## Registered file association inspection (development preview)
+
+In the board library, select a registered file and choose **查找关联**.
+The original-account, original-workspace endpoint
+`GET /assets/items/<uuid>/references` inspects current boards, trash, retained
+board/directory versions and only that account's own server conflict submissions.
+The panel distinguishes explicit `assetId` references (including nested cells,
+media cues and preserved extension fields) from IDs merely mentioned in text.
+Current board links open a separate tab after a fresh account/access check;
+historical rows are inspection evidence and do not apply old content.
+
+The snapshot is bounded to 500 saved records, 8 MiB of stored JSON, 100,000
+visited JSON values, 1.2 seconds of scan time and 100 displayed matches. A
+limit yields an explicitly partial result; excess matches have an exact count.
+Historical scans load related document identity, not repeated current bodies
+outside that budget. Limits do not describe arbitrary external files or disk
+cleanup, and elapsed database/JSON decode time is not a hard request deadline.
+
+Other authors' private submissions and unsaved browser input are excluded.
+Empty results never certify a file as unused or safe to remove. This endpoint
+has no mutation/delete method, does not read filesystem paths, and does not
+change original files, document versions, quotas or authored content. Closing,
+changing file or losing the original account invalidates late UI replies.
+Registered-file cleanup and complete lifecycle reference protection remain
+unfinished; this is a locally tested, unreleased development feature.
+
+## Offline interrupted-upload recovery (staged)
+
+All hosted servers must use `service.wsgi:application`. Each WSGI worker keeps a
+kernel storage lease for its lifetime; maintenance obtains an exclusive lease
+and fails if a worker is still running. Workers cannot start during maintenance.
+Linux uses shared worker locks; Windows currently permits one WSGI process with
+multiple threads. Actual Windows cross-process locking and release after forced
+process termination are tested; the Linux lock branch still needs Linux checks.
+Do not delete/replace `.hosted-maintenance.lock`, bypass the WSGI entry, run
+custom writers concurrently, or use a filesystem that does not honor locks.
+Normal shutdown must stop every worker and supervisor before maintenance.
+
+Using the same explicit hosted settings/data directory, first stop the service
+and preview:
+
+```sh
+python manage.py reconcile_uploads --service-stopped
+```
+
+This does not discard files or reservations. It shows the precise opaque upload
+IDs, pending stages, hashes, bytes, and a `planToken`. Keep this output private;
+it may contain authors' filenames. The plan is bound to the current store,
+reservations and exact file identity/content. If the listed interrupted content
+can be discarded and the authors retain their original files, confirm that plan:
+
+```sh
+python manage.py reconcile_uploads --service-stopped --plan-token <planToken> --confirm-discard-interrupted-uploads
+```
+
+This discards only unregistered files covered by those reservations and releases
+their reserved budget. Already registered assets retain their exact media and
+metadata; only a redundant reservation and extra pending copy are removed after
+the registered content is verified. A missing or inconsistent registered asset
+stops the operation for a separate integrity investigation. The tool refuses
+redirected, linked or non-regular files, and changed/replayed plans. There is no
+automatic expiry of uploads. Unreserved files and registered asset lifecycles
+are outside this command's scope and remain untouched.
+
+File deletion is not undone by a database rollback. If storage/database fails
+partway through, some unregistered bytes may already be gone, while reservations
+stay accounted for. Keep the service stopped, preview the remaining state, and
+explicitly confirm a new plan to retry. Do not advertise an all-or-nothing file
+rollback or erase registered assets to free capacity. This command is
+interrupted-upload recovery tooling and does not clean registered or unreserved
+files. The separate offline backup/restore tools follow below.
+
+## Offline current-store backup and recovery (staged)
+
+The current storage format includes all account/session/invitation/membership
+tables, boards, folders, history, trash identities, each author's unapplied
+inputs, file metadata and upload reservations in SQLite, plus the entire
+`workspaces/` file tree. A snapshot preserves exact registered media, partial
+uploads, unreserved files and empty directories. Nothing is automatically
+cleaned during backup or restoration. Unknown top-level data directories fail
+the backup instead of being silently left out; future preview/research/task
+storage needs an explicit format extension when those features are built.
+
+Stop every hosted WSGI worker and supervisor; use the same configured data store.
+Create a backup parent directory outside that data directory, then provide a new
+snapshot directory that does not already exist:
+
+```sh
+python manage.py backup_store --service-stopped --destination /absolute/backups/new-snapshot
+python manage.py verify_backup --source /absolute/backups/new-snapshot
+```
+
+The exclusive maintenance lease denies backup while a guarded worker is running.
+SQLite's backup API includes committed WAL content; raw copying of the main
+database alone is insufficient. Files stream in bounded chunks with exact
+SHA-256 hashes. SQLite integrity, foreign keys, migration compatibility and each
+registered asset's independent database hash are checked. The completed package
+contains `manifest.json` and `payload/`; keep its manifest hash and complete
+package private. Hash verification detects changed content; it does not establish
+who supplied the backup. Use an operator-trusted copy and transport.
+
+For recovery, configure `CREATIVE_BOARD_HOSTED_DATA_DIR` to a different **new,
+empty** data directory. Keep it outside the backup package. Do not run migrations
+or initialize accounts there before recovery. Stop all workers for that new
+store, verify the trusted backup, then use the returned `manifestHash`:
+
+```sh
+python manage.py restore_store --service-stopped --source /absolute/backups/new-snapshot --manifest-hash <manifestHash> --confirm-restore-new-store
+```
+
+The command refuses an existing store, rechecks the precise reviewed manifest,
+copies exact files, and verifies the recovered database/media before permitting
+WSGI startup. Failed copies remain for inspection; `.incomplete` packages cannot
+be restored, and `.hosted-restore-incomplete` blocks serving a partial restored
+store. Do not remove these markers to bypass verification. After interruption,
+use another fresh empty target and preserve the failed copy for inspection.
+Filesystem operations do not claim SQL-style rollback or overwrite the original.
+Disk capacity is checked before copying; redirects, hardlinks and non-regular
+files are refused. File data is fsynced on both systems; directory entries are
+fsynced on Linux, whose branch still requires real Linux validation.
+
+Restoration preserves accounts/password hashes, memberships/revocations, history,
+unapplied inputs, permanent identity tombstones and pending capacity reservations.
+Configure deployment secrets independently; they are not placed in the package.
+Review recovered access and use offline upload reconciliation when necessary.
+Production settings and actual localhost HTTPS in a new process have been tested
+against a recovered generic fixture. External TLS, Linux/native symlinks,
+scheduled/offsite/encrypted backup operation, previews/research data, full editor
+integration and deployment are still unfinished. This is an offline snapshot of
+the currently implemented store, not a live backup service or hosted release.
+
+### Workspace records preview
+
+The workspace shelf and editor recovery dialog provide a scoped records view:
+retained board versions, the original account's unapplied server submissions,
+trash and separate document/workspace-file/account-upload capacity snapshots.
+Inspecting or exporting a record never applies it to the current editor. JSON
+exports preserve unknown fields; plain note excerpts do not execute authored
+HTML or fetch legacy media paths. Browser-only input remains in its separate
+browser recovery view.
+
+Trash restoration requires inspection, explicit confirmation, current write
+permission and the exact reviewed ETag. It restores the original board identity
+and retains its earlier versions. A new page is used to inspect the result; a
+paused deleted-board editor is not silently resumed or overwritten. Closing
+after submission does not retract a sent request. An acknowledgment and a
+subsequent content check are reported separately, and uncertain writes are not
+automatically retried. Server routes enforce the original account and workspace
+on every request, including history, drafts and capacity.
+
+This is a local development preview, not a hosted release. Applying a historical
+version, permanently deleting trash, reviewed history cleanup and server draft
+removal do not yet have interfaces here. Capacity figures describe configured
+application limits, not free server disk. No automatic cleanup, live merge,
+realtime collaboration or cross-device browser draft synchronization is claimed.
+
+The note editor also provides current-board authored references. Markdown
+`[[title]]`, `[[node-id]]` and `[[@board-key/node-id|label]]` mentions have outgoing
+and incoming original-text excerpts; repeated title/ID mentions of the same
+target share one row. Plain text, escapes and code examples are not indexed as
+links. Duplicate names require an explicit choice. Missing or other-board
+targets remain visible but do not fetch, create or silently retarget content.
+No heading/block/embed or complete Obsidian compatibility is claimed.
+
+An explicit chooser inserts into the selected original body, explanation or
+annotation, using a stable ID and a user-authored label. It enables Markdown
+display and participates in ordinary undo/redo and scoped saving. Invalid or
+multiline labels are refused without rewriting them. Renaming a target never
+rewrites authored source text. Navigation keeps up to16 page-local return
+places with camera, field selection and panel scroll; it does not save camera
+or cross-device navigation preferences. Table/media targets can be located
+without claiming complete editing of those node types.
+
+Lists initially show8 incoming/outgoing rows and20 chooser candidates, with
+explicit expansion. No workspace search or extra document discovery request
+is made. Readers can navigate authorized originals; insertion is disabled.
+Loss of the original login closes the chooser, disables context navigation and
+retains exact page input/export. A role downgrade also ends pending insertion
+without applying it. Enclosing frames paint behind notes and their title is
+the pointer drag area; saved geometry and original node payloads are retained.
+
+Relevant parser checks can be run from this directory with
+`node tests/note-references.mjs`; the served asset whitelist is checked by
+`python manage.py test core.test_portal.PortalTests.test_only_explicit_portal_assets_are_served --settings=service.test_settings`.
+These locally checked additions are still an unreleased development preview.
+
+### Saved spatial views (development preview)
+
+Writing-place return captures the original inspector field before a pointer or
+keyboard view action takes focus. Its original board/node/value must still
+match; returning never replays a captured text value. Title, body and stable
+table-cell/header identities retain selection direction, both scroll axes and
+camera. If the original field/value no longer matches, navigation does not apply
+a stale selection to another cell or revive removed content.
+
+A native synthetic HTTPS baseline reproduced a backward-selected title returning
+to the body. Seven new affected return behaviors pass as two initial flows plus
+five focused completion flows in separate stores: title/body reverse selection,
+native keyboard entry, exact table cell/title,320px and an actual readonly member.
+The first fixture stopped only because it expected the narrow-only inspector
+button in wide desktop tab order; it was corrected to reach the visible toolbar
+action and only unfinished flows resumed. Every baseline/partial/final store
+preserves all workspace rows and45 original media hashes, with zero scoped writes.
+These checks do not repeat the previously settled spatial-view metadata and
+journey acceptance or constitute hardware-IME, physical-device or external TLS
+verification.
+
+The editor can save an author-named current region, selected content bounds,
+or whole-board bounds. Small spatial previews use existing geometry and colors.
+Up to48 views can be renamed, reordered, explicitly given a new region, removed
+and undone. They live in a versioned `spatialViews` document extension; original
+nodes, unknown extension fields, text and `board.view` remain intact. Unsupported
+or colliding extensions are retained and cannot be overwritten by this feature.
+
+Browsing fits the same world region to the available screen. Previous/next and
+Escape work outside native text/media inputs, with no motion animation or
+automatic content arrangement. Exiting restores the starting page camera,
+selected original field, selection and scroll. Navigation itself makes no PUT.
+Once ordinary scoped saving is acknowledged, views load in fresh authorized
+pages. This is shared document metadata, not real-time collaboration or a claim
+of physical-device/deployment verification. Read-only members can browse but
+cannot edit metadata; changed-login pages pause edits and retain page input.
+
+Unsubmitted names remain in the original page when the dialog closes; explicit
+discard removes only that pending naming input. This is not a persisted naming
+draft after reload. If the local list changed, the author must review the current
+list before applying a retained form. View changes use ordinary whole-document
+ETags, scoped browser copies, original export and conflict handling. Conflicting
+submissions are retained without automatic merging. The narrow inspector has
+visible sticky close/navigation controls, and the opaque view panel sits above
+it so lower text cannot obscure choices. The geometry/metadata checks are
+`node tests/board-views.mjs`.
+
+
+The staged hosted editor also edits existing `frame` nodes: exact authored title
+and description, six boundary colours/custom hex, width/height/position, and
+12/24/48 padding presets. Fit either the fully contained non-frame content or
+explicitly all non-frame board content. Empty/invalid/out-of-range fits refuse
+changes. Original cells, media IDs, manual node sizes, unknown node fields and
+saved camera remain untouched. Dragging a label or stretching the visible
+44px corner handle only changes the boundary; it is not group movement.
+Keyboard arrows on the handle resize by one unit (Shift: ten), with undo.
+Removal requires review, removes only that frame and its own edges, and keeps
+contained content/other edges. Read-only readers can inspect fields; paused
+accounts retain entered originals and export. Normal scoped ETag saving and
+conflict retention apply, without real-time merging. New empty frames contain
+no generated creative copy. This remains an unreleased prototype, not a
+completed table editor or deployment. Geometry/preservation checks:
+`node tests/board-frames.mjs`.
+
+The staged table inspector edits exact author-entered title, description,
+column headings and multiline cell text. New tables, rows and columns are
+blank. Moving/removing a reviewed row or column carries its stable ID, known
+`cellItems`/`cellImages` references and preferred column widths together. Known
+sparse attachment grids gain only empty positions during an explicit structural
+operation. Existing IDs are retained; legacy tables without IDs gain them only
+when the author explicitly organizes rows or columns. Text edits do not add
+IDs or normalize unknown original fields. Undo retains the complete document,
+including original manual card dimensions and saved camera.
+
+The inspector renders at most 20 rows and 6 columns per page, with inner
+horizontal scrolling, sticky headings/row numbers and a visible narrow-screen
+exit. Small tables show quiet counts without unused paging buttons.
+Ctrl+Enter/Shift moves to the next/previous row, including page boundaries;
+normal text arrows and Tab retain native behavior. Preferred column widths
+100–900 and manual card dimensions are separate controls. Saved-view browsing
+returns to the original stable cell, selection and grid scroll without a save.
+Unsupported original attachment/width structures pause row/column organization
+while retaining exact original data for text editing and export.
+
+Read-only/downgraded/changed-account pages cannot edit cells or structure and
+retain their original inputs/exports. Accepted delayed saves cannot overwrite
+later cell text; stale concurrent saves keep the accepted version and the
+other page's exact input without automatic merging. The cell inspector shows
+bounded names/counts for existing contents, with a separate embedded-note
+editor and protected cell-media viewer described below. It does **not** extract
+file contents, fetch legacy paths, or provide real-time collaborative cell
+merging. This is an unreleased prototype, not full desktop feature parity or
+deployment.
+Preservation/structure checks: `node tests/table-model.mjs`.
+
+Pasting tab-separated multi-cell text into an original cell opens a review before
+any board mutation. A single-column ordinary multiline paste retains native cell
+behavior. The same review can be opened explicitly to paste comma-separated CSV.
+No clipboard reads happen until the author's actual paste action. The first
+incoming row remains content; headings are not inferred. The parser follows the
+quoted-field and escaped-quote conventions in [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180),
+accepts CRLF/LF/CR record boundaries, and preserves whitespace and quoted line
+breaks. Ragged rows, malformed quoting and oversized inputs pause application;
+they are never silently padded or truncated. Limits are 1,048,576 UTF-16 code
+units, 5,000 rows, 100 columns and 50,000 incoming cells per action.
+
+The preview names the exact starting row/column, reports changed/overwritten
+cells and appended rows/columns, shows bounded literal before/after text and
+states that incoming empty cells replace existing text. No formulas, HTML or
+Markdown are executed. An explicit application changes just that rectangle;
+growth appends blank headings and stable IDs. Original table geometry, existing
+widths, unknown fields, attached images and complete embedded note/table payloads
+remain; unsupported attachment ranges permit text-only paste but refuse growth.
+The complete original table is checked again immediately before applying, so a
+changed selection, table, permission or account cannot silently retarget a draft.
+One application forms one complete-document undo step; no-op previews write
+nothing. This uses the existing save/conflict system, not collaborative merging.
+
+Close/Escape return to the original cell/caret and retain the unapplied source in
+this page; a resume action, explicit discard, plain-text source download and
+existing before-unload guard make that boundary visible. Automatic multi-cell
+paste also offers an exact single-cell alternative at the original selection.
+The native modal dialog keeps keyboard focus inside, with a visible close and
+application/footer controls at small widths, following the [W3C dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/).
+The unapplied source is not persistent or synchronized across devices. Model
+checks: `node tests/table-paste-model.mjs`; real HTTPS browser acceptance is
+recorded separately from parser/model checks. CSV file upload/export, embedded
+table editing and every external spreadsheet dialect remain separate work.
+
+Each table cell can open its original embedded notes separately, with at most
+12 numbered choices per page. Identical titles or legacy duplicate note IDs
+remain distinct by original position and exact original payload. Edit authored
+title, body, supplement and annotation; apply ten Markdown formatting controls
+to selected body text, or use Ctrl+B/Ctrl+I. HTML and image references stay
+inert in preview. Choose seven colours/custom hex, plain/lined/grid paper and
+10–40 font size. The desktop preview stays beside scrolled colour controls;
+narrow screens use one column with visible 44px exits and actions.
+
+Changes stay separate from the document until explicit Apply (Ctrl+S inside
+this dialog applies that note). Closing retains input, selection and raw
+invalid colour in this page; Resume returns to the captured original target.
+These unsubmitted inputs are **not** persisted across a completed reload or
+another device. Before leaving, apply or export them. Export includes the
+captured original full board with the pending note patch; invalid raw settings
+are retained in separate `unappliedCellNoteForm` metadata. This is an original
+input export, not automatic replay or a merged copy of later board changes.
+
+Apply preserves original IDs, manual sizes, file/time/image references and
+unknown fields, and uses ordinary scoped board saving/undo. Legacy absent
+axis IDs remain absent. Changing/removing the target, undo-replacing the
+original table or losing edit permission freezes the separate input while
+retaining export; it never redirects to a neighboring cell. Unsupported
+original text structures refuse editing without coercion. Blank embedded
+notes contain no authored copy and use the auto-size default, while existing
+manual dimensions remain exact. Embedded media editing/playback, nested
+table editing, cross-board note references and real-time merging remain
+unfinished. Checks: `node tests/cell-notes-model.mjs`.
+
+The account-scoped **Versions and space** panel now lets workspace owners
+review older board versions before permanently removing them. Select how
+many newest versions to retain, then inspect the exact retained/removed
+version IDs, names, dates and payload-byte totals. A separate trash review
+can permanently remove one inspected deleted board and its history. These
+operations require a new explicit acknowledgement and confirmation each
+time. Editors/readers can inspect/export accessible versions, but cannot
+use the permanent-removal controls.
+
+The preview is bound to the original account/workspace/board and a server
+plan ETag. Confirmation rechecks ownership and the complete plan; the
+server checks it again under the same transaction lock used for saves.
+A newer save, changed retention choice or restored trash board invalidates
+the preview. Closing before the write invalidates approval; closing after
+the write was sent cannot undo it. Interrupted or malformed replies are
+unconfirmed and never automatically retried. Current documents, current
+page input, member-private conflict submissions and original media files
+are preserved. A permanently removed board key remains reserved, preventing
+old tabs from resurrecting it. The displayed reduction measures content
+payloads, not free filesystem space.
+
+The dialog separates retained/removed versions, bounds long lists, and
+offers visible Cancel/Close actions. Initial focus uses Cancel when content
+fits, or the heading when scrolling would hide the target/warning. These
+choices follow the [W3C modal dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+and [alert dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/alertdialog/);
+this is not an accessibility certification. Checks:
+`node tests/cleanup-plan.mjs` and `python manage.py test core.test_cleanup`.
+The same panel can now remove one inspected **own server conflict
+submission** after explicit acknowledgement. Viewing it, exporting it or
+choosing Keep sends no removal. Before the write, the original account and
+workspace and the complete immutable submission are checked again. Closing
+before that check finishes cancels the write; closing after it was sent
+cannot reverse it. The server allows an active owner/editor to remove only
+their own exact submission UUID. Readers can inspect/export their own
+submissions, but cannot remove them. Responses identify the removed UUID;
+an interrupted, malformed or mismatched response is never retried
+automatically and asks the user to refresh. An already inspected raw copy
+remains exportable, even when the account changes or the list cannot be
+checked. This does not clear browser drafts, replace current documents,
+remove retained versions or delete any original media file.
+
+An active owner/editor can also inspect and explicitly **take back a retained
+board version**. The comparison shows the exact current and selected authored
+content; neither opening it nor choosing Keep writes anything. Confirmation
+uses a server plan ETag binding the original workspace/board/source revision,
+current board and retained-version set. The server repeats the complete check
+under the workspace lock used for saves, membership changes and cleanup. A
+newer save, removed source, changed plan or lost permission refuses the write.
+Successful application adds one current revision, retaining every previously
+kept revision and all author-private conflict inputs. It never replaces the
+editing page's unsubmitted text. Verification opens separately; another save
+after an accepted application is reported as a changed current state, without
+another overwrite. Unknown fields, manual layout, authored links and original
+file references remain exact. An identical payload makes no new revision.
+
+If the retained-version count or content quota is full, or the historical
+folder no longer exists, application is blocked with a concrete explanation;
+it does not silently prune history or change the original folder. The current
+and selected version can still be exported/inspected. An interrupted or
+mismatched post-write reply is unconfirmed and never automatically retried.
+Checks: `python manage.py test core.test_revision_application` and
+`node tests/revision-application.mjs`. This introduces no new storage schema.
+
+The existing Versions and space panel also provides **classification catalog**
+and **library catalog** history. Choose the saved-content type; catalogs keep
+their fixed `catalog` key but distinct `folders`/`library` endpoint types.
+The original account/workspace binding, complete plan check and owner-only
+transactional cleanup apply to both. Owners can first inspect/export the
+exact original JSON and retain/remove lists, then explicitly discard older
+versions. Authored catalog names appear as plain text in a labeled excerpt,
+with the full original JSON still available. Keeping all versions produces
+no enabled removal. A catalog that
+has never been saved is shown as having no saved record.
+
+Current catalog values and stable folder IDs, board placement, registered
+media and original file bytes, member-private submissions and current-page
+input remain unchanged. Catalog versions cannot use the board version
+application or trash-purge actions. Editors/readers can inspect/export
+accessible history but cannot permanently clean it. Account changes,
+unexpected catalog types, unavailable fresh checks and later saves invalidate
+approval; uncertain write replies never cause an automatic retry. This
+controls retained catalog history, not media-file lifecycle cleanup.
+Checks: `python manage.py test core.test_catalog_history` and
+`node tests/catalog-history-plan.mjs`.
+
+Safe registered file lifecycle cleanup and real-time collaborative merging
+are unfinished.
+This remains staged, unreleased and undeployed.
+
+The existing cell-content panel now includes read-only **embedded media**
+inspection for registered `cellItems` image nodes and `cellImages` references.
+The registered MIME type chooses image, native audio/video, or download-only
+display. Arbitrary URLs and legacy paths never become media sources. Viewing
+adds no board mutation or attachment conversion; the original collections,
+manual dimensions, opaque fields and authored cell text are preserved.
+Returning, closing, changing the original target or losing readable state
+stops playback and clears sources/download targets. Native players do not
+autoplay. A pending embedded-note draft remains the first item to resume.
+
+The source is tied to the original account/workspace and exact table, axis,
+collection, position and complete original item. Identity is rechecked before
+and after metadata reads, and before download; closed or superseded requests
+cannot revive an old preview. Unknown image-grid shapes remain untouched and
+do not prevent inspection of the separate known note collection. Checks:
+`node tests/cell-media-model.mjs`, `node tests/cell-notes-model.mjs` and the
+explicit portal-asset test. The corrected, complete local HTTPS suite now
+passes 13 groups with the actual editor and backend: original images/downloads,
+explicit native audio and stop-on-exit, download-only active HTML, refused
+cross-workspace UUIDs, unchanged board/version/history data, superseded/closed
+requests, failed/wrong metadata, preserved pending note input, 390px layout,
+actual viewer/removal and account-switch protection. Temporary service and
+browser are closed afterward. Native video/target-change checks also passed
+offline; the registered WebM/VP8 video path has since passed actual localhost
+HTTPS playback, pause, range and complete-download checks. The local
+certificate is deliberately ignored by the test browser, so this does not
+accept a public certificate, real device or collaboration. Embedded media
+editing/extraction and complete lifecycle/real-device validation remain
+unfinished.
+
+The cell-media controls now retain keyboard continuity: opening focuses Back,
+and returning focuses the exact reviewed collection item after it is rendered
+again. A changed or unreadable target falls back to Close instead of a different
+item. Original note editing does not inherit the media scroll mode. Narrow
+screens place the existing download/recheck controls in one fixed bottom row,
+and scroll padding keeps focused controls clear of the header/footer. This is
+guided by [W3C's explanation of focus not obscured](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html),
+not a claim of whole-product accessibility conformance.
+
+Seven focused actual HTTPS groups use the original editor and backend with
+synthetic data: exact pre-edit source reproduces the clipped initial download
+and lost focus; 390px image actions and Back/Enter continuity improve afterward;
+native registered portrait video decodes and plays only explicitly, range and
+full downloads preserve exact bytes; 320px short-window video focus clears
+the fixed controls; note draft resumption, foreign-workspace refusal and actual
+viewer withdrawal retain their protections. All original stored document/media/
+history/private-draft rows, quota and file hashes remain unchanged. Four actual
+before/after/video images were inspected. This checks one browser and codec;
+actual devices and other codec acceptance remain unfinished. Test service and
+browser are closed. The media bytes are a test-only canvas recording using
+[MediaRecorder](https://www.w3.org/TR/mediastream-recording/#mediarecorder-api),
+not captured screens or user footage. The work remains staged and unreleased.
+
+### Server-operator account recovery (staged)
+
+When a user has forgotten their password, a trusted **server administrator**
+can recover one exact active account after independently verifying the person's
+request. A workspace owner/member does not gain this capability through the
+web interface. The login page provides collapsed guidance explaining this
+route; invited registration hides it. No public reset endpoint, anonymous
+email lookup, mail service or recovery link is introduced.
+
+Run from the configured hosted project/store on the trusted server:
+
+```sh
+python manage.py recover_account --account-id 12 --email member@example.test --review-only
+python manage.py recover_account --account-id 12 --email member@example.test
+```
+
+Use the actual reviewed account ID and email. The first command only displays
+identity and the bounded session count. The second requires typing that exact
+ID, then entering the new password twice in hidden prompts. Never pass
+passwords as command arguments, put them in logs, or treat knowledge of an
+email address as proof of ownership. Operator guidance and names are displayed
+without terminal escape/line/bidi injection; stored authored names are not
+rewritten.
+
+Recovery rechecks the exact account, password state and session set after
+acquiring the same account write lock used for password changes. Changed
+identity or logins invalidate the review. Password validation, password update
+and deletion of that account's login records occur in one transaction; a
+failure rolls them back together. Disabled accounts are not reactivated,
+privileges and membership are not changed, and workspaces, boards, retained
+versions, private conflict submissions and media files are not reset. The
+password change invalidates old session authentication hashes, consistent with
+[Django's authentication documentation](https://docs.djangoproject.com/en/5.2/topics/auth/default/#session-invalidation-on-password-change).
+The new password follows the configured
+[Django password validators](https://docs.djangoproject.com/en/5.2/topics/auth/passwords/#password-validation).
+
+Checks: `python manage.py test core.test_account_recovery` includes exact
+identity, read-only/cancel behavior, old/new login access, retained work,
+rollback, stale plans, terminal-safe names and two concurrent races. A fresh
+production-settings interactive CLI check also exercised hidden input,
+Argon2, new-password login and unchanged original media bytes. Login guidance
+was checked in an offline rendered-template browser; that simulated session
+is not a fresh HTTPS or real-device acceptance check. Self-service email
+recovery and deployment remain unfinished. This adds no storage schema and
+remains unreleased and undeployed.
+
+### Find saved text in the current workspace (staged)
+
+The existing workspace board shelf now has a literal search field. It searches
+current, active boards in that URL's original workspace: board names, supported
+node title/body/original-text/annotation/name fields, table headings/cells and
+nested `cellItems`, plus authored edge labels. One result per board shows its
+original name, saved position/context and a bounded plain-text excerpt. Links
+open the original board in a new page; they do not replace a page being edited.
+Markdown and HTML snippets are text, never executed or rewritten. Case-insensitive
+matching retains the author's original characters, including casefold expansions.
+
+`GET /w/<uuid>/api/search?q=...` requires a current membership and the original
+`X-Creative-Account` header, including for viewers. It has no write path or file
+server fallback. Trash, history, everyone's private conflict drafts, browser
+input, unknown extension fields and media file contents are excluded. No
+cross-workspace/private-path or external-network lookup is performed.
+
+The read transaction checks record/byte limits before deserializing JSON: at
+most 500 boards, 8 MiB of documents, 100,000 traversal parts, 40 results and a
+1.2-second cooperative scan deadline. Excerpts use at most 140 original Unicode
+characters plus ellipses. A large saved field may take its own bounded processing
+time before the next deadline check; this is not a real-time CPU guarantee.
+Limit exhaustion returns `coverage: limited`, never an exhaustive absence
+claim. Only supported text is covered even when the scan finishes. No search
+index, schema, storage or new backup component is introduced. Before public
+deployment, configure proxy/application access logging so search query strings
+are not recorded as user content; no production logging or remote service
+configuration was changed here.
+
+The page clears delayed results when the query changes, is cleared, or the
+portal pauses. Results appear only after another original-account workspace
+access check; returning to the page rechecks access, keeping the query and other
+form input. Refresh invalidates the old search. Offline/invalid replies do not
+create links or retry automatically. Enter submits and Escape/clear returns to
+the shelf. A read-only search is excluded from unsaved-work warnings; native
+checkbox/radio changes use their actual checked state, fixing a false warning
+caused by an unchecked account-confirmation box.
+
+Checks: `core.test_workspace_search` covers original data/ETags/usage, server
+identity/membership/revocation, excluded private/stale content, nested cells,
+literal/Unicode matching and all budgets. The rendered-template browser check
+uses actual synthetic Django search replies but simulated in-memory transport;
+it includes delayed replies, fresh access, bad replies, offline retry, retained
+input, and 390/320px operation. This is not fresh HTTPS, real-device or deployment
+acceptance. The visual choices use contextual recognition, quiet status and
+clear exits from [NN/g's usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/),
+judged against actual generic before/after layout and operation rather than a
+certification. The pre-change layout image is a same-data reconstruction with
+the new controls removed. Hosted search remains unreleased and undeployed;
+the unrelated localhost HTTPS media integration still awaits explicit approval.
+
+### Browser-local paper reading (staged)
+
+The existing spatial editor's Reading button offers Original, Clear, Book and
+Monospace families for top-level note titles/body/context/annotations and their
+existing inspector fields. Original remains the default; code, controls, author
+text/font sizes/positions and manual dimensions stay unchanged. Automatic paper
+display reflows locally; connectors and Fit use its displayed height instead of
+the older stored height. Choosing a reading style does not save a board, create
+history or store a font field in its JSON. Subsequent author edits and their
+ordinary automatic sizing still follow the existing guarded save flow.
+
+Preferences contain only a fixed font ID and use the page's original numeric
+account plus fixed workspace UUID in the browser storage key. Different accounts
+and workspaces do not share the choice, while the same account/workspace's other
+tabs can receive it. This is neither a synchronized preference nor an authored
+per-note font. Fixed local [CSS font fallbacks](https://www.w3.org/TR/css-fonts-4/#font-family-prop)
+need no font download; actual glyphs depend on the device. Invalid values fall
+back to Original. Storage refusal explicitly leaves a preview, and reopening
+uses the previous saved choice. Restore returns to the opening choice.
+
+The same Reading button moves beside the inspector heading in small windows.
+The native dialog blocks background save/undo/dismiss commands and returns to
+the unchanged original field/caret/selection/view. New account or access loss
+closes and disables the old dialog. Own-tab preference notifications defer font
+changes and paper rebuilding during a captured pointer gesture or composition; changing only a
+reading preference never modifies another author's content.
+
+Final original-page acceptance passed twelve distinct real localhost HTTPS
+behavior groups in one uninterrupted synthetic fixture, with earlier focused
+checks of the receiving tab's keyboard focus:
+four choices, rendering/manual originals/code, exact editor return, persistence
+and own-tab focus, malformed values, storage refusal, 390/320px controls, a real
+viewer, displayed-height connectors/Fit, switching to another actual member,
+native pointer drag/save/own Undo, and simulated composition.
+Simulation is not physical-device/IME acceptance;
+the test browser's local certificate exception is not public TLS acceptance.
+Three pure identity/fallback model cases and twelve affected portal boundaries
+also passed. No schema, server backup format, private program or deployment is
+changed by this feature.
+
+### Registered HTML static preview (staged)
+
+The existing library detail can display the static layout of a registered
+UTF-8 `.html`/`.htm` attachment up to 512 KiB. Its original media URL continues
+to return the unchanged download attachment with the restrictive API policy.
+There is no arbitrary URL/path reader or unsanitized inline-file fallback.
+Plan and view endpoints both check the original account, URL workspace and
+membership. The file's length and SHA-256 are verified, supported markup is
+filtered, and access is checked again before returning a response. The view
+URL binds both original content and rendered hashes; a changed plan is refused.
+
+The ephemeral renderer keeps supported authored text/tables and inline layout
+CSS. It drops author scripts, event handlers, links/actions, refresh/base,
+embedded documents and foreign namespaces; controls are disabled. Inline
+raster images need a matching base64 raster prefix. Other content is omitted,
+with an explicit notice and an original-file download. CSS/resource requests
+are restricted by the response policy. It is a static subset, not a browser
+for arbitrary pages, a complete HTML import, or an author-script execution mode.
+
+Only this dedicated response permits framing by its own origin and inline
+layout CSS. The editor permits self-origin frames; login, account APIs and
+original media responses keep their previous restrictions. The preview uses
+an opaque sandbox without `allow-same-origin`. Exactly one application-owned
+Escape listener is admitted by a SHA-256 script CSP hash. It sends only a
+constant close request, never document text/account data. The parent requires
+the current frame's window, opaque origin, message type and current preview
+generation; removing the frame also removes the listener. Authored scripts
+remain filtered and arbitrary injected scripts are blocked. This follows the
+[HTML sandbox boundary](https://html.spec.whatwg.org/multipage/iframe-embed-object.html#attr-iframe-sandbox)
+and [cross-document message checks](https://html.spec.whatwg.org/multipage/web-messaging.html#security-9),
+with the hash/response policy defined in [CSP3](https://www.w3.org/TR/CSP3/)
+(a working draft), and verified in the actual test browser.
+
+The preview has no persistent derivative files or schema/backup changes. Limits
+also bound generated output to 1 MiB, parser callbacks to 10,000, and parsing
+to a cooperative 0.5-second deadline. These are not a CPU/paint-time guarantee.
+Unsupported encoding, oversized content, bad bytes, revoked access and stale
+hashes produce a refusal while preserving the original attachment.
+
+The actual library clears a frame on close, selection/read-state change and
+late/invalid results. Fast close/reopen ignores an old queued close event;
+another asset cannot replace the active preview. HTML has no extra clipped
+outer scrolling container, leaving the explanation, document and original
+download accessible at 390px. Escape works inside the focused preview as
+well as the outer panel; other windows cannot issue its close request.
+
+Checks: 12 new backend cases plus 14 related media API and 12 portal cases,
+and 9 final native-browser component flows plus a separate opaque-window exit
+guard check. The latter use the real editor
+template, media modules and actual Django response bodies/headers routed
+entirely in memory at a synthetic origin. They test enforced CSP/origin
+isolation, author-script/resource refusal, Escape, stale/closed targets,
+wrong URLs/offline replies, parent input and related native audio cleanup.
+This is not real HTTPS, server cookies, certificate validation, whole-canvas
+save integration or device acceptance. It remains unreleased and undeployed;
+the separate cell-media localhost test has since been explicitly authorized
+and its complete corrected 13-group suite passes, as recorded above.
+
+### Registered material lookup (staged)
+
+The existing editor library now searches this workspace's registered file
+names, display titles, notes and tags. Enter submits a literal, Unicode-aware
+query; result cards show an original-text clue and lead to the same metadata,
+download and explicit board insertion controls. Clear restores the original
+paged list. Source files are not read or sent to an AI service for this search;
+folders, board text, history and private drafts are outside its search fields.
+
+`GET/HEAD /w/<workspace>/api/assets/search?q=...` requires the original page
+account header and scoped membership, with fresh account/membership checks
+before and after scanning. Only one query parameter is accepted. Read budgets
+limit the scan to 500 registered items, 8 MiB of metadata/catalog data before
+deserializing, 100,000 field steps, 40 results and a cooperative 1.2-second
+deadline. Partial coverage is reported explicitly; narrowing a query cannot
+guarantee coverage of older items outside the scan budget. Clearing search
+still permits normal paged browsing. This adds no index, derivative storage,
+schema migration or backup data. Deployment access logs must omit query strings.
+
+The panel drops stale actions during reads and refuses changed identities,
+duplicate/invalid replies and late results after another query, Clear or close.
+Search does not discard a chosen local file, unsaved metadata or note input.
+Narrow-screen results use one column for legible clues; refreshing a selected
+result no longer scrolls away from the query, and keyboard focus stays below
+the fixed close header. Existing media/HTML preview operations retain their
+explicit exit and original download.
+
+Design rationale: original context helps people recognize a saved item rather
+than remember an exact filename ([NN/G: recognition and recall](https://www.nngroup.com/articles/recognition-and-recall/)).
+Visible read/failure/partial states help people interpret the result's limits
+([NN/G: visibility of system status](https://www.nngroup.com/articles/visibility-system-status/)).
+These principles informed the controls; synthetic real-operation screenshots
+were used to check the actual layout and focus behavior.
+
+Checks: 9 new backend cases plus 14 related media API and 12 portal cases;
+11 native-browser component groups, followed by 2 focused layout/input groups
+and a final affected scroll group. These overlap, rather than constituting
+14 distinct scenarios. Four affected HTML/native-audio component groups also
+pass. All browser responses were actual Django payloads routed in memory at a
+synthetic origin, using the original template and actual library modules. They
+are not real TLS/cookie, full-canvas save, actual-device or remote acceptance.
+The work remains unreleased and undeployed.
+
+### Offline media inventory (staged, read only)
+
+After stopping every hosted worker, a trusted server operator can run:
+
+```text
+python manage.py audit_media --service-stopped
+```
+
+The command acquires the existing exclusive storage lease and classifies direct
+entries in known workspace `media` and `incoming` areas: registered files,
+registered size mismatches, reserved uploads, unregistered files, misplaced
+identities, unknown entries and unsafe links/types. It does not read blob
+contents or any authored document/history/private-submission text. Unknown
+directories, workspace directories and link targets are not traversed.
+Original names, notes, account details and absolute paths are absent from the
+report; unusual names receive an opaque keyed entry token. This token is not a
+cleanup plan. There is no deletion, repair, re-registration or apply option.
+
+The command uses fresh no-follow metadata instead of cached directory-entry
+stat values ([Python filesystem APIs](https://docs.python.org/3.12/library/os.html#os.DirEntry.stat)),
+including Windows reparse attributes ([Python stat attributes](https://docs.python.org/3.12/library/stat.html#stat.FILE_ATTRIBUTE_REPARSE_POINT)).
+It checks observed file/directory metadata and the minimal registration
+snapshot again before a complete result. Changed or inaccessible entries fail
+without modifying application data. Record/entry/time limits and omitted
+findings are explicit. `enumerationComplete` covers only the direct known
+storage entries; `uninspectedSubtrees` reports skipped targets. A registered
+filename and matching size do not prove content integrity, and an unregistered
+file does not prove absence of references. Every report and finding has
+`deletionSafe: false`; other members' private references are never examined.
+
+Registered originals are now reconciled against completed direct-directory
+listings, so an absent original produces `registeredMissing` without deleting
+its registration or pretending that an empty report is healthy. Missing known
+media/workspace/storage directories are distinguished from an unsafe or
+uninspected ancestor: the latter produces `registeredUninspected`, not absence.
+Derived registered paths are neither opened nor statted through skipped links.
+An unsafe original file, including a hardlinked or nonregular entry, also
+remains uninspected. `registeredFilesChecked` and
+`registeredPresenceCoverageComplete` describe this presence check only, with
+the same record/entry/time/detail limits. Original-content hashes and reference
+safety are still outside this command. A file added during the check causes
+the changed-directory verification to refuse a report instead of accepting a
+stale missing finding. A same-ID copy in another workspace cannot conceal the
+missing original in its registered workspace.
+If the registration pass runs out of budget before that final verification,
+its absence conclusions and their hidden-detail counts are discarded; earlier
+bounded entry inventory is explicitly incomplete.
+
+The existing lease may create its persistent coordination file if absent;
+application files and database records are not changed. The lease coordinates
+cooperating hosted processes, not arbitrary administrative filesystem writers.
+Native Windows/Linux path and locking acceptance remains required before
+deployment. A complete backup remains a separate operation.
+
+Local checks: all 21 affected cases pass, including seven registered-presence
+regressions and actual native Windows hardlink/junction refusal checks. Earlier
+sandbox-only link skips were resolved using the same isolated fixtures with
+permission to create native test links. An actual separate-process audit is
+refused while a runtime lease is held. Three actual production-settings CLI
+groups on an independent synthetic store check a missing registered original,
+a real hardlinked registered original, classification/redaction, missing
+confirmation/unknown deletion arguments and unchanged database, all model rows,
+quota and every retained file hash. No hosted browser or public endpoint is
+added, and no schema or backup format changes are needed. This is draft
+development code; it remains unmerged and undeployed.
+
+### Keep the current library preview through list changes (development)
+
+Refreshing, loading another page, submitting a search or selecting the same
+registered original keeps its existing image, audio/video player or static
+HTML frame mounted. The controller compares the original ID, content hash,
+size, MIME type and fixed-account media URL. Metadata-only updates change the
+caption in place. Changing the selected source, closing the library or losing
+original-account access still stops and clears it. Playback is never started
+automatically.
+
+A selected original outside the current forty-item page or search results is
+read separately through the existing scoped API. It is labelled as the current
+preview, outside this page's results; it is not inserted into those results.
+Successful reads also recheck the original account/workspace access. A failed
+read keeps the prior visible list and selection, pauses audio/video and disables
+unconfirmed selection/preview/use/download actions. Explicit refresh enables
+them after successful rechecking, without replaying a paused player. An actual
+missing registration clears the selection; an empty filtered page does not.
+Late reads and detached old list buttons cannot reopen a closed preview.
+
+The static HTML frame's existing opaque-origin Escape bridge can still close
+the library after a failed list read. The bridge itself continues to require
+the mounted source frame and its exact message type; no content or workspace
+write is added. This applies the clear-exit principle in
+[NN/G's user control and freedom heuristic](https://www.nngroup.com/articles/user-control-and-freedom/)
+to the original library while keeping result changes separate from the user's
+explicit playback choice.
+
+Local checks use the actual library controller for seven asynchronous cases
+and the existing shell test for original scope and the visible preview status.
+Independent synthetic localhost HTTPS checks reproduce the former interruption
+and verify eleven distinct native behaviors across the main nine groups and two
+focused image/download/viewer groups. These include a real explicitly played
+WAV, paging beyond forty items, peer metadata changes, search, failed connections,
+late responses, 320px layout, static HTML Escape and an actual account switch.
+Original board/history/submission rows and all 45 synthetic file hashes remain
+unchanged; only the intentionally edited peer metadata record changes in the
+main fixture. This is not new file deletion/recovery tooling, physical-device
+acceptance, public certificate verification or a deployment. The hosted branch
+remains draft, unmerged and undeployed.
+
+### Reopen an unfinished directory operation reliably (development)
+
+Closing the directory window during its initial read invalidates that result.
+If the user reopens before it finishes, one fresh read of the original scope
+follows; the window no longer remains indefinitely at its loading caption.
+Closing again cancels that requested follow-up read. No save is retried.
+
+An existing operation reopens from its retained name, kind and stable target,
+including while an explicitly submitted save awaits acknowledgement. Hidden
+late input, submit, review, discard and export actions cannot change or commit
+that retained operation. A previously submitted save still acknowledges only
+its captured review; later author input remains pending. A canceled version
+inspection cannot provide a late comparison or replace the save basis; the
+window offers an explicit new inspection. A paused original-account view keeps
+the author's operation and target without repopulating cached directory choices.
+
+This applies the same
+[user control and freedom principle](https://www.nngroup.com/articles/user-control-and-freedom/)
+to closing, resuming and abandoning a pending operation. It adds no schema,
+endpoint, automatic directory changes or new confirmation flow.
+
+Seven asynchronous cases exercise the actual controller. A synthetic localhost
+HTTPS baseline reproduces the stuck initial read. Five native groups check
+delayed real reads, exact retained author fields, two explicit real catalog saves,
+later input during acknowledgement, canceled comparison and 320px controls;
+a separate sixth group checks an actual shared-member account switch. Hidden
+late events are simulated; this does not accept hardware IME or physical devices.
+The main fixture changes only its original catalog and adds its two retained
+versions; original board/private-submission/media rows, earlier history and all
+45 media hashes remain unchanged. The account-switch fixture performs no data
+writes. The hosted branch remains draft, unmerged and undeployed.
+
+
+### Reversible media shelves (development)
+
+The original library now offers **素材库** and **已收起**. An editor can explicitly
+hide a selected registered original from the active list and restore it later.
+Each shelf has its own paginated results and literal metadata search. The
+selected verified preview stays in place when outside that shelf or query;
+archiving does not stop or replace its original audio/image/HTML source.
+
+This is organization, not deletion or storage reclamation. Original UUID,
+bytes, hash, filename, folder identity, ownership, metadata, board references,
+retained history and media-capacity accounting remain intact. Protected media,
+original downloads, static HTML and association inspection remain available to
+current readers. A new library insertion requires explicit restoration first.
+Archived originals still prevent removal of their occupied folder.
+
+A separate `archived` boolean defaults to false for all existing rows in
+migration `0006_mediaasset_archived`. The existing item PATCH accepts only
+`{"archived": true}` or `{"archived": false}` for this action, with fresh original
+account/workspace/editor checks and exact strong If-Match. It cannot combine a
+shelf change with metadata edits. Stale versions reject, unchanged exact-state
+confirmation is a no-op, and JSON-quota failure rolls back the state/version.
+Active metadata charges remain unchanged on migration; archived-state bytes
+count toward JSON quota. Media bytes and asset-count limits include both shelves.
+
+An unconfirmed action never automatically retries. Explicit refresh checks the
+same original before offering another action. Closing a pending request cannot
+reopen the library or repaint a detached source. A pending metadata draft blocks
+the shelf action with an explanation; a peer archive conflicts with its old
+save basis. Explicitly reviewed metadata saves retain the peer's shelf state.
+The author remains responsible for saving/exporting page-memory input before
+reload. No automatic file purge, orphan deletion or private-data migration exists.
+
+Full-store backup/restoration preserves archived rows and exact original bytes.
+Its existing exact-migration validation still applies: keep a pre-upgrade backup
+and its matching application version; do not treat a new-schema snapshot as an
+old-version backup, or restore an older schema directly with the new program.
+No production database is migrated by this development update.
+
+Validation: eight new backend cases cover archive/restore, stale/no-op versions,
+CSRF/identity/roles, both-shelf pagination/search, quota rollback, occupied folders
+and unchanged static HTML/original downloads. All nineteen offline backup cases
+pass with an archived original in the full-store fixture; twenty-four related
+media/search cases and the migration consistency check pass. Six async shelf
+model cases and seven affected existing library cases pass. Nine distinct native
+localhost HTTPS groups use independent synthetic data: eight original-library
+flows plus one retained-metadata/peer-archive flow, including actual playback,
+existing board references, viewer permissions, 320px controls, lost acknowledgement
+and closing a real pending response. Both native stores preserve every board,
+private submission, earlier revision and all 45 source-file hashes; only the
+explicitly selected synthetic media row changes. Local temporary-certificate
+acceptance is not public TLS or physical-device acceptance. Still draft,
+unmerged and undeployed; complete character/table realtime merging is unfinished.
+
+
+### Browse beside the original preview (development)
+
+Choosing an image in the original library previously scrolled its search and
+results above the visible window. At 1280×800 the baseline search field was at
+y≈−369 while the preview was at y≈403. The original library now places browse
+results beside the verified original on a roomy desktop. Its fixed-height
+workbench keeps the scope, directory/import controls, search and results in
+context; long details scroll independently. Narrow/short windows reflow rather
+than compressing the desktop columns. A small-window return action focuses the
+selected result, or the exact search if that original is outside current results.
+A closed or paused library cannot steal focus through a late return action.
+
+Import is an explicit native disclosure instead of taking a permanent second
+column. It retains the selected device file and stable destination when folded
+or when the original library is closed and reopened. The collapsed caption shows
+the selected filename. Read-only members get the browsing workspace and their
+protected preview, without an unusable import panel. No upload is sent merely
+by choosing, dropping, unfolding or reopening a file.
+
+File drops over the dialog prevent navigation away from the author's page.
+A single original is selected locally and opens the importer; ambiguous multiple
+files retain the existing selection. A file dropped during a pending list read
+is retained, including its actual file-input entry, while upload remains disabled
+until the read completes. Closed/paused/read-only/pending-upload drop paths cannot
+replace the retained selection or send a file. Source nodes, scope, account and
+workspace do not move with the visual layout. A different selected source starts
+its detail scroller at the beginning; the same mounted original keeps its place.
+
+This uses the grouping, responsive reflow and list/detail guidance in
+[Microsoft Fluent's layout documentation](https://fluent2.microsoft.design/layout).
+Keyboard return and sticky-heading checks follow the intent of
+[WCAG focus-not-obscured guidance](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
+These are design criteria, not a claim of complete WCAG conformance.
+
+Validation: seven distinct original-library browser flows plus focused final
+layout checks use isolated synthetic localhost HTTPS data. Before/after images,
+1280px browsing, keyboard disclosure, exact file bytes and destination, 375/320px
+return/search, mounted-image continuity, viewer-specific media and close/reenter
+passed. File-drop events are simulated in the real browser; actual OS drag,
+physical devices and hardware IME are not accepted. Every fixture performs zero
+data writes and preserves all original boards/private submissions/retained
+revisions/registered metadata and all45 source-file hashes. Four new async
+navigation/drop guard cases, thirteen affected library/shelf cases and twelve
+portal cases pass. No backend/schema/endpoint or desktop program change is added.
+The hosted branch remains draft, unmerged and undeployed.
+
+
+### Finish one intentional import (development)
+
+Repeating the unchanged upload control used to send the same chosen File twice.
+After a verified upload reply, the original importer now says **已上传** and disables
+that choice's upload action, including late/repeated callbacks and destination
+changes. A newly selected file starts a new explicit action. This is a page-local
+completion guard, not server deduplication, idempotent upload replay or a promise
+that intentionally reselected identical files cannot be uploaded again.
+
+**清除文件选择** releases only the page's chosen File and native file-input entry.
+It preserves the stable destination, current source preview, device original,
+registered files and existing board references. It cannot clear or replace a
+pending upload. A rejected/unconfirmed upload retains its selection. Clearing an
+uncertain choice explicitly says the prior server result is still unconfirmed;
+it neither deletes that result nor retries it. Original-account/workspace checks
+and the existing explicit uncertain-retry confirmation remain in force.
+
+An unsent or unconfirmed file now participates in the existing before-unload
+warning. Canceling that native prompt keeps its bytes and destination. Confirmed
+or explicitly cleared selections do not create a pending-file warning. These
+choices and confirmations live only in this page, not durable browser storage or
+cross-device recovery; browser warnings are not a backup or a force-close guard.
+
+A verified reply can complete its original file choice after closing the library,
+but cannot refresh/reselect over a newer library view or another mounted source.
+The author's original listening position stays in place. Long filenames no longer
+consume the scope controls' desktop column: the folded filename stays compact,
+with its literal full name available on hover and in the expanded importer.
+Import actions retain a 44px minimum height, including at 320px.
+
+Validation: six new actual-controller cases and seventeen affected library cases,
+plus twelve portal checks, pass locally. Native synthetic localhost HTTPS checks
+cover seven distinct import flows across a six-flow run and a focused final
+compact-window run. A separate final desktop geometry check verifies the long-name
+fix; these are not one full seven-flow rerun. The six-flow run stopped at its later
+new button-height assertion, which was corrected to 44px and checked separately.
+The baseline proves two repeated posts from the same unchanged choice. The final
+compact fixture makes exactly one explicit upload, verifies its exact source hash
+and original account/folder, and preserves all 45 existing source hashes, boards,
+revisions and private submissions. The final header fixture makes zero data writes.
+Real post-commit acknowledgements are held on the temporary TLS socket, not mocked
+success replies. Public TLS, hardware IME, physical devices, server deduplication,
+complete realtime merging and a deployed hosted service remain unaccepted.
+
+
+### Named local reading combinations (development)
+
+The original paper-reading dialog now starts from four combinations: original
+adaptive reading, clear spatial reading, book-style paper, and monospaced spatial
+reading. Each combines one of the existing four device font choices with the
+existing adaptive-name/original-paper choice. The original default remains the
+same. Individual font and distance controls, opening-value revert, caret/camera
+return and the original author-owned text/manual geometry remain in place.
+
+The native selector groups ready combinations and the reader's own named choices.
+A folded management area can save a new combination, explicitly update/rename the
+selected saved original, or remove it and undo the most recent removal. It holds
+up to twelve names of one to forty characters; names render literally. Duplicate
+names never silently replace another saved choice. Updates do not make a second
+copy, and exact unchanged confirmation preserves the saved version. Removal and
+its undo do not apply a different reading combination. Opening-value revert
+restores reading preferences only; it does not roll back explicit catalog saves.
+
+The bounded catalog has its own versioned localStorage key bound to the page's
+original account and workspace, separate from the existing reading-preference
+key and all authored documents. All application catalog writers use the same
+browser Web Lock, then read the latest catalog and compare the exact selected
+version before replacing/removing it. Distinct simultaneous tab saves retain both
+new names. Stale updates preserve the typed name and request explicit reselection;
+undo refuses an occupied identity/name and retains unrelated later changes.
+
+Queued actions capture their original name/font/mode. Closing or losing original
+read access before the lock is acquired cancels that write; later typed input
+stays in the page. Malformed/refused storage leaves existing records intact and
+reports an unconfirmed save. A browser without Web Locks keeps ready combinations
+and local reading adjustment usable, with named mutations disabled. These are
+browser preferences, not server-owned user data, encrypted storage, cross-device
+sync or a backup. A failed read never resets the named catalog automatically.
+
+Native synthetic localhost HTTPS checks cover eleven distinct groups across a
+six-group run, two focused completion groups, two storage/feature-refusal groups
+and one focused later-input confirmation, with additional feedback geometry. The first run stopped at a later new 320px button-width assertion; its six
+completed groups are retained rather than described as one ten-group rerun. The
+44px minimum width was fixed. Original caret return is checked after the native
+close event settles, without weakening the focus/selection assertion. Actual
+shared browser locks, two real tabs, literal names/reload, update/no-op, removal/
+undo, later input/canceled queued write, native name-field Undo, 320/375px controls,
+original workspace and actual changed-account isolation all pass. Simulated
+storage denial/absent locks are labeled test conditions, not physical-device or
+hardware IME acceptance. The completed focused fixtures perform zero workspace
+API writes and preserve all boards/revisions/private submissions/registered
+metadata and all 45 original source hashes. Six new store cases, seven related
+reading models and twelve portal checks pass. No backend schema/endpoint, desktop
+program or private data changes are included; hosted remains draft and undeployed.
+
+Named confirmation feedback is placed inside the expanded management area beside
+its actions, with scroll clearance above the sticky footer. Successful and refused
+confirmations remain visible at 320/375px. A saved snapshot followed by later
+name/font input explicitly identifies the earlier saved name and says the later
+adjustments remain unsaved; continued typing clears the earlier confirmation.
+A real held browser lock verifies this distinction without replacing the later
+name or current font. No permission/API boundary or stored document is changed.
+
+
+## Reviewing recovered input before whole-board replacement (development)
+
+The original editor recovery dialog now compares a selected complete input with
+this page before application. Counts distinguish added, changed, removed and
+unchanged nodes; a literal list identifies up to twelve affected originals and
+reports any remainder. Name, relations, order, saved-view and other board-field
+changes are identified separately. The selected source name stays with the
+comparison in small windows. Original excerpts help identify copies of the same
+board; complete raw input is folded behind an explicit disclosure and remains
+exactly exportable. The summary does not generate or merge any authored text.
+
+The review captures exact current and source raw strings. Application requires
+its own existing confirmation and a fresh original-account/workspace permission
+check. If a canonical result arrives or current input changes after review,
+the first action refreshes the comparison instead of applying it. Closing or
+reopening cancels pending local application, and detached old list callbacks
+cannot select or export into the new dialog. A confirmed application replaces
+the complete page input through the original Undo/save path; it keeps the local
+camera, supports own Undo/Redo and retains ordinary server-version/quota rules.
+It does not restart a stopped conflict session or automatically resolve overlaps.
+
+A failed fresh check retains both inputs and provides nearby visible feedback.
+An actual changed login or downgraded editor cannot apply an old selection.
+Cancel can return to the same unchanged, still-mounted original editor field,
+selection, scroll and camera; it never replays old field text. Application keeps
+its literal source and returns focus to the canvas. No local copy, server history
+or registered original file is removed by viewing or applying a copy.
+
+This layout applies [NN/g progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/)
+to keep the decision scope visible while deferring complete data, and uses the
+[W3C modal dialog guidance](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+for labeled content, explicit exit and continuation of the editing workflow.
+These are implementation choices; no accessibility certification or physical
+assistive-device acceptance is claimed. Model checks:
+`node tests/recovery-review.mjs`; explicit assets and fixed shell scope:
+`python manage.py test core.test_portal --settings=service.test_settings`.
+
+Ten distinct native behavior groups pass across independent localhost HTTPS
+fixtures, with one overlapping final320px/application delta: the first seven
+flows, three focused completion flows and a final keyboard-only flow. The first
+run stopped at a test-fixture login mistake before its final database audit;
+those passed operations are retained, not described as one uninterrupted suite.
+The focused stores verify exact application/Undo/Redo, real changed login and
+actual editor-to-viewer downgrade, readable320px feedback, native keyboard
+summary focus/raw disclosure/Escape return, untouched unrelated data/history and
+all45 registered source hashes. Late detached events and held reads are explicit
+test conditions; physical devices/hardware IME, external TLS and deployment are
+still unaccepted. Eight new model cases and twelve portal cases pass.
+
+### Recover a failed library preview in place (development)
+
+A real interrupted original WAV previously left a failed native player. Its
+error appeared above the list, outside the narrow preview, and selecting the
+same original retained that unusable player. Preview read, HTML-plan and media
+load failures now show a nearby explanation with **重新核对预览**. Rechecking is
+explicit and reads the same original account/workspace again; it never retries
+an upload, changes the board or replaces another selection. Original download
+and the dialog exit remain available under their existing access checks.
+
+Audio/video retry keeps the last finite listening position only if a fresh read
+confirms the same original identity, bytes, size, type and account-bound URL.
+An unavailable metadata recheck retains that position for another manual try.
+Playback remains paused. Different bytes start from their own beginning. Old
+player errors, detached retry buttons, closed dialogs and late responses cannot
+replace a newer preview or resume an account-paused page. The failure panel uses
+the existing details column, a local status message and a minimum44px action.
+
+Validation: five new cases in `tests/library-selection.mjs`, the affected
+navigation/import controllers and twelve portal cases. Seven distinct native
+Chromium behaviors pass across independent synthetic localhost HTTPS fixtures:
+four first flows, two focused completion flows and one final list-recovery
+delta. An interrupted list read disables the retained retry; a fresh successful
+list check makes that same original action usable again. The first run stopped when
+its HTML-exit fixture pressed Escape before the child document loaded; it has
+no final database audit. The focused completion and delta stores verify all workspace
+rows and45 source hashes unchanged, actual viewer recovery and changed login,
+plus inert HTML recheck and Escape exit. The320px failure message and button were
+visually checked. Media-error dispatch, precise playhead setup and detached
+callbacks are simulated; original media requests and interrupted transfers use
+real HTTPS. No external TLS, hardware/device or deployment acceptance is added.
+
+### Recover original canvas media without duplicate time controls (development)
+
+The separate canvas card also had a real interrupted-WAV failure: it removed
+its opening action after metadata succeeded, leaving a failed player with no
+usable re-open control. That original card now offers a local explanation and
+explicit **重新核对媒体**. Rechecking preserves its authored geometry/title and
+camera. Only the same freshly verified original bytes can inherit the previous
+finite listening position, including after a failed metadata recheck; a new
+player remains paused. No failed read automatically sends another request.
+
+Replacing a player explicitly detaches its time-cue listeners, disabled old
+capture action, status and heading wrapper before attaching the new player.
+Repeated recovery leaves one cue action and heading. A capture awaiting source
+verification cannot create a blank note after its original player was removed.
+Detached re-open/error callbacks, removed source nodes, changed login and late
+reads cannot revive an old card. Reader recovery uses their original scope and
+never enables note creation. Existing protected download remains available after
+a verified media-load failure; unconfirmed reads do not invent a download target.
+
+Five new model cases execute the real canvas-card function together with the
+actual cue controller (`tests/canvas-media-recovery.mjs`); twelve portal cases
+pass. Five distinct native behaviors pass across independent synthetic HTTPS
+fixtures: first recovery, repeated three-round recovery, then three focused
+completion cases. The first fixture sampled a pending retry before the response;
+the second had a test-route release/unregister race after repeated recovery
+passed. Those partial stores have no final preservation audit. The final focused
+store verifies pending-capture cancellation,590px geometry, actual viewer/login
+change and all workspace rows/45 original hashes unchanged. Precise seek/error
+dispatch and old callbacks are simulated; interrupted media and held metadata
+use real HTTPS. No private desktop installation, external TLS, physical-device
+or deployment acceptance is added.
+
+### Find another saved board without leaving the original editor (development)
+
+The existing saved-workspace text search was available only in the portal, so
+finding another board required leaving the mounted editor. **查找** and
+Ctrl/Command+K now open a scoped dialog in that original editor. The same control
+moves beside the existing history/media controls in a narrow inspector. There
+is no duplicate desktop-global-search implementation or changed portal search.
+
+The query stays in this page's memory. Searches read saved names, notes, tables
+and edge text through the existing bounded workspace API; the scope excludes
+history, trash, recovery input and original file contents. Results retain literal
+author text and identify the source context. A limited scan never implies an
+absent board. Selection opens a blank tab synchronously, verifies the original
+account/workspace again and then uses a validated fixed-workspace board key.
+Changing a query, closing or losing access cancels the pending choice. A tab
+that the user has already used for another page is neither replaced nor closed.
+
+The original board/field remains mounted. Escape or explicit close returns to
+the same unchanged field, caret/range, scroll and camera. Removed or changed
+fields never receive replayed text or an old selection. A native keyboard check
+exposed Tab leaving the new modal; its local focus cycle was corrected. This
+uses the [W3C modal-dialog guidance](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+for initial focus, contained keyboard navigation, explicit exit and workflow
+return; it is not assistive-device certification. Long literal names wrap at
+320px, and readonly users can find/open their permitted originals.
+
+Eight controller/protocol model cases and13 portal plus2 build-contract cases
+pass. Ten distinct original-page native behaviors pass across independent
+synthetic HTTPS fixtures (1+3+4+2), with workspace rows and45 source hashes
+verified even after partial fixture exits. Coverage includes keyboard/pointer
+return, late/closed queries, real disconnect, wrong-scope reply refusal,320px
+literal long names, table cells, pending blank-tab cancellation, actual viewer
+and changed login, and a user-reused tab. DOM field-change, malformed/limited
+responses and held replies are explicit test conditions; no physical-device,
+hardware-IME, external-TLS or launch acceptance is claimed. The build manifest
+now explicitly contains116 runtime files, including the new finder module.
+
+### Separated original lines in one note (development)
+
+Two authors editing one note no longer always need a recovery choice just because
+both changed its body. A narrow extension accepts exactly one changed existing
+line per author when the lines are separated by an unchanged line and each
+changed original/result line is unique and nonblank. It preserves literal text,
+spaces, Unicode, final newline and the original LF/CRLF endings. All three
+versions must keep the same physical line count and unchanged supplementary
+text/format; the range is bounded to64KiB UTF-8 and2048 line parts. Unknown
+extensions, other node types, same/adjacent lines, repeated/blank lines, line
+insertions/removals and ambiguous changes retain the existing recovery flow.
+
+The server uses its retained original revision and existing current membership,
+fixed account/workspace, validation, quota and transaction checks. Browser undo
+reverses only the author's matching operation while retaining the peer's line;
+later pending typing rebases against the submitted snapshot and checked server
+result. An overlap refuses before adopting input or popping history. This is a
+limited original-value reconciliation improvement, not generated writing,
+character-level realtime editing or a deployment claim.
+
+### Small-window inspector actions (development)
+
+At320px, the original writing inspector squeezed **素材** to22px while **查找**
+extended beyond its edge. Its four existing actions now share equal columns,
+keeping their full labels, at least44px targets and the same44px row height.
+Nothing is added to the writing panel and the original controls still return
+to the canvas toolbar in a wide window.
+
+An isolated original-page HTTPS baseline reproduces the clipping. Three native
+checks cover320/375/540/680px geometry, pointer media/native-keyboard finder
+entry and exit, and narrow/wide transitions with a selected stable table. All
+baseline and final workspace rows, media metadata/reservations and45 original
+file hashes remain unchanged, with no scoped mutation requests. These are
+browser viewport checks, not physical-device or assistive-device acceptance.
+
+### Readonly library access in a narrow inspector (development)
+
+A readonly member could open the library in a wide window, but its same **素材**
+button became disabled after moving into a narrow selected-note inspector and
+receiving the current role. The generic inspector write guard no longer
+overrides that button's existing library read/paused state. The library still
+owns its current-account/workspace checks; upload, insertion, shelving and board
+editing remain unavailable to readonly members.
+
+A real-member HTTPS baseline reproduces the mismatch. Three affected native
+flows verify320px original image preview/exact download, an editor's actual
+change to readonly while retaining keyboard library access, and session expiry
+pausing the original page and disabling media access. Baseline/final workspace
+document rows and45 source hashes remain unchanged, with zero scoped mutation
+requests. The final fixture separately verifies its sole expected synthetic
+membership downgrade. No server permission rule or deployment status changes.
+
+### Reopening a loading original's metadata (development)
+
+Closing an initial metadata read and immediately choosing **编辑说明与位置**
+again left its dialog closed until the earlier request finished. An explicit
+reopen now shows the loading dialog, invalidates the canceled read and queues a
+fresh check of the latest explicitly chosen original. **继续未完成的素材说明**
+keeps the same original when no new selection is supplied. Closing again or
+losing read access cancels the queued choice; a late reply cannot reopen it.
+An existing author's draft or in-flight save retains its original target and
+later input, and readonly forms stay readonly.
+
+Six new real-controller cases cover those asynchronous boundaries. An actual
+HTTPS baseline reproduces the inert action; four native320px flows verify same
+original, another registered original, close-again cancellation and an actual
+readonly member's resume. Baseline/final workspace rows, membership rows and45
+original file hashes are unchanged, with zero scoped mutation requests. Held
+requests delay real protected replies; they do not fabricate metadata or save.
+
+
+### Continue writing after the original library (development)
+
+Closing the original media library now returns to the unchanged original
+inspector field and its exact selection direction, field/inspector scrolling,
+table grid scrolling and current camera. The existing writing-place capture is
+reused before the Media button takes focus. Title, body and stable table-cell
+fields remain mounted; the return checks the original board/node object,
+selection, field and literal value. No captured text is replayed. A different
+selection, replaced field, changed value or another open dialog prevents this
+return, including when inserting an original selects its new media card.
+
+Explicit close, Escape and the native dialog close share one completion. A late
+close event cannot restore an older field or disturb a later dialog. Reopening
+captures the later writing place afresh. Browsing, existing permission controls,
+retained import/metadata input and media stopping keep their original behavior.
+
+Validation uses one native synthetic HTTPS baseline, then four new behavior
+groups split across two initial checks and two focused remaining checks. The
+first pair verifies pointer/title and320px keyboard/body exact return. The
+remaining pair verifies stable table-cell return after nested original-image
+metadata, plus changed-field refusal and focus in a subsequent real Finder. The
+changed-field guard is simulated in the real DOM; it is not hardware IME or
+physical-device acceptance. The initial table check sampled before the existing
+responsive camera adjustment settled; only that fixture timing was corrected
+and the two remaining checks continued. All baseline/partial/final stores retain
+all document/membership/media/reservation rows and45 original-file hashes,
+with zero scoped writes. Three new actual-controller lifecycle checks and the
+four affected library/shelf model files pass. No schema, endpoint, new controls
+or private desktop installation is included. Still unmerged and undeployed.
+
+
+### Preserve an association tab already reused by its author (development)
+
+The original library association action opens one blank tab synchronously, then
+rechecks the fixed account/workspace and original asset. It previously replaced
+that tab even if its author had meanwhile navigated it elsewhere; errors could
+also close that reused tab. The pending action now owns only its untouched
+`about:blank` tab. Reused or cross-origin tabs are left alone, and a closed tab is
+not reopened. Duplicate clicks share the same pending attempt. Closing/changing
+the original library selection cancels the attempt and closes only its unused
+blank; late replies cannot navigate an old or detached association link.
+
+An untouched tab still opens the exact associated board after the original
+protected reads. Popup blocking reports a retry choice without performing those
+reads. The original image preview, writing-place return, author input and fixed
+workspace remain in their existing page. No backend/permission/endpoint or
+private desktop installation changes are included.
+
+Validation: one native synthetic HTTPS baseline reproduced overwriting a real
+tab reused for account home. Three actual browser flows pass for preserved reused
+tab,320px duplicate clicks/library-close cancellation, and normal exact-board
+opening. Protected responses are real, delayed by the fixture rather than
+fabricated. Baseline/final all document/membership/media/reservation rows and45
+original-file hashes remain unchanged, with zero scoped mutations. Five new
+actual-controller groups cover successful/failed delayed reads, duplicate/closed
+targets, blocked/detached/paused actions and exact current navigation. The first
+model draft used a wrong generation constant and did not exercise the intended
+callback; it was corrected to invoke the actual registered link handler before
+accepting the corrected cases. An additional refresh/replacement case verifies
+that an old completion cannot release a newer pending attempt. The four affected library/shelf model files pass.
+Local browser checks are not hardware/physical-device/public TLS acceptance.
+The hosted branch remains unmerged and undeployed.
+
+
+### Original workbench integration
+
+The authenticated service can serve the actual root `shell.html`, `index.html` and their reviewed JavaScript/CSS, including the existing tabs, split panes, canvas, note/table editing, appearance controls and reusable content library. Integration reuses that original product rather than replacing it with the simplified editor; subsequent shared interface improvements live in the original modules. `CREATIVE_BOARD_HOSTED_NATIVE_WORKBENCH=1` selects it for signed-in home/workspace/board navigation; `/spaces` and `/w/<workspace>/manage/` retain account, workspace and membership management. Leave the flag unset to retain the previous editor while reviewing an independent deployment.
+
+Each original pane is bound to the account and workspace that opened it. Its legacy API requests use protected workspace URLs, CSRF and the original account header; media and inert HTML previews carry the original account. Preferences/session state and original coordination channels are separated by account/workspace. Changed-login pages preserve inputs and refuse writes. Server membership and exact-version checks remain authoritative. There is no desktop global-root adapter or filesystem-path file service.
+
+The original Open in new window action also retains the exact account, workspace and board after flushing the source pane. It does not route through personal home, where an identical board key could refer to different content. An account change before that window opens is refused instead of rebinding it to a newer login. This is navigation continuity, not desktop-content migration or automatic cross-device preference synchronization.
+
+The native library facade combines registered cloud file metadata with literal reusable original note/table bundles. A whole-catalog precondition covers catalog and file versions; metadata/catalog writes and quota checks are atomic. Client paths cannot create file reads or replace registered originals. Content snapshots and registered originals are preserved. Native search, board deletion/restoration, retained-version reads and idempotent checks of automatic recovery records use the same existing scoped store. Interactive authored HTML is rendered as an inert static preview, with originals available for download.
+
+This integration does not promise complete desktop endpoint parity: features are enabled only after their exact release is accepted, and no endpoint falls back to desktop files. Shared edits retain the existing conditional saves/conflict protection; no character-level real-time merge is claimed. Verify each deployment in an independent synthetic store before enabling the flag for existing users. Accounts, documents, originals and signing keys must not be reinitialized or automatically migrated from a private desktop workspace.
+
+The shared original shell can present one active working surface when its usable
+width cannot fit both panes, retaining logical sides, tabs and the chosen split
+ratio for a wider window. On narrow screens the shared explorer uses its own
+full-width view and the existing sidebar action becomes a return arrow. Crossing
+the breakpoint retains whichever writing field or library search was active;
+it does not replace the document or resize authored cards. Implicit library
+insertion centers the new bounds, while explicit drop coordinates remain literal.
+These are source capabilities requiring exact-release deployment acceptance,
+not evidence of physical-phone testing.
+
+### Original workbench device reception
+
+The original workbench can periodically check its protected live-board endpoint and receive a complete update while its own content is saved and idle. It checks the original account, current workspace access, response scope and version, then rechecks that no typing, save, gesture, dialog or import began while waiting. Active input and composition defer reception. An interrupted connection preserves the current document and resumes checking; it does not establish logout or lost permission.
+
+The device camera stays in this browser's existing account/workspace namespace. Original pan/zoom changes no longer send an otherwise unchanged whole board to the cloud, which could conflict with another device while a writing field was focused. Authored edits retain the original conditional save and conflict recovery. Camera preferences are not cross-device preferences or desktop-data migration.
+
+Before adopting peer content, all original full-board Undo/Redo snapshots are conservatively rebased within bounded work. Independent changes remain in those snapshots; overlapping, structural or unsupported history stays untouched for explicit review. The original header shows a short accessible status instead of covering the writing field with a new overlay. Review can keep the current state, export it or explicitly reload with clear notice that local Undo/Redo will reset. Current board and retained node/edge objects keep their identity so existing native field handlers and spatial return contexts remain attached to the live document.
+
+The original More menu's device-updates action can pause or resume automatic reception, or check once while paused. Pausing invalidates in-flight adoption without stopping the author's own original saving. This preference belongs only to this browser's existing account/workspace namespace; another device keeps its own choice. Hidden original board tabs wait until visible, and existing save failures in other tabs retain priority in the original status control.
+
+Deployment availability must be checked against the exact release and server acceptance; having this source does not establish production availability. This is periodic reception of checked complete versions, not character-level realtime collaboration, automatic merging of simultaneous native saves, cross-device appearance synchronization or uploading a private desktop workspace.
+
+### Original workbench folder recovery
+
+The original folder Delete and recovery controls have a protected hosted adapter. A short-lived signed server plan binds the original account, workspace, catalog version and exact affected live-board versions. Any intervening board save, move or creation refuses the whole deletion. One transaction retains the removed hierarchy and exact deleted-board versions, records original history and removes the active entries. Empty folders also retain a recovery record. Recovery merges the retained hierarchy into the current catalog without replacing unrelated work and refuses identifier collisions, missing parents or changed members before restoring anything. Quota or mid-operation failures roll back the whole transaction. Individual permanent removal cannot break an active folder batch; restore that batch before handling its boards separately.
+
+Migration `0007_native_folder_trash` adds a retained recovery journal; its payload counts against workspace quota. Current-store backups include it, and removing its schema is refused while a retained batch exists. Upgrade only while the service is stopped, after verifying a full backup with the previous matching program. Backups require the matching schema/program: restore an older backup with its matching release into an independent empty store, then migrate that recovered store. Do not use an older whole-image rollback blindly against the new schema.
+
+New folder deletion is disabled unless the app environment explicitly sets `CREATIVE_BOARD_HOSTED_NATIVE_FOLDER_DELETE=1`. Enable it only after migration and exact-release independent server acceptance. Setting it to `0` stops new folder deletions while keeping the migration-aware backend, existing records and restoration available. This is the operation-specific exit; it neither removes recovery data nor runs a schema downgrade.
+
+The shared original shell also keeps Help, Search and Recovery usable when its requested board failed to load, even before the explorer exists. These actions use the original mounted pane's recovery controls, keep canvas editing disabled and do not invent a replacement document. Source availability alone does not mean these changes have been installed or deployed.
+
+
+### Original research material (candidate; deployment acceptance required)
+
+The original research form prepares immutable task snapshots in a separate scoped record, not the authored boards/library. The server verifies the original source version and exact selected nodes or native library entries, reconstructs only their internal edges/folder ancestry, and forces the existing research/reference-only policy. It never calls an external AI. A source change refuses preparation. The original prepared-material list can reopen a previous question and its original preview after reload or from another signed-in device; it does not replace the current board.
+
+Optional PNGs come from the original reviewed renderer and selected-media capture. Bounded original bytes, metadata and snapshots are stored transactionally in the database and charged to workspace quota, so a failed quota check leaves no partial task/images. Task attachments and downloads retain the original account/workspace checks. Only registered IDs in the selected context can produce file excerpts; client paths and URLs never authorize file reads. Plaintext excerpts are bounded, HTML is treated as inert text, and sounds/video remain explicitly untranscribed/partial.
+
+Sourced replies require a task in the same workspace, bounded source fields and literal http(s) links. They persist separately without writing authored content; the original viewer labels outside claims as unverified. Legacy proposal listing/reading is scoped and read-only; existing migrated records, if any, may be read, but proposal/status write-back stays refused. No private desktop records are imported automatically.
+
+Migration0008 adds the immutable research table. Matching-schema full backups include tasks, sources and their exact image bytes. A schema downgrade refuses to drop retained research. New task/source writes default to disabled unless `CREATIVE_BOARD_HOSTED_NATIVE_RESEARCH=1`; setting it to0 preserves reads, downloads and existing references on the same migration-aware backend. Enable only after independent migration, permissions, original browser, backup/recovery and exact release acceptance. Source code or development checks alone do not establish that a deployment has this feature.
+# 压缩传输与版本核对
+
+压缩代理可以把 HTTP 表示层的 ETag 改为弱标记。数据回复另带 `X-Creative-Revision`，浏览器使用它核对白板、资料与账号操作的应用版本，避免将压缩标记当作保存前版本。压缩、权限检查和条件保存都保留。
+
+已经打开的旧工作台可在明确开启 `CREATIVE_BOARD_HOSTED_LEGACY_COMPRESSED_REVISION=1` 后接续保存。此兼容默认关闭，只识别 `W/` 包住的原64位小写十六进制版本，仍逐项验证原账号、工作区、当前版本和配额；不接受通配符、列表或任意弱实体标记。这个开关用于旧页面过渡，不是通用的 HTTP 弱 If-Match 支持。停用不改变已有内容或数据库结构。
+
+# 邮箱注册与登录入口
+
+登录入口使用单纸面布局。未登录页面只载入入口需要的两份样式和一份脚本；账号管理等模块在登录后的页面载入。原工作台仍使用原编辑器。
+
+邮箱验证码注册默认为关闭。启用前须配置自己的 SMTP 发件服务、实际验证收信，并保留原账号。设置 `CREATIVE_BOARD_EMAIL_REGISTRATION=1`、`CREATIVE_BOARD_MAIL_HOST`、`CREATIVE_BOARD_MAIL_PORT`（默认465）、`CREATIVE_BOARD_MAIL_TLS`（`ssl` 或 `starttls`）、`CREATIVE_BOARD_MAIL_USER` 和可选 `CREATIVE_BOARD_MAIL_FROM`。密码使用只读挂载的秘密文件，再设置 `CREATIVE_BOARD_MAIL_PASSWORD_FILE` 为容器内路径；不要放入源码、镜像、日志或公开配置。Compose 操作覆盖文件须显式给应用挂载这份秘密文件。关闭注册开关不影响已有账号登录。
+
+验证码仅发往申请邮箱，10分钟有效，与申请浏览器和邮箱绑定。服务端保存摘要、限制发送及尝试次数，验证成功后原子创建账号及私有工作区；投递失败不会创建账号或假报已发送。邀请注册保持兼容。公开入口尚未配置发件服务时会如实提示未开通。
+
+保存遇到网络/暂时服务故障后会保留原输入、显示持续原因并有限频率重试；20秒未回复会结束等待。重试先核对上次尝试，避免已写入但回复丢失时产生假冲突；其他设备有不同更新时停下核对，不自动覆盖。可手动重试或导出当前内容。程序JS/CSS使用私有缓存并逐次重新验证；工作台程序仍先检查当前账号和权限，HTML及数据接口不缓存。
+

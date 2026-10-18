@@ -1,0 +1,34 @@
+<dialog id="workspaceArchiveDialog" aria-labelledby="archiveHeading">
+  <header class="archive-heading"><div><span class="eyebrow">原工作区 · 服务器保存的记录</span><h2 id="archiveHeading">留住过程，也看清空间。</h2></div><button id="closeArchive" data-archive-safe aria-label="关闭版本与空间">×</button></header>
+  <p class="archive-caption">查看与导出不会改变正在编辑的白板。回收站恢复前请核对完整内容；记录不会自动合并或应用到当前页面。</p>
+  <nav class="archive-views" aria-label="选择工作区记录"><button data-archive-view="history" aria-pressed="true">保留版本</button><button data-archive-view="conflicts" aria-pressed="false">我的未合入输入</button><button data-archive-view="trash" aria-pressed="false">回收站</button><button data-archive-view="quota" aria-pressed="false">容量</button></nav>
+  <div class="archive-toolbar"><p id="archiveState" role="status" aria-live="polite"></p><button id="refreshArchive">刷新记录</button></div>
+  <a id="archiveAfterAction" target="_blank" rel="noopener" hidden>在新页面核对这张白板 ↗</a>
+  <div id="archiveHistorySelectors" class="archive-history-selectors"><label>保存内容<select id="archiveKind"><option value="board">白板</option><option value="folders">分类目录</option><option value="library">资料库目录</option></select></label><label id="archiveBoardLabel">选择原白板<select id="archiveBoard"><option value="">请选择白板</option></select></label></div>
+  <p id="archiveCatalogCaption" class="archive-caption" hidden>目录记录仅供查看、导出和核对旧版本占用。清理保留当前目录、分类编号、白板及素材原文件；不会取回或替换目录。</p>
+  <section id="archiveCapacity" hidden></section>
+  <div id="archiveRecordLayout" class="archive-record-layout"><section aria-label="保存记录列表"><div id="archiveRecords"></div></section><section class="archive-preview">
+    <p id="archiveEmpty">选择一份记录，先查看内容。</p>
+    <div id="archiveSelected" hidden><h3 id="archiveTitle"></h3><p id="archiveInfo" class="archive-caption"></p><p id="archiveExcerptLabel" class="archive-caption">便签内容节选 · 只读</p><pre id="archiveExcerpt"></pre>
+      <details id="archiveRawDetails"><summary>查看完整保存内容</summary><label>完整原文<textarea id="archiveRaw" readonly rows="10" spellcheck="false"></textarea></label></details>
+      <div class="archive-actions"><button id="exportArchive" data-archive-safe>导出这份内容</button><a id="openArchiveBoard" target="_blank" rel="noopener">在新页面检查原白板 ↗</a></div>
+      <section id="archiveRestoreReview" hidden><h4>恢复这张原白板</h4><p>恢复已核对的回收站内容，原编号和保留版本不变。你当前页面未保存的输入不会被替换。提交后关闭此页不会撤回恢复请求，请刷新核对结果。</p><label class="archive-confirm"><input id="ackArchiveRestore" type="checkbox">我已核对这张白板的内容，同意从回收站恢复。</label><button id="restoreArchive" disabled>确认恢复这张白板</button><p id="archiveReadOnly" class="archive-caption" hidden>当前只有阅读权限，可以查看和导出，不能恢复。</p></section>
+      <section id="archiveConflictRemoval" class="archive-cleanup-entry" hidden aria-labelledby="conflictRemovalHeading"><h4 id="conflictRemovalHeading">整理这份服务器提交</h4><p class="archive-caption">可先导出留档，再决定是否移除这一份未合入记录。移除后不能撤销；当前白板、保留版本、素材、其他人的记录和你正在写的内容都保留。</p><label class="archive-confirm"><input id="ackConflictRemoval" type="checkbox">我已核对这份提交，确认不再需要服务器保留它。</label><div class="archive-actions"><button id="cancelConflictRemoval">保留这份记录</button><button id="removeConflict" disabled>移除这份服务器记录</button></div><p id="conflictRemovalReadOnly" class="archive-caption" hidden>当前只有阅读权限，可以查看和导出，不能移除。</p><p class="archive-caption">关闭可取消尚未发出的操作。已发出的操作无法撤回；结果未确认时请刷新检查，不会自动重试。</p></section>
+      <section id="archiveVersionEntry" class="archive-cleanup-entry" hidden><h4>取回这个保存版本</h4><p class="archive-caption">先对照现在与所选版本，再决定。取回会在原白板新增一条保存记录，现有保留版本、素材和未合入输入保留；正在编辑的页面不会被替换。</p><button id="prepareVersionApplication">检查取回范围</button><p id="versionApplicationReadOnly" class="archive-caption" hidden>当前只有阅读权限，可以查看和导出，不能取回。</p>
+        <div id="versionApplicationReview" hidden aria-labelledby="versionApplicationHeading"><h4 id="versionApplicationHeading">先核对这次变化</h4><div class="version-comparison"><section><span>现在保存的</span><strong id="applicationCurrentName"></strong><small id="applicationCurrentVersion"></small><pre id="applicationCurrentExcerpt" aria-label="现在保存的便签节选"></pre><details><summary>查看现在的完整内容</summary><textarea id="applicationCurrentRaw" readonly rows="7" spellcheck="false" aria-label="现在保存的完整内容"></textarea></details></section><section><span>将取回的</span><strong id="applicationSourceName"></strong><small id="applicationSourceVersion"></small><pre id="applicationSourceExcerpt" aria-label="将取回的便签节选"></pre><details><summary>查看将取回的完整内容</summary><textarea id="applicationSourceRaw" readonly rows="7" spellcheck="false" aria-label="将取回的完整内容"></textarea></details></section></div><p id="applicationAvailability" role="status" class="archive-caption"></p><label class="archive-confirm"><input id="ackVersionApplication" type="checkbox"><span>我已核对，确认把这个版本作为原白板现在保存的内容。</span></label><div class="archive-actions"><button id="cancelVersionApplication">保留现在的内容</button><button id="confirmVersionApplication" disabled>确认取回这个版本</button></div><p class="archive-caption">关闭可取消尚未发出的操作。保存已发出后无法因关闭撤回；结果未确认时先刷新检查。</p></div>
+      </section>
+      <section id="archiveCleanupEntry" class="archive-cleanup-entry" hidden><h4 id="archiveCleanupLabel">检查旧版本占用</h4><p class="archive-caption">先列出具体范围，再决定是否永久移除。只有工作区所有者可以操作。</p><label id="archiveKeepLabel">保留最新版本<select id="archiveKeep"></select></label><button id="previewArchiveCleanup">检查清理范围</button></section>
+    </div>
+  </section></div>
+</dialog>
+<dialog id="archiveCleanupDialog" role="alertdialog" aria-labelledby="cleanupHeading" aria-describedby="cleanupWarning">
+  <header class="archive-heading"><div><span class="eyebrow">先核对，再决定</span><h2 id="cleanupHeading" tabindex="-1">检查清理范围</h2></div><button id="closeCleanup" aria-label="关闭清理预览">×</button></header>
+  <p id="cleanupTarget"></p><p id="cleanupWarning"></p>
+  <div class="cleanup-summary"><div><span>移除版本</span><strong id="cleanupRemoveCount"></strong></div><div><span>保留版本</span><strong id="cleanupKeepCount"></strong></div><div><span>预计减少内容占用</span><strong id="cleanupBytes"></strong></div></div>
+  <p class="archive-caption">这里的容量是保存内容大小，不是服务器可用磁盘。素材原文件和成员的未合入输入不会随本次操作删除；当前页面未保存的输入仍保留。</p>
+  <div class="cleanup-version-columns"><section><h3>会保留</h3><div id="cleanupRetained"></div></section><section><h3>会永久移除</h3><div id="cleanupRemoved"></div></section></div>
+  <p id="cleanupState" role="status" aria-live="polite"></p>
+  <label class="archive-confirm"><input id="ackCleanup" type="checkbox">我已核对以上范围，理解移除后无法从保留版本或回收站恢复。</label>
+  <div class="cleanup-actions"><button id="cancelCleanup">取消，保留这些记录</button><button id="confirmCleanup" disabled>确认永久移除</button></div>
+  <p class="archive-caption">确认后，已发送的请求不会因关闭弹窗而撤回；结果不明确时请刷新核对。</p>
+</dialog>

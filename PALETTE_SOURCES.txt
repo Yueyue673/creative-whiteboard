@@ -1,0 +1,143 @@
+Public palette references for Creative Whiteboard
+
+The original six presets are retained unchanged. Eleven additional UI presets map named published palette roles to the existing workbench. Text, links and focus colors still use the existing contrast adjustment; this is a whiteboard adaptation, not an official port or endorsement. Existing authored note colors are never replaced. No network request is needed to select a palette.
+
+Flexoki Light — https://stephango.com/flexoki
+https://raw.githubusercontent.com/kepano/flexoki/main/css/flexoki.css
+bg=paper (#fffcf0); canvas=50 (#f2f0e5); panel=paper (#fffcf0); raised=paper (#fffcf0); field=paper (#fffcf0); border=100 (#e6e4d9); line=200 (#cecdc3); text=black (#100f0f); muted=600 (#6f6e69); hover=50 (#f2f0e5); selected=100 (#e6e4d9); accent=blue-600 (#205ea6); link=blue-600 (#205ea6)
+
+Flexoki Dark — https://stephango.com/flexoki
+https://raw.githubusercontent.com/kepano/flexoki/main/css/flexoki.css
+bg=black (#100f0f); canvas=950 (#1c1b1a); panel=950 (#1c1b1a); raised=900 (#282726); field=black (#100f0f); border=900 (#282726); line=800 (#403e3c); text=200 (#cecdc3); muted=500 (#878580); hover=900 (#282726); selected=850 (#343331); accent=cyan-400 (#3aa99f); link=blue-400 (#4385be)
+
+Catppuccin Latte — https://catppuccin.com/palette/
+https://raw.githubusercontent.com/catppuccin/palette/main/palette.json
+bg=crust (#dce0e8); canvas=base (#eff1f5); panel=mantle (#e6e9ef); raised=surface0 (#ccd0da); field=crust (#dce0e8); border=surface0 (#ccd0da); line=surface2 (#acb0be); text=text (#4c4f69); muted=subtext0 (#6c6f85); hover=surface0 (#ccd0da); selected=surface1 (#bcc0cc); accent=mauve (#8839ef); link=blue (#1e66f5)
+
+Catppuccin Frappé — https://catppuccin.com/palette/
+https://raw.githubusercontent.com/catppuccin/palette/main/palette.json
+bg=crust (#232634); canvas=base (#303446); panel=mantle (#292c3c); raised=surface0 (#414559); field=crust (#232634); border=surface0 (#414559); line=surface2 (#626880); text=text (#c6d0f5); muted=subtext0 (#a5adce); hover=surface0 (#414559); selected=surface1 (#51576d); accent=mauve (#ca9ee6); link=blue (#8caaee)
+
+Catppuccin Macchiato — https://catppuccin.com/palette/
+https://raw.githubusercontent.com/catppuccin/palette/main/palette.json
+bg=crust (#181926); canvas=base (#24273a); panel=mantle (#1e2030); raised=surface0 (#363a4f); field=crust (#181926); border=surface0 (#363a4f); line=surface2 (#5b6078); text=text (#cad3f5); muted=subtext0 (#a5adcb); hover=surface0 (#363a4f); selected=surface1 (#494d64); accent=mauve (#c6a0f6); link=blue (#8aadf4)
+
+Catppuccin Mocha — https://catppuccin.com/palette/
+https://raw.githubusercontent.com/catppuccin/palette/main/palette.json
+bg=crust (#11111b); canvas=base (#1e1e2e); panel=mantle (#181825); raised=surface0 (#313244); field=crust (#11111b); border=surface0 (#313244); line=surface2 (#585b70); text=text (#cdd6f4); muted=subtext0 (#a6adc8); hover=surface0 (#313244); selected=surface1 (#45475a); accent=mauve (#cba6f7); link=blue (#89b4fa)
+
+Rosé Pine — https://rosepinetheme.com/palette/
+https://raw.githubusercontent.com/rose-pine/rose-pine-palette/main/dist/css/rose-pine.css
+bg=base (#191724); canvas=base (#191724); panel=surface (#1f1d2e); raised=overlay (#26233a); field=base (#191724); border=highlight-med (#403d52); line=highlight-high (#524f67); text=text (#e0def4); muted=subtle (#908caa); hover=highlight-low (#21202e); selected=highlight-med (#403d52); accent=rose (#ebbcba); link=iris (#c4a7e7)
+
+Rosé Pine Moon — https://rosepinetheme.com/palette/
+https://raw.githubusercontent.com/rose-pine/rose-pine-palette/main/dist/css/rose-pine.css
+bg=base (#232136); canvas=base (#232136); panel=surface (#2a273f); raised=overlay (#393552); field=base (#232136); border=highlight-med (#44415a); line=highlight-high (#56526e); text=text (#e0def4); muted=subtle (#908caa); hover=highlight-low (#2a283e); selected=highlight-med (#44415a); accent=rose (#ea9a97); link=iris (#c4a7e7)
+
+Rosé Pine Dawn — https://rosepinetheme.com/palette/
+https://raw.githubusercontent.com/rose-pine/rose-pine-palette/main/dist/css/rose-pine.css
+bg=base (#faf4ed); canvas=base (#faf4ed); panel=surface (#fffaf3); raised=overlay (#f2e9e1); field=base (#faf4ed); border=highlight-med (#dfdad9); line=highlight-high (#cecacd); text=text (#575279); muted=subtle (#797593); hover=highlight-low (#f4ede8); selected=highlight-med (#dfdad9); accent=pine (#286983); link=iris (#907aa9)
+
+Nord 极夜 — https://www.nordtheme.com/docs/colors-and-palettes
+https://raw.githubusercontent.com/nordtheme/nord/develop/src/nord.css
+bg=nord0 (#2e3440); canvas=nord0 (#2e3440); panel=nord1 (#3b4252); raised=nord2 (#434c5e); field=nord0 (#2e3440); border=nord2 (#434c5e); line=nord3 (#4c566a); text=nord6 (#eceff4); muted=nord4 (#d8dee9); hover=nord2 (#434c5e); selected=nord3 (#4c566a); accent=nord8 (#88c0d0); link=nord8 (#88c0d0)
+
+Nord 雪原 — https://www.nordtheme.com/docs/colors-and-palettes
+https://raw.githubusercontent.com/nordtheme/nord/develop/src/nord.css
+bg=nord6 (#eceff4); canvas=nord5 (#e5e9f0); panel=nord6 (#eceff4); raised=nord6 (#eceff4); field=nord6 (#eceff4); border=nord4 (#d8dee9); line=nord3 (#4c566a); text=nord0 (#2e3440); muted=nord3 (#4c566a); hover=nord5 (#e5e9f0); selected=nord4 (#d8dee9); accent=nord10 (#5e81ac); link=nord10 (#5e81ac)
+
+Flexoki license
+MIT License
+
+Copyright (c) 2023 Steph Ango
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Catppuccin license
+MIT License
+
+Copyright (c) 2021 Catppuccin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Rosé Pine license
+MIT License
+
+Copyright (c) mvllow
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Nord license
+MIT License (MIT)
+
+Copyright (c) 2016-present Sven Greb <development@svengreb.de> (https://www.svengreb.de)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+

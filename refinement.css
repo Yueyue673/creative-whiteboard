@@ -4,12 +4,26 @@ button,summary,select{transition:none}
 #empty{width:calc(100% - 24px);max-width:400px}
 #empty h1{font-size:clamp(18px,calc(18px + 1vw),23px);text-wrap:balance}
 #empty p{text-wrap:balance}
+#empty .empty-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:18px;pointer-events:auto}
+#empty .empty-actions button{min-height:44px;padding:10px 18px;font-size:14px}
+#emptyWrite{background:var(--ui-selected);border-color:var(--ui-accent);font-weight:600}
+#emptyImport{background:transparent}
+#canvas:has(.import-placement:not([hidden])) #empty{visibility:hidden}
 #empty .empty-sheet{max-width:100%;height:auto;aspect-ratio:7/8;display:grid;place-items:center;padding:0}
 @media(max-height:400px){
  #empty{top:calc(50% - 4px)}
  #empty .empty-sheet{display:none}
  #empty h1{margin:0 0 8px;line-height:1.4}
  #empty p{margin:0;line-height:1.6}
+}
+/* Very short panes give the two starting actions their own lane beside the
+   existing canvas tools; no competing controls are stacked on top of them. */
+@media(max-height:260px){
+ #empty{left:12px;top:50%;width:120px;max-width:calc(50% - 24px);transform:translateY(-50%)}
+ #empty h1{display:none}
+ #empty .empty-actions{margin:0;gap:6px}
+ #empty .empty-actions button{width:100%;padding:8px 6px}
+ #canvas:has(#empty:not([hidden])) #creationDock{left:auto;right:14px;transform:none}
 }
 #alignmentGuides{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:9}#alignmentGuides line{stroke:var(--ui-canvas-focus,var(--ui-accent));stroke-width:1;stroke-dasharray:3 3}.hand-tool,.hand-tool .node,.hand-tool .inline-ui{cursor:grab!important}.canvas-gesture.hand-tool{cursor:grabbing!important}
 .navigation-settings{border-top:1px solid var(--ui-line);padding-top:14px;margin-top:12px}.navigation-settings h3{font-size:14px;margin:0 0 10px}.navigation-settings>label{display:grid;gap:5px;font-size:12px;margin:10px 0}.navigation-settings .navigation-check{display:flex;align-items:center;gap:8px}.navigation-check input{width:16px;height:16px;min-width:16px;flex:0 0 16px;margin:0;accent-color:var(--ui-accent)}.navigation-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:14px}.navigation-settings input{min-width:0}.navigation-settings p{font-size:12px;color:var(--ui-muted);line-height:1.8}.arrange-options{display:grid;gap:16px}.arrange-options>div{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.arrange-options>div>span{min-width:40px;font-size:13px}.arrange-options>label{display:grid;gap:6px;font-size:13px}
@@ -56,10 +70,37 @@ button,summary,select{transition:none}
 .node.theme-surface .block-actions,.node.theme-dark .block-actions{color:var(--ui-text)}
 .node .block-actions button{opacity:.75;font-size:17px}.node .block-actions button:hover{opacity:1;background:#8882}
 .node .block-actions svg{width:16px;height:16px}
+.node .block-actions .block-read{display:flex;width:auto;gap:5px;padding:0 6px;font-size:12px;font-weight:500;opacity:1}
 .node .block-actions .block-transfer{cursor:grab;width:auto;gap:4px;display:flex;padding:0 7px;font-size:12px}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer{width:25px;padding:0;justify-content:center}
 #canvas.compact-actions #nodes>.node .block-actions .block-transfer span{display:none}
 #canvas.stacked-actions #nodes>.node .block-actions{flex-direction:column}
+/* Keep one set of batch actions, while Edit/View stays beside its own paper. */
+#canvas.multi-actions #nodes>.node.active .block-actions>.block-transfer,#canvas.multi-actions #nodes>.node.active .block-actions>button[aria-label="内容操作"]{display:none}
+#selectionTools{position:absolute;z-index:10;display:flex;width:max-content;align-items:center;flex-wrap:wrap;gap:3px;padding:4px;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 3px 10px #0003}
+#selectionTools[hidden]{display:none}
+#selectionTools .selection-count{padding:0 7px;font-size:12px;color:var(--ui-muted);white-space:nowrap}
+#selectionTools button{height:30px;min-width:30px;padding:0 8px;border:0;border-radius:4px;background:transparent;color:inherit;font-size:12px;white-space:nowrap}
+#selectionTools button:hover{background:var(--ui-hover)}
+#selectionTools .selection-transfer{display:flex;align-items:center;gap:4px;cursor:grab}
+#selectionTools button[hidden]{display:none}
+#canvas.compact-actions #selectionTools .transfer-caption{display:none}
+#canvas.tight-tools #selectionTools{gap:1px}
+#canvas.tight-tools #selectionTools button{padding:0 6px}
+#canvas.stacked-actions #selectionTools{width:max-content;justify-content:center}
+#canvas.stacked-actions #selectionTools>[data-selection-align],#canvas.stacked-actions #selectionTools>[data-selection-group]{display:none}
+#canvas.short-selection.stacked-actions #selectionTools>.selection-transfer,#canvas.short-selection #creationDock{display:none}
+.node.frame .group-actions{display:none;gap:5px}
+.node.frame.active .group-actions{display:flex}
+.node.frame .group-actions button{width:auto;padding:0 7px;font-size:12px;white-space:nowrap}
+.node.frame .group-actions.group-naming{width:280px}
+.node.frame .group-actions input{flex:1;min-width:0;width:0;height:28px;padding:3px 6px;font-size:14px;line-height:20px;color:var(--ui-text);background:var(--ui-field);border:1px solid var(--ui-line);border-radius:3px}
+/* Lift only the naming controls above grouped papers; the group surface lets clicks through. */
+.node.frame.naming-group{z-index:9;pointer-events:none;background:transparent!important}
+.node.frame.naming-group>.port,.node.frame.naming-group>.resize{pointer-events:none}
+#canvas.stacked-actions #nodes>.node.frame .group-actions{flex-direction:row}
+#canvas.stacked-actions #nodes>.node.frame .group-naming{flex-direction:column;align-items:stretch}
+#canvas.stacked-actions #nodes>.node.frame .group-naming input{flex:auto;width:100%}
 /* One calm row of tools, even when the shared workspace is split into narrow panes. */
 #canvas #creationMore{display:none}
 #canvas.compact-tools #creationDock{flex-wrap:nowrap}
@@ -90,6 +131,10 @@ button,summary,select{transition:none}
 /* Editing a paper card keeps its text in place; tools share the outside placement. */
 #nodes>.node>.inner.live-layout{overflow:visible}
 #nodes>.node>.inner.live-layout>.inline-toolbar{position:absolute;left:auto;right:0;top:auto;bottom:calc(100% + 7px);width:max-content;min-width:0;max-width:none;height:34px;min-height:34px;flex-wrap:nowrap;padding:3px;border:1px solid var(--ui-line);border-radius:6px;box-shadow:0 2px 8px #0002;white-space:nowrap}
+#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar{max-width:calc(100vw - 12px);height:auto;flex-wrap:wrap;gap:4px;padding:2px}
+#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar>.note-edit-tools{display:contents}
+#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar button{padding:4px 8px;line-height:18px}
+@media(max-width:320px){#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar{gap:2px}#nodes>.node:not(.table)>.inner.live-layout>.inline-toolbar button{padding:4px 6px}}
 #nodes>.node>.inner.live-layout>.inline-toolbar #inlineDone{margin-left:0}
 /* Source controls keep their screen size and scroll within the available pane. */
 #nodes>.node>.inner.live-layout>#inlineMeta{max-width:none;transform:scale(var(--canvas-control-scale,1));transform-origin:top left;overscroll-behavior:contain;scrollbar-gutter:stable;z-index:20}
@@ -97,6 +142,7 @@ button,summary,select{transition:none}
 .node #inlineMeta .meta-heading{gap:8px}
 .node #inlineMetaClose{flex:none}
 .node #inlineMeta label{color:var(--ui-muted)}
+.node #sourceExtras{margin-top:12px}.node #sourceExtras>summary{display:flex;align-items:center;gap:6px;padding:8px 0 2px;border:0;border-top:1px solid var(--ui-line);border-radius:0;background:transparent;color:var(--ui-text);font-size:12px;font-weight:400}.node #sourceExtras>summary::before{content:'›';font-size:18px;line-height:1;transform-origin:center}.node #sourceExtras[open]>summary::before{transform:rotate(90deg)}.node #sourceExtras label{display:block;margin:10px 0 4px}
 @media(max-width:180px){#nodes>.node>.inner.live-layout>#inlineMeta{padding:8px}}
 #canvas.stacked-actions #nodes>.node>.inner.live-layout>.inline-toolbar{flex-direction:column;height:auto}
 #nodes>.node.table>.inner.live-layout>.inline-toolbar{max-width:calc(100vw - 12px);height:auto;flex-wrap:wrap;gap:4px}
@@ -122,6 +168,18 @@ button,summary,select{transition:none}
 .media-preview audio{display:block;width:100%;min-width:0;max-width:100%}
 .media-preview video{max-height:min(480px,55dvh)}
 .media-preview .source-path{line-height:1.6;margin:16px 0 8px}
+/* Listening reserves display space in the expanded paper, never canvas geometry. */
+.canvas-pane.listening-writing #dialog.immersive-dialog[open]{height:calc(100dvh - 178px);max-height:calc(100dvh - 178px);margin-top:12px;margin-bottom:166px}
+.canvas-pane.listening-writing #creationDock{bottom:166px}
+html.listening-preview #dialog[open]:has(.media-preview){position:fixed;inset:0;margin:0;padding:10px 14px;width:100%;max-width:100%;height:100%;max-height:100%;min-height:0;border:0;border-radius:0;box-sizing:border-box;box-shadow:none;overflow:hidden}
+html.listening-preview #dialog::backdrop{background:transparent}
+html.listening-preview #dialogBody{flex:1;min-height:0;overflow:hidden;padding:0}
+html.listening-preview .media-preview{padding:0;display:flex;flex-direction:column;gap:4px;height:100%}
+html.listening-preview .media-preview h2{display:block;flex:none;min-height:20px;font-size:13px;line-height:20px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.listening-preview .media-preview audio{height:44px;flex-shrink:0}
+html.listening-preview .media-preview .source-path,html.listening-preview .media-preview a{display:none}
+html.listening-preview #dialogActions{margin:4px 0 0;padding:0;gap:8px;flex-shrink:0}
+html.listening-preview #dialogActions button{padding:2px 8px;font-size:13px;min-height:44px}
 .media-preview>a{font-size:13px;white-space:nowrap}
 @media(max-width:650px){#dialog:has(.media-preview){padding:16px}}
 /* Source text gets a reading surface; only the original preview text scrolls. */
@@ -163,6 +221,9 @@ button,summary,select{transition:none}
 .immersive-dialog #dialogBody{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:0}
 .immersive-dialog #dialogActions{display:none}
 .immersive-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line);flex-shrink:0;color:var(--ui-muted);font-size:13px}
+.immersive-heading.reading-switchable{flex-wrap:wrap;gap:6px}.immersive-heading.reading-switchable>div{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px}
+@media(max-width:180px){#dialog.immersive-dialog{max-width:calc(100vw - 12px)}.immersive-heading.reading-switchable{padding:6px}.immersive-heading.reading-switchable>span,.immersive-heading.reading-switchable small{display:none}.immersive-heading.reading-switchable>div{min-width:0;max-width:100%}.immersive-heading.reading-switchable button{max-width:100%;padding:4px;white-space:normal;overflow-wrap:anywhere}}
+@media(max-width:300px) and (max-height:240px){.immersive-heading.reading-switchable>span{display:none}.immersive-heading.reading-switchable{padding:6px 8px}.immersive-heading.reading-switchable>div{justify-content:flex-start}.immersive-heading.reading-switchable button{padding:4px 6px}}
 .immersive-heading button{background:transparent;border:0;padding:5px 7px;font-size:13px;white-space:nowrap}.immersive-heading small{color:var(--ui-muted);margin-left:8px;font-size:11px}
 .node.immersive-surface{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;max-width:none;padding:0;margin:0;border:0;outline:0;box-shadow:none;flex:1;min-height:0;border-radius:0;white-space:normal;overflow:hidden}
 .node.immersive-surface .inner{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
@@ -264,10 +325,26 @@ button,summary,select{transition:none}
 .ai-source-list article{padding:16px 0;border-bottom:1px solid var(--ui-line)}.ai-source-list a{font-weight:600;color:var(--ui-text);text-decoration:underline;text-underline-offset:3px}.ai-source-list small{display:block;color:var(--ui-muted);margin-top:5px}.ai-source-list p{white-space:pre-wrap;line-height:1.75}.ai-source-limits{color:var(--ui-muted);font-size:13px}.ai-legacy{white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto}.media-marker-tick{min-width:8px!important;min-height:8px!important;width:8px!important;height:8px!important;z-index:2}
 .media-controls .media-marker-tick{background:currentColor!important;padding:0!important;border:0!important;min-width:8px!important;width:8px!important;height:8px!important;line-height:1!important;opacity:.7}.media-controls .media-marker-tick.replay-start{opacity:1}
 .ai-visual-option{display:flex!important;align-items:center;gap:8px;margin:16px 0;font-size:13px}.ai-visual-option input{width:14px!important;height:14px!important;flex:0 0 14px;padding:0!important;margin:0!important;accent-color:var(--ui-accent)}
-#dialog[open]:has(.ai-compose),#dialog[open]:has(.ai-source-list){display:flex;flex-direction:column;padding:0;width:min(660px,calc(100vw - 32px));max-height:calc(100dvh - 64px);overflow:hidden}
-#dialog:has(.ai-compose) #dialogBody,#dialog:has(.ai-source-list) #dialogBody{padding:22px 26px;overflow:auto;min-height:0;scrollbar-gutter:stable}
-#dialog:has(.ai-compose) #dialogActions,#dialog:has(.ai-source-list) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#dialog[open]:has(.research-panel){display:flex;flex-direction:column;padding:0;width:min(660px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:hidden}
+#dialog:has(.research-panel) #dialogBody{display:flex;min-width:0;min-height:0;padding:0;overflow:hidden}
+.research-panel{display:flex;flex-direction:column;min-width:0;min-height:0;max-width:100%;overflow:hidden}
+.research-panel>h2{flex:none;margin:0;padding:18px 22px 16px;border-bottom:1px solid var(--ui-line);font-size:18px;line-height:1.5;overflow-wrap:anywhere}
+.research-panel-content{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 22px}
+#dialog:has(.research-panel) #dialogActions{padding:12px 20px;margin:0;border-top:1px solid var(--ui-line);flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:650px),(max-height:500px){#dialog[open]:has(.research-panel){max-height:calc(100dvh - 24px)}.research-panel>h2{padding:14px 18px 12px}.research-panel-content{padding:14px 18px}#dialog:has(.research-panel) #dialogActions{padding:10px 14px}}
 .ai-compose>p{line-height:1.75}.ai-compose>.wf-explain{margin-top:4px;margin-bottom:18px}.ai-compose .ai-context-details{margin:12px 0}.media-controls{position:relative}.media-controls .media-marker-tick{top:0!important}
+.research-panel:has(.research-compose)>h2{padding-right:88px}
+.research-close{position:absolute;right:18px;top:13px}
+.research-modes{display:flex;gap:8px}.research-modes button{flex:1;min-width:0;white-space:normal;font-size:13px}
+.research-modes [aria-pressed=true],#dialog .research-primary{background:var(--ui-selected);color:var(--ui-text);border-color:var(--ui-accent)}
+.research-question{display:grid;gap:12px;min-width:0}.research-question[hidden],#dialog:has(.research-compose) button[hidden]{display:none!important}
+.research-question>label{display:grid;gap:6px;font-size:13px}.research-question>#aiTaskScopeHint{margin:0;font-size:12px;line-height:1.65;color:var(--ui-muted)}
+.research-question>.ai-visual-option{display:flex;align-items:center;gap:6px}.research-question>.ai-visual-option input{flex:none}
+.research-question>details>summary{padding:5px 0;background:transparent;border:0;font-size:13px;color:var(--ui-muted)}
+.research-question .ai-context-details{margin:0}.research-history button{margin-top:8px;margin-right:8px}
+#dialog:has(.research-compose) #dialogActions>#aiReplyStatus{flex-basis:100%;margin:0;max-height:min(5.5em,20dvh);overflow:auto;overscroll-behavior:contain;font-size:12px;line-height:1.65;white-space:normal;overflow-wrap:anywhere}
+#dialog:has(.research-compose) #aiReplyStatus:empty{display:none}
+@media(max-width:650px),(max-height:500px){.research-close{right:14px;top:10px}}
 /* Give authored text the writing space; keep its library information nearby. */
 #dialog[open]:has(.library-content-form){display:flex;flex-direction:column;width:min(900px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 48px);padding:0;overflow:hidden}
 #dialog:has(.library-content-form) #dialogBody{min-width:0;min-height:0;overflow:auto;scrollbar-gutter:stable;padding:24px}
@@ -281,6 +358,16 @@ button,summary,select{transition:none}
 .library-content-form #library-body{min-height:300px;line-height:1.8}
 .library-content-form .destination-picker{margin:0 0 18px}.library-content-form .destination-label,.library-content-form .destination-change{font-size:12px;color:var(--ui-muted)}
 .library-content-form .destination-toggle{padding:9px 10px;gap:8px}.library-content-form .destination-current{font-size:13px}
+.library-note-create .library-content-heading{margin-bottom:18px}
+.library-note-create .library-content-layout{grid-template-columns:minmax(0,1fr);gap:0}
+.library-note-create .library-content-details{border:0;padding:0}
+.library-note-create .library-note-details{margin:0 0 18px;border-top:1px solid var(--ui-line)}
+.library-note-create .library-note-details>summary{display:flex;align-items:center;gap:8px;padding:12px 0;background:transparent;border:0;font-size:12px;color:var(--ui-muted);cursor:pointer}
+.library-note-caret{display:inline-block;font:18px/1 sans-serif}
+.library-note-details[open] .library-note-caret{transform:rotate(90deg)}
+.library-note-create .library-note-details[open]>summary{margin-bottom:4px}
+#dialog[open]:has(.library-note-create){width:min(720px,calc(100vw - 32px))}
+.library-content-form.library-note-create #library-body{height:clamp(112px,36dvh,320px);min-height:112px;max-height:320px}
 @media(max-width:780px){.library-content-layout{grid-template-columns:minmax(0,1fr);gap:6px}.library-content-details{border-left:0;border-top:1px solid var(--ui-line);padding:18px 0 0}.library-content-form #library-body{min-height:220px}#dialog:has(.library-content-form) #dialogBody{padding:20px}#dialog:has(.library-content-form) #dialogActions{padding:12px 20px}}
 @media(max-width:420px){.media-marker-editor{grid-template-columns:minmax(0,1fr)}.media-marker-description,.media-marker-actions,.media-marker-error{grid-column:1}.media-marker-heading{flex-wrap:wrap}.media-marker-heading strong{flex-basis:100%}.media-marker-actions{flex-wrap:wrap}}
 .hand-tool .web-frame-host::after,.space-panning .web-frame-host::after{content:"";position:absolute;inset:0;background:transparent;z-index:4;cursor:grab;pointer-events:auto}.hand-tool.document-panning .web-frame-host::after,.space-panning.document-panning .web-frame-host::after{cursor:grabbing}
@@ -344,3 +431,14 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 .appearance-pattern output{color:var(--ui-muted);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 #appearanceDialog footer{flex-wrap:wrap}#appearanceDone{margin-left:auto}
 @media(max-width:400px){#appearanceDialog .appearance-pattern label{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}.appearance-pattern input{grid-column:1/-1;grid-row:2}.appearance-pattern output{grid-column:2;grid-row:1}.appearance-save-row{flex-wrap:wrap}.appearance-save-row input{flex-basis:100%;width:100%}.appearance-save-row button{width:100%}}
+
+/* Named public palettes remain directly selectable at actual dialog widths. */
+#appearanceDialog .appearance-presets h4{grid-column:1/-1;margin:8px 0 0;font-size:12px;font-weight:500;color:var(--ui-muted)}
+#appearanceDialog .appearance-presets h4:first-child{margin-top:0}
+#appearanceDialog .appearance-presets button{display:flex;flex-direction:column;align-items:stretch;min-height:44px;text-align:left}
+#appearanceDialog .appearance-presets strong{font-size:13px;font-weight:500;line-height:1.4;overflow-wrap:anywhere}
+#appearanceDialog .appearance-presets small{display:block;margin-top:3px;color:var(--ui-muted);font-size:11px;line-height:1.4}
+#appearanceDialog .appearance-source{margin:12px 0 0;color:var(--ui-muted);font-size:12px;line-height:1.6}
+#appearanceDialog .appearance-source a{color:var(--ui-link);text-underline-offset:3px}
+#appearanceDialog .appearance-presets span{flex:none}
+@media(max-width:400px){#appearanceDialog .appearance-presets{grid-template-columns:repeat(2,minmax(0,1fr))}#appearanceDialog .appearance-presets span{height:52px}}

@@ -37,7 +37,11 @@ const {chromium} = require('playwright');
   await p.evaluate(()=>{for(const node of board.nodes)if(node.type==='table')tableAxisIds(node);selectNode('n');canvas.focus({preventScroll:true})});
   const beforeKeys=await p.evaluate(()=>clone(board.nodes));
   await p.locator('#nodes [data-id=n] .block-read').focus();
-  await p.keyboard.press('Tab');await p.keyboard.press('Tab');
+  await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(()=>document.activeElement.textContent),'写记录');
+  await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(()=>document.activeElement.getAttribute('aria-label')),'拖出副本');
+  await p.keyboard.press('Tab');
   assert.equal(await p.evaluate(()=>document.activeElement.getAttribute('aria-label')),'内容操作');
   await p.keyboard.press('Enter');
   assert(await p.locator('#fileContext').isVisible(),'Enter activates the focused content menu');
@@ -82,13 +86,15 @@ const {chromium} = require('playwright');
   await p.locator('#nodes [data-id=n] .block-actions button').last().focus();
   await p.keyboard.press('Tab');
   assert(await p.locator('#nodes [data-id=m] .block-read').evaluate(el=>el===document.activeElement));
+  const focusedWidth=await p.locator('#nodes [data-id=m] .block-read').evaluate(el=>el.offsetWidth);
+  assert.equal(await p.locator('#nodes [data-id=m] .block-read').innerText(),'编辑','The primary verb stays visible instead of returning to an unlabeled icon');
   for(const z of [.6,.4,1.6]){
    await p.evaluate(z=>{board.view.z=z;moveView()},z);
    const control=await p.evaluate(()=>{
     const r=document.activeElement.getBoundingClientRect(),c=canvas.getBoundingClientRect();
     return {w:r.width,h:r.height,inside:r.top>=c.top&&r.bottom<=c.bottom&&r.left>=c.left&&r.right<=c.right,scrollTop:canvas.scrollTop,scrollLeft:canvas.scrollLeft};
    });
-   assert(Math.abs(control.w-25)<.2&&Math.abs(control.h-25)<.2,'Focused controls keep screen size at '+z+': '+JSON.stringify(control));
+   assert(Math.abs(control.w-focusedWidth)<.2&&Math.abs(control.h-25)<.2,'Focused controls keep their unscaled screen size at '+z+': '+JSON.stringify(control));
    assert(control.inside,'Focused controls stay inside the canvas near its top edge: '+JSON.stringify(control));
    assert.equal(control.scrollTop,0);assert.equal(control.scrollLeft,0);
    assert.deepEqual(await p.evaluate(()=>({nodes:board.nodes,undo:history.length,revision:contentRevision})),focusContent,'Focus and zoom do not change authored fields, geometry or editing history');
@@ -252,6 +258,22 @@ const {chromium} = require('playwright');
   await p.locator('#shellMore>summary').click();await frame.locator('#canvas').click({position:{x:200,y:60}});
   await p.waitForFunction(()=>!document.getElementById('shellMore').open);
   await p.locator('#openBoards').click();await p.waitForFunction(()=>window.whiteboardWorkspace.explorer());const shared=p.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');await shared.locator('#manage').click();await frame.evaluate(()=>fit());
+  // A narrow workspace gives the shared explorer its own complete view.
+  for(const width of [320,390]){
+   await p.setViewportSize({width,height:844});await shared.waitForFunction(()=>innerWidth===parent.innerWidth);
+   for(const panel of ['manager','assetPane']){
+    await shared.evaluate(panel=>showWorkspaceTab(panel),panel);
+    assert(await shared.evaluate(()=>[...document.querySelectorAll('.workspace-tabs button,.library-bottom-actions button')].filter(el=>el.getClientRects().length).every(el=>{
+     const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight;
+    })),'Every original narrow-sidebar navigation and footer action fits');
+   }
+   await shared.getByRole('button',{name:'侧栏选项',exact:true}).click();
+   await shared.getByRole('menuitem',{name:'刷新',exact:true}).waitFor();
+   assert(await shared.locator('#fileContext').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth}));
+   await p.keyboard.press('Escape');assert.equal(await shared.evaluate(()=>document.activeElement.id),'sidebarClose');
+  }
+  await p.setViewportSize({width:1600,height:1000});await shared.waitForFunction(()=>innerWidth>240);
+  assert(await shared.locator('.workspace-tabs').evaluate(el=>{const tops=[...el.querySelectorAll('button')].map(b=>b.getBoundingClientRect().top);return Math.max(...tops)-Math.min(...tops)<3}),'Wide navigation keeps its original single row');
   if(process.env.INTERFACE_SCREENSHOT)await p.screenshot({path:process.env.INTERFACE_SCREENSHOT});
   console.log('界面：结束编辑、表格键盘导航、文件夹选择与打开、菜单去重与关闭、来源查看、侧栏恢复、窄屏布局通过');
   assert.deepEqual(errors,[]);

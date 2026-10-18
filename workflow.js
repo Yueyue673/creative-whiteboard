@@ -41,7 +41,7 @@ async function wfBatchTags(){const ids=[...assetSelected];if(!ids.length)return 
 
 // Provenance includes each atom's original ID, even when imported as part of a group.
 function wfOriginNode(n,a){if(!a?.bundle)return null;if(n.libraryOrigin?.nodeId)return a.bundle.nodes.find(x=>x.id===n.libraryOrigin.nodeId)||null;const exact=a.bundle.nodes.filter(x=>x.type===n.type&&x.title===n.title);return exact.length===1?exact[0]:a.bundle.nodes.length===1?a.bundle.nodes[0]:null}
-async function wfLocateOriginal(n){const a=assetById(n.libraryOrigin?.id||n.assetId);if(!a)return toast('库中的原件已不存在');await showWorkspaceTab('assetPane');enterAssetFolder(a.folder);assetSelected=new Set([a.id]);renderAssets();$('assetList').querySelector('[data-asset="'+a.id+'"]')?.scrollIntoView({block:'center'})}
+async function wfLocateOriginal(n){const a=assetById(n.libraryOrigin?.id||n.assetId);if(!a)return toast('库中的原件已不存在');return revealLibraryItem(a.id)}
 function wfOriginReview(nodeId){const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);if(!n||!a)return toast('找不到库中的原件');const original=wfOriginNode(n,a);showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">来自内容库 / '+esc(a.folder||'根目录')+'。白板上是独立副本；更新前会展示差异。</p><p>'+esc(original?'可以比较并选择更新方向。':'这项内容是原文件引用，或旧组合尚未能精确匹配到单块。可以定位原件或另存当前内容。')+'</p>',[['关闭',()=>$('dialog').close()],['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])])}
 function wfCompareOrigin(n,a,original,direction){const from=direction==='pull'?original:n,to=direction==='pull'?n:original;const changes=wfContentFields.filter(k=>!wfEqual(from[k],to[k])).map(field=>({field,before:clone(to[field]??null),after:clone(from[field]??null)}));const baseline=JSON.stringify(direction==='pull'?n:a),currentBoard=boardId;wfReview(direction==='pull'?'把库中更新用于这块内容':'更新库中原件',direction==='pull'?'只修改当前这块内容，保持它的位置、大小和连线。':'只更新库中的对应内容。其他白板的副本不会跟着改变。',changes,async picked=>{if(boardId!==currentBoard||JSON.stringify(direction==='pull'?board.nodes.find(x=>x.id===n.id):assetById(a.id))!==baseline)return toast('内容已变化，请重新比较'),false;if(direction==='pull'){undoPoint();for(const c of picked){if(c.after===null)delete n[c.field];else n[c.field]=clone(c.after)}render();change();toast('已应用库中更新 · Ctrl+Z 撤销')}else{const next=clone(assetIndex),target=next.assets.find(x=>x.id===a.id).bundle.nodes.find(x=>x.id===original.id);for(const c of picked){if(c.after===null)delete target[c.field];else target[c.field]=clone(c.after)}next.assets.find(x=>x.id===a.id).updated=Date.now();if(!await saveAssets(next))return false;toast('已更新库中原件 · 在内容库按 Ctrl+Z 可撤销')}})}
 refreshLibrarySource=async function(id){const a=assetById(id);if(!a?.source)return toast('这项内容没有原白板来源');if(!await persist())return;try{const source=await(await api('/api/boards/'+a.source.boardId)).json(),ids=new Set(a.source.nodeIds),nodes=source.nodes.filter(n=>ids.has(n.id));if(nodes.length!==ids.size)return toast('原白板有内容已删除，请重新收录需要的内容');const baseline=JSON.stringify(a),bundle={nodes,edges:source.edges.filter(e=>ids.has(e.from)&&ids.has(e.to))};wfReview('从来源白板更新组合','将替换库中的这份组合；其他白板上的副本不变。',[{field:'组合',before:a.bundle,after:bundle}],async()=>{if(JSON.stringify(assetById(id))!==baseline)return toast('库中版本已改变，请重新比较'),false;const next=clone(assetIndex),item=next.assets.find(x=>x.id===id);item.bundle=bundle;item.updated=Date.now();return saveAssets(next)})}catch(e){toast(e.message)}};
@@ -101,7 +101,7 @@ wfAddMenu('旧 AI 提案记录…',wfLegacyProposals);
 const wfCollectDialog=askCollectSelection;askCollectSelection=function(){wfCollectDialog();const paragraph=$('dialogBody')?.querySelector('p');if(paragraph&&selected.size>1)paragraph.textContent+=' 组合会保留表格、图片和内部连线，下次可以整体复用，也可以只挑其中一块。'};
 collectDock.onclick=()=>askCollectSelection();
 
-function wfHelp(){showDialog('<h2>从积累内容到完成一张白板</h2><div class="wf-help"><h3>先放进来，不急着分类</h3><p>在内容库点“新建内容”写下想法，或者导入文件。文件夹可以逐层建立，稍后再多选整理也可以。</p><h3>白板用于编排，内容库用于积累</h3><p>从库拖到白板得到独立副本。你可以放心改编；右键选择“来源与版本”，或在编辑时打开“说明”，即可找到库中原件并比较修改。</p><p>在白板上选中便签、表格或一组内容，拖到库中的文件夹即可收录；也可以点“保存到库”起名并选择位置。组合会保留内部连线，下次可整体使用，也可双击组合只取一块。</p><h3>找不到、改错了，都有入口</h3><p>Ctrl+K 搜索标题、正文、备注与文件名。内容库里的 F2 用来编辑，Delete 移入回收站，Ctrl+Z 撤销最近操作。“更多 → 恢复与历史记录”可找回旧内容，并能先另存，避免覆盖当前工作。</p><h3>AI 帮忙前，先确定范围</h3><p>点击顶部 AI，选择背景并写下要查的问题。带出处的资料单独保存，由你核对和使用。AI 不能生成创作文案，也不能修改原文、备注或布局。</p><h3>画布操作</h3><p>左键选择和摆放，右键拖动画布。HTML 内也支持右键拖动；Ctrl+滚轮以鼠标为中心缩放白板。网页自身大小用卡片顶部按钮调整。拉线时按 Esc 或松在空白处取消；单击线后按 Delete 删除，双击改说明。</p><p class="wf-explain">文件是对原媒体的引用，修改分类不会搬动硬盘上的文件。搜索不自动识别音视频或 PDF 全文；历史记录从这次更新开始保留。</p></div>',[['关闭',()=>$('dialog').close()]])}
+function wfHelp(){showDialog('<h2>从积累内容到完成一张白板</h2><div class="wf-help"><h3>先放进来，不急着分类</h3><p>在内容库点“写便签”记下想法，或者导入文件。文件夹可以逐层建立，稍后再多选整理也可以。</p><h3>白板用于编排，内容库用于积累</h3><p>从库拖到白板得到独立副本。你可以放心改编；右键选择“来源与版本”，或在编辑时打开“来源与备注”，即可找到库中原件并比较修改。</p><p>在白板上选中便签、表格或一组内容，拖到库中的文件夹即可收录；也可以点“保存到库”起名并选择位置。组合会保留内部连线，下次可整体使用，也可双击组合只取一块。</p><h3>找不到、改错了，都有入口</h3><p>Ctrl+K 搜索标题、正文、备注与文件名。内容库里的 F2 用来编辑，Delete 移入回收站，Ctrl+Z 撤销最近操作。“更多 → 恢复与历史记录”可找回旧内容，并能先另存，避免覆盖当前工作。</p><h3>AI 帮忙前，先确定范围</h3><p>点击顶部 AI，选择背景并写下要查的问题。带出处的资料单独保存，由你核对和使用。AI 不能生成创作文案，也不能修改原文、备注或布局。</p><h3>画布操作</h3><p>左键选择和摆放，右键拖动画布。HTML 内也支持右键拖动；Ctrl+滚轮以鼠标为中心缩放白板。网页自身大小用卡片顶部按钮调整。拉线时按 Esc 或松在空白处取消；单击线后按 Delete 删除，双击改说明。</p><p class="wf-explain">文件是对原媒体的引用，修改分类不会搬动硬盘上的文件。搜索不自动识别音视频或 PDF 全文；历史记录从这次更新开始保留。</p></div>',[['关闭',()=>$('dialog').close()]])}
 wfAddMenu('使用方法与快捷键…',wfHelp);
 // Reading position belongs to this browser, separately from authored board content.
 function sessionRead(key){try{return JSON.parse(localStorage.getItem('creative-reading:'+key)||'null')}catch{return null}}
@@ -131,13 +131,13 @@ function clipboardIsText(e){return isTyping(e)||!!getSelection()?.toString()||!!
 function copiedFragment(){if(document.activeElement?.closest('#assetPane')&&assetSelected.size){const nodes=[],edges=[];let x=0;for(const id of assetSelected){const a=assetById(id);if(!a)continue;const bundle=itemBundle(a),ids=new Map(bundle.nodes.map(n=>[n.id,uid()]));for(const n of bundle.nodes){const old=n.id;n.id=ids.get(old);n.x+=x;n.libraryOrigin={id:a.id,name:a.title,nodeId:old};nodes.push(n)}for(const e of bundle.edges)edges.push({...e,id:uid(),from:ids.get(e.from),to:ids.get(e.to)});x+=400}return {nodes,edges}}return selectionBundle()}
 function writeFragment(e,cut=false){if(window.whiteboardLibraryClipboard?.handles(e,true))return whiteboardLibraryClipboard.writeEvent(e,cut);if($('dialog').open||clipboardIsText(e)){window.whiteboardLibraryClipboard?.nativeText(e);e.stopImmediatePropagation();return}if(!board)return;const b=copiedFragment();if(!b.nodes.length)return;const raw=JSON.stringify({format:'creative-board-fragment',version:1,...b});try{e.clipboardData.setData('text/plain',raw);e.preventDefault();e.stopImmediatePropagation();window.whiteboardLibraryClipboard?.nativePayload(raw);if(cut){if(e.target.closest('#assetPane'))return toast('内容库已复制；原件保留');const ids=new Set(b.nodes.map(n=>n.id));undoPoint();board.nodes=board.nodes.filter(n=>!ids.has(n.id));board.edges=board.edges.filter(e=>!ids.has(e.from)&&!ids.has(e.to));selected.clear();render();change()}toast((cut?'已剪切 ':'已复制 ')+b.nodes.length+' 块内容，可在另一白板或窗口粘贴')}catch{toast('无法写入剪贴板，请使用 Ctrl+C')}}
 window.addEventListener('copy',e=>writeFragment(e),true);window.addEventListener('cut',e=>writeFragment(e,true),true);
-window.addEventListener('paste',e=>{if(isTyping(e)||$('dialog').open)return;const text=e.clipboardData.getData('text/plain'),files=[...e.clipboardData.files];if(!text&&!files.length)return;e.preventDefault();e.stopImmediatePropagation();const action=window.whiteboardLibraryClipboard?.handles(e)?whiteboardLibraryClipboard.paste(text,files):pastePayload(text,files,pasteAnchor(e.target));action.catch(err=>toast(err.message))},true);
+window.addEventListener('paste',e=>{if(isTyping(e)||$('dialog').open)return;const text=e.clipboardData.getData('text/plain'),files=[...e.clipboardData.files];if(!text&&!files.length)return;e.preventDefault();e.stopImmediatePropagation();const action=window.whiteboardLibraryClipboard?.handles(e)?whiteboardLibraryClipboard.paste(text,files):pastePayload(text,files,pasteAnchor(e.target));action.catch(libraryImportError)},true);
 
 async function copyBlocks(){const b=selectionBundle();if(!b.nodes.length)return;const pack={format:'creative-board-fragment',version:1,...b};try{if(window.whiteboardLibraryClipboard){if(!await whiteboardLibraryClipboard.copyPayload(pack))return}else await navigator.clipboard.writeText(JSON.stringify(pack));toast('已复制 '+b.nodes.length+' 块内容')}catch{toast('请选中内容后按 Ctrl+C 复制')}}
 async function pasteBlocks(anchor=pasteAnchor()){try{if(window.whiteboardLibraryClipboard&&!await whiteboardLibraryClipboard.ready())return;const raw=await navigator.clipboard.readText();await pastePayload(raw,[],anchor)}catch(err){toast('无法直接读取剪贴板，请使用 Ctrl+V 粘贴')}}
 
 // Extend the existing menu rather than add competing context-menu handlers.
-const continuityMenu=fileMenu;fileMenu=function(e,items){if(e.target.closest('#canvas')&&!e.target.closest('#creationDock,#canvasTools,[data-edge]')){const node=e.target.closest('.node'),pasteAt={x:e.clientX,y:e.clientY,boardId,atPointer:true};if(node&&!selected.has(node.dataset.id)){selected=new Set([node.dataset.id]);refreshSelectionUI()}items=[...(selected.size?[['复制内容  Ctrl+C',copyBlocks]]:[]),['粘贴内容  Ctrl+V',()=>pasteBlocks(pasteAt)],...items]}return continuityMenu(e,items)};
+const continuityMenu=fileMenu;fileMenu=function(e,items){if(e.target.closest('#canvas')&&!e.target.closest('#creationDock,#canvasTools,#selectionTools,[data-edge]')){const node=e.target.closest('.node'),pasteAt={x:e.clientX,y:e.clientY,boardId,atPointer:true};if(node&&!selected.has(node.dataset.id)){selected=new Set([node.dataset.id]);refreshSelectionUI()}items=[...(selected.size?[['复制内容  Ctrl+C',copyBlocks]]:[]),['粘贴内容  Ctrl+V',()=>pasteBlocks(pasteAt)],...items]}return continuityMenu(e,items)};
 canvas.addEventListener('contextmenu',e=>{if(e.target.closest('.node,[data-edge]'))return;if(contextDown&&Math.hypot(e.clientX-contextDown.x,e.clientY-contextDown.y)>5)return;fileMenu(e,[])});
 // A second window has its own board selection; updates remain protected by ETags.
 async function openSecondWindow(){if(!await persist())return;window.open('/index.html?board='+encodeURIComponent(boardId),'_blank','popup,width=1200,height=850');}
@@ -163,10 +163,10 @@ function pasteLocation(bundle,anchor,signature){const r=canvas.getBoundingClient
  const offset=count*24;x+=x+width+offset<=right?offset:-Math.min(offset,Math.max(0,x-left));y+=y+height+offset<=bottom?offset:-Math.min(offset,Math.max(0,y-top));lastPastePlacement={boardId,signature,count,anchor:{...anchor},view:JSON.stringify(view())};return worldPoint(x,y)}
 async function pastePayload(text,files,anchor=pasteAnchor()){
  if(!board||anchor.boardId!==boardId)return toast('白板已切换，请在当前白板重新粘贴');
- if(files.length){await importFiles(files,worldPoint(anchor.x,anchor.y));return}
+ if(files.length){await importFiles(files,anchor._insertionPoint || worldPoint(anchor.x,anchor.y));return}
  if(!text)return;text=text.replace(/\r\n?/g,'\n');let value;try{value=JSON.parse(text)}catch{}
  let bundle;if(value?.format==='creative-board-fragment'){if(!Array.isArray(value.nodes)||!Array.isArray(value.edges))throw Error('剪贴板内容不完整');bundle=normalize(value)}else if(text.includes('\t')){bundle={nodes:[{id:uid(),type:'table',title:'粘贴的表格',body:'',x:0,y:0,w:620,h:360,color:'#ffffff',...tableData(parseDelimited(text,'\t'),false)}],edges:[]}}else{bundle={nodes:[{id:uid(),type:'note',sizeMode:'auto',title:text.split('\n')[0].slice(0,50),body:text,x:0,y:0,w:300,h:120,color:colors[0],tags:[]}],edges:[]}}
- if(!bundle.nodes.length)return;const point=pasteLocation(bundle,anchor,text);editorId=null;insertBundle(bundle,point);canvas.tabIndex=-1;canvas.focus({preventScroll:true});toast('已粘贴 '+bundle.nodes.length+' 块内容 · Ctrl+Z 撤销');
+ if(!bundle.nodes.length)return;if(anchor._insertionPoint){const r=canvas.getBoundingClientRect();anchor={...anchor,x:r.left+view().x+anchor._insertionPoint.x*view().z,y:r.top+view().y+anchor._insertionPoint.y*view().z}}const point=pasteLocation(bundle,anchor,text);if(anchor._insertionPoint)Object.assign(anchor._insertionPoint,point);editorId=null;insertBundle(bundle,point);canvas.tabIndex=-1;canvas.focus({preventScroll:true});toast('已粘贴 '+bundle.nodes.length+' 块内容 · Ctrl+Z 撤销');
 }
 
 // Corner handles resize a note's frame, leaving its text size unchanged.
@@ -264,7 +264,7 @@ function taskComposer(){
 }
 window.whiteboardAI={compose:taskComposer,makePack:makeRequestPack};
 headerAction('aiWorkspace','AI',taskComposer).title='查资料与参考';
-wfHelp=function(){showDialog('<h2>自己整理，或请 AI 帮忙</h2><div class="interaction-help"><h3>先放内容，再整理</h3><p>双击空白处写便签；拖入文件；需要行列结构时用底部“表格”。不必先建立一套分类。</p><h3>选中与编辑</h3><p>单击选中，双击编辑。选中后顶部可以调整标题和正文字号。编辑时快捷键作用于文字，按 Esc 结束编辑后再复制内容块。</p><h3>分类与复用</h3><p>内容库可以新建内容和嵌套文件夹。把白板内容收进库，之后可以整组或逐块取出。放到白板的是独立副本；通过“来自…”对照原件后再决定更新。</p><h3>多窗口</h3><p>顶部“窗口”可选择另一张白板打开。跨窗口 Ctrl+C / V 复制；同一白板发生冲突时先另存，不强行覆盖。</p><h3>查资料与参考</h3><p>点击顶部 AI，选择背景并写下问题。AI 仅查资料和介绍已有体系，不能创作文案或修改白板。带来源的回复单独保存，由你核对和使用。</p><h3>改错了</h3><p>Ctrl+Z 撤销最近操作；“更多 → 恢复与历史记录”查看更早的记录。重要内容请另行备份。</p></div>',[['关闭',()=>$('dialog').close()],['查资料与参考',taskComposer],['打开窗口管理',()=>wfSafe(windowPicker)]])};
+wfHelp=function(){showDialog('<h2>自己整理，或请 AI 帮忙</h2><div class="interaction-help"><h3>先放内容，再整理</h3><p>双击空白处写便签；拖入文件；需要行列结构时用底部“表格”。不必先建立一套分类。</p><h3>选中与编辑</h3><p>单击选中，双击编辑。选中后顶部可以调整标题和正文字号。编辑时快捷键作用于文字，按 Esc 结束编辑后再复制内容块。</p><h3>分类与复用</h3><p>内容库可以写便签和建立文件夹。把白板内容收进库，之后可以整组或逐块取出。放到白板的是独立副本；通过“来自…”对照原件后再决定更新。</p><h3>多窗口</h3><p>顶部“窗口”可选择另一张白板打开。跨窗口 Ctrl+C / V 复制；同一白板发生冲突时先另存，不强行覆盖。</p><h3>查资料与参考</h3><p>点击顶部 AI，选择背景并写下问题。AI 仅查资料和介绍已有体系，不能创作文案或修改白板。带来源的回复单独保存，由你核对和使用。</p><h3>改错了</h3><p>Ctrl+Z 撤销最近操作；“更多 → 恢复与历史记录”查看更早的记录。重要内容请另行备份。</p></div>',[['关闭',()=>$('dialog').close()],['查资料与参考',taskComposer],['打开窗口管理',()=>wfSafe(windowPicker)]])};
 $('help').onclick=wfHelp;
 headerAction('workspaceGuide','使用帮助',wfHelp);
 if(board){applyTypography();syncTextTools();announce()}
@@ -365,7 +365,7 @@ if(board){applyTypography();syncTextTools();announce()}
  const originalClose=closeFileContext;
  closeFileContext=function(){
   const restore=!context.hidden&&context.contains(document.activeElement);
-  originalClose();if(returnFocus?.matches('#creationMore,#zoomValue'))returnFocus.setAttribute('aria-expanded','false');if(restore&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
+  originalClose();if(returnFocus?.matches('#creationMore,#zoomValue,#selectionMore'))returnFocus.setAttribute('aria-expanded','false');if(restore&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
  };
  const originalMenu=fileMenu;
  fileMenu=function(e,items){
@@ -376,17 +376,17 @@ if(board){applyTypography();syncTextTools();announce()}
    items=[['编辑',()=>openEditor(id)],...items,['创建副本  Ctrl+D',duplicate],['删除  Delete',removeSelected]];
    if(selected.size>1)items.push(['组成一组',groupSelection]);
    if(e.target.closest('[data-cell]'))items=items.map(([label,fn])=>[label==='插入图片…'?'插入文件…':label,fn]);
-  }else if(e.target.closest?.('#canvas')&&!e.target.closest('#creationDock,#canvasTools,[data-edge]')){
+  }else if(e.target.closest?.('#canvas')&&!e.target.closest('#creationDock,#canvasTools,#selectionTools,[data-edge]')){
    const p=worldPoint(e.clientX,e.clientY);
    items=[['新建便签  N',()=>addNote(p)],['新建表格  T',()=>{
     $('addTable').click();const n=board.nodes.find(n=>n.id===editorId);
     if(n){n.x=p.x;n.y=p.y;drawNodes();change();$('title')?.focus()}
    }],...items];
   }
-  if(returnFocus?.matches('#creationMore,#zoomValue'))returnFocus.setAttribute('aria-expanded','false');
-  returnFocus=e.target.closest?.('[data-entry-id],[data-asub],[data-asset],#sidebarClose,#creationMore,#zoomValue')||canvas;
+  if(returnFocus?.matches('#creationMore,#zoomValue,#selectionMore'))returnFocus.setAttribute('aria-expanded','false');
+  returnFocus=e.target.closest?.('[data-entry-id],[data-asub],[data-asset],#sidebarClose,#creationMore,#zoomValue,#selectionMore')||canvas;
   originalMenu(e,items);
-  if(returnFocus.matches('#creationMore,#zoomValue'))returnFocus.setAttribute('aria-expanded','true');
+  if(returnFocus.matches('#creationMore,#zoomValue,#selectionMore'))returnFocus.setAttribute('aria-expanded','true');
   const buttons=[...context.querySelectorAll('button')];
   if(buttons.some(b=>b.textContent.startsWith('添加选中的 ')))buttons.filter(b=>b.textContent==='放到白板').forEach(b=>b.remove());
   const seen=new Set();

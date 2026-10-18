@@ -236,12 +236,27 @@ body #selection{background:color-mix(in srgb,var(--ui-canvas-focus,var(--ui-acce
 body #shellMore>div,body #tabContext,body #fileContext{border-radius:11px;padding:6px;box-shadow:0 8px 30px #0004}
 body #shellMore button,body #tabContext button,body #fileContext button{border-radius:6px;font-size:13px}
 body #boardPicker{border-radius:16px;padding:24px}
+body #boardPicker[open]{display:flex;flex-direction:column;max-height:calc(100dvh - 24px);overflow:auto;scroll-padding-top:64px}
+body #boardPicker>form,body #boardPicker>#boardQuery,body #boardPicker>.new-board,body #boardPicker>#pickerHint{flex-shrink:0}
+body #boardPicker>form{position:sticky;top:0;z-index:2;background:var(--ui-panel)}
+body #boardChoices{flex:0 1 auto;min-height:min(96px,20dvh)}
+@media(max-height:500px){
+ body #boardPicker{padding:16px}
+ body #boardPicker h2{font-size:18px;margin-bottom:8px}
+ body #boardPicker #boardQuery{margin-bottom:6px}
+ body #boardPicker .new-board{margin-top:8px;padding-top:10px}
+ body #boardPicker #pickerHint{margin-top:8px;line-height:1.5}
+}
+@media(max-height:280px){
+ body #boardPicker[open]{display:block;scroll-padding-top:56px}
+ body #boardPicker #boardChoices{max-height:28dvh;min-height:48px}
+}
 body #boardQuery,body #newBoardName{border-radius:9px}
 body #boardChoices button{border-radius:8px;border-bottom:0;margin:3px 0;padding:12px}
 body #boardPicker .new-board button,body .empty-pane .choose-board{background:var(--ui-selected);border-color:var(--ui-line);border-radius:9px;color:var(--ui-text)}
 body .empty-pane h2{font-weight:600;font-size:22px;color:var(--ui-canvas-text,var(--ui-text))}
 body .empty-pane p{font-size:13px;line-height:1.8;margin:12px 0 20px}
-body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002}
+body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002;width:max-content;max-width:min(650px,calc(100% - 24px));padding:10px 14px;overflow-wrap:anywhere;pointer-events:none}
 @media(max-width:900px){body #shellHeader{gap:7px;padding:0 10px}#shellHeader .studio-brand{padding-right:9px;font-size:13px;gap:7px}}
 @media(max-width:600px){#shellHeader .studio-brand span,body #shellHeader .shell-ai span{display:none}#shellHeader .studio-brand{padding-right:7px;border:0}body #shellHeader{gap:5px;padding:0 8px}body #shellHeader .shell-ai{width:32px;height:32px;padding:0;justify-content:center;border:0}body #shellStatus{width:88px;min-width:88px;max-width:88px;font-size:11px}body #canvas #creationDock{padding:5px;gap:2px}body #canvas #creationDock button{padding-left:8px;padding-right:8px}}
 @media(max-width:360px){body #shellStatus{width:68px;min-width:68px;max-width:68px}body #shellHeader{gap:3px}}
@@ -265,3 +280,12 @@ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summa
 }
 /* Leave room for the existing save/failure status at the largest interface size. */
 @media(max-width:360px){body #shellHeader .studio-brand{display:none}}
+
+/* Keep every sidebar destination and existing option available in narrow panes. */
+@media(max-width:240px){
+ body #workspaceSidebar .workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ body #workspaceSidebar .workspace-tabs button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+ body #workspaceSidebar .workspace-tabs #sidebarClose{width:32px;min-width:32px;justify-self:end}
+ body #workspaceSidebar .library-bottom-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ body #workspaceSidebar .library-bottom-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+}

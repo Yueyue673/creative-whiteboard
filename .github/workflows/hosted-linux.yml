@@ -1,0 +1,28 @@
+name: Hosted Linux development checks
+on:
+  push:
+    branches: [codex/hosted-linux-checks]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hosted-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r hosted/requirements-runtime.txt
+      - name: Hosted tests including real Linux leases, links and backup restoration
+        working-directory: hosted
+        run: python manage.py test core --settings=service.test_settings --verbosity=1
+      - name: Pure browser models
+        run: |
+          for file in hosted/tests/*.mjs; do node "$file"; done
+      - name: Build and verify isolated container plus local HTTPS recovery
+        run: python hosted/deployment/container_smoke.py

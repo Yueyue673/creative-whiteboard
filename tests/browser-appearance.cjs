@@ -26,7 +26,7 @@ const {spawn} = require('child_process'), assert = require('assert'), {chromium}
     // and changes in another window must not be overwritten by a stale dialog.
     const originalNotes=await page.evaluate(()=>JSON.stringify(board.nodes));
     await page.evaluate(()=>whiteboardAppearance.open());
-    assert.equal(await page.locator('.appearance-presets [data-preset]').count(),6);
+    assert.equal(await page.locator('.appearance-presets [data-preset]').count(),17);
     for(const preset of ['sand','forest','iris']){
       await page.locator('[data-preset="'+preset+'"]').click();
       assert.equal(await page.evaluate(()=>whiteboardAppearance.read().preset),preset);
