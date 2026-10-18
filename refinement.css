@@ -10,6 +10,8 @@ button,summary,select{transition:none}
 #canvas.empty-start:not(:has(.import-placement:not([hidden]))) #empty h1{display:block;font-size:26px;line-height:1.4;margin:0 0 10px;color:var(--ui-canvas-text,var(--ui-text))}
 #canvas.empty-start:not(:has(.import-placement:not([hidden]))) .empty-purpose{font-size:14px;line-height:1.7;margin:0 0 24px;color:var(--ui-canvas-muted,var(--ui-muted))}
 #canvas.empty-start:not(:has(.import-placement:not([hidden]))) .empty-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:340px;margin:auto}
+#canvas.empty-start:not(:has(.import-placement:not([hidden]))) .empty-actions button{color:var(--ui-text)}
+#canvas.empty-start:not(:has(.import-placement:not([hidden]))) #emptyImport{background:var(--ui-field)}
 #canvas.empty-start:not(:has(.import-placement:not([hidden]))) #emptyLibrary{grid-column:1/-1;margin-top:8px;background:var(--ui-field);color:var(--ui-text);text-align:left}
 #emptyLibrary>span{margin-right:10px;color:var(--ui-accent)}
 #canvas.empty-start:not(:has(.import-placement:not([hidden]))) #creationDock{display:none}
