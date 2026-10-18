@@ -1,40 +1,54 @@
 # 创作白板
 
-**把笔记、资料和表格放在一起，慢慢整理出自己的思路。**
+**让做过的内容，成为下次创作的资源。**
 
-先记下一点，再移动、连接和编排。用浏览器打开，内容保存在自己的电脑里。
-
-[三步开始](#三步开始) · [使用说明](docs/usage.md) · [版本与进度](docs/status.md) · [English](#english)
+[开始使用](#三步开始) · [看一次完整复用](docs/reuse.md) · [使用说明](docs/usage.md) · [English](#english)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/canvas-dark.png">
-  <img src="docs/screenshots/canvas-light.png" alt="创作白板的真实界面：三张便签和一张整理表格，用连线放在同一张画布中。" width="1360">
+  <source media="(max-width: 640px)" srcset="docs/brand/reuse-cover-mobile.png">
+  <img src="docs/brand/reuse-cover.png" alt="把这次的创作，用在下一次：笔记、素材、表格与组合收进内容库，再取出独立副本，用于新的白板。原内容保留，组合与内部连线一起保存。" width="1600">
 </picture>
 
-<sub>原工作台截图，使用仓库自带的示例白板；浅色为“纸白”，深色为“深灰”。</sub>
+<sub>积累与复用的流程示意；下面展示原工作台的实际界面。</sub>
 
-## 从零散想法，到可以继续的工作
+## 做过的内容，不必从头再做
 
-- **先记下来。** 双击空白处写便签。新便签随文字增高，也可以手动定下大小。
-- **把资料放在旁边。** 图片、音视频、表格、本地 HTML 和 JSON 可以和文字一起摆放，用连线说明关系。
-- **按自己的方式整理。** 自由移动、分组，或把内容放进表格。常用内容收进内容库，下次取出副本继续用。
-- **接着上次做。** 长文展开写，两张白板并排看。自动保存，遇到保存失败或冲突时保留当前内容并提示处理。
+在白板上写笔记、放资料、整理表格。值得留下的部分，可以存进**内容库**，成为自己积累的资源。
+
+下一次创作，把它取到另一张白板，继续修改、连接和组合。一张便签可以复用，一整组内容连同内部连线也可以。
+
+**01　选出要留下的内容**
+
+在白板上多选便签、表格或组合，点底部的「保存到库」。原白板上的内容会保留。
+
+**02　存成自己的资源**
+
+给它起个名字，放进内容库。可以按文件夹整理，也可以搜索后再找回来。
+
+**03　换张白板，接着用**
+
+从内容库拖到新白板，得到可独立编辑的副本。也可以选中库中资源，按 **Ctrl＋Enter** 整体放入。
+
+![原工作台的真实复用结果：左侧内容库保存“观察与分镜”组合，包含4块内容与3条连线；右侧“下一次创作”白板已经取出完整副本。](docs/screenshots/reuse-new-board.png)
+
+<sub>使用仓库自带的示例白板演示：同一组笔记、表格和连线，已经用于另一张白板。</sub>
+
+### 原件留下，副本继续生长
+
+白板上的改动不会自动覆盖库中原件。想把改好的部分带回去时，右键打开「来源与版本」，先比较，再决定更新哪一边；其他副本仍然独立。
+
+[跟着做：收存 → 复用 → 回看来源](docs/reuse.md)
 
 <details>
-<summary><strong>写长一点：展开原便签继续编辑</strong></summary>
+<summary><strong>除了复用，也能自由编排、展开写作、并排查看</strong></summary>
 
-文字、补充与备注仍属于原便签；返回后继续在白板上编排。
+- **在同一张白板里整理。** 文字、图片、音视频、表格、本地 HTML 和 JSON 可以摆在一起，用连线说明关系。
+- **把一条想法写长。** 展开原便签继续编辑，返回后保留在原来的位置。
+- **把两张白板放在眼前。** 标签页与左右分栏用于对照资料；窄窗口集中显示当前一侧，再从标签切换。
 
-![展开编辑的真实界面，原便签文字与编辑工具位于完整写作区域](docs/screenshots/writing.png)
+![原便签展开编辑的真实界面](docs/screenshots/writing.png)
 
-</details>
-
-<details>
-<summary><strong>并排查看：一边看资料，一边整理</strong></summary>
-
-标签页保存打开的白板，左右分栏可以调整宽度。窄窗口集中显示当前一侧，再从标签切换。
-
-![原工作台的左右分栏：示例白板和镜头清单同时打开](docs/screenshots/split.png)
+![原工作台同时打开两张白板的真实界面](docs/screenshots/split.png)
 
 </details>
 
@@ -67,6 +81,7 @@ python server.py
 | 移动画布 | 按住右键或中键拖动 |
 | 放大、缩小 | Ctrl＋滚轮 |
 | 连接内容 | 从选中内容边缘的圆点拖向另一块 |
+| 存成资源、再次使用 | 选中白板内容后 Ctrl＋Shift＋L；在内容库选中资源后 Ctrl＋Enter |
 | 撤销、搜索 | Ctrl＋Z、Ctrl＋K |
 | 回看全局 | Shift＋1 |
 
@@ -88,9 +103,13 @@ AI 入口用于整理研究任务和核对有来源的参考资料，工具不�
 
 ## English
 
-Creative Whiteboard is a local-first canvas for notes, media and tables. Arrange ideas freely, connect related material, and return to your work in a browser. It runs with Python’s standard library; the interface and guides are currently in Chinese.
+**Turn what you create into resources for your next project.**
 
-The default branch provides the local application. Account/workspace support and source comparison are available on the development branch; see [version status](docs/status.md). This is not a real-time collaborative editor.
+Creative Whiteboard lets you save notes, tables, media and groups of content to your own library, then reuse them on another board. A saved group keeps its internal connections. Place an independent copy, adapt it to the new work, and compare it with the library original when you choose to update either side.
+
+It is a local-first application that runs with Python’s standard library and opens in a browser. The interface and guides are currently in Chinese. [Start locally](#三步开始) · [Reuse walkthrough](docs/reuse.md)
+
+The default branch provides the local application. Account/workspace support and additional source-reading workflows are available on the development branch; see [version status](docs/status.md). This is not a real-time collaborative editor.
 
 ---
 
