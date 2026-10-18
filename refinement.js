@@ -141,7 +141,7 @@
   canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<132);
   canvas.classList.toggle('record-in-menu',bounds.width<280);
   canvas.classList.toggle('short-selection',!!selectionScope&&bounds.height<300);
-  canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220);canvas.classList.toggle('tiny-tools',bounds.width<180);
+  canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220||(bounds.width<280&&bounds.height<180));canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
