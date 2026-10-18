@@ -85,7 +85,7 @@
   };
  }};
  placeAssets=async function(ids,p){
-  const destination=window.whiteboardExplorer?parent.whiteboardLibraryTransfer?.destination():undefined;
+  const destination=window.whiteboardExplorer?(typeof whiteboardExplorer.placementDestination==='function'?whiteboardExplorer.placementDestination():parent.whiteboardLibraryTransfer?.destination()):undefined;
   const unique=[...new Set(ids)],target=board,targetId=boardId;
   // Shared-library uploads can precede a canvas pane's catalog refresh.
   if(unique.some(id=>!assetById(id))){

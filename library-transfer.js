@@ -18,6 +18,14 @@
   throw Error('目标白板还在打开');
  }
  window.whiteboardLibraryTransfer={
+  async chooseDestination(source){
+   if(source!==document.getElementById('explorerFrame')?.contentWindow)return null;
+   const preview=source.document.getElementById('pieceList');
+   const tab=await picker(model.side,{title:'放到哪张白板？',hint:'选择已有白板，或填写名称新建。'});
+   if(tab&&preview?.isConnected&&source.document.getElementById('pieceList')===preview)window.whiteboardWorkspace?.toggle('assetPane');
+   return tab?{tabId:tab.id,boardId:tab.boardId}:null;
+  },
+  destinationName(target){return model.tabs.find(tab=>tab.id===target?.tabId&&tab.boardId===target.boardId)?.name||'选择白板'},
   destination(){const tab=current();return tab?{tabId:tab.id,boardId:tab.boardId}:null},
   preview(destination,items){const tab=destination&&model.tabs.find(tab=>tab.id===destination.tabId&&tab.boardId===destination.boardId),view=tab&&pane(tab),state=view?.state();return state?.boardId===tab?.boardId&&!state?.loading?view?.beginInsertion?.(items):null},
   reveal(requestId,source){const result=completed;if(!result||result.requestId!==requestId||result.source!==source)return false;completed=null;if(current()?.id!==result.tabId||current()?.boardId!==result.boardId)return false;return !!window.whiteboardWorkspace?.returnFromInsertion?.(result.context)},

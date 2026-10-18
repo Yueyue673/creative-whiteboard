@@ -45,7 +45,9 @@
   drawNodes=()=>{}; // This document presents lists, never a second hidden canvas.
   const show=showWorkspaceTab;showWorkspaceTab=async function(panel){const pending=show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel});await pending};
   toggleSidebar=()=>send('explorer-toggle');$('sidebarToggle').onclick=toggleSidebar;
-  const placements=new Map(),returnRequests=new WeakMap();let placementPending=false;
+  const placements=new Map(),returnRequests=new WeakMap();let placementPending=false,previewDestination=null,previewDestinationEpoch=0;
+  const ownsPreview=scope=>scope&&previewDestination===scope&&$('dialog').open&&scope.preview.isConnected&&$('pieceList')===scope.preview;
+  const placementDestination=()=>ownsPreview(previewDestination)?previewDestination.target:parent.whiteboardLibraryTransfer?.destination();
   window.addEventListener('message',e=>{
    if(e.source!==parent||e.origin!==location.origin||e.data?.type!=='explorer-place-result')return;
    const request=placements.get(e.data.requestId);if(!request)return;
@@ -53,10 +55,10 @@
    request.buttons.forEach(({button,disabled})=>{if(button.isConnected)button.disabled=disabled});
    if(e.data.error){if(request.position)request.position._insertionError=e.data.error;toast(e.data.error)}if(Array.isArray(e.data.ids)&&e.data.ids.length)returnRequests.set(e.data.ids,e.data.requestId);request.resolve(e.data.ids||false);
   });
-  commitLibraryBatch=function(items,position,destination=parent.whiteboardLibraryTransfer?.destination()){
+  commitLibraryBatch=function(items,position,destination=placementDestination()){
    if(placementPending){toast('上一批内容还在添加，请稍候。');return Promise.resolve(false)}
    if(!items.length){toast('没有可添加的内容');return Promise.resolve(false)}
-   placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.hasAttribute('data-library-place')||['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
+   placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.hasAttribute('data-library-place')||button.hasAttribute('data-library-destination')||['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
    buttons.forEach(({button})=>button.disabled=true);
    const returnContext=$('dialog').open&&$('pieceList')?parent.whiteboardWorkspace?.captureInsertionReturn?.():null;return new Promise(resolve=>{placements.set(requestId,{resolve,buttons,position});send('explorer-place',{items,position,requestId,destination,returnContext})});
   };
@@ -66,6 +68,24 @@
   const saveCatalog=saveAssets;saveAssets=async function(next){const ok=await saveCatalog(next);if(ok)send('explorer-catalog');return ok};
   $('assetList').addEventListener('click',()=>queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder})));
   window.whiteboardExplorer={show:showWorkspaceTab,revealAsset:revealLibraryItem,pending:()=>window.whiteboardImports?.pending()||false,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline();window.dispatchEvent(new Event('creative-research-context'))},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
+  whiteboardExplorer.placementDestination=placementDestination;
+  const previewWithDestination=previewAsset;
+  previewAsset=async function(id){
+   const epoch=++previewDestinationEpoch;await previewWithDestination(id);
+   if(epoch!==previewDestinationEpoch||!$('dialog').open||!$('pieceList')||typeof parent.whiteboardLibraryTransfer?.chooseDestination!=='function'||typeof parent.whiteboardLibraryTransfer?.destinationName!=='function')return;
+   const place=$('dialogActions').querySelector('[data-library-place]');if(!place)return;
+   const scope={preview:$('pieceList'),target:parent.whiteboardLibraryTransfer?.destination()||null};previewDestination=scope;
+   const row=document.createElement('div'),label=document.createElement('span'),button=document.createElement('button');row.className='reuse-destination';label.textContent='放到';button.type='button';button.dataset.libraryDestination='';row.append(label,button);place.before(row);
+   const paint=()=>{const name=parent.whiteboardLibraryTransfer?.destinationName(scope.target)||'选择白板';button.textContent=name+' ▾';button.title=name;button.setAttribute('aria-label','选择放入的白板，当前：'+name)};paint();
+   button.onclick=async()=>{
+    if(!ownsPreview(scope)||placementPending||parentHasDialog())return;
+    const wasDisabled=place.disabled;place.disabled=true;button.disabled=true;
+    try{const target=await parent.whiteboardLibraryTransfer.chooseDestination(window);if(!ownsPreview(scope))return;if(target)scope.target=target;paint()}
+    catch(error){if(ownsPreview(scope))toast(error.message)}
+    finally{if(ownsPreview(scope)){place.disabled=wasDisabled;button.disabled=false;button.focus({preventScroll:true})}}
+   };
+   onDialogDismiss(()=>{if(previewDestination===scope)previewDestination=null});
+  };
   whiteboardExplorer.revealInserted=ids=>{const requestId=returnRequests.get(ids);if(!requestId)return;returnRequests.delete(ids);send('explorer-reveal-insertion',{requestId})};
   whiteboardExplorer.command=async function(name,extra={}){
    if(name==='ai'){

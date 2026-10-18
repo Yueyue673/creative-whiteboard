@@ -467,7 +467,11 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 #dialog:has(.reuse-heading) #pieceList{flex:1;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;margin:0;padding:0 24px 16px;scrollbar-gutter:stable}
 #dialog:has(.reuse-heading) #dialogActions{flex:none;display:flex;margin:0;padding:14px 24px;gap:0;border-top:1px solid var(--ui-line);background:var(--ui-panel)}
 #dialog:has(.reuse-heading) .reuse-place{min-height:44px;min-width:220px;font-weight:600;background:var(--ui-hover)}
+.reuse-destination{display:flex;align-items:center;gap:10px;width:100%;min-width:0;margin:0 0 8px;color:var(--ui-muted);font-size:12px}
+.reuse-destination>span{flex:none}.reuse-destination>button{flex:1;min-width:0;min-height:36px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:13px}
+#dialog:has(.reuse-heading) #dialogActions:has(.reuse-destination){display:flex;flex-direction:column;align-items:stretch}
 @media(max-width:650px),(max-height:500px){#dialog[open]:has(.reuse-heading){width:calc(100vw - 16px);height:calc(100dvh - 24px);max-height:calc(100dvh - 24px)}.reuse-heading{padding:10px 12px;gap:8px}.reuse-heading h2{font-size:17px}#dialog:has(.reuse-heading) .piece-tools{padding:12px 16px;gap:8px}#dialog:has(.reuse-heading) #pieceList{padding:0 16px 12px}#dialog:has(.reuse-heading) #dialogActions{padding:12px 16px}.reuse-place{width:100%;min-width:0!important}}
+#dialog[open]:has(.library-note-preview){height:fit-content}#dialog:has(.reuse-heading) .library-note-preview{align-content:start}
 
 @media(max-height:400px){#dialog:has(.reuse-heading) #dialogBody{display:block;overflow:auto;overscroll-behavior:contain}.reuse-heading{position:sticky;top:0;background:var(--ui-panel);padding-top:6px;padding-bottom:6px}#dialog:has(.reuse-heading) #pieceList{overflow:visible}#dialog:has(.reuse-heading) #dialogActions{padding-top:8px;padding-bottom:8px}}
 
