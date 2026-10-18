@@ -6,6 +6,19 @@ button,summary,select{transition:none}
 #empty p{text-wrap:balance}
 #empty .empty-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:18px;pointer-events:auto}
 #empty .empty-actions button{min-height:44px;padding:10px 18px;font-size:14px}
+#canvas.empty-start #empty{left:50%;top:47%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));max-width:none;max-height:calc(100% - 16px);overflow:auto}
+#canvas.empty-start #empty h1{display:block;font-size:26px;line-height:1.4;margin:0 0 10px;color:var(--ui-text)}
+#canvas.empty-start .empty-purpose{font-size:14px;line-height:1.7;margin:0 0 24px;color:var(--ui-muted)}
+#canvas.empty-start .empty-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:340px;margin:auto}
+#canvas.empty-start #emptyLibrary{grid-column:1/-1;margin-top:8px;background:transparent;color:var(--ui-text);text-align:left}
+#emptyLibrary>span{margin-right:10px;color:var(--ui-accent)}
+#canvas.empty-start #creationDock{display:none}
+#canvas.empty-start #creationDock:has(#undo:enabled,#redo:enabled){display:flex}
+#canvas.empty-start #creationDock>:not(#undo):not(#redo){display:none!important}
+#canvas.empty-start #creationDock>#undo,#canvas.empty-start #creationDock>#redo{display:inline-flex!important}
+@media(max-width:400px){#canvas.empty-start #empty h1{font-size:21px}#canvas.empty-start #empty{width:calc(100% - 32px)}#canvas.empty-start .empty-actions button{padding:10px 8px;font-size:13px}}
+@media(max-height:400px){#canvas.empty-start #empty{top:50%;width:min(400px,calc(100% - 24px));max-height:calc(100% - 8px)}#canvas.empty-start #empty h1{font-size:17px;line-height:22px;margin-bottom:6px}#canvas.empty-start .empty-purpose{display:none}#canvas.empty-start .empty-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}#canvas.empty-start #emptyLibrary{grid-column:auto;margin:0;text-align:center}#canvas.empty-start #emptyLibrary>span{display:none}#canvas.empty-start .empty-actions button{padding:8px 6px}#canvas.empty-start #canvasTools{display:none}}
+@media(max-height:180px){#canvas.empty-start.start-history #empty{top:44px;transform:translateX(-50%);max-height:calc(100% - 44px)}#canvas.empty-start.start-history #empty h1{display:none}#canvas.empty-start.start-history .empty-actions{row-gap:0}#canvas.empty-start.start-history #creationDock{top:0;bottom:auto;left:auto;right:12px;transform:none;height:44px;padding:0;border:0;background:transparent;box-shadow:none}#canvas.empty-start.start-history #creationDock>#undo,#canvas.empty-start.start-history #creationDock>#redo{width:44px;min-height:44px;margin:0;padding:0;border:0;border-radius:6px;justify-content:center;align-items:center}}
 #emptyWrite{background:var(--ui-selected);border-color:var(--ui-accent);font-weight:600}
 #emptyImport{background:transparent}
 #canvas:has(.import-placement:not([hidden])) #empty{visibility:hidden}
