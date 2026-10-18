@@ -48,6 +48,8 @@
 
 历史不足、同次改动多块内容或版本已变化时不猜测，仍可用“全览”找回原便签。本机历史会合并短时间操作，不保证出现入口；这不是光标同步。实体设备、真实用户网络、首次理解与长期舒适仍待分别验证。详见[开发版接续说明](https://github.com/Yueyue673/creative-whiteboard/blob/codex/hosted-linux-checks/docs/writing-continuation.md)。
 
+在标签之间继续创作时，自动尺寸便签在后台保留已有高度，重新可见后再随内容调整。[ef8ea91](https://github.com/Yueyue673/creative-whiteboard/commit/ef8ea91ad18e16fda3209c2d13d99dd169f3df57) 已在开发版发布：切换标签与缩窄窗口的真实保存和返回经过核对，手动外框、正文、连线与库中原件保持。已打开的创作窗口保留，新打开页面应用修正。
+
 ## 使用边界
 
 - 本机版保存到本机目录；私人桌面资料不会自动上传到托管服务。
