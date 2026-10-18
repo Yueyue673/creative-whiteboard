@@ -470,3 +470,22 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 @media(max-width:650px),(max-height:500px){#dialog[open]:has(.reuse-heading){width:calc(100vw - 16px);height:calc(100dvh - 24px);max-height:calc(100dvh - 24px)}.reuse-heading{padding:10px 12px;gap:8px}.reuse-heading h2{font-size:17px}#dialog:has(.reuse-heading) .piece-tools{padding:12px 16px;gap:8px}#dialog:has(.reuse-heading) #pieceList{padding:0 16px 12px}#dialog:has(.reuse-heading) #dialogActions{padding:12px 16px}.reuse-place{width:100%;min-width:0!important}}
 
 @media(max-height:400px){#dialog:has(.reuse-heading) #dialogBody{display:block;overflow:auto;overscroll-behavior:contain}.reuse-heading{position:sticky;top:0;background:var(--ui-panel);padding-top:6px;padding-bottom:6px}#dialog:has(.reuse-heading) #pieceList{overflow:visible}#dialog:has(.reuse-heading) #dialogActions{padding-top:8px;padding-bottom:8px}}
+
+/* The selection count opens its contents; folding it keeps the same context. */
+#selectionTools button{min-width:44px;height:44px}#selectionTools .selection-count{color:var(--ui-text);font-variant-numeric:tabular-nums}
+#selectionTools .selection-count::after{content:'⌄';display:inline-block;margin-left:7px;color:var(--ui-muted)}#selectionTools .selection-count[aria-expanded=true]::after{transform:rotate(180deg)}
+#canvas.compact-tools #selectionTools .transfer-caption{display:none}#canvas.short-selection #selectionTools{padding:1px}
+#selectionTools.selection-browsing .selection-count{background:var(--ui-hover);font-weight:600}#selectionTools.selection-browsing [data-selection-collect]{font-weight:400;background:transparent}
+.selection-contents{position:absolute;z-index:24;display:flex;flex-direction:column;min-height:0;max-height:300px;width:360px;border:1px solid var(--ui-line);border-radius:10px;overflow:hidden;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 12px 32px #0003}
+.selection-contents[hidden]{display:none!important}.selection-contents-list{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:4px 6px}
+.selection-contents-list>button{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:9px 8px;text-align:left;border:0;border-radius:6px;background:transparent;color:var(--ui-text)}
+.selection-contents-list>button:hover{background:var(--ui-hover)}.selection-contents-list>button>span{flex:1;min-width:0;font-size:14px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.selection-contents-list small{flex:none;font-size:11px;color:var(--ui-muted)}.selection-contents-list>button>small:first-child{color:var(--ui-accent);font-variant-numeric:tabular-nums}
+.selection-contents-pages{flex:none;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 8px;border-top:1px solid var(--ui-line)}.selection-contents-pages button{min-height:44px;border:0;background:transparent;font-size:12px}.selection-contents-pages small{color:var(--ui-muted);font-size:11px}
+.selection-contents button:focus-visible,#selectionTools .selection-count:focus-visible{outline:2px solid var(--ui-accent);outline-offset:-2px}
+.selection-contents-heading{font-size:18px;margin:0;padding:14px}
+#dialog[open]:has(.selection-contents.in-dialog){display:flex;flex-direction:column;width:min(440px,calc(100vw - 16px));height:min(520px,calc(100dvh - 16px));max-height:calc(100dvh - 16px);padding:0;overflow:hidden}
+#dialog:has(.selection-contents.in-dialog) #dialogBody{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0}
+#dialog .selection-contents.in-dialog{position:static;width:auto!important;max-height:none!important;border:0;border-radius:0;box-shadow:none}
+#dialog .selection-contents-list{overflow:visible}
+#dialog:has(.selection-contents.in-dialog) #dialogActions{flex:none;display:flex;padding:4px 8px;margin:0;border-top:1px solid var(--ui-line)}#dialog:has(.selection-contents.in-dialog) #dialogActions button{min-height:44px}
+@media(max-height:240px){.selection-contents-heading{display:none}}

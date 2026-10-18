@@ -402,7 +402,7 @@ function commitLibraryBatch(items,p){if(!items.length)return toast('没有可添
  x+=w+60;rowH=Math.max(rowH,h);if((i+1)%columns===0){x=0;y+=rowH+70;rowH=0}}
  if(!built.length)return toast('所选组合为空');if(board.nodes.length+built.length>5000||board.edges.length+edges.length>10000)return toast('本次内容超出单张白板容量，请分到另一张白板');
  if(!p){p=center();const w=Math.max(...built.map(n=>n.x+n.w)),h=Math.max(...built.map(n=>n.y+n.h));for(let i=0;i<=board.nodes.length;i++){const hits=board.nodes.filter(n=>n.x<p.x+w&&n.x+n.w>p.x&&n.y<p.y+h&&n.y+n.h>p.y);if(!hits.length)break;p.y=Math.max(...hits.map(n=>n.y+n.h))+70}}
- const inserted=insertBundle({nodes:built,edges},p);if(inserted?.deferred)return inserted.ids;editorId=null;render();toast('已添加 '+built.length+' 块内容 · Ctrl+Z 可一次撤销');return built.map(n=>n.id)
+ const inserted=insertBundle({nodes:built,edges},p);if(inserted?.deferred)return inserted.ids;editorId=null;render();const result=built.map(n=>n.id);if(window.whiteboardSelectionContents?.reveal(result))$('toast').hidden=true;else toast('已添加 '+built.length+' 块内容 · Ctrl+Z 可一次撤销');return result
 }
 placeAssets=async function(ids,p){const unique=[...new Set(ids)],assets=unique.map(assetById).filter(a=>a&&!a.archived);return commitLibraryBatch(assets.map(a=>({asset:a,bundle:itemBundle(a)})),p)};
 function placeLibraryFolder(path,recursive=false,p){const ids=folderContentIds(path,recursive);if(!ids.length)return toast('这个范围没有内容');return placeAssets(ids,p)}
