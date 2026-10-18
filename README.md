@@ -80,7 +80,7 @@ python server.py
 
 AI 入口用于整理研究任务和核对有来源的参考资料，工具不调用模型或自动上传内容，也不代写、改写你的正文。[AI 协作说明](docs/ai-workflow.md)
 
-**默认分支提供本机版。** 账号、工作区与托管服务在开发分支中集成；草稿和资料对照实验不能视为默认版已发布功能。[查看版本区别与进度](docs/status.md)
+**默认分支提供本机版。** 账号、工作区与资料对照在开发分支中继续完善；已发布的开发版尚未合并到默认分支。[查看版本区别与进度](docs/status.md)
 
 ## 反馈与参与
 
@@ -90,7 +90,7 @@ AI 入口用于整理研究任务和核对有来源的参考资料，工具不�
 
 Creative Whiteboard is a local-first canvas for notes, media and tables. Arrange ideas freely, connect related material, and return to your work in a browser. It runs with Python’s standard library; the interface and guides are currently in Chinese.
 
-The default branch provides the local application. Hosted account and workspace support is under development; see [version status](docs/status.md). This is not a real-time collaborative editor.
+The default branch provides the local application. Account/workspace support and source comparison are available on the development branch; see [version status](docs/status.md). This is not a real-time collaborative editor.
 
 ---
 
