@@ -316,7 +316,7 @@ $('emptyLibrary').onclick=()=>{
  if(parent!==window){try{if(parent.document.querySelector('dialog[open]'))return}catch{return}}
  showWorkspaceTab('assetPane');
 };
-// The original empty flag also accounts for pending and failed first imports.
+// Pending or failed spatial imports take this area; their original tools remain.
 // Existing history controls stay available when an empty board can be restored.
 const syncEmptyStart=()=>{canvas.classList.toggle('empty-start',!$('empty').hidden);canvas.classList.toggle('start-history',!$('undo').disabled||!$('redo').disabled)};
 const startObserver=new MutationObserver(syncEmptyStart);startObserver.observe($('empty'),{attributes:true,attributeFilter:['hidden']});for(const id of ['undo','redo'])startObserver.observe($(id),{attributes:true,attributeFilter:['disabled']});syncEmptyStart();

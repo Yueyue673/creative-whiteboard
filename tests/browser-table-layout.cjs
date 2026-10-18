@@ -22,7 +22,7 @@ const {chromium} = require('playwright');
   await page.goto(base + '/index.html');
   await page.waitForFunction(() => board && !loading);
   await page.evaluate(() => {board.nodes = []; board.edges = []; board.view = {x: 0, y: 0, z: 1}; selected.clear(); editorId = null; render()});
-  await page.locator('#addTable').click();
+  await page.locator('#emptyTable').click();
   await page.waitForFunction(() => board.nodes.length === 1);
   const id = await page.evaluate(() => board.nodes[0].id);
   const card = page.locator('.node[data-id="' + id + '"]');

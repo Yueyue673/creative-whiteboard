@@ -17,7 +17,7 @@ const fs=require('fs'),os=require('os'),path=require('path'),assert=require('ass
    const key=await p.evaluate(()=>current().boardId),a=p.frames().find(f=>new URL(f.url()).searchParams.get('pane')==='1'&&new URL(f.url()).searchParams.get('board')===key);await a.waitForFunction(()=>board&&!loading&&window.whiteboardNoteEditor);
    const originals=[];
    for(let i=1;i<=3;i++){
-    if(i===2){await a.locator('#canvas').focus();await p.keyboard.press('n')}else await a.locator('#add').tap();
+    if(i===2){await a.locator('#canvas').focus();await p.keyboard.press('n')}else await a.locator(i===1?'#emptyWrite':'#add').tap();
     await a.locator('#title').fill('Observation '+i);await a.locator('#body').fill('Supplied exact words '+i+'.');await a.locator('#inlineDone').tap();
     await a.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
     const state=await a.evaluate(()=>({nodes:clone(board.nodes),active:document.activeElement.id}));
