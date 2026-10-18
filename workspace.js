@@ -304,7 +304,8 @@ for(const id of ['add','addTable','import','undo','redo'])dock.append($(id));$('
 $('add').title='新建便签 · N';$('addTable').title='新建表格 · T';$('import').title='导入文件，也可以直接拖入';
 const menuBody=$('menu').querySelector('div');menuBody.prepend($('newBoard'));$('newBoard').textContent='新建白板';document.querySelector('header>b').textContent='白板';
 const zoomLabel=document.createElement('button');zoomLabel.id='zoomValue';zoomLabel.title='恢复画布至 100%';zoomLabel.onclick=()=>zoom(1/view().z);$('fit').before(zoomLabel);$('fit').textContent='全览';$('fit').title='查看全部内容 · Shift+1';
-const oldMoveViewShell=moveView;moveView=function(){oldMoveViewShell();if(board)zoomLabel.textContent=Math.round(view().z*100)+'%'};
+// Replacing unchanged text invalidates canvas :has() styles during every drag.
+const oldMoveViewShell=moveView;moveView=function(){oldMoveViewShell();if(board){const label=Math.round(view().z*100)+'%';if(zoomLabel.textContent!==label)zoomLabel.textContent=label}};
 const guide=document.createElement('button');guide.id='canvasGuide';guide.textContent='?';guide.title='操作说明';guide.setAttribute('aria-label','操作说明');$('canvasTools').append(guide);guide.onclick=()=>showDialog('<h2>像摆桌面上的纸张一样使用</h2><p>双击空白处写便签；双击已有内容直接编辑。文字、图片和素材都可以拖进来。拖便签边缘的圆点可以连线。</p><p>左键选择和摆放，右键拖动画布。也可以按住空格拖动。选中内容后按 Delete 删除，Ctrl+Z 撤销。</p><p>左侧切换白板、素材和本页内容。文件夹能嵌套，右键查看操作；F2 改名。Ctrl+K 搜索本页内容，Ctrl+\\ 收起侧栏。</p><p>N 新便签 · T 新表格 · Shift+1 全览 · Escape 结束编辑。输入文字时不会触发这些单键快捷键。</p>',[['知道了',()=>$('dialog').close()]]);
 $('empty').innerHTML='<h1>把想法放在这里</h1><div class="empty-actions inline-ui"><button id="emptyWrite" type="button">写便签</button><button id="emptyImport" type="button">添加文件</button></div>';
 $('emptyWrite').onclick=()=>$('add').click();
