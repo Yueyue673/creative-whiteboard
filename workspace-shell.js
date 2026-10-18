@@ -92,5 +92,46 @@
  // this explicit session, without restarting it or affecting other media.
  new MutationObserver(()=>{if(listening?.compact&&document.querySelector('dialog[open]'))listening.session.pause()}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
  window.addEventListener('pagehide',()=>listening?.session.pause());
- window.whiteboardWorkspace={toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
+ let referenceVisitEpoch=0;
+ async function openReference(source,target,valid){
+  const from=model.tabs.find(t=>frames.get(t.id)?.contentWindow===source),sourceDoc=source.document,epoch=++referenceVisitEpoch;
+  if(!from||current()?.id!==from.id||typeof valid!=='function'||!valid()||document.querySelector('dialog[open]'))return false;
+  const original=()=>model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===sourceDoc&&valid();
+  let untouched=true,to=null;const watched=new Set(),events=['pointerdown','keydown','input','change','wheel','touchmove'],cancel=()=>untouched=false;
+  const track=doc=>{if(doc&&!watched.has(doc)){watched.add(doc);for(const type of events)doc.addEventListener(type,cancel,{capture:true,passive:true})}};
+  track(document);for(const frame of frames.values())track(frame.contentDocument);
+  const pending=()=>untouched&&epoch===referenceVisitEpoch&&original()&&!document.hidden&&!document.querySelector('dialog[open]');
+  try{
+   if(!await pane(from).flush())throw Error('当前记录尚未保存，请先处理提示');
+   if(!pending()||current()?.id!==from.id)return false;
+   to=model.tabs.find(t=>t.boardId===target.board);
+   if(to)activate(to.id);else{boards=await api('/api/boards');if(!pending()||current()?.id!==from.id)return false;openBoard(target.board,from.side);to=model.tabs.find(t=>t.boardId===target.board)}
+   if(!to)throw Error('这张白板已经不存在');
+   const active=()=>pending()&&model.tabs.includes(to)&&current()?.id===to.id;
+   const started=Date.now();let view;
+   while(active()){
+    track(frames.get(to.id)?.contentDocument);view=pane(to);const state=view?.state();
+    if(state?.loadError||state?.blocked||state?.saveError)throw Error('关联白板尚未准备好，请先处理提示');
+    if(state?.boardId===to.boardId&&!state.loading&&frames.get(to.id)?.contentWindow.whiteboardNoteEditor?.visitReference)break;
+    if(Date.now()-started>15000)throw Error('关联白板暂时未能打开');await new Promise(resolve=>setTimeout(resolve,40));
+   }
+   if(!active())return false;
+   const destination=frames.get(to.id).contentDocument;
+   const back=async validReturn=>{
+    if(!original()||!model.tabs.includes(to)||frames.get(to.id)?.contentDocument!==destination||current()?.id!==to.id||document.querySelector('dialog[open]'))return false;
+    let unchanged=true;const documents=new Set([document,...[...frames.values()].map(frame=>frame.contentDocument).filter(Boolean)]),cancel=()=>unchanged=false;
+    for(const doc of documents)for(const type of events)doc.addEventListener(type,cancel,{capture:true,passive:true});
+    window.addEventListener('resize',cancel);document.addEventListener('visibilitychange',cancel);
+    try{
+     const activeReturn=()=>unchanged&&validReturn()&&!document.hidden&&model.tabs.includes(to)&&frames.get(to.id)?.contentDocument===destination&&current()?.id===to.id&&!document.querySelector('dialog[open]');
+     if(!activeReturn())return 'cancelled';const saved=await pane(to).flush();
+     if(!activeReturn())return 'cancelled';if(!saved)throw Error('当前白板尚未保存，请先处理提示');
+     if(!original())return false;activate(from.id);pane(from)?.focus();return true;
+    }finally{for(const doc of documents)for(const type of events)doc.removeEventListener(type,cancel,true);window.removeEventListener('resize',cancel);document.removeEventListener('visibilitychange',cancel)}
+   };
+   return await destination.defaultView.whiteboardNoteEditor.visitReference(target.id,target.returnName,back,active);
+  }catch(error){if(original()&&to&&current()?.id===to.id)activate(from.id);throw error}
+  finally{for(const doc of watched)for(const type of events)doc.removeEventListener(type,cancel,true)}
+ }
+ window.whiteboardWorkspace={openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
 })();

@@ -105,7 +105,10 @@
   const place=referenceTrail.at(-1);if(!place||referenceReturning||loading||blocked||place.destination!==boardId)return;
   const epoch=++referenceEpoch;referenceReturning=true;syncReferenceReturn();
   try{
-   closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch)return;
+   closePanel();
+   if(place.external){const result=await place.back(()=>epoch===referenceEpoch&&referenceTrail.at(-1)===place&&!loading&&!blocked);if(result===true)referenceTrail.pop();else if(result!=='cancelled')toast('原写作页面已关闭或改变，请从白板列表重新打开。');syncReferenceReturn();return;}
+   await closeReferenceEditor();if(epoch!==referenceEpoch)return;
+
    if(place.board!==boardId){await switchBoard(place.board);if(epoch!==referenceEpoch||boardId!==place.board)return;}
    if(loading||blocked)return;
    const n=board.nodes.find(node=>node.id===place.id);
@@ -202,12 +205,25 @@
  }
  async function jumpReference(row,place=null,epoch=++referenceEpoch){
   if(loading||blocked||epoch!==referenceEpoch)return;
+  if(row.board!==boardId&&window.whiteboardPane&&typeof parent.whiteboardWorkspace?.openReference==='function'){
+   closePanel();const source=board,sourceBoard=boardId;
+   await parent.whiteboardWorkspace.openReference(window,{board:row.board,id:row.node.id,returnName:place?.name||board.name},()=>epoch===referenceEpoch&&board===source&&boardId===sourceBoard&&!loading&&!blocked);return;
+  }
   closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch||place&&place.board!==boardId)return;
   if(row.board!==boardId){await switchBoard(row.board);if(epoch!==referenceEpoch||boardId!==row.board)return}
   const n=board.nodes.find(n=>n.id===row.node.id);if(!n)return toast('这块内容已经移走或删除');
   editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();board.view.x=rect.width/2-(n.x+n.w/2)*view().z;board.view.y=rect.height/2-(n.y+n.h/2)*view().z;moveView();canvas.focus({preventScroll:true});
   if(place&&(place.board!==boardId||place.id!==n.id)){referenceTrail.push({...place,destination:boardId});while(referenceTrail.length>12||referenceTrail.reduce((size,p)=>size+(p.field?.value?.length||0)*2,0)>4*1024*1024)referenceTrail.shift();}
   syncReferenceReturn();
+ }
+ // Cross-document visits use the same original canvas and an ephemeral return action.
+ async function visitReference(id,returnName,back,active){
+  if(!active()||loading||blocked)return false;
+  await closeReferenceEditor();if(!active()||loading||blocked)return false;
+  const n=board.nodes.find(node=>node.id===id);if(!n)throw Error('这块内容已经移走或删除');
+  editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();Object.assign(board.view,{x:rect.width/2-(n.x+n.w/2)*view().z,y:rect.height/2-(n.y+n.h/2)*view().z});moveView();canvas.focus({preventScroll:true});
+  if(n.type==='note'&&rect.width<=680){whiteboardReading.open(n.id);const surface=$('immersiveSurface'),trigger=surface?.querySelector('#notePreview');if(trigger)togglePreview(trigger,n,surface.querySelector('.inner'));}
+  referenceTrail.push({external:true,destination:boardId,name:returnName,back});while(referenceTrail.length>12)referenceTrail.shift();syncReferenceReturn();return true;
  }
  // A relation is shown beside its object; authored text and plain graph edges stay literal.
  function noteLabel(n){return String(n.title||'').trim()||Array.from(String(n.body||'').split('\n').find(line=>line.trim())?.trim()||'').slice(0,60).join('')||'未命名'}
@@ -285,7 +301,7 @@
   if(n?.type==='note'&&!e.target.closest('[data-edge]'))items=[['便签颜色与纸面',()=>openAppearance(id)],...items];
   return previousMenu(e,items);
  };
- window.whiteboardNoteEditor={render:rendered,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
+ window.whiteboardNoteEditor={visitReference,render:rendered,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.
