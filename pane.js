@@ -109,7 +109,28 @@
   function canvasReady(){
    const deadline=performance.now()+1500;let prior='';return new Promise(resolve=>{const check=()=>{if(!visible||frameElement?.hidden||parentHasDialog())return resolve(false);if(performance.now()>deadline)return resolve(false);if(modal||frameElement?.classList.contains('pane-modal')){requestAnimationFrame(check);return}const size=canvas.clientWidth+':'+canvas.clientHeight;if(size===prior)return resolve(true);prior=size;requestAnimationFrame(check)};requestAnimationFrame(check)});
   }
+  const closedViewScope=()=>window.whiteboardHosted?String(whiteboardHosted.account.id)+':'+whiteboardHosted.workspace:'local';
+  function captureClosedView(){
+   if(!board||loading||dirty||savePromise||blocked||saveError||etag==='new'||window.whiteboardImports?.pendingCanvas())return null;
+   captureEditingPlace();captureReading();pauseMedia();
+   const place=editingPlace,field=place?.field,live=place?.editorId===editorId&&field?.isConnected;
+   const selector=live&&(field.id?'#'+CSS.escape(field.id):field.dataset.row!==undefined&&field.dataset.col!==undefined?'[data-row="'+field.dataset.row+'"][data-col="'+field.dataset.col+'"]':field.dataset.column!==undefined?'[data-column="'+field.dataset.column+'"]':null);
+   // Undo entries are immutable JSON snapshots. Keep their values, never a live
+   // document, DOM input or asynchronous writer from the closed iframe.
+   return {boardId,version:etag,scope:closedViewScope(),selected:[...selected],history:history.slice(),future:future.slice(),view:{...view()},width:canvas.clientWidth,height:canvas.clientHeight,editorId,
+    field:selector?{selector,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,top:field.scrollTop,left:field.scrollLeft}:null};
+  }
+  function restoreClosedView(place){
+   if(!place||!board||loading||dirty||savePromise||blocked||saveError||place.boardId!==boardId||place.version!==etag||place.scope!==closedViewScope()||whiteboardHostedRoleIsReadOnly())return false;
+   history=place.history.slice();future=place.future.slice();selected=new Set(place.selected.filter(id=>board.nodes.some(n=>n.id===id)));
+   if(place.width===canvas.clientWidth&&place.height===canvas.clientHeight){Object.assign(view(),place.view);moveView()}
+   if(place.editorId&&board.nodes.some(n=>n.id===place.editorId)){openEditor(place.editorId);const field=document.querySelector('.live-layout '+(place.field?.selector||':not(*)'));if(field&&field.value===place.field.value){field.focus({preventScroll:true});if(Number.isInteger(place.field.start)&&Number.isInteger(place.field.end))field.setSelectionRange(place.field.start,place.field.end,place.field.direction);field.scrollTop=place.field.top;field.scrollLeft=place.field.left;captureEditingPlace(field)}}
+   else refreshSelectionUI();
+   updateButtons();return true;
+  }
+  function whiteboardHostedRoleIsReadOnly(){return window.whiteboardHosted?.role==='viewer'||window.whiteboardHosted?.paused}
   window.whiteboardPane={state,setListening,viewport:()=>({width:width||canvas.clientWidth,height:height||canvas.clientHeight}),canvasReady,selection:()=>[...selected],flush:()=>persist(),snapshot:()=>board?{board:clone(board),boardId,selected:[...selected]}:null,refreshLibrary:()=>loadAssets(),focus:()=>{if(parentHasDialog())return;if($('dialog').open){if($('dialog').classList.contains('immersive-dialog')&&!restoreEditingPlace())$('dialog').focus({preventScroll:true});return}if(restoreEditingPlace())return;const active=document.activeElement;if(active?.closest('.live-layout')&&active.matches('input,textarea,[contenteditable=true]')&&!active.readOnly){active.focus({preventScroll:true});return}canvas.tabIndex=-1;canvas.focus({preventScroll:true})},setVisible:next=>{if(visible&&!next){captureEditingPlace();captureReading();pauseMedia();persist().catch(()=>{})}visible=next},insertLibrary:async (items,position)=>{const targetId=boardId;if(!board||loading||blocked||saveError)throw Error('目标白板尚未准备好，请先处理提示。');await loadAssets();if(boardId!==targetId||loading||blocked||saveError)throw Error('目标白板状态已改变，内容尚未添加。');return commitLibraryBatch(items,position)},focusNode:id=>{const n=board?.nodes.find(n=>n.id===id);if(n){selected=new Set([id]);editorId=null;refreshSelectionUI();focusNode(n);report()}},command:async(name,extra={})=>{if(name==='sidebar')toggleSidebar();else if(name==='ai'){await loadAssets();assetSelected=new Set(extra.libraryIds||[]);$('aiWorkspace').click();if(extra.scope==='library'&&$('aiTaskScope')){$('aiTaskScope').value='library';$('aiTaskScope').dispatchEvent(new Event('change'))}}else if(name==='settings')whiteboardAppearance.open();else if(name==='help')wfHelp();else if(name==='search')wfOpenSearch();else if(name==='recovery')await wfRecovery();else if(name==='rename')$('rename').click();else if(name==='group')groupSelection();else if(name==='collect'){assetFolder=extra.folder||'';askCollectSelection()}else if(name==='export')exportJSON();else if(name==='markdown')exportMarkdown()}};
+  whiteboardPane.captureClosedView=captureClosedView;whiteboardPane.restoreClosedView=restoreClosedView;
   // Keep a fully visible selection in the same relative space when opening a
   // sidebar or a second pane. Neutral and intentionally cropped views keep
   // their existing centre, as does the relationship overview. Neither the

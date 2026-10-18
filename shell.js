@@ -2,6 +2,39 @@
 const $=id=>document.getElementById(id),uid=()=>crypto.randomUUID(),frames=new Map(),closingTabs=new Set();
 let boards=[],model={tabs:[],active:{left:null,right:null},side:'left',split:false,ratio:50},pickerSide='left',pickerResolve=null,pickerEpoch=0,contextTab=null,dragTab=null,toastTimer,lastLayout='',layoutLoaded=false,savingTimer,savingTab='',savingSince=0;
 let pickerFolders=null;
+let closedTab=null,pendingClosedView=null,closedIntent=0;
+function clearPendingClosedView(){if(pendingClosedView)clearTimeout(pendingClosedView.timer);pendingClosedView=null}
+function discardClosedTab(){const saved=closedTab;if(!saved)return;closedTab=null;clearTimeout(saved.timer);const focused=saved.notice.contains(document.activeElement);saved.notice.remove();if(focused&&!document.hidden)pane(current())?.focus()}
+function positionClosedNotice(){if(closedTab)closedTab.notice.style.top=($('tabHeaders').getBoundingClientRect().bottom+(innerWidth<680?64:8))+'px'}
+function rememberClosedTab(tab,index,view){
+ discardClosedTab();clearPendingClosedView();
+ const context=view?.captureClosedView?.()||null,notice=document.createElement('div');notice.id='closedTabNotice';notice.setAttribute('role','status');
+ const label=document.createElement('span');label.textContent='已关闭：'+tab.name;label.title=label.textContent;
+ const undo=document.createElement('button');undo.type='button';undo.textContent='撤销关闭';
+ const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','收起关闭提示');notice.append(label,undo,dismiss);document.body.append(notice);
+ const saved={tab:{...tab},index,context,notice};closedTab=saved;positionClosedNotice();saved.timer=setTimeout(discardClosedTab,20000);
+ dismiss.onclick=()=>{discardClosedTab();pane(current())?.focus()};undo.onclick=()=>{
+  if(closedTab!==saved)return;discardClosedTab();clearPendingClosedView();
+  const existing=model.tabs.find(t=>t.boardId===saved.tab.boardId);if(existing){activate(existing.id);return}
+  const tab={...saved.tab,side:model.split?saved.tab.side:'left'};
+  if(saved.context){const row={tabId:tab.id,context:saved.context,intent:closedIntent,applying:false};pendingClosedView=row;row.timer=setTimeout(()=>{if(pendingClosedView===row)clearPendingClosedView()},20000)}
+  model.tabs.splice(Math.min(saved.index,model.tabs.length),0,tab);model.side=tab.side;model.active[tab.side]=tab.id;window.whiteboardWorkspace?.showCanvas?.();createFrame(tab);renderTabs();
+ };
+}
+async function applyClosedView(tab){
+ const row=pendingClosedView,view=pane(tab),state=view?.state();if(!row||row.applying||row.tabId!==tab?.id||!state)return;
+ if(state.loadError){clearPendingClosedView();return}if(state.loading||state.boardId!==tab.boardId)return;
+ row.applying=true;
+ try{
+  const ready=await view.canvasReady();if(pendingClosedView!==row)return;
+  if(row.intent!==closedIntent||current()?.id!==tab.id||document.hidden||document.querySelector('dialog[open]')){clearPendingClosedView();return}
+  const restored=ready&&view.restoreClosedView(row.context);clearPendingClosedView();if(!restored)toast('已打开当前保存的内容；刚才的编辑位置未恢复。');
+ }catch(error){if(pendingClosedView===row){clearPendingClosedView();toast('白板已重新打开，编辑位置未恢复。')}}
+}
+function cancelClosedViewIntent(){if(pendingClosedView){closedIntent++;clearPendingClosedView()}}
+for(const type of ['pointerdown','keydown'])document.addEventListener(type,cancelClosedViewIntent,true);
+window.addEventListener('message',e=>{if(pendingClosedView&&e.origin===location.origin&&e.data?.type==='pane-active'&&model.tabs.some(t=>frames.get(t.id)?.contentWindow===e.source))cancelClosedViewIntent()});
+window.addEventListener('resize',positionClosedNotice);window.addEventListener('pagehide',()=>{discardClosedTab();clearPendingClosedView()});document.addEventListener('visibilitychange',()=>{if(document.hidden){discardClosedTab();clearPendingClosedView()}});
 function toast(text){$('shellToast').textContent=text;$('shellToast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('shellToast').hidden=true,4500)}
 async function api(path,options){const r=await fetch(path,options);if(!r.ok){let value;try{value=await r.json()}catch{}throw Error(value?.error||'读取失败，请稍后再试')}return r.json()}
 function saveLayout(){if(layoutLoaded){const url=new URL(location.href),tab=current();if(url.searchParams.has('board')){if(tab)url.searchParams.set('board',tab.boardId);else url.searchParams.delete('board');if(url.href!==location.href)window.history.replaceState(null,'',url)}}const value=JSON.stringify(model);if(value===lastLayout)return;try{sessionStorage.setItem('creative-board-tabs',value);localStorage.setItem('creative-board-tabs-last',value);lastLayout=value}catch{toast('浏览器未能记住布局；白板内容仍单独保存')}}
@@ -12,6 +45,7 @@ function revealActiveTabs(){for(const side of ['left','right'])if(side==='left'|
 function normalizeLayout(){for(const side of ['left','right'])if(!model.tabs.some(t=>t.id===model.active[side]&&t.side===side))model.active[side]=model.tabs.find(t=>t.side===side)?.id||null;if(!model.split){for(const t of model.tabs)t.side='left';model.active.left=model.active.left||model.active.right||model.tabs[0]?.id||null;model.active.right=null;model.side='left'}model.ratio=Math.max(20,Math.min(80,Number(model.ratio)||50))}
 function otherBoardIssues(){const active=current();return model.tabs.filter(tab=>tab.id!==active?.id).map(tab=>({tab,state:pane(tab)?.state()})).filter(({tab,state})=>state&&(state.boardId===tab.boardId||state.loadTargetId===tab.boardId)&&(state.blocked||state.saveError||state.loadError))}
 function updateStatus(){
+ applyClosedView(current());
  const t=current(),s=pane(t)?.state(),ready=!!s&&s.boardId===t?.boardId&&!s.loading,importing=!!(s?.pendingImports||window.whiteboardWorkspace?.explorer()?.pending?.()),pending=s?.contentDirty||s?.savingContent||importing;
  clearTimeout(savingTimer);if(!pending){savingSince=0;savingTab=''}else if(savingTab!==(t?.id||'library')){savingSince=Date.now();savingTab=t?.id||'library'}
  const slow=pending&&Date.now()-savingSince>=1000;
@@ -47,7 +81,7 @@ layoutPaneFrames();
 for(const side of ['left','right'])document.querySelector('.empty-pane[data-side='+side+']').hidden=!!current(side);updateStatus();saveLayout();revealActiveTabs()}
 // Layout and opening can reach the same tab synchronously; retain its mounted document.
 function createFrame(t){if(frames.has(t.id))return frames.get(t.id);const f=document.createElement('iframe');f.className='board-frame';f.dataset.tabId=t.id;f.title=t.name;f.hidden=true;f.style.visibility='hidden';f.setAttribute('aria-busy','true');frames.set(t.id,f);f.src='/index.html?pane=1&board='+encodeURIComponent(t.boardId)+'&tabId='+t.id;f.onload=()=>{f.style.removeProperty('visibility');f.removeAttribute('aria-busy');renderTabs();if(current()?.id===t.id&&!document.querySelector('dialog[open]')&&!$('frameDeck').inert)pane(t)?.focus()};$('frameDeck').append(f)}
-function openBoard(id,side=model.side,requestedDocument=null){const b=boards.find(b=>b.id===id)||requestedDocument;if(!b){toast('这张白板已经不存在，请重新选择');return}const existing=model.tabs.find(t=>t.boardId===id);if(existing){if(existing.side!==side)moveTab(existing.id,side);else activate(existing.id);return}if(side==='right')model.split=true;const t={id:uid(),boardId:id,name:b.name,side};model.tabs.push(t);model.active[side]=t.id;model.side=side;window.whiteboardWorkspace?.showCanvas?.();createFrame(t);renderTabs()}
+function openBoard(id,side=model.side,requestedDocument=null){const b=boards.find(b=>b.id===id)||requestedDocument;if(!b){toast('这张白板已经不存在，请重新选择');return}if(closedTab?.tab.boardId===id)discardClosedTab();const existing=model.tabs.find(t=>t.boardId===id);if(existing){if(existing.side!==side)moveTab(existing.id,side);else activate(existing.id);return}if(side==='right')model.split=true;const t={id:uid(),boardId:id,name:b.name,side};model.tabs.push(t);model.active[side]=t.id;model.side=side;window.whiteboardWorkspace?.showCanvas?.();createFrame(t);renderTabs()}
 function activate(id){const t=model.tabs.find(t=>t.id===id);if(!t)return;const old=current();if(old&&old.id!==id)pane(old)?.flush().catch(()=>{});model.side=t.side;model.active[t.side]=id;window.whiteboardWorkspace?.showCanvas?.();renderTabs();pane(t)?.focus()}
 async function closeTab(id){
  const tab=model.tabs.find(tab=>tab.id===id);if(!tab||closingTabs.has(id))return;
@@ -57,6 +91,7 @@ async function closeTab(id){
   if(view?.state().pendingImports)toast('素材正在添加，完成并保存后关闭此标签。');
   if(view&&!await view.flush()){activate(id);toast('这张白板还有未保存的修改。请先另存或处理冲突，再关闭标签。');return}
   const index=model.tabs.indexOf(tab);if(index===-1)return;
+  rememberClosedTab(tab,index,view);
   frames.get(id)?.remove();frames.delete(id);model.tabs.splice(index,1);
   if(model.active[tab.side]===id){const next=model.tabs.slice(0,index).reverse().find(item=>item.side===tab.side)||model.tabs.find(item=>item.side===tab.side);model.active[tab.side]=next?.id||null}
   renderTabs();pane(current())?.focus();
