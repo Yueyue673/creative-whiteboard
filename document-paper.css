@@ -4,7 +4,7 @@
 .edit-table[data-document-paper]>tbody>tr>td{width:100%;border:0!important;padding:0!important;background:transparent!important}
 .edit-table[data-document-paper] .cell-contents{display:flex;flex-direction:column;gap:16px;padding:4px 0 32px}
 .edit-table[data-document-paper] .cell-content{flex:none;min-width:0;margin:0 0 0 16px;padding:12px 14px;border:0!important;border-radius:3px;box-shadow:none!important}
-.edit-table[data-document-paper] .document-paragraph{background:transparent!important;padding:0!important}
+.edit-table[data-document-paper] .document-paragraph{background:transparent!important;padding:0 0 0 24px!important}
 .edit-table[data-document-paper] .document-paragraph>[data-cell-note-field=title]{display:none}
 .edit-table[data-document-paper] .document-paragraph>[data-cell-note-field=body]{line-height:1.9;min-height:48px;font-size:var(--body-size,17px)}
 .edit-table[data-document-paper] .document-paragraph :is(textarea,.note-markdown){color:var(--object-ink,var(--ui-text,#292929))!important;font-size:var(--body-size,17px)!important;line-height:1.9!important;background:transparent!important;outline:none!important;border:0!important;box-shadow:none!important;overflow:hidden;max-height:none}
@@ -20,7 +20,7 @@
 .document-embedded-table th textarea{font-weight:600}.document-table-actions{display:flex;gap:6px;margin-top:8px}.read-layout .document-table-actions{display:none}
 .node[data-custom-font] :is(input,textarea,.note-markdown,.object-text,.object-label){font-family:var(--object-font)!important}
 .node[data-custom-ink] :is(input,textarea,.note-markdown,.object-text,.object-label){color:var(--object-ink)!important}
-.document-paragraph>.cell-move-handle{left:-24px;top:4px;opacity:0}.document-paragraph:hover>.cell-move-handle,.document-paragraph:focus-within>.cell-move-handle{opacity:1}
+.document-paragraph>.cell-move-handle{left:-24px;right:auto;top:4px;opacity:0}.document-paragraph:hover>.cell-move-handle,.document-paragraph:focus-within>.cell-move-handle{opacity:1}
 .node.canvas-object .block-actions>.block-read:not(.object-edit),.node.canvas-object .block-actions>.block-write-record{display:none}
 .node.canvas-object .block-actions{gap:4px}.node.canvas-object .object-edit{white-space:nowrap}
 @media(max-width:600px){.node.canvas-object .block-actions>.block-transfer{display:none}.edit-table[data-document-paper] .cell-content{margin-left:10px;padding:10px}.document-paragraph>.cell-move-handle{opacity:.5;left:-20px}.document-insert button{font-size:12px}.immersive-surface:has([data-document-paper]) .inline-toolbar{flex-wrap:wrap}.document-table-actions button{min-height:36px}}
