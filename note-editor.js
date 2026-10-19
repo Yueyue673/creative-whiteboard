@@ -108,7 +108,14 @@
  function noteRecords(document,id){
   const records=[];function visit(nodes,container=null,depth=0){if(depth>16)return;for(const node of nodes||[]){if(!node||node.type==='frame')continue;records.push({board:id,name:document.name,node,...(container?{container}:{} )});for(let r=0;r<(node.cellItems||[]).length;r++)for(let c=0;c<(node.cellItems[r]||[]).length;c++)visit(node.cellItems[r][c],{id:container?.id||node.id,row:r,column:c},depth+1)}}visit(document.nodes);return records;
  }
- function fieldSelector(el){if(el.id)return '#'+CSS.escape(el.id);const card=el.closest('[data-cell-item]');if(card&&el.dataset.cellNoteField)return '[data-cell-r="'+card.dataset.cellR+'"][data-cell-c="'+card.dataset.cellC+'"][data-cell-item="'+card.dataset.cellItem+'"] textarea[data-cell-note-field="'+el.dataset.cellNoteField+'"]';if(el.dataset.row!==undefined&&el.dataset.col!==undefined)return 'textarea[data-row="'+el.dataset.row+'"][data-col="'+el.dataset.col+'"]';if(el.dataset.column!==undefined)return 'textarea[data-column="'+el.dataset.column+'"]';return null}
+ function fieldSelector(el){
+  if(el.id)return '#'+CSS.escape(el.id);
+  const card=el.closest('[data-cell-item]'),prefix=card?'[data-cell-r="'+card.dataset.cellR+'"][data-cell-c="'+card.dataset.cellC+'"][data-cell-item="'+card.dataset.cellItem+'"] ':'';
+  if(card&&el.dataset.cellNoteField)return prefix+'textarea[data-cell-note-field="'+CSS.escape(el.dataset.cellNoteField)+'"]';
+  const table=el.closest('[data-doc-table]');
+  if(card&&table){const cell=el.dataset.docColumn!==undefined?'[data-doc-column="'+el.dataset.docColumn+'"]':el.dataset.docRow!==undefined&&el.dataset.docCol!==undefined?'[data-doc-row="'+el.dataset.docRow+'"][data-doc-col="'+el.dataset.docCol+'"]':null;if(cell)return prefix+'[data-doc-table="'+table.dataset.docTable+'"] textarea'+cell}
+  if(el.dataset.row!==undefined&&el.dataset.col!==undefined)return 'textarea[data-row="'+el.dataset.row+'"][data-col="'+el.dataset.col+'"]';if(el.dataset.column!==undefined)return 'textarea[data-column="'+el.dataset.column+'"]';return null;
+ }
  function referenceFieldAt(place,root=document){const selector=place?.field?.selector||(place?.field?.id?'#'+CSS.escape(place.field.id):null);return selector?root.querySelector(selector):null}
  function nestedTarget(id){return noteRecords(board,boardId).find(row=>row.node.id===id)}
  function showNestedTarget(row){
@@ -536,7 +543,7 @@
   if(n?.type==='note'&&!e.target.closest('[data-edge]'))items=[['便签颜色与纸面',()=>openAppearance(id)],...items];
   return previousMenu(e,items);
  };
- window.whiteboardNoteEditor={sourceContext,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
+ window.whiteboardNoteEditor={sourceContext,fieldSelector,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.

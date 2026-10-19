@@ -15,6 +15,21 @@
  const source=n=>{const im=imageOf(n);return im?imageURL(im):''};
  const label=text=>window.whiteboardNoteEditor?.renderPlain?.(text)??esc(text||'');
  const cropOf=value=>{const number=(v,f)=>typeof v==='number'&&Number.isFinite(v)?v:f,x=Math.max(0,Math.min(99,number(value?.x,0))),y=Math.max(0,Math.min(99,number(value?.y,0)));return{x,y,w:Math.max(1,Math.min(100-x,number(value?.w,100))),h:Math.max(1,Math.min(100-y,number(value?.h,100)))}};
+ let activeDraft=null;
+ const draftFields=['objectText','objectAutomaticStroke','objectStroke','objectFill','objectTransparent','objectRough','objectWeight','objectFont','objectFontSize','imageMarkText','imageMarkColour'];
+ function draftField(){const el=document.activeElement;if(!el||!draftFields.includes(el.id)||!$('dialog').contains(el))return null;return{id:el.id,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:el.scrollTop,left:el.scrollLeft}}
+ function restoreDraftField(place){const el=place&&draftFields.includes(place.id)&&$(place.id);if(!el||!$('dialog').contains(el)||el.disabled)return;el.focus({preventScroll:true});if(Number.isInteger(place.start)&&Number.isInteger(place.end)&&typeof el.setSelectionRange==='function')el.setSelectionRange(place.start,place.end,place.direction);el.scrollTop=place.top;el.scrollLeft=place.left}
+ function keepDraft(session,capture){
+  const entry={session,capture,field:draftField()},events=new AbortController();activeDraft=entry;
+  document.addEventListener('focusin',e=>{if($('dialog').contains(e.target)&&e.target!==$('dialog'))entry.field=draftField()},{signal:events.signal});
+  for(const type of ['input','selectionchange'])document.addEventListener(type,()=>{const place=draftField();if(place)entry.field=place},{signal:events.signal});
+  onDialogDismiss(()=>{events.abort();if(activeDraft===entry)activeDraft=null});
+ }
+ function focusDraft(){const entry=activeDraft;if(!entry?.field||!same(entry.session)||!$('dialog').open)return false;restoreDraftField(entry.field);return true}
+ function captureDraft(){const entry=activeDraft;if(!entry||!same(entry.session)||!$('dialog').open)return null;const field=draftField()||entry.field;return{nodeId:entry.session.node.id,original:JSON.stringify(entry.session.node),...entry.capture(),field}}
+ // This is an unapplied, short-lived view. The pane checks account/workspace
+ // and ETag first; the exact original object must also still match.
+ function restoreDraft(place){const n=board?.nodes.find(n=>n.id===place?.nodeId);if(!ready()||!object(n)||JSON.stringify(n)!==place.original||object(n).kind!==place.kind)return false;editObject(n.id,place);return true}
  function marksSVG(marks){
   return (Array.isArray(marks)?marks.slice(0,500):[]).map(m=>{
    if(!m||typeof m!=='object')return '';
@@ -120,19 +135,22 @@
  canvas.addEventListener('dblclick',e=>{const el=e.target.closest('.canvas-object'),n=board?.nodes.find(n=>n.id===el?.dataset.id);if(n&&!e.target.closest('.inline-ui,.resize,.port')){stop(e);editObject(n.id)}},true);
  const open=openEditor;openEditor=function(id){const n=board?.nodes.find(n=>n.id===id);if(object(n))return editObject(id);return open(id)};
  function commitObject(session,next){if(!same(session))return false;undoPoint();session.node.canvasObject=clone(next);change();drawNodes();return true}
- function editObject(id){
+ function editObject(id,resume=null){
   const n=board?.nodes.find(n=>n.id===id);if(!object(n)||!ready())return;
   cancelCanvasGesture();selected=new Set([id]);editorId=null;refreshSelectionUI();
-  if(object(n).kind==='image')return editImage(n);
-  const session={board,boardId,node:n},o=clone(object(n));let draftText=n.body||'';
+  if(object(n).kind==='image')return editImage(n,resume);
+  const session={board,boardId,node:n},o=clone(object(n));let draftText=resume?.rawText??n.body??'';
   showDialog('<h2>图形与文字</h2><label>文字<textarea id="objectText" rows="4">'+esc(n.body||'')+'</textarea></label><div class="object-style-fields"><label><input id="objectAutomaticStroke" type="checkbox" '+(!o.stroke?'checked':'')+'>自动颜色</label><label>颜色<input id="objectStroke" type="color" value="'+colour(o.stroke)+'"></label><label>填色<input id="objectFill" type="color" value="'+colour(o.fill,'#fff0b4')+'"></label><label><input id="objectTransparent" type="checkbox" '+(!o.fill||o.fill==='none'?'checked':'')+'>不填色</label><label><input id="objectRough" type="checkbox" '+(o.rough?'checked':'')+'>手绘线条</label><label>线宽<input id="objectWeight" type="number" min="0.2" max="8" step="0.2" value="'+(o.weight||1)+'"></label><label>字体<input id="objectFont" maxlength="100" placeholder="设备上已安装的字体名称" value="'+esc(o.fontFamily||'')+'"></label><label>字号<input id="objectFontSize" type="number" min="8" max="200" value="'+(n.fontSize||24)+'"></label></div>',[['取消',()=>$('dialog').close()],['应用',()=>{if(!same(session))return $('dialog').close();if($('objectAutomaticStroke').checked)delete o.stroke;else o.stroke=$('objectStroke').value;o.fill=$('objectTransparent').checked?'none':$('objectFill').value;o.weight=Math.max(.2,Math.min(8,Number($('objectWeight').value)||1));o.rough=$('objectRough').checked;o.fontFamily=font($('objectFont').value);const body=draftText,fontSize=Math.max(8,Math.min(200,Number($('objectFontSize').value)||24));if(body!==n.body||fontSize!==n.fontSize||JSON.stringify(o)!==JSON.stringify(object(n))){undoPoint();n.body=body;n.fontSize=fontSize;n.canvasObject=o;change();drawNodes()}$('dialog').close()}]]);
   $('objectStroke').oninput=()=>{$('objectAutomaticStroke').checked=false};
-  if(window.whiteboardNoteEditor?.bindDraftReference)whiteboardNoteEditor.bindDraftReference($('objectText'),()=>draftText,value=>draftText=value);else $('objectText').oninput=()=>draftText=$('objectText').value;
+  if(window.whiteboardNoteEditor?.bindDraftReference)whiteboardNoteEditor.bindDraftReference($('objectText'),()=>draftText,value=>draftText=value);else{$('objectText').value=draftText;$('objectText').oninput=()=>draftText=$('objectText').value}
+  if(resume){for(const [id,value]of Object.entries(resume.values||{})){const el=id!=='objectText'&&draftFields.includes(id)&&$(id);if(el)el.type==='checkbox'?el.checked=value:el.value=value}restoreDraftField(resume.field)}
+  keepDraft(session,()=>({kind:object(n).kind,rawText:draftText,values:Object.fromEntries(draftFields.filter(id=>id.startsWith('object')&&id!=='objectText'&&$(id)).map(id=>{const el=$(id);return[id,el.type==='checkbox'?el.checked:el.value]}))}));
  }
- function editImage(n){
+ function editImage(n,resume=null){
   const session={board,boardId,node:n},draft=clone(object(n));let edits=[],redo=[],selectedMark=-1,drawing=null,cropStart=null,moving=null,redoBefore=null,fieldGroup=null,newText='',newColour='#c94444';
   draft.crop=cropOf(draft.crop);if(!Array.isArray(draft.marks))draft.marks=[];
   const initial=clone(draft);let tool=draft.marks.length?'select':'crop';
+  if(resume){Object.assign(draft,clone(resume.object));edits=resume.edits.slice();redo=resume.redo.slice();selectedMark=resume.selectedMark;tool=resume.tool;newText=resume.newText;newColour=resume.newColour}
   showDialog('<div class="image-edit-heading"><h2>裁剪与标注</h2><button id="imageEditCancel" type="button">取消</button><button id="imageEditApply" type="button">应用</button></div><div class="image-edit-tools" role="toolbar" aria-label="图片编辑"><div class="image-edit-modes" role="group" aria-label="选择与绘图"><button data-image-tool="select">选择</button><button data-image-tool="crop">裁剪</button><button data-image-tool="freehand">画笔</button><button data-image-tool="rect">方框</button><button data-image-tool="ellipse">圆圈</button><button data-image-tool="arrow">箭头</button><button data-image-tool="text">文字</button></div><div class="image-edit-properties" role="group" aria-label="标注内容"><input id="imageMarkColour" type="color" value="#c94444" aria-label="标注颜色"><input id="imageMarkText" placeholder="标注文字" maxlength="1000" aria-label="标注文字"><button id="imageMarkDelete" aria-label="删除选中标注">删除</button></div><div class="image-edit-history" role="group" aria-label="修改记录"><button id="imageEditUndo">撤销</button><button id="imageEditRedo">重做</button><button id="imageEditRestore">恢复原图</button></div></div><div id="imageEditStage"><div id="imageEditPaper" tabindex="0" aria-label="图片标注"><img id="imageEditOriginal" draggable="false" alt="原图"><svg id="imageEditMarks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div id="imageCropBox"></div><div id="imageMarkSelection" hidden></div></div></div><p class="image-edit-status" id="imageEditStatus"></p>',[]);
   $('dialog').classList.add('image-edit-dialog');$('imageEditOriginal').src=source(n);
   const paper=$('imageEditPaper'),svg=$('imageEditMarks'),cropBox=$('imageCropBox'),selectionBox=$('imageMarkSelection'),textField=$('imageMarkText'),colourField=$('imageMarkColour'),events=new AbortController();
@@ -198,7 +216,10 @@
   $('dialog').addEventListener('keydown',e=>{if(isTyping(e)||e.isComposing)return;const mod=e.ctrlKey||e.metaKey;if(mod&&!e.altKey&&['z','y'].includes(e.key.toLowerCase())){stop(e);(e.key.toLowerCase()==='y'||e.shiftKey?$('imageEditRedo'):$('imageEditUndo')).click()}else if(tool==='select'&&selectedMark>=0&&['Delete','Backspace'].includes(e.key)){stop(e);$('imageMarkDelete').click()}else if(tool==='select'&&selectedMark>=0&&!mod&&!e.altKey&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)&&!busy()){stop(e);finishField();const r=paper.getBoundingClientRect(),step=e.shiftKey?10:1,mark=draft.marks[selectedMark],dx=(e.key==='ArrowLeft'?-step:e.key==='ArrowRight'?step:0)*100/r.width,dy=(e.key==='ArrowUp'?-step:e.key==='ArrowDown'?step:0)*100/r.height,next=shifted(mark,markBounds(selectedMark),dx,dy);if(JSON.stringify(next)!==JSON.stringify(mark)){save();draft.marks[selectedMark]=next;trim();paint()}}},{signal:events.signal});
   document.addEventListener('pointerdown',e=>{const active=moving||cropStart||drawing;if(e.pointerType==='touch'&&active&&active.pointer!==e.pointerId)cancelPreview()},{capture:true,signal:events.signal});window.addEventListener('blur',cancelPreview,{signal:events.signal});
   $('imageEditCancel').onclick=()=>$('dialog').close();$('imageEditApply').onclick=()=>{if(busy())return;finishField();if(same(session)&&JSON.stringify(draft)!==JSON.stringify(initial)){undoPoint();const old=object(n).crop||{w:100,h:100};n.h=Math.round(n.h*(draft.crop.h/draft.crop.w)/(old.h/old.w)*1e6)/1e6;n.canvasObject=clone(draft);change();drawNodes()}$('dialog').close()};
-  onDialogDismiss(()=>{events.abort();bounds.disconnect();$('dialog').classList.remove('image-edit-dialog')});syncFields();paint();fitPaper();
+  // Immutable draft snapshots share unchanged point arrays; no DOM or writer
+  // survives a closed iframe, and an unfinished gesture is never restored.
+  keepDraft(session,()=>{cancelPreview();finishField();return{kind:'image',object:clone(draft),edits:edits.slice(),redo:redo.slice(),selectedMark,tool,newText,newColour}});
+  onDialogDismiss(()=>{events.abort();bounds.disconnect();$('dialog').classList.remove('image-edit-dialog')});syncFields();paint();fitPaper();if(resume)restoreDraftField(resume.field);
  }
  function add(kind,position=center(),extra={}){
   if(!ready())return;cancelCanvasGesture();undoPoint();const n={id:uid(),type:'note',sizeMode:'manual',x:position.x-120,y:position.y-80,w:240,h:160,title:kind==='text'?'文字':kind==='ellipse'?'椭圆':kind==='arrow'?'箭头':kind==='line'?'线条':kind==='freehand'?'画笔':'矩形',body:'',tags:[],canvasObject:{kind,fill:'none',weight:1},...extra};
@@ -223,6 +244,6 @@
  Object.assign(wfLabels,{canvasObject:'图形与图片编辑',contentScale:'整体大小'});
  const menuItems=(event,items)=>{const n=board?.nodes.find(n=>n.id===event.target.closest?.('.node[data-id]')?.dataset.id),o=object(n);if(!o)return items;return [[o.kind==='image'?'裁剪与标注':'图形与文字',()=>editObject(n.id)],...(o.kind==='image'?[['查看原图',()=>openImageView(source(n),n.title||'图片')]]:[]),...items.filter(([label])=>!['编辑','展开编辑','便签颜色与纸面','按内容调整大小','自动适应内容','固定当前尺寸','查看原图 / 放大','打开查看  Enter'].includes(label))]};
  const reading=whiteboardReading.open;whiteboardReading.open=function(id){const n=board?.nodes.find(n=>n.id===id);return object(n)?editObject(id):reading(id)};
- window.whiteboardCanvasObjects={add,edit:editObject,isObject:n=>!!object(n),scaleOf,marksSVG,showTools,menuItems};
+ window.whiteboardCanvasObjects={add,edit:editObject,isObject:n=>!!object(n),scaleOf,marksSVG,showTools,menuItems,captureDraft,restoreDraft,focusDraft};
  if(board)mount();
 })();
