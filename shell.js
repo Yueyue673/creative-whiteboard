@@ -152,8 +152,10 @@ for(const list of document.querySelectorAll('.tabs')){tabResize.observe(list);li
  const params=new URLSearchParams(location.search),requested=params.get('board'),creating=params.get('create')==='1',initialPickerEpoch=pickerEpoch;
  try{
   try{boards=await api('/api/boards')}catch(error){if(!requested)throw error;toast('白板列表暂时未能读取：'+error.message)}
-  layoutLoaded=true;let saved;try{saved=JSON.parse(sessionStorage.getItem('creative-board-tabs')||localStorage.getItem('creative-board-tabs-last')||'null')}catch{}
-  if(requested){openBoard(requested,'left',{name:'指定的白板'})}
+  layoutLoaded=true;let saved,sessionLayout;try{sessionLayout=JSON.parse(sessionStorage.getItem('creative-board-tabs')||'null');saved=sessionLayout||JSON.parse(localStorage.getItem('creative-board-tabs-last')||'null')}catch{}
+  // A fresh board link starts alone; reloading its own window keeps the work arranged there.
+  const returning=performance.getEntriesByType('navigation')[0]?.type==='reload'&&sessionLayout&&Array.isArray(sessionLayout.tabs)&&sessionLayout.tabs.some(t=>t.id===sessionLayout.active?.[sessionLayout.side||'left']&&t.boardId===requested);
+  if(requested&&!returning){openBoard(requested,'left',{name:'指定的白板'})}
   else if(saved&&Array.isArray(saved.tabs)){
    model={...model,...saved,tabs:saved.tabs.filter(t=>boards.some(b=>b.id===t.boardId)).map(t=>({...t,side:t.side==='right'?'right':'left',name:boards.find(b=>b.id===t.boardId).name})),active:saved.active||{left:null,right:null}};
    const seen=new Set();model.tabs=model.tabs.filter(t=>{if(seen.has(t.boardId))return false;seen.add(t.boardId);return true});normalizeLayout();renderTabs();
