@@ -165,13 +165,10 @@
   // written. Preserve its world centre on a fresh, differently sized canvas.
   const viewportValid=v=>v&&Number.isFinite(v.width)&&Number.isFinite(v.height)&&v.width>=1&&v.height>=1&&v.width<=100000&&v.height<=100000;
   const paneViewport=()=>({width:width||canvas.clientWidth,height:height||canvas.clientHeight});
-  // Original fit/zoom/focus functions replace the view object. Retain its
-  // optional coordinate basis on this same document, never across a reload.
-  const viewportValues=new WeakMap();
-  function keepViewportBasis(){
-   if(!board?.view)return;if(Object.hasOwn(view(),'viewport'))viewportValues.set(board,view().viewport);
-   else if(viewportValues.has(board))view().viewport=viewportValues.get(board);
-  }
+  // The coordinate basis belongs to the saved document, not the live camera.
+  // Match its camera stamp so an older client cannot leave a stale basis active.
+  const contextValid=v=>v?.version===1&&viewportValid(v)&&[v.x,v.y,v.z].every(Number.isFinite)&&v.z>0;
+  const contextMatches=v=>contextValid(v)&&v.x===view().x&&v.y===view().y&&v.z===view().z;
   let entryPending=null,entryFrame=0;
   const entryRecovery=document.createElement('section'),entryText=document.createElement('p'),fitButton=$('fit'),fitHome=fitButton.parentNode,fitNext=fitButton.nextSibling;
   entryRecovery.id='offscreenEntry';entryRecovery.className='inline-ui';entryRecovery.hidden=true;entryText.id='offscreenEntryText';entryRecovery.append(entryText);canvas.append(entryRecovery);
@@ -187,23 +184,23 @@
   }
   function applyEntryViewport(){
    const target=entryPending,size=paneViewport();if(!target||board!==target||loading||modal||frameElement?.classList.contains('pane-modal')||parentHasDialog()||!visible||size.width<1||size.height<1)return false;
-   entryPending=null;keepViewportBasis();const basis=view().viewport;
-   if(viewportValid(basis)&&[view().x,view().y,view().z].every(Number.isFinite)&&view().z>0){view().x+=(size.width-basis.width)/2;view().y+=(size.height-basis.height)/2;moveView()}
+   entryPending=null;const basis=board.viewContext;
+   if(contextMatches(basis)){view().x+=(size.width-basis.width)/2;view().y+=(size.height-basis.height)/2;moveView()}
    else showLegacyEntryRecovery();return true;
   }
   function scheduleEntryViewport(){
    cancelAnimationFrame(entryFrame);const deadline=performance.now()+1500;
    const check=()=>{if(!entryPending||applyEntryViewport()||performance.now()>deadline)return;entryFrame=requestAnimationFrame(check)};entryFrame=requestAnimationFrame(check);
   }
-  const viewportLoad=loadBoard;loadBoard=async function(...args){clearEntryRecovery();entryPending=null;const loaded=await viewportLoad(...args);if(loaded&&board){keepViewportBasis();entryPending=board;scheduleEntryViewport()}return loaded};
+  const viewportLoad=loadBoard;loadBoard=async function(...args){clearEntryRecovery();entryPending=null;const loaded=await viewportLoad(...args);if(loaded&&board){entryPending=board;scheduleEntryViewport()}return loaded};
   const viewportPersist=persist;persist=async function(...args){
-   if(board&&dirty&&!savePromise&&!loading&&!blocked){const size=paneViewport();if(viewportValid(size)&&(!Object.hasOwn(view(),'viewport')||viewportValid(view().viewport)))view().viewport={...view().viewport,...size}}
-   keepViewportBasis();return viewportPersist(...args);
+   if(board&&dirty&&!savePromise&&!loading&&!blocked){const size=paneViewport();if(viewportValid(size)&&[view().x,view().y,view().z].every(Number.isFinite)&&view().z>0&&(!Object.hasOwn(board,'viewContext')||contextValid(board.viewContext)))board.viewContext={...board.viewContext,version:1,...size,x:view().x,y:view().y,z:view().z}}
+   return viewportPersist(...args);
   };
-  const viewportMove=moveView;moveView=function(...args){keepViewportBasis();clearEntryRecovery();return viewportMove(...args)};
+  const viewportMove=moveView;moveView=function(...args){clearEntryRecovery();return viewportMove(...args)};
   const cancelEntryOnInput=e=>{if(e.target.closest?.('#offscreenEntry'))return;entryPending=null;clearEntryRecovery()};
   for(const type of ['pointerdown','keydown','wheel'])canvas.addEventListener(type,cancelEntryOnInput,true);
-  if(board&&!loading){keepViewportBasis();entryPending=board;scheduleEntryViewport()}
+  if(board&&!loading){entryPending=board;scheduleEntryViewport()}
 
   // Keep a fully visible selection in the same relative space when opening a
   // sidebar or a second pane. Neutral and intentionally cropped views keep
