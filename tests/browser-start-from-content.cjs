@@ -11,7 +11,7 @@ async function exercise(p,{entry,source,example,images,existingScope=null,parts=
  const reachable=async f=>{const canvas=await f.locator('#canvas').boundingBox();for(const id of starts){const b=await f.locator('#'+id).boundingBox();assert(b&&b.width>=44&&b.height>=44,id+' has a usable target');assert(b.x>=canvas.x-1&&b.y>=canvas.y-1&&b.x+b.width<=canvas.x+canvas.width+1&&b.y+b.height<=canvas.y+canvas.height+1,id+' stays inside the original canvas');await f.locator('#'+id).click({trial:true,timeout:1800})}};
  const catalogBefore=await p.request.get(base+'/api/assets').then(r=>r.json());
  if(parts.includes('library')){
- await p.setViewportSize({width:320,height:820});await p.goto(base+'/?create=1');
+ await p.setViewportSize({width:320,height:820});await p.goto(base+'/?create=1');await p.locator('#boardPicker').waitFor({state:'visible'});
  const reused=await open('Start from existing content'),a=reused.f;
  assert(await a.locator('#creationDock').isHidden(),'An untouched empty board has one creation area');await reachable(a);await capture('320-start');
  await a.locator('#emptyLibrary').click();await p.waitForFunction(()=>whiteboardWorkspace.explorer());
@@ -26,7 +26,7 @@ async function exercise(p,{entry,source,example,images,existingScope=null,parts=
  }
  if(!parts.includes('boundaries'))return proof;
 
- await p.setViewportSize({width:1360,height:900});if(existingScope)await p.goto(base+'/?board='+existingScope);else if(!parts.includes('library'))await p.goto(base+'/?create=1');const scope=existingScope?{id:existingScope,f:await frame(existingScope)}:await open('Start ownership'),s=scope.f;if(await p.locator('#globalExplorer').isVisible())await p.locator('#openBoards').click();await s.evaluate(()=>window.retainedStartLibrary=$('emptyLibrary').onclick);
+ await p.setViewportSize({width:1360,height:900});if(existingScope)await p.goto(base+'/?board='+existingScope);else if(!parts.includes('library')){await p.goto(base+'/?create=1');await p.locator('#boardPicker').waitFor({state:'visible'})}const scope=existingScope?{id:existingScope,f:await frame(existingScope)}:await open('Start ownership'),s=scope.f;if(await p.locator('#globalExplorer').isVisible())await p.locator('#openBoards').click();await s.evaluate(()=>window.retainedStartLibrary=$('emptyLibrary').onclick);
  await p.locator('.add-tab[data-side=left]').click();await p.locator('#newBoardName').fill('Keep picker input');await s.evaluate(()=>retainedStartLibrary());await settle(s);
  assert(await p.locator('#boardPicker').isVisible());assert.equal(await p.locator('#newBoardName').inputValue(),'Keep picker input');assert(await p.locator('#globalExplorer').isHidden());await p.locator('#boardPicker .dialog-close').click();
  const other=await open('Other empty board');await s.evaluate(()=>retainedStartLibrary());await settle(other.f);assert.equal(await p.evaluate(()=>current().boardId),other.id);assert(await p.locator('#globalExplorer').isHidden());
