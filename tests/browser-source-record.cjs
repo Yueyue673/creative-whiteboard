@@ -33,7 +33,10 @@ async function exerciseSourceRecord(p,url,fixture,options={}){
  await p.keyboard.press('Control+End');await p.keyboard.down('Shift');await p.keyboard.press('Home');await p.keyboard.up('Shift');
  const place=await a.evaluate(()=>({view:clone(view()),nodes:clone(board.nodes),range:[$('body').selectionStart,$('body').selectionEnd,$('body').selectionDirection]}));assert.equal(place.range[2],'backward');
  await options.snapshot?.(p,'expanded-source-beside-writing');
- await act(a.locator('#immersiveSurface .note-related-links [data-note-link]'));await a.waitForFunction(id=>whiteboardNoteEditor.sourceContext(document.querySelector('.note-source-card:not([hidden])'))?.node.id===id,fixture.sourceId);
+ const shortcut=a.locator('#immersiveSurface .note-related-links [data-note-link]');
+ if(await shortcut.isVisible())await act(shortcut);
+ else{await act(a.locator('#noteLinks'));const source=a.locator('.note-backlinks .note-link-row').filter({hasText:fixture.sourceTitle});await source.waitFor();assert.equal(await source.count(),1);await act(source);}
+ await a.waitForFunction(id=>whiteboardNoteEditor.sourceContext(document.querySelector('.note-source-card:not([hidden])'))?.node.id===id,fixture.sourceId);
  assert.deepEqual(await a.evaluate(()=>[...selected]),[id]);assert.equal(await a.evaluate(()=>$('dialog').open),true);assert.equal(await originalField.evaluate(el=>el===document.querySelector('#body')&&el.isConnected),true);
  await options.viewSource?.(a,fixture.sourceId,a.locator('.note-source-card:not([hidden])'));
  await act(a.getByRole('button',{name:/^返回记录(?: Esc)?$/}));await body.waitFor({state:'visible'});await a.locator('.note-source-peek').waitFor({state:'detached'});
