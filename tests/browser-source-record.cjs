@@ -49,7 +49,7 @@ async function exerciseSourceRecord(p,url,fixture,options={}){
  assert.equal(await a.locator('.note-link-results .note-link-row').filter({hasText:fixture.sourceTitle}).count(),0);
  await options.snapshot?.(p,'associated-and-other-content');
  await act(a.getByRole('button',{name:'引用：'+fixture.sourceTitle,exact:true}));
- assert.equal(await body.inputValue(),fixture.textA+'[[@'+fixture.key+'/'+fixture.sourceId+'|'+fixture.sourceTitle+']]');
+ assert.equal(await body.inputValue(),fixture.textA+'[['+fixture.sourceTitle+']]');assert.equal(await a.evaluate(id=>board.nodes.find(n=>n.id===id).body,id),fixture.textA+'[[@'+fixture.key+'/'+fixture.sourceId+'|'+fixture.sourceTitle+']]','Readable title retains the exact stable source destination');
  await act(a.locator('#noteLinks'));await linked.waitFor();assert.equal(await linked.count(),1);await p.keyboard.press('Escape');
  await act(a.locator('#immersiveReturn'));await a.waitForFunction(()=>!$('dialog').open);await a.locator('#canvas').focus();await p.keyboard.press('Control+z');
  assert.equal(await a.evaluate(id=>board.nodes.find(n=>n.id===id).body,id),fixture.textA);assert.deepEqual(await a.evaluate(()=>board.edges),created.edges);
