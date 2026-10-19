@@ -216,7 +216,7 @@
    const originLeft=r.right-z-width,left=group&&actions.classList.contains('group-naming')?r.left:originLeft,top=below?r.bottom+7-z:r.top-height-7+z,visible=r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom;
    let x=left,y=top;
    if(visible){const mx=Math.min(6,Math.max(0,(bounds.width-width)/2)),my=Math.min(6,Math.max(0,(bounds.height-height)/2)),clamp=p=>({x:Math.max(bounds.left+mx,Math.min(p.x,bounds.right-width-mx)),y:Math.max(bounds.top+my,Math.min(p.y,bounds.bottom-height-my))}),overlap=(p,b,gap=0)=>p.x<b.right+gap&&p.x+width>b.left-gap&&p.y<b.bottom+gap&&p.y+height>b.top-gap;
-    const links=connectionObstacles.get(el.dataset.id)||[],baseAvoid=[...obstacles,...links,...(el===editedTable?neighbours:[])],start=clamp({x,y}),preferred=group?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
+    const links=connectionObstacles.get(el.dataset.id)||[],naming=group&&actions.classList.contains('group-naming'),baseAvoid=[...obstacles,...links,...(el===editedTable?neighbours:[]),...(group&&!naming?[r]:[])],start=clamp({x,y}),preferred=naming?[start]:[start,clamp({x:left,y:below?r.top-height-7+z:r.bottom+7-z})];
     // Generate alternatives near the preferred positions; still validate every reserved action.
     const nearby=placedActions.filter(b=>preferred.some(p=>overlap(p,b,5.8))),freePositions=avoid=>{
      const choices=[...preferred];for(const b of avoid)choices.push(...[{x:b.left-width-6,y:start.y},{x:b.right+6,y:start.y},{x:start.x,y:b.top-height-6},{x:start.x,y:b.bottom+6}].map(clamp));

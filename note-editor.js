@@ -63,12 +63,15 @@
   if(replaced.length===1&&left===replaced[0].start&&right===replaced[0].end&&/^\[\[[^\]\n|]+\]\]$/.test(inserted)){const original=p.raw.slice(replaced[0].rawStart,replaced[0].rawEnd);inserted=original.slice(0,original.indexOf('|')+1)+inserted.slice(2,-2)+']]'}
   const raw=p.raw.slice(0,offset(left))+inserted+p.raw.slice(offset(right)),next=projectReferences(raw);if(next.display===value)rememberProjection(b,next);else rememberProjection(b,{raw,display:value,spans:[]});return raw;
  }
- const bindReferenceInput=bindContentInput;bindContentInput=function(el,read,write,parse=value=>value){
-  if(!el||el.tagName!=='TEXTAREA'||typeof read()!=='string')return bindReferenceInput(el,read,write,parse);
+ const bindReferenceInput=bindContentInput;
+ function bindReferenceField(el,read,write,parse,bind){
+  if(!el||el.tagName!=='TEXTAREA'||typeof read()!=='string')return bind(el,read,write,parse);
   const b={read,write,parse,cache:new Map(),referenceVersions:new Map(),current:projectReferences(read()),before:null};referenceFields.set(el,b);rememberProjection(b,b.current);el.value=b.current.display;
   el.addEventListener('beforeinput',event=>{b.before={value:el.value,start:el.selectionStart,end:el.selectionEnd,type:event.inputType||''}});
-  bindReferenceInput(el,read,write,value=>parse(serializeField(el,value)));
- };
+  bind(el,read,write,value=>parse(serializeField(el,value)));
+ }
+ bindContentInput=function(el,read,write,parse=value=>value){return bindReferenceField(el,read,write,parse,bindReferenceInput)};
+ const bindDraftReference=(el,read,write)=>bindReferenceField(el,read,write,value=>value,(field,get,set,parse)=>{field.oninput=()=>set(parse(field.value))});
  function referenceSlice(el,start,end){
   const b=referenceFields.get(el);if(!b)return el.value.slice(start,end);serializeField(el,el.value);const p=b.current;let result='',at=start;
   for(const s of p.spans){if(s.start<start||s.end>end)continue;result+=el.value.slice(at,s.start)+p.raw.slice(s.rawStart,s.rawEnd);at=s.end}return result+el.value.slice(at,end);
@@ -533,7 +536,7 @@
   if(n?.type==='note'&&!e.target.closest('[data-edge]'))items=[['便签颜色与纸面',()=>openAppearance(id)],...items];
   return previousMenu(e,items);
  };
- window.whiteboardNoteEditor={sourceContext,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
+ window.whiteboardNoteEditor={sourceContext,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.

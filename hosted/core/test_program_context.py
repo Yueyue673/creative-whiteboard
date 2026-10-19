@@ -11,6 +11,19 @@ from deployment.program_context import ContextError, export_context, program_fil
 
 
 class ProgramContextTests(SimpleTestCase):
+    def test_container_copies_each_native_module_from_the_exact_contract(self):
+        import shlex
+        root = settings.BASE_DIR.parent
+        native = set(json.loads((root / 'hosted/deployment/native_files.json').read_text())['files'])
+        copied = set()
+        for line in (root / 'hosted/Dockerfile').read_text().splitlines():
+            if not line.startswith('COPY '):
+                continue
+            parts = shlex.split(line)
+            if parts and parts[0] == 'COPY' and parts[-1] == '/opt/creative/':
+                copied.update(parts[1:-1])
+        self.assertEqual(native - copied, set(), 'Every original-workbench module must reach the image')
+
     def test_runtime_contract_covers_current_assets_migrations_modules_and_templates(self):
         root = settings.BASE_DIR.parent; files = set(program_files(root))
         tree = ast.parse((root / 'hosted/core/portal.py').read_text(encoding='utf-8'))
