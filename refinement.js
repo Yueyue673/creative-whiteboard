@@ -179,17 +179,17 @@
   const p=choices.find(p=>!obstacles.some(b=>overlap(p,b)))||choices[0];selectionTools.style.left=(p.x-bounds.left)+'px';selectionTools.style.top=(p.y-bounds.top)+'px';return {left:p.x,right:p.x+width,top:p.y,bottom:p.y+height};
  }
  function positionActions(){
-  if(!board)return;const bounds=canvas.getBoundingClientRect();if(bounds.width<1||bounds.height<1)return;const z=view().z,scale=String(1/z);
+  if(!board)return;const bounds=canvas.getBoundingClientRect();if(bounds.width<1||bounds.height<1)return;const z=view().z,scale=String(1/z),collectInMenu=bounds.width<220||bounds.height<180;
   // Keep the primary verb readable; shorten the drag action before stacking.
-  canvas.classList.toggle('compact-actions',bounds.width<280||bounds.height<180);canvas.classList.toggle('stacked-actions',bounds.width<132);
+  canvas.classList.toggle('compact-actions',bounds.width<190||bounds.height<180||!collectInMenu&&bounds.width<280);canvas.classList.toggle('stacked-actions',bounds.width<132);
   canvas.classList.toggle('record-in-menu',bounds.width<420);
-  canvas.classList.toggle('collect-in-menu',bounds.width<220||bounds.height<180);
+  canvas.classList.toggle('collect-in-menu',collectInMenu);
   canvas.classList.toggle('short-selection',!!selectionScope&&bounds.height<300);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220||(bounds.width<280&&bounds.height<180));canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
-  const localCollect=selected.size===1&&!editorId&&!canvas.classList.contains('collect-in-menu')&&elements.some(el=>{const r=el.getBoundingClientRect();return selected.has(el.dataset.id)&&el.querySelector(':scope>.block-actions .block-collect')&&r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom});
+  const localCollect=selected.size===1&&!editorId&&!collectInMenu&&elements.some(el=>{const r=el.getBoundingClientRect();return selected.has(el.dataset.id)&&el.querySelector(':scope>.block-actions .block-collect')&&r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom});
   canvas.classList.toggle('local-collect',localCollect);
   // Measure before writing positions so selecting many cards does not force a layout per card.
   const obstacles=[$('canvasTools'),dock,textTools.open?textTools.querySelector('.text-size-popup'):null].map(el=>el?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
