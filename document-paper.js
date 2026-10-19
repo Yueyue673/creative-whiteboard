@@ -69,7 +69,7 @@
  document.addEventListener('input',e=>{const table=e.target.closest('[data-document-paper]');if(table)growContentFields(table)});
  const documentButton=document.createElement('button');documentButton.id='addDocument';documentButton.type='button';documentButton.textContent='长文';documentButton.title='写长文，插入便签与表格';($('creationDock')||canvas).append(documentButton);
  documentButton.onclick=()=>{
-  if(!board||loading||blocked)return;cancelCanvasGesture();undoPoint();const p=center(),n={id:uid(),type:'table',documentMode:true,title:'',body:'',tags:[],color:'#fffefa',x:p.x-320,y:p.y-200,w:640,h:720,columns:['正文'],rows:[['']],cellItems:[[[{id:uid(),type:'note',documentParagraph:true,title:'',body:'',x:0,y:0,w:320,h:160,tags:[]}]]],sizeMode:'manual'};
+  if(!board||loading||blocked)return;cancelCanvasGesture();undoPoint();const p=center(),base={x:p.x-320,y:p.y-200,w:640,h:720},rect=window.whiteboardExperience?.newContentRect?.(base,{readingColumn:true})||base,n={id:uid(),type:'table',documentMode:true,title:'',body:'',tags:[],color:'#fffefa',...rect,columns:['正文'],rows:[['']],cellItems:[[[{id:uid(),type:'note',documentParagraph:true,title:'',body:'',x:0,y:0,w:320,h:160,tags:[]}]]],sizeMode:'manual'};
   board.nodes.push(n);selected=new Set([n.id]);editorId=null;render();change();whiteboardReading.open(n.id);$('title')?.setAttribute('placeholder','文档标题');$('title')?.focus();
  };
  const startDocument=document.createElement('button');startDocument.id='emptyDocument';startDocument.textContent='写长文';startDocument.onclick=()=>documentButton.click();$('empty')?.querySelector('.empty-actions')?.append(startDocument);
