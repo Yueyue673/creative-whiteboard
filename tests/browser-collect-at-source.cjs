@@ -39,7 +39,7 @@ async function exercise(p,{entry,width,supplied,layoutOnly=false,capture=async()
  const written=await snap(),local=a.locator('.node.active .block-collect');assert.equal(written.board.nodes[0].sizeMode,'auto');assert.equal(written.board.nodes[0].body,supplied[0].body);
  assert(await local.isVisible());assert(await hit(local));assert(await a.locator('#collectToLibrary').isHidden());await capture('selected-save');
  await act(local);await a.locator('#collectName').waitFor();assert.equal(await a.locator('#collectName').inputValue(),supplied[0].title);await act(a.getByRole('button',{name:'收进内容库',exact:true}));await a.locator('#collectName').waitFor({state:'hidden'});
- await p.waitForFunction(()=>whiteboardWorkspace.explorer());let ex=p.frames().find(f=>f.url().includes('explorer=1'));await ex.locator('[data-asset]').first().waitFor();
+ await act(a.getByRole('button',{name:'查看刚保存到内容库的资源',exact:true}));await p.waitForFunction(()=>whiteboardWorkspace.explorer());let ex=p.frames().find(f=>f.url().includes('explorer=1'));await ex.locator('[data-asset]').first().waitFor();
  const catalog=await api('/api/assets');assert.equal(catalog.assets.length,1);const resource=catalog.assets[0];assert.deepEqual(resource.bundle.nodes,written.board.nodes);assert.deepEqual((await snap()).board.nodes,written.board.nodes);await capture('saved-resource');
  accept(width+'px: a literal first note becomes a reusable resource in two native actions beside the note; one visible collection action, source fields untouched.');
  if(width===320)await act(p.getByRole('button',{name:'返回白板',exact:true}));
