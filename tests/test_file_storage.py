@@ -141,37 +141,41 @@ class FileStorageTest(unittest.TestCase):
         self.assertEqual(Path(second['path']).read_bytes(), b'{"fixture":"B1"}')
 
     def test_references_do_not_copy_and_relink_preserves_metadata(self):
-        with tempfile.TemporaryDirectory() as source:
-            first = Path(source) / 'clip.json'
-            second = Path(source) / 'new-clip.json'
-            first.write_text('{"fixture":"external"}', encoding='utf-8')
-            second.write_text('{"fixture":"relocated"}', encoding='utf-8')
-            files = Path(self.tmp.name) / '素材文件'
-            before = set(files.glob('*'))
-            status, _, raw = self.register([first], folder='references')
-            self.assertEqual(status, 200)
-            item = json.loads(raw)['assets'][0]
-            self.assertEqual(Path(item['path']), first.resolve())
-            self.assertTrue(item['isReference'])
-            self.assertEqual(set(files.glob('*')), before)
-            repeated = json.loads(self.register([first], folder='references')[2])['assets'][0]
-            self.assertEqual(item['id'], repeated['id'])
-            _, headers, raw = self.request('/api/assets')
-            catalog = json.loads(raw)
-            record = next(a for a in catalog['assets'] if a['id'] == item['id'])
-            record.update(notes='保留自己的说明', tags=['观察'])
-            self.assertEqual(self.request('/api/assets', 'PUT', catalog,
-                                         {'If-Match': headers['ETag']})[0], 200)
-            status, _, raw = self.register([second], replaceId=item['id'])
-            self.assertEqual(status, 200)
-            relinked = json.loads(raw)['assets'][0]
-            self.assertEqual(relinked['id'], item['id'])
-            self.assertEqual(relinked['notes'], '保留自己的说明')
-            self.assertEqual(relinked['tags'], ['观察'])
-            self.assertEqual(relinked['folder'], 'references')
-            self.assertEqual(self.request('/api/media/' + item['id'])[2], second.read_bytes())
-            self.assertTrue(first.exists())
-            self.assertEqual(set(files.glob('*')), before)
+        # The client can finish reading before the media handler closes its file.
+        # Keep external originals until tearDownClass has stopped the server.
+        source_directory = tempfile.TemporaryDirectory()
+        self.addClassCleanup(source_directory.cleanup)
+        source = Path(source_directory.name)
+        first = source / 'clip.json'
+        second = source / 'new-clip.json'
+        first.write_text('{"fixture":"external"}', encoding='utf-8')
+        second.write_text('{"fixture":"relocated"}', encoding='utf-8')
+        files = Path(self.tmp.name) / '素材文件'
+        before = set(files.glob('*'))
+        status, _, raw = self.register([first], folder='references')
+        self.assertEqual(status, 200)
+        item = json.loads(raw)['assets'][0]
+        self.assertEqual(Path(item['path']), first.resolve())
+        self.assertTrue(item['isReference'])
+        self.assertEqual(set(files.glob('*')), before)
+        repeated = json.loads(self.register([first], folder='references')[2])['assets'][0]
+        self.assertEqual(item['id'], repeated['id'])
+        _, headers, raw = self.request('/api/assets')
+        catalog = json.loads(raw)
+        record = next(a for a in catalog['assets'] if a['id'] == item['id'])
+        record.update(notes='保留自己的说明', tags=['观察'])
+        self.assertEqual(self.request('/api/assets', 'PUT', catalog,
+                                     {'If-Match': headers['ETag']})[0], 200)
+        status, _, raw = self.register([second], replaceId=item['id'])
+        self.assertEqual(status, 200)
+        relinked = json.loads(raw)['assets'][0]
+        self.assertEqual(relinked['id'], item['id'])
+        self.assertEqual(relinked['notes'], '保留自己的说明')
+        self.assertEqual(relinked['tags'], ['观察'])
+        self.assertEqual(relinked['folder'], 'references')
+        self.assertEqual(self.request('/api/media/' + item['id'])[2], second.read_bytes())
+        self.assertTrue(first.exists())
+        self.assertEqual(set(files.glob('*')), before)
 
     def test_reference_validation_is_atomic_and_local_only(self):
         with tempfile.TemporaryDirectory() as source:
