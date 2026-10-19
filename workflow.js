@@ -62,8 +62,40 @@ function wfNodeText(n){return [n.title,n.body,n.userText,n.annotation,n.url,...(
 function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]),...(a.bundle?.nodes||[]).map(wfNodeText)].filter(Boolean).join(' ')}
 function wfExcerpt(text,query,before=40){const clean=String(text||'').replace(/\s+/g,' '),at=Math.max(0,clean.toLowerCase().indexOf(query.toLowerCase())-before);return (at?'…':'')+clean.slice(at,at+190)+(clean.length>at+190?'…':'')}
 function wfMark(text,q){if(!q)return esc(text);const at=text.toLowerCase().indexOf(q.toLowerCase());return at<0?esc(text):esc(text.slice(0,at))+'<mark>'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length))}
-const wfRenderAssets=renderAssets;renderAssets=function(){wfRenderAssets();$('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累 · F2 编辑 · 拖到白板使用副本 · Ctrl+Z 撤销库中操作';const q=$('assetSearch').value.trim();if(q)$('assetList').querySelectorAll('[data-asset]').forEach(row=>{const a=assetById(row.dataset.asset);if(!a)return;const p=document.createElement('p');p.className='wf-search-snippet';p.innerHTML=wfMark(wfExcerpt(wfLibraryText(a),q,12),q);p.title=p.textContent;const location=row.querySelector('small');if(location)location.title=a.folder||'';row.querySelector('div')?.append(p)})};
-libraryMatches=function(){const q=$('assetSearch').value.trim().toLowerCase();return assetIndex.assets.filter(a=>!a.archived&&(q||a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q)))};
+const wfRenderAssets=renderAssets;
+renderAssets=function(){
+ wfRenderAssets();$('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累 · F2 编辑 · 拖到白板使用副本 · Ctrl+Z 撤销库中操作';
+ const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);
+ if(q)$('assetList').querySelectorAll('[data-asset]').forEach(row=>{
+  const a=assetById(row.dataset.asset);if(!a)return;
+  const location=row.querySelector('small');if(location){location.classList.add('wf-result-location');location.textContent=a.folder?a.folder.split('/').join(' › '):'内容库';location.title=a.folder||''}
+  const snippet=document.createElement('p');snippet.className='wf-search-snippet';snippet.innerHTML=wfMark(wfExcerpt(wfLibraryText(a),q,12),q);snippet.title=snippet.textContent;
+  const info=row.querySelector('div');info?.append(snippet);
+ });
+};
+let wfLibrarySearchAll=false;
+function wfLibrarySearchScope(){if(!$('assetSearch').value.trim())wfLibrarySearchAll=false;return !assetFolder||wfLibrarySearchAll?'all':'here'}
+function wfRenderLibrarySearch(q){
+ const all=wfLibrarySearchScope()==='all',input=$('assetSearch');
+ input.placeholder=assetFolder&&!all?'搜索这里的内容':'搜索整个内容库';
+ input.setAttribute('aria-label',assetFolder&&!all?'搜索这个文件夹及子文件夹':'搜索整个内容库');
+ let context=$('wfLibrarySearchContext');
+ if(!context){
+  context=document.createElement('div');context.id='wfLibrarySearchContext';context.className='wf-library-search-context';context.setAttribute('role','group');context.setAttribute('aria-label','查找位置');
+  for(const [mode,text]of [['here','这个文件夹'],['all','整个内容库']]){
+   const button=document.createElement('button');button.type='button';button.dataset.librarySearch=mode;button.textContent=text;
+   button.onclick=()=>{wfLibrarySearchAll=mode==='all';assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==$('assetPane');el=el.parentElement)el.scrollTop=0};context.append(button);
+  }
+  input.after(context);
+ }
+ context.hidden=!q;context.querySelector('[data-library-search=here]').hidden=!assetFolder;
+ const empty=$('assetList').querySelector('.explorer-empty');if(q&&empty)empty.textContent=all?'整个内容库没有找到':'这里没有找到';
+ for(const button of context.querySelectorAll('button'))button.setAttribute('aria-pressed',String((button.dataset.librarySearch==='all')===all));
+}
+libraryMatches=function(){
+ const q=$('assetSearch').value.trim().toLowerCase(),all=wfLibrarySearchScope()==='all';
+ return assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
+};
 const wfOutline=renderOutline;renderOutline=function(){wfOutline();const q=$('search').value.trim();if(!q)return;$('items').querySelectorAll('[data-open]').forEach(row=>{const n=board.nodes.find(n=>n.id===row.dataset.open),p=document.createElement('small');p.innerHTML=wfMark(wfExcerpt(wfNodeText(n),q),q);row.append(p)})};
 let wfSearchSeq=0,wfSearchTimer;
 function wfOpenSearch(){showDialog('<h2>搜索全部内容</h2><input id="wfSearchQuery" placeholder="标题、正文、备注或文件名" aria-label="搜索全部内容"><p class="wf-explain" id="wfSearchStatus">同时查找白板和内容库；结果会显示匹配的原文。</p><div id="wfSearchResults" class="wf-list"></div>',[['关闭 Esc',()=>$('dialog').close()]]);$('dialog').classList.add('wf-dialog');onDialogDismiss(()=>{wfSearchSeq++;clearTimeout(wfSearchTimer)});$('wfSearchQuery').oninput=()=>{clearTimeout(wfSearchTimer);wfSearchTimer=setTimeout(wfRunSearch,220)};$('wfSearchQuery').focus()}
