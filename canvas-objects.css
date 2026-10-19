@@ -43,3 +43,14 @@
 #imageEditPaper:not([data-tool=crop]) #imageCropBox{box-shadow:none;border:1px dashed #fff8;outline:0}.image-edit-status{font-size:12px;color:var(--ui-muted,#666);margin:8px 0 0}
 @media(pointer:coarse){#nodes>.node.object-resizable>.resize.object-handle{width:calc(30px * var(--canvas-control-scale,1));height:calc(30px * var(--canvas-control-scale,1))}.object-resizable .block-actions button{min-width:36px;min-height:36px}.node .read-layout{touch-action:none}}
 @media(max-width:600px){#dialog.image-edit-dialog{padding:10px;height:fit-content;max-height:calc(100dvh - 24px)}.image-edit-tools{gap:5px;padding:8px 0}.image-edit-tools button{padding:5px 8px;font-size:12px}#imageEditStage{height:200px}.image-edit-heading h2{font-size:16px}.object-style-fields{grid-template-columns:1fr 1fr}}
+
+/* Editing selects the original mark; the outline never becomes image content. */
+#imageMarkSelection{position:absolute;pointer-events:none;border:1px dashed #645390;outline:1px solid #fffc;outline-offset:2px;min-width:1px;min-height:1px}
+#imageMarkSelection[hidden]{display:none}
+#imageEditPaper[data-tool=select]{cursor:default}
+#imageEditPaper.moving-mark{cursor:grabbing}
+#imageEditPaper:focus-visible{outline:2px solid var(--accent,#8172a5);outline-offset:4px}
+
+.image-edit-tools{column-gap:12px}
+.image-edit-modes,.image-edit-properties,.image-edit-history{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+@media(max-width:600px){.image-edit-modes,.image-edit-properties,.image-edit-history{width:100%;gap:5px}.image-edit-properties #imageMarkText{flex:1;width:80px;min-width:0}}
