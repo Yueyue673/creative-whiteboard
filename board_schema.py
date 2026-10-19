@@ -1,7 +1,42 @@
 """Pure document validation shared by the desktop and hosted services."""
 import math
 
+def valid_canvas_object(node):
+ import re
+ for key in ('documentMode','documentParagraph'):
+  if key in node and type(node[key]) is not bool:raise ValueError('文档排版无效')
+ if 'fontFamily' in node and (not isinstance(node['fontFamily'],str) or len(node['fontFamily'])>100):raise ValueError('字体名称无效')
+ if 'inkColor' in node and (not isinstance(node['inkColor'],str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',node['inkColor'])):raise ValueError('文字颜色无效')
+ if 'contentScale' in node:
+  value=node['contentScale']
+  if type(value) not in (int,float) or not math.isfinite(value) or not .2<=value<=5:raise ValueError('整体大小无效')
+ value=node.get('canvasObject')
+ if value is None:return
+ if not isinstance(value,dict) or value.get('kind') not in ('image','rect','ellipse','arrow','line','freehand','text'):raise ValueError('绘图类型无效')
+ def mark(m):
+  if not isinstance(m,dict) or m.get('kind') not in ('image','rect','ellipse','arrow','line','freehand','text'):raise ValueError('绘图标记无效')
+  if 'rough' in m and type(m['rough']) is not bool:raise ValueError('线条样式无效')
+  for key in ('stroke','fill'):
+   if key in m:
+    import re
+    if not isinstance(m[key],str) or not (m[key]=='none' and key=='fill') and not re.fullmatch(r'#[0-9a-fA-F]{6}',m[key]):raise ValueError('绘图颜色无效')
+  for key,low,high in [('weight',.2,8),('fontSize',2,200)]:
+   if key in m and (type(m[key]) not in (int,float) or not math.isfinite(m[key]) or not low<=m[key]<=high):raise ValueError('绘图尺寸无效')
+  for key,limit in [('text',1000),('fontFamily',100)]:
+   if key in m and (not isinstance(m[key],str) or len(m[key])>limit):raise ValueError('绘图文字无效')
+  points=m.get('points',[])
+  if not isinstance(points,list) or len(points)>5000 or any(not isinstance(p,list) or len(p)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=100 for v in p) for p in points):raise ValueError('绘图路径无效')
+ mark(value)
+ if 'crop' in value:
+  crop=value['crop']
+  if not isinstance(crop,dict) or set(crop)!={'x','y','w','h'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in crop.values()) or crop['x']<0 or crop['y']<0 or crop['w']<1 or crop['h']<1 or crop['x']+crop['w']>100.000001 or crop['y']+crop['h']>100.000001:raise ValueError('裁剪范围无效')
+ marks=value.get('marks',[])
+ if not isinstance(marks,list) or len(marks)>500:raise ValueError('图片标注过多')
+ for m in marks:mark(m)
+ if sum(len(m.get('points',[])) for m in marks)>20000:raise ValueError('图片标注过多')
+
 def valid_media_timeline(node):
+ valid_canvas_object(node)
  timeline=node.get('mediaTimeline',{})
  if not isinstance(timeline,dict) or len(timeline)>100:raise ValueError('时间标记格式不正确')
  for source,data in timeline.items():

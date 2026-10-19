@@ -1,0 +1,177 @@
+// Direct manipulation of original board objects. Original image bytes are never edited.
+(() => {
+ 'use strict';
+ const kinds=new Set(['image','rect','ellipse','arrow','line','freehand','text']);
+ const object=n=>n?.canvasObject&&kinds.has(n.canvasObject.kind)?n.canvasObject:null;
+ const imageOf=n=>n.images?.[0]||(n.image?{data:n.image,name:n.title}:null);
+ const colour=(value,fallback='#364152')=>/^#[\da-f]{6}$/i.test(value||'')?value:fallback;
+ const font=value=>String(value||'').replace(/["'<>;{}\\]/g,'').slice(0,100)||'sans-serif';
+ const scaleOf=n=>Number.isFinite(n?.contentScale)?Math.max(.2,Math.min(5,n.contentScale)):1;
+ const ready=()=>board&&!loading&&!blocked&&!document.querySelector('dialog[open]');
+ const same=s=>s&&board===s.board&&boardId===s.boardId&&board.nodes.find(n=>n.id===s.node.id)===s.node&&!loading&&!blocked;
+ const hostOf=id=>$('nodes').querySelector(':scope>.node[data-id="'+CSS.escape(id)+'"]');
+ const stop=e=>{e.preventDefault();e.stopImmediatePropagation()};
+ const point=e=>worldPoint(e.clientX,e.clientY);
+ const source=n=>{const im=imageOf(n);return im?imageURL(im):''};
+ const label=text=>window.whiteboardNoteEditor?.renderPlain?.(text)??esc(text||'');
+ const cropOf=value=>{const number=(v,f)=>typeof v==='number'&&Number.isFinite(v)?v:f,x=Math.max(0,Math.min(99,number(value?.x,0))),y=Math.max(0,Math.min(99,number(value?.y,0)));return{x,y,w:Math.max(1,Math.min(100-x,number(value?.w,100))),h:Math.max(1,Math.min(100-y,number(value?.h,100)))}};
+ function marksSVG(marks){
+  return (Array.isArray(marks)?marks.slice(0,500):[]).map(m=>{
+   if(!m||typeof m!=='object')return '';
+   const stroke=colour(m.stroke,'currentColor'),fill=m.fill==='none'?'none':colour(m.fill,'#ffffff'),weight=Math.max(.2,Math.min(8,m.weight||.7));
+   const points=(Array.isArray(m.points)?m.points.slice(0,5000):[]).filter(p=>Array.isArray(p)&&p.length===2&&p.every(v=>Number.isFinite(v)&&v>=0&&v<=100));if(!points.length)return '';
+   const [a,b=a]=points,x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),w=Math.abs(a[0]-b[0]),h=Math.abs(a[1]-b[1]);
+   const attrs=' stroke="'+stroke+'" stroke-width="'+weight+'" stroke-linecap="round" stroke-linejoin="round" fill="'+fill+'"';
+   if(m.kind==='text')return '<text x="'+a[0]+'" y="'+a[1]+'" fill="'+stroke+'" font-size="'+Math.max(2,Math.min(30,m.fontSize||7))+'" font-family="'+esc(font(m.fontFamily))+'">'+esc(m.text||'')+'</text>';
+   if(m.rough&&m.kind==='rect')return '<path d="M'+(x+.5)+','+(y+.5)+' Q'+(x+w*.48)+','+(y-.5)+' '+(x+w-.4)+','+(y+.3)+' Q'+(x+w+.6)+','+(y+h*.52)+' '+(x+w-.3)+','+(y+h-.4)+' Q'+(x+w*.48)+','+(y+h+.6)+' '+(x+.4)+','+(y+h-.2)+' Q'+(x-.5)+','+(y+h*.5)+' '+(x+.5)+','+(y+.5)+' Z"'+attrs+'/>';
+   if(m.rough&&m.kind==='ellipse')return '<path d="M'+(x+w*.5)+','+y+' C'+(x+w*1.18)+','+(y-.6)+' '+(x+w*1.15)+','+(y+h*1.02)+' '+(x+w*.48)+','+(y+h)+' C'+(x-w*.16)+','+(y+h*1.02)+' '+(x-w*.17)+','+(y-.4)+' '+(x+w*.5)+','+y+' Z"'+attrs+'/>';
+   if(m.kind==='rect')return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx=".6"'+attrs+'/>';
+   if(m.kind==='ellipse')return '<ellipse cx="'+(x+w/2)+'" cy="'+(y+h/2)+'" rx="'+w/2+'" ry="'+h/2+'"'+attrs+'/>';
+   let d=points.map((p,i)=>(i?'L':'M')+p.join(',')).join(' ');
+   if(m.kind==='arrow'){const angle=Math.atan2(b[1]-a[1],b[0]-a[0]),length=Math.min(7,Math.hypot(w,h)*.3);d+=' M'+[b[0]-length*Math.cos(angle-.5),b[1]-length*Math.sin(angle-.5)].join(',')+' L'+b.join(',')+' L'+[b[0]-length*Math.cos(angle+.5),b[1]-length*Math.sin(angle+.5)].join(',')}
+   return '<path d="'+d+'"'+attrs+'/>';
+  }).join('');
+ }
+ function artwork(n){
+  const o=object(n);if(!o)return '';
+  if(o.kind==='image'){
+   const crop=cropOf(o.crop);
+   return '<div class="object-art image-art" style="--crop-x:'+crop.x+';--crop-y:'+crop.y+';--crop-w:'+crop.w+';--crop-h:'+crop.h+'"><div class="object-original"><img draggable="false" src="'+esc(source(n))+'" alt="'+esc(n.title||'图片')+'"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'+marksSVG(o.marks)+'</svg></div></div>';
+  }
+  if(o.kind==='text')return '<div class="object-art object-text" style="color:'+colour(o.stroke,'var(--ui-text,#364152)')+';font-family:'+esc(font(o.fontFamily))+';font-size:'+Math.max(8,Math.min(200,n.fontSize||24))+'px">'+label(n.body)+'</div>';
+  const mark={...o,points:o.points||[[3,3],[97,97]],weight:o.weight||1,fill:o.fill||'none'};
+  return '<svg class="object-art object-drawing" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="'+esc(n.title||'图形')+'">'+marksSVG([mark])+'</svg>'+(n.body?'<div class="object-label" style="color:'+colour(o.stroke,'var(--ui-text,#364152)')+';font-family:'+esc(font(o.fontFamily))+'">'+label(n.body)+'</div>':'');
+ }
+ const baseMarkup=noteMarkup;
+ noteMarkup=function(n,readOnly=false){
+  if(!object(n))return baseMarkup(n,readOnly);
+  // Reuse the original node ports/geometry, not an embedded second canvas.
+  const html=baseMarkup(n,readOnly),start=html.indexOf('<div class="inner'),end=html.indexOf('<span class="port');
+  return html.slice(0,start).replace('class="node ','class="node canvas-object object-'+object(n).kind+' ')+'<div class="inner object-surface">'+artwork(n)+'</div>'+html.slice(end);
+ };
+ const cells=cellContentMarkup;cellContentMarkup=function(n,r,c){return cells(n,r,c).replace(/(<section\b[^>]*\bdata-cell-item="(\d+)"[^>]*>)/g,(markup,indexTag,index)=>{const item=n.cellItems?.[r]?.[c]?.[+index],o=object(item);return !o||o.kind==='text'?markup:markup+'<div class="cell-object-art">'+artwork({...item,body:''})+'</div>'})};
+ function mount(){
+  if(!board)return;
+  const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el]));
+  for(const n of board.nodes){
+   const o=object(n);if(!o&&n.type!=='table')continue;
+   const el=elements.get(n.id);if(!el)continue;const s=scaleOf(n),inner=el.querySelector(':scope>.inner');
+   if(n.type==='table'&&inner){el.style.setProperty('--object-scale',s);inner.style.zoom=String(s);inner.style.width=(100/s)+'%';inner.style.height=(100/s)+'%'}
+   el.classList.add('object-resizable');
+   for(const dir of (o?.kind==='image'?['nw','ne','sw','se']:['nw','ne','sw','se','n','s','w','e'])){
+    let h=el.querySelector(':scope>[data-resize-direction="'+dir+'"]');
+    if(!h){h=document.createElement('span');h.className='resize object-handle handle-'+dir;h.dataset.resizeDirection=dir;el.append(h)}
+    h.classList.add('object-handle','handle-'+dir);h.title=dir.length===2?'等比调整大小':'调整'+(dir==='n'||dir==='s'?'高度':'宽度');h.setAttribute('aria-label',h.title);h.tabIndex=0;h.setAttribute('role','button');
+   }
+   if(o){
+    const actions=el.querySelector('.block-actions');
+    if(actions&&!actions.querySelector('.object-edit')){const edit=document.createElement('button');edit.className='object-edit';edit.textContent=o.kind==='image'?'裁剪 / 标注':'样式 / 文字';edit.onclick=e=>{e.stopPropagation();editObject(n.id)};actions.prepend(edit)}
+   }
+  }
+ }
+ const draw=drawNodes;drawNodes=function(){draw();mount();if(resize?.pending&&same(resize))paintResize(resize)};
+ const refresh=refreshSelectionUI;refreshSelectionUI=function(){refresh();mount()};
+ // Keep image insertion atomic with the existing scoped library operation.
+ const bundle=itemBundle;itemBundle=function(a){const result=bundle(a);if(a.mime?.startsWith('image/')&&a.mime!==bundleMime){const n=result.nodes[0];n.canvasObject={kind:'image'};n.sizeMode='manual'}return result};
+ let resize=null;
+ function paintResize(s){
+  const el=hostOf(s.node.id),p=s.pending;if(!el||!p)return;Object.assign(el.style,{left:p.x+'px',top:p.y+'px',width:p.w+'px',height:p.h+'px'});
+  if(s.node.type==='table'){const inner=el.querySelector(':scope>.inner'),scale=p.contentScale??s.scale;el.style.setProperty('--object-scale',scale);if(inner){inner.style.zoom=String(scale);inner.style.width=(100/scale)+'%';inner.style.height=(100/scale)+'%'}}
+  if(p.fontSize)el.querySelector('.object-text')?.style.setProperty('font-size',p.fontSize+'px');
+  drawEdges(new Set([s.node.id]));window.whiteboardReading?.placeActions?.();
+ }
+ function finishResize(commit){
+  const s=resize;if(!s)return;resize=null;
+  document.body.classList.remove('canvas-gesture');
+  if(!same(s)){try{canvas.releasePointerCapture(s.pointer)}catch{}return}
+  const changed=s.pending&&(['x','y','w','h','fontSize'].some(key=>s.pending[key]!==undefined&&Math.abs(s.pending[key]-(s.node[key]??24))>1e-9)||s.pending.contentScale!==undefined&&Math.abs(s.pending.contentScale-s.scale)>1e-9);
+  if(commit&&s.changed&&changed){undoPoint();Object.assign(s.node,s.pending);s.node.sizeMode='manual';change();render()}
+  else if(s.changed)drawNodes();
+  document.body.classList.remove('canvas-gesture');try{if(canvas.hasPointerCapture(s.pointer))canvas.releasePointerCapture(s.pointer)}catch{}
+ }
+ function sizeAt(s,dx,dy){
+  const dir=s.dir,o=s.original;let w=/[ew]/.test(dir)?Math.max(24,o.w+(dir.includes('w')?-dx:dx)):o.w,h=/[ns]/.test(dir)?Math.max(24,o.h+(dir.includes('n')?-dy:dy)):o.h;
+  if(dir.length===2){const ax=dir.includes('w')?-dx:dx,ay=dir.includes('n')?-dy:dy,f=(o.w*(o.w+ax)+o.h*(o.h+ay))/(o.w*o.w+o.h*o.h),factor=Math.max(Math.max(24/o.w,24/o.h,.2/s.scale),Math.min(5/s.scale,f));w=o.w*factor;h=o.h*factor}
+  const x=dir.includes('w')?o.x+o.w-w:o.x,y=dir.includes('n')?o.y+o.h-h:o.y;
+  return {x,y,w,h,...(s.node.type==='table'&&dir.length===2?{contentScale:s.scale*w/o.w}:{}),...(object(s.node)?.kind==='text'&&dir.length===2?{fontSize:Math.max(8,Math.min(200,(o.fontSize||24)*w/o.w))}:{})};
+ }
+ canvas.addEventListener('pointerdown',e=>{
+  const handle=e.target.closest('.object-handle'),el=handle?.closest('.node'),n=board?.nodes.find(n=>n.id===el?.dataset.id);
+  if(!n||!ready()||e.button!==0)return;stop(e);finishResize(false);if(gesture)endGesture(e,true);editorId=null;selected=new Set([n.id]);
+  resize={board,boardId,node:n,pointer:e.pointerId,dir:handle.dataset.resizeDirection,start:point(e),view:clone(view()),scale:scaleOf(n),original:{x:n.x,y:n.y,w:n.w,h:n.h,contentScale:n.contentScale,sizeMode:n.sizeMode,fontSize:n.fontSize},changed:false};
+  canvas.setPointerCapture(e.pointerId);document.body.classList.add('canvas-gesture');refreshSelectionUI();
+ },true);
+ window.addEventListener('pointermove',e=>{
+  const s=resize;if(!s||e.pointerId!==s.pointer)return;stop(e);if(!same(s)||['x','y','z'].some(key=>view()[key]!==s.view[key])){finishResize(false);return}
+  const p=point(e),dx=p.x-s.start.x,dy=p.y-s.start.y;if(!s.changed&&Math.hypot(dx,dy)<3)return;
+  s.changed=true;s.pending=sizeAt(s,dx,dy);paintResize(s);
+ },true);
+ window.addEventListener('pointerup',e=>{if(resize&&e.pointerId===resize.pointer){stop(e);finishResize(true)}},true);
+ window.addEventListener('pointercancel',e=>{if(resize&&e.pointerId===resize.pointer){stop(e);finishResize(false)}},true);
+ window.addEventListener('lostpointercapture',e=>{if(resize&&e.pointerId===resize.pointer)finishResize(false)},true);
+ const cancel=cancelCanvasGesture;cancelCanvasGesture=function(...args){if(resize){finishResize(false);return true}return cancel(...args)};
+ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&resize){stop(e);finishResize(false)}},true);
+ window.addEventListener('blur',()=>finishResize(false));
+ canvas.addEventListener('keydown',e=>{
+  const h=e.target.closest('.object-handle'),n=board?.nodes.find(n=>n.id===h?.closest('.node')?.dataset.id);if(!n||!ready()||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+  stop(e);const unit=e.shiftKey?10:1,s={node:n,dir:h.dataset.resizeDirection,original:clone(n),scale:scaleOf(n)},dx=e.key==='ArrowLeft'?-unit:e.key==='ArrowRight'?unit:0,dy=e.key==='ArrowUp'?-unit:e.key==='ArrowDown'?unit:0;
+  undoPoint();Object.assign(n,sizeAt(s,dx,dy));n.sizeMode='manual';drawNodes();change();hostOf(n.id)?.querySelector('[data-resize-direction="'+s.dir+'"]')?.focus({preventScroll:true});
+ });
+ canvas.addEventListener('dblclick',e=>{const el=e.target.closest('.canvas-object'),n=board?.nodes.find(n=>n.id===el?.dataset.id);if(n&&!e.target.closest('.inline-ui,.resize,.port')){stop(e);editObject(n.id)}},true);
+ const open=openEditor;openEditor=function(id){const n=board?.nodes.find(n=>n.id===id);if(object(n))return editObject(id);return open(id)};
+ function commitObject(session,next){if(!same(session))return false;undoPoint();session.node.canvasObject=clone(next);change();drawNodes();return true}
+ function editObject(id){
+  const n=board?.nodes.find(n=>n.id===id);if(!object(n)||!ready())return;
+  cancelCanvasGesture();selected=new Set([id]);editorId=null;refreshSelectionUI();
+  if(object(n).kind==='image')return editImage(n);
+  const session={board,boardId,node:n},o=clone(object(n));
+  showDialog('<h2>图形与文字</h2><label>文字<textarea id="objectText" rows="4">'+esc(n.body||'')+'</textarea></label><div class="object-style-fields"><label><input id="objectAutomaticStroke" type="checkbox" '+(!o.stroke?'checked':'')+'>自动颜色</label><label>颜色<input id="objectStroke" type="color" value="'+colour(o.stroke)+'"></label><label>填色<input id="objectFill" type="color" value="'+colour(o.fill,'#fff0b4')+'"></label><label><input id="objectTransparent" type="checkbox" '+(!o.fill||o.fill==='none'?'checked':'')+'>不填色</label><label><input id="objectRough" type="checkbox" '+(o.rough?'checked':'')+'>手绘线条</label><label>线宽<input id="objectWeight" type="number" min="0.2" max="8" step="0.2" value="'+(o.weight||1)+'"></label><label>字体<input id="objectFont" maxlength="100" placeholder="设备上已安装的字体名称" value="'+esc(o.fontFamily||'')+'"></label><label>字号<input id="objectFontSize" type="number" min="8" max="200" value="'+(n.fontSize||24)+'"></label></div>',[['取消',()=>$('dialog').close()],['应用',()=>{if(!same(session))return $('dialog').close();if($('objectAutomaticStroke').checked)delete o.stroke;else o.stroke=$('objectStroke').value;o.fill=$('objectTransparent').checked?'none':$('objectFill').value;o.weight=Math.max(.2,Math.min(8,Number($('objectWeight').value)||1));o.rough=$('objectRough').checked;o.fontFamily=font($('objectFont').value);const body=$('objectText').value,fontSize=Math.max(8,Math.min(200,Number($('objectFontSize').value)||24));if(body!==n.body||fontSize!==n.fontSize||JSON.stringify(o)!==JSON.stringify(object(n))){undoPoint();n.body=body;n.fontSize=fontSize;n.canvasObject=o;change();drawNodes()}$('dialog').close()}]]);
+  $('objectStroke').oninput=()=>{$('objectAutomaticStroke').checked=false};
+ }
+ function editImage(n){
+  const session={board,boardId,node:n},draft=clone(object(n));let edits=[],redo=[],tool='crop',drawing=null,cropStart=null;
+  draft.crop=cropOf(draft.crop);if(!Array.isArray(draft.marks))draft.marks=[];
+  showDialog('<div class="image-edit-heading"><h2>裁剪与标注</h2><button id="imageEditCancel" type="button">取消</button><button id="imageEditApply" type="button">应用</button></div><div class="image-edit-tools" role="toolbar" aria-label="图片编辑"><button data-image-tool="crop">裁剪</button><button data-image-tool="freehand">画笔</button><button data-image-tool="rect">方框</button><button data-image-tool="ellipse">圆圈</button><button data-image-tool="arrow">箭头</button><button data-image-tool="text">文字</button><input id="imageMarkColour" type="color" value="#c94444" aria-label="标注颜色"><input id="imageMarkText" placeholder="标注文字" maxlength="1000" aria-label="标注文字"><button id="imageEditUndo">撤销</button><button id="imageEditRedo">重做</button><button id="imageEditRestore">恢复原图</button></div><div id="imageEditStage"><div id="imageEditPaper"><img id="imageEditOriginal" draggable="false" alt="原图"><svg id="imageEditMarks" viewBox="0 0 100 100" preserveAspectRatio="none"></svg><div id="imageCropBox"></div></div></div><p class="image-edit-status" id="imageEditStatus">拖出保留范围。原图始终保留。</p>',[]);
+  $('dialog').classList.add('image-edit-dialog');$('imageEditOriginal').src=source(n);
+  const paper=$('imageEditPaper'),svg=$('imageEditMarks'),cropBox=$('imageCropBox');
+  const fitPaper=()=>{const im=$('imageEditOriginal'),stage=$('imageEditStage');if(!im?.naturalWidth||!stage)return;const mobile=innerWidth<=600,available=mobile?Math.max(100,innerHeight-260):stage.clientHeight-24;const maxHeight=mobile?Math.max(100,innerHeight-(document.querySelector('.image-edit-tools')?.offsetHeight||130)-130):available;const ratio=Math.min((stage.clientWidth-24)/im.naturalWidth,maxHeight/im.naturalHeight);paper.style.width=Math.max(1,im.naturalWidth*ratio)+'px';paper.style.height=Math.max(1,im.naturalHeight*ratio)+'px';if(mobile)stage.style.height=(Math.max(1,im.naturalHeight*ratio)+24)+'px'};
+  const bounds=new ResizeObserver(fitPaper);bounds.observe($('imageEditStage'));$('imageEditOriginal').onload=fitPaper;
+  const save=()=>{edits.push(clone(draft));redo=[]};
+  const paint=()=>{const c=draft.crop;Object.assign(cropBox.style,{left:c.x+'%',top:c.y+'%',width:c.w+'%',height:c.h+'%'});svg.innerHTML=marksSVG(draft.marks);$('imageEditUndo').disabled=!edits.length;$('imageEditRedo').disabled=!redo.length;document.querySelectorAll('[data-image-tool]').forEach(b=>{const active=b.dataset.imageTool===tool;b.classList.toggle('chosen',active);b.setAttribute('aria-pressed',String(active))});paper.dataset.tool=tool;$('imageEditStatus').textContent=tool==='crop'?'拖出保留范围。原图始终保留。':tool==='text'?'先输入文字，再点图片放置。':'在图片上拖动画出标注。'};
+  const local=e=>{const r=paper.getBoundingClientRect();return [Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)),Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100))]};
+  document.querySelectorAll('[data-image-tool]').forEach(b=>b.onclick=()=>{tool=b.dataset.imageTool;paint()});
+  paper.onpointerdown=e=>{if(e.button!==0||e.isPrimary===false||!same(session))return;stop(e);const p=local(e);if(tool==='text'&&!$('imageMarkText').value.trim()){$('imageMarkText').focus();return}if(tool!=='crop'&&(draft.marks.length>=500||draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)>=20000))return toast('这张图的标注已满，可以撤销或清除部分标注后继续。');save();if(tool==='crop')cropStart={pointer:e.pointerId,point:p,previous:clone(draft.crop)};else{drawing={pointer:e.pointerId,limit:Math.min(5000,20000-draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)),mark:{kind:tool,points:[p],stroke:$('imageMarkColour').value,fill:'none',weight:.8,...(tool==='text'?{text:$('imageMarkText').value,fontSize:7}:{})}};draft.marks.push(drawing.mark)}paper.setPointerCapture(e.pointerId);paint()};
+  paper.onpointermove=e=>{if(!cropStart&&!drawing)return;stop(e);const p=local(e);if(cropStart?.pointer===e.pointerId){const a=cropStart.point;draft.crop={x:Math.min(a[0],p[0]),y:Math.min(a[1],p[1]),w:Math.max(1,Math.abs(a[0]-p[0])),h:Math.max(1,Math.abs(a[1]-p[1]))};draft.crop.w=Math.min(draft.crop.w,100-draft.crop.x);draft.crop.h=Math.min(draft.crop.h,100-draft.crop.y)}if(drawing?.pointer===e.pointerId&&tool!=='text'){if(tool==='freehand'){if(drawing.mark.points.length<drawing.limit)drawing.mark.points.push(p)}else if(drawing.limit>=2)drawing.mark.points[1]=p}paint()};
+  const end=(e,cancelled=false)=>{if(!cropStart&&!drawing)return;stop(e);if(cancelled||cropStart&&(draft.crop.w<2||draft.crop.h<2)){const old=edits.pop();if(old)Object.assign(draft,old)}cropStart=drawing=null;try{paper.releasePointerCapture(e.pointerId)}catch{}paint()};
+  paper.onpointerup=e=>end(e);paper.onpointercancel=e=>end(e,true);paper.onlostpointercapture=e=>{if(cropStart||drawing)end(e,true)};
+  $('imageEditUndo').onclick=()=>{if(!edits.length)return;redo.push(clone(draft));Object.assign(draft,edits.pop());paint()};$('imageEditRedo').onclick=()=>{if(!redo.length)return;edits.push(clone(draft));Object.assign(draft,redo.pop());paint()};
+  $('imageEditRestore').onclick=()=>{save();draft.crop={x:0,y:0,w:100,h:100};draft.marks=[];paint()};
+  $('imageEditCancel').onclick=()=>$('dialog').close();$('imageEditApply').onclick=()=>{if(drawing||cropStart)return;if(same(session)&&JSON.stringify(draft)!==JSON.stringify(object(n))){undoPoint();const old=object(n).crop||{w:100,h:100};n.h=Math.round(n.h*(draft.crop.h/draft.crop.w)/(old.h/old.w)*1e6)/1e6;n.canvasObject=clone(draft);change();drawNodes()}$('dialog').close()};
+  onDialogDismiss(()=>{bounds.disconnect();$('dialog').classList.remove('image-edit-dialog')});paint();
+ }
+ function add(kind,position=center(),extra={}){
+  if(!ready())return;cancelCanvasGesture();undoPoint();const n={id:uid(),type:'note',sizeMode:'manual',x:position.x-120,y:position.y-80,w:240,h:160,title:kind==='text'?'文字':kind==='ellipse'?'椭圆':kind==='arrow'?'箭头':kind==='line'?'线条':kind==='freehand'?'画笔':'矩形',body:'',tags:[],canvasObject:{kind,fill:'none',weight:1},...extra};
+  board.nodes.push(n);editorId=null;selected=new Set([n.id]);render();change();if(kind==='text')editObject(n.id);return n;
+ }
+ // One discoverable addition to the existing creation area, with labelled tools.
+ const entry=document.createElement('details');entry.id='drawingTools';entry.className='inline-ui';entry.innerHTML='<summary>形状 / 画笔</summary><div>'+[['rect','矩形'],['ellipse','椭圆'],['arrow','箭头'],['line','线条'],['freehand','画笔'],['text','文字']].map(([kind,label])=>'<button data-draw-kind="'+kind+'">'+label+'</button>').join('')+'</div>';($('creationDock')||canvas).append(entry);
+ const startDrawing=document.createElement('button');startDrawing.id='emptyDrawing';startDrawing.textContent='画图';startDrawing.onclick=()=>showTools();$('empty')?.querySelector('.empty-actions')?.append(startDrawing);
+ let drawingTool=false,stroke=null;const preview=document.createElementNS('http://www.w3.org/2000/svg','svg');preview.classList.add('canvas-stroke-preview');preview.setAttribute('hidden','');canvas.append(preview);
+ function chooseTool(kind){entry.open=false;if(kind==='freehand'){drawingTool=true;canvas.classList.add('drawing-mode');toast('在白板上画线 · Esc 退出')}else add(kind)}
+ function showTools(){if(!ready())return;showDialog('<h2>形状与画笔</h2><div class="drawing-choices">'+[['rect','矩形'],['ellipse','椭圆'],['arrow','箭头'],['line','线条'],['freehand','画笔'],['text','文字']].map(([kind,label])=>'<button type="button" data-start-drawing="'+kind+'">'+label+'</button>').join('')+'</div>',[['取消',()=>$('dialog').close()]]);$('dialog').querySelectorAll('[data-start-drawing]').forEach(b=>b.onclick=()=>{const kind=b.dataset.startDrawing;$('dialog').close();chooseTool(kind)})}
+ entry.querySelectorAll('[data-draw-kind]').forEach(b=>b.onclick=()=>chooseTool(b.dataset.drawKind));
+ canvas.addEventListener('pointerdown',e=>{if(!drawingTool||!ready()||e.button!==0||e.target.closest('.inline-ui,#canvasTools,#creationDock'))return;stop(e);stroke={board,boardId,pointer:e.pointerId,points:[point(e)]};canvas.setPointerCapture(e.pointerId);preview.removeAttribute('hidden')},true);
+ window.addEventListener('pointermove',e=>{if(!stroke||e.pointerId!==stroke.pointer)return;stop(e);if(board!==stroke.board||boardId!==stroke.boardId){stroke=null;preview.setAttribute('hidden','');return}if(stroke.points.length<5000)stroke.points.push(point(e));const bounds=canvas.getBoundingClientRect();preview.setAttribute('viewBox','0 0 '+bounds.width+' '+bounds.height);preview.innerHTML='<path d="'+stroke.points.map((p,i)=>(i?'L':'M')+[p.x*view().z+view().x,p.y*view().z+view().y].join(',')).join(' ')+'" fill="none" stroke="var(--ui-text,#364152)" stroke-width="2.5" stroke-linecap="round"/>'},true);
+ function endStroke(e,cancelled=false){if(!stroke||e.pointerId!==stroke.pointer)return;stop(e);const s=stroke;stroke=null;preview.setAttribute('hidden','');if(!cancelled&&board===s.board&&boardId===s.boardId&&s.points.length>1){const xs=s.points.map(p=>p.x),ys=s.points.map(p=>p.y),x=Math.min(...xs)-2,y=Math.min(...ys)-2,w=Math.max(8,Math.max(...xs)-x+2),h=Math.max(8,Math.max(...ys)-y+2);add('freehand',center(),{x,y,w,h,canvasObject:{kind:'freehand',weight:1,points:s.points.map(p=>[(p.x-x)/w*100,(p.y-y)/h*100])}})}}
+ window.addEventListener('pointerup',e=>endStroke(e),true);window.addEventListener('pointercancel',e=>endStroke(e,true),true);window.addEventListener('lostpointercapture',e=>{if(stroke&&e.pointerId===stroke.pointer)endStroke(e,true)},true);
+ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawingTool){stop(e);drawingTool=false;stroke=null;preview.setAttribute('hidden','');canvas.classList.remove('drawing-mode')}},true);
+ const cancelObjects=cancelCanvasGesture;cancelCanvasGesture=function(...args){if(stroke){stroke=null;preview.setAttribute('hidden','')}return cancelObjects(...args)};
+ document.addEventListener('creative-canvas-gesture-cancel',()=>{finishResize(false);stroke=null;preview.setAttribute('hidden','')});
+ window.addEventListener('creative-board-loading',()=>{finishResize(false);stroke=null;drawingTool=false;preview.setAttribute('hidden','');canvas.classList.remove('drawing-mode')});
+ for(const field of ['canvasObject','contentScale'])if(!wfContentFields.includes(field))wfContentFields.push(field);
+ Object.assign(wfLabels,{canvasObject:'图形与图片编辑',contentScale:'整体大小'});
+ const menuItems=(event,items)=>{const n=board?.nodes.find(n=>n.id===event.target.closest?.('.node[data-id]')?.dataset.id),o=object(n);if(!o)return items;return [[o.kind==='image'?'裁剪与标注':'图形与文字',()=>editObject(n.id)],...(o.kind==='image'?[['查看原图',()=>openImageView(source(n),n.title||'图片')]]:[]),...items.filter(([label])=>!['编辑','展开编辑','便签颜色与纸面','按内容调整大小','自动适应内容','固定当前尺寸','查看原图 / 放大','打开查看  Enter'].includes(label))]};
+ const reading=whiteboardReading.open;whiteboardReading.open=function(id){const n=board?.nodes.find(n=>n.id===id);return object(n)?editObject(id):reading(id)};
+ window.whiteboardCanvasObjects={add,edit:editObject,isObject:n=>!!object(n),scaleOf,marksSVG,showTools,menuItems};
+ if(board)mount();
+})();

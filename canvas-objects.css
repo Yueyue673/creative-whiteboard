@@ -1,0 +1,42 @@
+/* Unselected artwork has no card chrome; selection and actions remain discoverable. */
+.node.canvas-object{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important}
+.node.canvas-object.active{outline:1.5px solid var(--accent,#8172a5)!important;outline-offset:3px}
+.node.canvas-object>.inner.object-surface{padding:0!important;overflow:visible!important;position:relative;width:100%;height:100%;background:transparent!important}
+.object-art{display:block;width:100%;height:100%;margin:0!important;user-select:none;touch-action:none;color:var(--ui-text,#364152)}
+.object-art.image-art{overflow:hidden;position:relative}
+.object-original{position:absolute;width:calc(10000% / var(--crop-w));height:calc(10000% / var(--crop-h));left:calc(-100% * var(--crop-x) / var(--crop-w));top:calc(-100% * var(--crop-y) / var(--crop-h))}
+.node .object-original>img,.object-original>svg{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;max-height:none;height:100%;object-fit:fill;margin:0;pointer-events:none;border:0;border-radius:0;box-shadow:none}
+.object-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;padding:0;overflow:hidden}
+.object-label{position:absolute;inset:10%;display:grid;place-content:center;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;text-align:center;font-size:var(--body-size,20px);line-height:1.5}
+.object-label .note-wikilink,.object-text .note-wikilink{pointer-events:auto;font:inherit}
+.cell-object-art{position:relative;width:100%;height:160px;flex:none;margin-bottom:8px}.cell-object-art .object-art{width:100%;height:100%}.cell-content:has(>.cell-object-art)>.cell-images{display:none}
+.node.object-resizable>.resize.object-handle{position:absolute;display:none;z-index:15;touch-action:none;pointer-events:auto;background:white;border:1px solid #8b7aac;border-radius:50%;width:calc(10px * var(--canvas-control-scale,1));height:calc(10px * var(--canvas-control-scale,1));margin:0;transform:translate(-50%,-50%)}
+.node.object-resizable.active>.resize.object-handle{display:block}
+.node.object-resizable:not(.canvas-object){--object-border:1px}
+#nodes>.node.object-resizable>.resize.object-handle{right:auto;bottom:auto;transform:translate(-50%,-50%);transform-origin:center;background:transparent;border:0;box-shadow:none;width:calc(18px * var(--canvas-control-scale,1));height:calc(18px * var(--canvas-control-scale,1))}
+#nodes>.node.object-resizable>.resize.object-handle::before{content:'';position:absolute;inset:0;margin:auto;width:calc(7px * var(--canvas-control-scale,1));height:calc(7px * var(--canvas-control-scale,1));border:1px solid #8b7aac;border-radius:2px;background:#fff;box-shadow:none;transform:none}
+.object-handle.handle-nw{left:0;top:0;cursor:nwse-resize}.object-handle.handle-ne{left:100%;top:0;cursor:nesw-resize}.object-handle.handle-sw{left:0;top:100%;cursor:nesw-resize}.object-handle.handle-se{left:100%;top:100%;cursor:nwse-resize}
+.object-handle.handle-n{left:50%;top:0;cursor:ns-resize}.object-handle.handle-s{left:50%;top:100%;cursor:ns-resize}.object-handle.handle-w{left:0;top:50%;cursor:ew-resize}.object-handle.handle-e{left:100%;top:50%;cursor:ew-resize}
+#nodes>.node.object-resizable>.object-handle.handle-nw{left:calc(0px - var(--object-border,0px));top:calc(0px - var(--object-border,0px));z-index:16}#nodes>.node.object-resizable>.object-handle.handle-ne{left:calc(100% + var(--object-border,0px));top:calc(0px - var(--object-border,0px));z-index:16}#nodes>.node.object-resizable>.object-handle.handle-sw{left:calc(0px - var(--object-border,0px));top:calc(100% + var(--object-border,0px));z-index:16}#nodes>.node.object-resizable>.object-handle.handle-se{left:calc(100% + var(--object-border,0px));top:calc(100% + var(--object-border,0px));z-index:16}
+/* Edges resize the layout; the existing midpoint ports still start connections. */
+#nodes>.node.object-resizable>.object-handle:is(.handle-n,.handle-s){left:0;top:0;width:100%!important;transform:translateY(-50%);z-index:14}#nodes>.node.object-resizable>.object-handle.handle-s{top:100%}
+#nodes>.node.object-resizable>.object-handle:is(.handle-w,.handle-e){left:0;top:0;height:100%!important;transform:translateX(-50%);z-index:14}#nodes>.node.object-resizable>.object-handle.handle-e{left:100%}
+#nodes>.node.object-resizable>.object-handle:is(.handle-n,.handle-s,.handle-w,.handle-e)::before{display:none}#nodes>.node.object-resizable>.port{z-index:17}
+#nodes>.node.object-resizable:has(>.inner.live-layout)>.object-handle:is(.handle-n,.handle-s,.handle-w,.handle-e){display:none!important}
+.node.object-resizable>.port{display:none}.node.object-resizable.active>.port{display:block}
+.node.table>.inner>.inline-toolbar{zoom:calc(1 / var(--object-scale,1))}
+#drawingTools{position:relative}#drawingTools>summary{cursor:pointer;list-style:none;padding:6px 10px;white-space:nowrap}#drawingTools>div{position:absolute;bottom:calc(100% + 10px);left:0;display:grid;grid-template-columns:repeat(3,minmax(60px,1fr));gap:6px;padding:10px;background:var(--panel-bg,#fffefa);border:1px solid #d8d6ce;border-radius:10px;box-shadow:0 6px 24px #0002}#drawingTools:not([open])>div{display:none}
+#canvas.compact-tools #creationDock>#drawingTools,#canvas.compact-tools #creationDock>#addDocument{display:none}
+.drawing-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.drawing-choices button{min-height:44px}
+.canvas-stroke-preview{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:18}.canvas-stroke-preview[hidden]{display:none}.drawing-mode{cursor:crosshair}
+.object-style-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.object-style-fields input[type=checkbox]{width:auto}.object-style-fields input[type=color]{width:60px;min-height:34px;padding:3px}
+#dialog.image-edit-dialog{width:min(1100px,calc(100vw - 24px));height:min(860px,calc(100dvh - 24px));max-width:none;max-height:none;padding:16px;overflow:hidden}
+.image-edit-heading{display:flex;align-items:center;gap:10px}.image-edit-heading h2{flex:1;font-size:18px;margin:0}.image-edit-heading button{min-height:36px}.image-edit-tools{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0}.image-edit-tools button{min-height:36px}.image-edit-tools .chosen{background:#e7e2f0;color:#342a49;border-color:#9788b0}.image-edit-tools input[type=color]{width:38px;height:36px;padding:3px}.image-edit-tools input[type=text],#imageMarkText{width:150px;min-width:80px;padding:6px}
+#imageEditStage{height:calc(100% - 165px);min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#e9e8e2;border-radius:6px;padding:12px}
+#imageEditPaper{position:relative;max-width:100%;max-height:100%;touch-action:none;cursor:crosshair;user-select:none;line-height:0}
+#imageEditOriginal{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;pointer-events:none}
+#imageEditMarks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#imageCropBox{position:absolute;border:2px solid white;outline:1px solid #555;box-shadow:0 0 0 100vmax #2226;pointer-events:none}
+#imageEditPaper:not([data-tool=crop]) #imageCropBox{box-shadow:none;border:1px dashed #fff8;outline:0}.image-edit-status{font-size:12px;color:var(--ui-muted,#666);margin:8px 0 0}
+@media(pointer:coarse){#nodes>.node.object-resizable>.resize.object-handle{width:calc(30px * var(--canvas-control-scale,1));height:calc(30px * var(--canvas-control-scale,1))}.object-resizable .block-actions button{min-width:36px;min-height:36px}.node .read-layout{touch-action:none}}
+@media(max-width:600px){#dialog.image-edit-dialog{padding:10px;height:auto;max-height:calc(100dvh - 24px)}.image-edit-tools{gap:5px;padding:8px 0}.image-edit-tools button{padding:5px 8px;font-size:12px}#imageEditStage{height:200px}.image-edit-heading h2{font-size:16px}.object-style-fields{grid-template-columns:1fr 1fr}}

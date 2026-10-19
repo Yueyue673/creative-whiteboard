@@ -74,18 +74,20 @@ const {chromium} = require('playwright');
   // Test actual pointer resizing on opposite corners rather than only setting data.
   async function resize(direction, dx, dy) {
    const before = await dimensions(), box = await card.locator('[data-resize-direction="' + direction + '"]').boundingBox();
-   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-   await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy, {steps: 6}); await page.mouse.up();
+   const x=box.x+box.width*(direction==='n'||direction==='s'?.25:.5),y=box.y+box.height*(direction==='e'||direction==='w'?.25:.5);
+   await page.mouse.move(x,y);
+   await page.mouse.down(); await page.mouse.move(x+dx,y+dy,{steps:6}); await page.mouse.up();
    const after = await dimensions();
-   assert.equal(after.w, before.w + (direction.includes('w') ? -dx : dx));
-   assert.equal(after.h, before.h + (direction.includes('n') ? -dy : dy));
+   assert.equal(after.w, before.w + (/[ew]/.test(direction) ? (direction.includes('w') ? -dx : dx) : 0));
+   assert.equal(after.h, before.h + (/[ns]/.test(direction) ? (direction.includes('n') ? -dy : dy) : 0));
    if (direction.includes('w')) assert.equal(after.x + after.w, before.x + before.w);
    if (direction.includes('n')) assert.equal(after.y + after.h, before.y + before.h);
    await unchanged(after, 'Resizing ' + direction);
    return after;
   }
-  await resize('se', 80, 60);
-  const resized = await resize('nw', -40, -30);
+  // Edges change the layout; proportional corner scaling has its own full-content test.
+  await resize('e', 80, 0);await resize('s', 0, 60);
+  await resize('w', -40, 0);const resized = await resize('n', 0, -30);
   await page.evaluate(() => persist());
   await page.reload(); await page.waitForFunction(() => board && !loading);
   await unchanged(resized, 'Saving and reopening');

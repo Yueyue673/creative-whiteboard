@@ -252,6 +252,7 @@
  function begin(){
   if(!owns(first)||!ready())return false;
   const old=first,priorView=clone(old.view),priorSelection=new Set(old.selected);
+  document.dispatchEvent(new Event('creative-canvas-gesture-cancel'));
   cancelBeforeTouch();
   // Ordinary drag cancellation may restore a cloned board. Adopt that same destination.
   if(boardId!==old.id||loading)return false;

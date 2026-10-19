@@ -307,7 +307,7 @@
   const bounded=v=>Math.max(100,Math.min(900,v)),hasWidth=()=>Object.prototype.hasOwnProperty.call(n,'columnWidths'),signature=()=>JSON.stringify([n.columns,n.columnIds,hasWidth(),n.columnWidths]),displaySignature=()=>JSON.stringify([n.columns.length,n.columnIds,hasWidth(),n.columnWidths]);
   const supported=()=>!hasWidth()||Array.isArray(n.columnWidths)&&(n.columnWidths.length===0||n.columnWidths.length===n.columns.length)&&n.columnWidths.every(v=>typeof v==='number'&&Number.isFinite(v)&&v>0);
   const live=()=>!loading&&!blocked&&supported()&&(selected.has(n.id)||editorId===n.id)&&board?.nodes.find(v=>v.id===n.id)===n&&handle.isConnected;
-  const scale=()=>handle.closest('.immersive-surface')?1:view().z;
+  const scale=()=>handle.closest('.immersive-surface')?1:view().z*(window.whiteboardCanvasObjects?.scaleOf(n)||1);
   const widths=()=>{const heads=[...table.querySelectorAll(':scope>thead>tr>th[data-col-target]')];return n.columns.map((_,i)=>{const v=n.columnWidths?.[i];return bounded(typeof v==='number'&&Number.isFinite(v)&&v>0?v:heads[i]?.offsetWidth||160)})};
   const applied=(preview,value)=>{const values=Array.isArray(n.columnWidths)&&n.columnWidths.length===n.columns.length?[...n.columnWidths]:[...preview];values[column]=value;return values};
   const value=v=>{handle.setAttribute('aria-valuenow',String(v));const text=(Math.round(v*10)/10)+' px';handle.setAttribute('aria-valuetext',text);handle.dataset.widthText=text};

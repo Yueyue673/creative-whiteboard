@@ -7,7 +7,7 @@
   const notes = a.notes ? Math.min(180, 24 * Math.ceil(a.notes.length / 24) + 16) : 0;
   if(a.mime?.startsWith('audio/'))return {w:340,h:header + 84 + notes};
   if(a.mime?.startsWith('video/'))return {w:420,h:header + 420 * 9 / 16 + 36 + notes};
-  if(a.mime?.startsWith('image/'))return {w:360,h:header + Math.min(560, 318 / Math.max(.15, ratio)) + notes};
+  if(a.mime?.startsWith('image/'))return {w:360,h:360 / Math.max(.05, ratio)};
   if(documentKind(a))return {w:580,h:440};
   // Reserve the bounded preview while the original text is unavailable.
   if(isTextAsset(a))return {w:340,h:header + 360 + notes};
