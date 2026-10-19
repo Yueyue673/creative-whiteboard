@@ -326,7 +326,8 @@ if(board){applyTypography();syncTextTools();announce()}
   folders.forEach(row=>{
    row.classList.toggle('selected',assetFolderPick===row.dataset.asub);
    row.title=row.dataset.asub;
-   row.onclick=()=>{
+   row.onclick=e=>{
+    if(e.pointerType==='touch'&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&!e.altKey){row.ondblclick();return}
     assetFolderPick=row.dataset.asub;assetSelected.clear();
     $('assetList').querySelectorAll('[data-asset], [data-asub]').forEach(el=>{
      el.classList.toggle('selected',el===row);const check=el.querySelector('input[type=checkbox]');if(check)check.checked=false;
