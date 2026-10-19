@@ -181,3 +181,11 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .note-library-origin>button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 .note-source-peek .source-peek-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ui-text)}.note-source-peek .source-peek-library{flex:none;align-self:flex-start;margin:0 14px 12px;min-height:40px}.note-source-peek .source-peek-library[hidden],.note-source-peek .source-peek-name[hidden],#dialogBody .note-source-peek select[hidden],.source-from-canvas select[hidden]{display:none}
+
+/* The existing library origin belongs to the writing context, outside the text scroller. */
+#dialogBody>.node.immersive-surface>.inner:has(>.note-library-context){display:grid;grid-template-rows:auto auto minmax(0,1fr)}
+#dialogBody>.node.immersive-surface>.inner>.note-library-context{grid-column:1;grid-row:2;display:flex;align-items:center;gap:8px;min-height:44px;min-width:0;box-sizing:border-box;margin:0;padding:0 max(24px,calc((100% - 704px)/2));border-bottom:1px solid color-mix(in srgb,var(--paper-caption) 18%,transparent)}
+#dialogBody>.node.immersive-surface>.inner>.note-library-context>button{min-height:44px;min-width:44px;max-width:calc(100% - 52px)}
+#dialogBody>.node.immersive-surface>.inner:has(>.note-library-context)>.edit-scroll{grid-row:3}
+#dialogBody>.node.immersive-surface>.inner:has(>.note-library-context)>#inlineMeta[open]{grid-row:3}
+@media(max-width:650px){#dialogBody>.node.immersive-surface>.inner>.note-library-context{padding:0 20px}}

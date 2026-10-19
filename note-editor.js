@@ -242,8 +242,12 @@
   const live=epoch=>ownsSourcePeek(session)&&session.epoch===epoch;
   const libraryButton=aside.querySelector('.source-peek-library');libraryButton.onclick=()=>{if(!ownsSourcePeek(session)||!session.originAssetId)return;const id=session.originAssetId;closeSourcePeek(false);revealLibraryItem(id).catch(error=>toast(error.message))};
   const message=text=>{status.textContent=text;status.hidden=!text;libraryButton.hidden=true;aside.removeAttribute('aria-busy');open.disabled=false};
+  const authorPosition=()=>{const field=session.input;return field?{field,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection}:null};
+  let authorPositionBefore=authorPosition();
+  const sameAuthorPosition=next=>!!next&&!!authorPositionBefore&&['field','value','start','end','direction'].every(key=>next[key]===authorPositionBefore[key]);
   const cancel=()=>{session.epoch++;if(!session.row||session.failedOriginal){closeSourcePeek(false);return}if(aside.hasAttribute('aria-busy'))message('');select.value=key(session.row)};
-  session.authorActivity=cancel;session.rememberFocus=event=>{if(event.target.matches('textarea,input')&&root.contains(event.target)){session.input=event.target;cancel()}};root.addEventListener('focusin',session.rememberFocus);
+  session.authorActivity=event=>{const next=authorPosition();if(event.type==='select'&&event.target===session.input&&sameAuthorPosition(next))return;authorPositionBefore=next;cancel()};
+  session.rememberFocus=event=>{if(event.target.matches('textarea,input')&&root.contains(event.target)){const previous=session.input;session.input=event.target;const next=authorPosition();if(previous!==session.input||!sameAuthorPosition(next)){authorPositionBefore=next;cancel()}}};root.addEventListener('focusin',session.rememberFocus);
   for(const type of ['input','select','pointerdown','keydown'])root.addEventListener(type,session.authorActivity,true);
   const include=item=>{const old=session.rows.findIndex(r=>key(r)===key(item));if(old<0)session.rows.push(item);else session.rows[old]=item};
   session.render=item=>{
@@ -349,6 +353,9 @@
   if(n?.type!=='note'||!n.libraryOrigin?.id){strip?.remove();return}
   const title=root.querySelector('.edit-scroll>#title');if(!title)return;
   if(!strip){strip=document.createElement('div');strip.className='note-library-origin inline-ui';const caption=document.createElement('span');caption.textContent='复用自';const button=document.createElement('button');button.type='button';strip.append(caption,button);title.after(strip);strip.addEventListener('pointerdown',event=>event.stopPropagation())}
+  const expanded=root.classList.contains('immersive-surface'),inner=title.closest('.inner');
+  strip.classList.toggle('note-library-context',expanded);
+  if(expanded&&inner){const area=title.closest('.edit-scroll');if(strip.parentElement!==inner)inner.insertBefore(strip,area)}else if(title.nextElementSibling!==strip)title.after(strip);
   const button=strip.querySelector('button');button.textContent=n.libraryOrigin.name||'内容库';button.setAttribute('aria-label','查看库中原件：'+button.textContent);button.title='查看库中原件';
   button.onclick=event=>{event.stopPropagation();if(!root.isConnected||!board.nodes.includes(n)||editorId!==n.id||loading||blocked)return;const place=captureReferencePlace(n.id),row={kind:'library',assetId:n.libraryOrigin.id,originNodeId:n.libraryOrigin.nodeId,board:null,name:n.libraryOrigin.name||'库中原件',node:clone(n)};peekReference(row,place,[])};
   // Maintenance keeps its explicit review route; reading has its own direct link.
