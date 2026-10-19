@@ -472,7 +472,7 @@
   const n=board?.nodes.find(n=>n.id===id);if(!n||loading)return;
   const r=canvas.getBoundingClientRect(),z=Math.max(.85,view().z);
   board.view={...board.view,x:r.width/2-(n.x+n.w/2)*z,y:r.height/2-(n.y+n.h/2)*z,z};
-  moveView();change(true);selectNode(id,true);
+  moveView();change(true);const expanded=canvas.clientWidth<420&&n.type==='note'&&!n.assetId;selectNode(id,!expanded);if(expanded){whiteboardReading.open(id);return;}
   const field=$('body')||$('title');field?.focus({preventScroll:true});
  }
  function mount(){
