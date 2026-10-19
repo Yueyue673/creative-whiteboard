@@ -54,6 +54,8 @@ async function exercise(p,{entry,width,supplied,layoutOnly=false,capture=async()
  // Delayed callbacks must keep their original object and selection; no current-target lookup.
  await a.locator('#nodes>.node').click({position:{x:4,y:30}});await a.locator('.node.active .block-collect').evaluate(el=>window.delayedCollect=el.onclick);
  await a.locator('#canvas').focus();await p.keyboard.press('n');await a.locator('#title').fill(supplied[1].title);await a.locator('#body').fill(supplied[1].body);await act(a.locator('#inlineDone'));await settled();const other=await snap();assert.equal(other.board.nodes.length,2);
+ assert(await a.locator('.node.active .block-collect').isEnabled());
+ for(const inactive of await a.locator('.node:not(.active) .block-collect').all())assert(await inactive.isDisabled(),'Keyboard focus on a different paper must not offer an enabled action for the existing selection');
  await a.evaluate(()=>delayedCollect({stopPropagation(){}}));assert.equal(await a.locator('#dialog').evaluate(el=>el.open),false);assert.deepEqual(await api('/api/assets'),catalog);assert.deepEqual((await snap()).board.nodes,other.board.nodes);
  accept(width+'px: a delayed collection callback cannot collect a newly selected object or change either original.');
  if(width===320)await layout(catalog,supplied[1].title);

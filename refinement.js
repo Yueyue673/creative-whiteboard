@@ -270,7 +270,7 @@
  function mountCollectAction(actions,n){
   if(!actions||n.type==='frame'&&editorId===n.id)return;
   let button=actions.querySelector('.block-collect');if(!button){button=document.createElement('button');button.type='button';button.className='block-collect';button.textContent='保存到库';button.title='将这块内容保存到内容库，下次继续使用';const primary=actions.querySelector('.block-read,.block-write-record');if(primary)primary.after(button);else actions.append(button)}
-  const source=board,sourceId=boardId;button.disabled=blocked;
+  const source=board,sourceId=boardId;button.disabled=blocked||!!editorId||selected.size!==1||!selected.has(n.id);
   button.onclick=e=>{e.stopPropagation();if(!button.isConnected||!actions.contains(button)||board!==source||boardId!==sourceId||loading||blocked||editorId||$('dialog').open||parentModal()||!visiblePane()||selected.size!==1||!selected.has(n.id)||!board.nodes.includes(n))return;askCollectSelection()};
  }
  function mountPrimaryAction(actions,n){

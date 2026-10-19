@@ -38,6 +38,8 @@ const {chromium} = require('playwright');
   const beforeKeys=await p.evaluate(()=>clone(board.nodes));
   await p.locator('#nodes [data-id=n] .block-read').focus();
   await p.keyboard.press('Tab');
+  assert.equal(await p.evaluate(()=>document.activeElement.textContent),'保存到库');
+  await p.keyboard.press('Tab');
   assert.equal(await p.evaluate(()=>document.activeElement.textContent),'写记录');
   await p.keyboard.press('Tab');
   assert.equal(await p.evaluate(()=>document.activeElement.getAttribute('aria-label')),'拖出副本');
