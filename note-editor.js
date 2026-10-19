@@ -217,12 +217,12 @@
    const input=session.input;if(input?.isConnected){const hiddenDetails=input.closest('details:not([open])'),target=input.hidden?session.root.querySelector('#notePreview'):hiddenDetails?hiddenDetails.querySelector('summary'):input;if(target){if(session.mode==='canvas'&&window.whiteboardNavigation?.focusPreservingView)whiteboardNavigation.focusPreservingView(target);else target.focus({preventScroll:true})}remember(input)}
   }
  }
- function ownsSourcePeek(session){return session===sourcePeek&&board===session.source&&boardId===session.board&&!loading&&!blocked&&board.nodes.includes(session.author)&&editorId===session.author.id&&session.root.isConnected&&(!session.input||session.input.isConnected)&&(session.mode==='expanded'?$('dialog').open:!$('dialog').open)}
+ function ownsSourcePeek(session){return session===sourcePeek&&board===session.source&&boardId===session.board&&!loading&&!blocked&&board.nodes.includes(session.author)&&editorId===session.author.id&&session.root.isConnected&&(!session.originAssetId||session.author.libraryOrigin?.id===session.originAssetId&&session.author.libraryOrigin?.nodeId===session.originNodeId)&&(!session.input||session.input.isConnected)&&(session.mode==='expanded'?$('dialog').open:!$('dialog').open)}
  function layoutSourcePeek(){
   const session=sourcePeek;if(!session)return;if(!ownsSourcePeek(session)){closeSourcePeek(false);return}
   let covering=false;if(session.mode==='canvas'){const rect=session.root.getBoundingClientRect(),left=Math.max(0,rect.left-16),right=Math.max(0,innerWidth-rect.right-16),space=Math.max(left,right);covering=innerWidth<=820||session.full||space<340;session.aside.style.width=covering?'100%':Math.min(680,space,innerWidth*.46)+'px';session.aside.style.left=!covering&&left>right?'0':'auto';session.aside.style.right=!covering&&left>right?'auto':'0'}
   const narrow=innerWidth<=820||!!session.full||covering;session.host.classList.toggle('source-focused',narrow);session.aside.classList.toggle('source-reading-full',!!session.full);if(session.returnAction){const markup=narrow?'返回记录 <small>Esc</small>':session.returnMarkup;if(session.returnAction.innerHTML!==markup)session.returnAction.innerHTML=markup}session.root.inert=narrow;session.root.setAttribute('aria-hidden',String(narrow));
-  const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=narrow?'查看资料':session.heading;
+  const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=narrow?((session.row?.kind||session.originKind)==='library'?'查看原件':'查看资料'):session.heading;
   session.host.querySelector('#immersiveDetails')?.toggleAttribute('hidden',narrow);
   if(narrow&&session.root.contains(document.activeElement))session.aside.querySelector('.source-peek-return').focus({preventScroll:true});
   if(session.row?.board===boardId){const node=board.nodes.find(n=>n.id===session.row.node.id);if(node!==session.row.node||JSON.stringify(node)!==session.signature)session.render(node?{...session.row,node}:null)}
@@ -230,18 +230,19 @@
  function canCompare(row){return row&&['note','image','table'].includes(row.node.type)}
  function sourceAssetIds(node,ids=new Set()){for(const id of [node.assetId,node.mediaId])if(id)ids.add(id);for(const image of node.images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellImages||[])for(const images of row||[])for(const image of images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellItems||[])for(const items of row||[])for(const item of items||[])sourceAssetIds(item,ids);return [...ids]}
  function pauseSource(root){for(const el of root.querySelectorAll('audio,video')){el.pause();el._captureReading?.()}for(const el of root.querySelectorAll('.json-reader'))el._captureReading?.()}
- function sourceContext(el){const session=sourcePeek;if(!session||!ownsSourcePeek(session))return null;const root=el?.closest?.('.note-source-card');if(!root||!session.aside.contains(root))return null;const view=[...session.views.values()].find(view=>view.paper===root);return view?{board:view.row.board,node:view.row.node,readOnly:true}:null}
+ function sourceContext(el){const session=sourcePeek;if(!session||!ownsSourcePeek(session))return null;const root=el?.closest?.('.note-source-card');if(!root||!session.aside.contains(root))return null;const view=[...session.views.values()].find(view=>view.paper===root);return view?{board:view.row.board,node:view.row.node,readOnly:true,...(view.row.kind==='library'?{library:{id:view.row.assetId,nodeId:view.row.node.id}}:{})}:null}
  function peekReference(row,place,records){
   const author=board.nodes.find(node=>node.id===editorId),expanded=place?.mode==='expanded',root=expanded?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===author?.id);
   if(!canCompare(row)||!['expanded','canvas'].includes(place?.mode)||!root||root.dataset.id!==author?.id||(row.board===boardId&&row.node===author)||expanded!==$('dialog').open)return false;
   closeSourcePeek(false);closePanel();const host=expanded?$('dialogBody'):document.body,aside=document.createElement('aside');aside.className='note-source-peek inline-ui'+(expanded?'':' source-from-canvas');aside.setAttribute('aria-label','对照资料');
   const heading=host.querySelector('.immersive-heading>span'),input=(place.field&&root.querySelector('#'+CSS.escape(place.field.id)))||root.querySelector('#body');
-  const returnAction=expanded?host.querySelector('#immersiveReturn'):null,session={aside,host,root,author,mode:place.mode,source:board,board:boardId,input,returnAction,returnMarkup:returnAction?.innerHTML,heading:heading?.textContent||'展开编辑',epoch:0,trail:[],positions:new Map(),views:new Map(),rows:relatedRows(author,records).filter(canCompare)};sourcePeek=session;session.returnClick=event=>{if(innerWidth<=820||session.full){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}};returnAction?.addEventListener('click',session.returnClick,true);
-  aside.innerHTML='<header><label>资料<select aria-label="对照资料"></select></label><button type="button" class="source-peek-return">返回记录</button></header><nav class="note-source-path" aria-label="资料浏览" hidden><button type="button" class="source-peek-back">上一份资料</button><span></span><button type="button" class="source-peek-open" hidden>打开白板</button></nav><p class="note-source-status" role="status" hidden></p><div class="note-source-paper"></div>';
-  const select=aside.querySelector('select'),status=aside.querySelector('[role=status]'),path=aside.querySelector('nav'),back=path.querySelector('.source-peek-back'),open=path.querySelector('.source-peek-open'),key=item=>item.board+'/'+item.node.id;
+  const returnAction=expanded?host.querySelector('#immersiveReturn'):null,session={aside,host,root,author,mode:place.mode,source:board,board:boardId,input,returnAction,returnMarkup:returnAction?.innerHTML,heading:heading?.textContent||'展开编辑',epoch:0,trail:[],positions:new Map(),views:new Map(),originKind:row.kind,originAssetId:row.kind==='library'?row.assetId:null,originNodeId:row.originNodeId,rows:relatedRows(author,records).filter(canCompare)};sourcePeek=session;session.returnClick=event=>{if(innerWidth<=820||session.full){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}};returnAction?.addEventListener('click',session.returnClick,true);
+  aside.innerHTML='<header><label>资料<select aria-label="对照资料"></select></label><button type="button" class="source-peek-return">返回记录</button></header><nav class="note-source-path" aria-label="资料浏览" hidden><button type="button" class="source-peek-back">上一份资料</button><span></span><button type="button" class="source-peek-open" hidden>打开白板</button></nav><p class="note-source-status" role="status" hidden></p><button type="button" class="source-peek-library" hidden>在内容库查看</button><div class="note-source-paper"></div>';
+  const select=aside.querySelector('select'),status=aside.querySelector('[role=status]'),path=aside.querySelector('nav'),back=path.querySelector('.source-peek-back'),open=path.querySelector('.source-peek-open'),key=item=>item.kind==='library'?'library/'+item.assetId+'/'+(item.originNodeId||''):item.board+'/'+item.node.id;
   const live=epoch=>ownsSourcePeek(session)&&session.epoch===epoch;
-  const message=text=>{status.textContent=text;status.hidden=!text;aside.removeAttribute('aria-busy');open.disabled=false};
-  const cancel=()=>{session.epoch++;if(!session.row){closeSourcePeek(false);return}if(aside.hasAttribute('aria-busy'))message('');select.value=key(session.row)};
+  const libraryButton=aside.querySelector('.source-peek-library');libraryButton.onclick=()=>{if(!ownsSourcePeek(session)||!session.originAssetId)return;const id=session.originAssetId;closeSourcePeek(false);revealLibraryItem(id).catch(error=>toast(error.message))};
+  const message=text=>{status.textContent=text;status.hidden=!text;libraryButton.hidden=true;aside.removeAttribute('aria-busy');open.disabled=false};
+  const cancel=()=>{session.epoch++;if(!session.row||session.failedOriginal){closeSourcePeek(false);return}if(aside.hasAttribute('aria-busy'))message('');select.value=key(session.row)};
   session.authorActivity=cancel;session.rememberFocus=event=>{if(event.target.matches('textarea,input')&&root.contains(event.target)){session.input=event.target;cancel()}};root.addEventListener('focusin',session.rememberFocus);
   for(const type of ['input','select','pointerdown','keydown'])root.addEventListener(type,session.authorActivity,true);
   const include=item=>{const old=session.rows.findIndex(r=>key(r)===key(item));if(old<0)session.rows.push(item);else session.rows[old]=item};
@@ -249,7 +250,7 @@
    if(!ownsSourcePeek(session))return closeSourcePeek(false);
    const box=aside.querySelector('.note-source-paper');if(session.row&&box.firstElementChild)session.positions.set(key(session.row),box.scrollTop);if(!item){session.signature=JSON.stringify(null);for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}message('这份资料已移走或删除。');return}
    if(!canCompare(item)){for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}message('这份资料的类型已有变化，请从白板查看。');return}
-   session.row=item;session.signature=JSON.stringify(item.node);include(item);select.replaceChildren();
+   session.row=item;session.failedOriginal=false;session.signature=JSON.stringify(item.node);include(item);select.replaceChildren();
    for(const current of session.rows){const option=document.createElement('option');option.value=key(current);option.textContent=noteLabel(current.node)+(current.board!==session.board?' · '+current.name:'');select.append(option)}
    for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}whiteboardMedia.close();
    let view=session.views.get(key(item));if(view&&view.signature!==session.signature){pauseSource(view.paper);view.paper.remove();session.views.delete(key(item));view=null}
@@ -262,27 +263,35 @@
    while(session.views.size>6){const [id,old]=session.views.entries().next().value;pauseSource(old.paper);old.paper.remove();session.views.delete(id)}
    fillTextPreviews(view.paper);mountInlineDocuments();mountReadingState();whiteboardMedia.mount();whiteboardMedia.markers.mount();scheduleScrollSurfaces();
 
-   path.hidden=!session.trail.length&&item.board===session.board;back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.board===session.board;open.title='打开白板：'+item.name;message('');
+   const label=aside.querySelector('header label');label.firstChild.textContent=item.kind==='library'?'库中原件':'资料';let name=label.querySelector('.source-peek-name');if(!name){name=document.createElement('span');name.className='source-peek-name';label.append(name)}name.textContent=item.name;const single=item.kind==='library'&&session.rows.length===1;name.hidden=!single;select.hidden=single;layoutSourcePeek();path.hidden=!session.trail.length&&(item.kind==='library'||item.board===session.board);back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.kind==='library'||item.board===session.board;open.title='打开白板：'+item.name;message('');
   };
   const recordsFor=async id=>{if(id===session.board)return board.nodes.filter(n=>n.type!=='frame').map(node=>({board:id,name:board.name,node}));const value=await(await api('/api/boards/'+encodeURIComponent(id))).json();return(value.nodes||[]).filter(n=>n.type!=='frame').map(node=>({board:id,name:value.name,node}))};
+  const rowsFor=async item=>{
+   if(item.kind!=='library')return recordsFor(item.board);
+   // A fresh read never replaces the live editor or its shared library index.
+   const catalog=await(await api('/api/assets')).json(),asset=catalog.assets?.find(a=>a.id===item.assetId);
+   if(!asset||asset.archived)throw Error('库中原件已移出内容库');
+   if(!item.originNodeId||!asset.bundle?.nodes.some(n=>n.id===item.originNodeId))throw Error('找不到对应原件，请从内容库查看');
+   return asset.bundle.nodes.filter(n=>n.type!=='frame').map(node=>({kind:'library',assetId:asset.id,originNodeId:node.id,board:null,name:asset.title,node}));
+  };
   const visit=async(item,epoch,trail)=>{
-   const records=await recordsFor(item.board);if(!live(epoch))return;const current=records.find(r=>r.node.id===item.node.id);
+   const records=await rowsFor(item);if(!live(epoch))return;const current=records.find(r=>r.node.id===(item.kind==='library'?item.originNodeId:item.node.id));
    if(!current){message('这份资料已移走或删除。');select.value=session.row?key(session.row):'';return}
    if(current.board===session.board&&current.node===session.author){closeSourcePeek();return}
    if(!canCompare(current)){message('这份内容暂时不能在这里查看。');select.value=session.row?key(session.row):'';return}
-   const ids=sourceAssetIds(current.node);if(ids.some(id=>!assetById(id))){await loadAssets();if(!live(epoch))return}
+   const ids=sourceAssetIds(current.node);if(ids.some(id=>!assetById(id))){if(current.kind==='library')throw Error('原件的文件尚未载入，请从内容库查看');await loadAssets();if(!live(epoch))return}
    session.trail=trail;session.render(current);
   };
   const begin=()=>{const epoch=++session.epoch;message('正在打开资料…');open.disabled=true;aside.setAttribute('aria-busy','true');return epoch};
-  const failed=(error,epoch)=>{if(live(epoch)){message('暂时无法打开资料：'+error.message);select.value=session.row?key(session.row):''}};
+  const failed=(error,epoch)=>{if(live(epoch)){message('暂时无法打开资料：'+error.message);select.value=session.row?key(session.row):'';if(session.originAssetId){session.failedOriginal=true;for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}libraryButton.hidden=false}}};
   select.onchange=()=>{const item=session.rows.find(r=>key(r)===select.value);if(item){const epoch=begin();visit(item,epoch,[]).catch(error=>failed(error,epoch))}};
   back.onclick=()=>{const item=session.trail.at(-1);if(item){const epoch=begin();visit(item,epoch,session.trail.slice(0,-1)).catch(error=>failed(error,epoch))}};
-  open.onclick=()=>{if(!ownsSourcePeek(session)||!session.row||aside.hasAttribute('aria-busy'))return;const row=session.row,place=captureReferencePlace(session.author.id);closeSourcePeek();jumpReference(row,place,++referenceEpoch,undefined,false).catch(error=>toast('暂时无法打开白板：'+error.message))};
+  open.onclick=()=>{if(!ownsSourcePeek(session)||!session.row||session.row.kind==='library'||aside.hasAttribute('aria-busy'))return;const row=session.row,place=captureReferencePlace(session.author.id);closeSourcePeek();jumpReference(row,place,++referenceEpoch,undefined,false).catch(error=>toast('暂时无法打开白板：'+error.message))};
   aside.querySelector('.source-peek-return').onclick=()=>closeSourcePeek();
   aside.addEventListener('pointerdown',event=>event.stopPropagation());aside.addEventListener('click',async event=>{
    event.stopPropagation();const link=event.target.closest('[data-note-link]');if(!link)return;event.preventDefault();if(!ownsSourcePeek(session)||!session.row)return;
    const from=session.row,value=link.dataset.noteLink,epoch=begin();try{
-    const local=await recordsFor(from.board);if(!live(epoch))return;const current=local.find(r=>r.node.id===from.node.id);
+    const local=await rowsFor(from);if(!live(epoch))return;const current=local.find(r=>r.node.id===from.node.id);
     if(!current){message('这份资料已移走或删除。');return}
     if(!references(current.node).includes(value)){session.render(current);message('资料已有变化，请查看当前原文。');return}
     let target=resolveReference(value,local,from.board);
@@ -335,7 +344,18 @@
   if(incoming)for(const row of records)if(references(row.node).some(ref=>{const target=resolveReference(ref,records,row.board);return target?.board===boardId&&target.node.id===n.id}))add(row);
   return [...rows.values()];
  }
+ function mountLibraryOrigin(n,root){
+  if(!root)return;let strip=root.querySelector('.note-library-origin');
+  if(n?.type!=='note'||!n.libraryOrigin?.id){strip?.remove();return}
+  const title=root.querySelector('.edit-scroll>#title');if(!title)return;
+  if(!strip){strip=document.createElement('div');strip.className='note-library-origin inline-ui';const caption=document.createElement('span');caption.textContent='复用自';const button=document.createElement('button');button.type='button';strip.append(caption,button);title.after(strip);strip.addEventListener('pointerdown',event=>event.stopPropagation())}
+  const button=strip.querySelector('button');button.textContent=n.libraryOrigin.name||'内容库';button.setAttribute('aria-label','查看库中原件：'+button.textContent);button.title='查看库中原件';
+  button.onclick=event=>{event.stopPropagation();if(!root.isConnected||!board.nodes.includes(n)||editorId!==n.id||loading||blocked)return;const place=captureReferencePlace(n.id),row={kind:'library',assetId:n.libraryOrigin.id,originNodeId:n.libraryOrigin.nodeId,board:null,name:n.libraryOrigin.name||'库中原件',node:clone(n)};peekReference(row,place,[])};
+  // Maintenance keeps its explicit review route; reading has its own direct link.
+  const review=root.querySelector('.wf-origin');if(review){review.textContent='比较原件修改…';review.title='比较原件与当前副本'}
+ }
  function mountRelations(n,root){
+  mountLibraryOrigin(n,root);
   if(!n||n.type!=='note'||!root)return;
   const host=root.querySelector('.inner.live-layout .note-edit-tools'),trigger=host?.querySelector('#noteLinks');if(!host||!trigger)return;
   const rows=relatedRows(n),signature=JSON.stringify([boardId,n.id,...rows.map(r=>[r.board,r.node.id,noteLabel(r.node)])]);let links=host.querySelector('.note-related-links');

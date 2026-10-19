@@ -174,3 +174,10 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .writing-resume{position:absolute;right:16px;display:flex;max-width:min(320px,calc(100% - 32px));z-index:22;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-panel);box-shadow:0 8px 24px #0002}.writing-resume[hidden]{display:none}.writing-resume>button{min-height:44px;border:0;border-radius:9px;background:transparent;color:var(--ui-text)}.writing-resume>button:first-child{display:grid;text-align:left;gap:2px;min-width:0;padding:8px 12px}.writing-resume small{font-size:11px;color:var(--ui-muted)}.writing-resume b{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.writing-resume>button:last-child{flex:none;width:36px;font-size:18px;padding:0}.writing-resume>button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .writing-resume.compact b{display:none}.writing-resume.compact small{font-size:13px;color:var(--ui-text)}.writing-resume>button:focus-visible{outline-color:var(--ui-accent)}
+
+/* Library provenance stays beside the original live author input. */
+.note-library-origin{display:flex;align-items:baseline;gap:8px;min-width:0;margin:0 0 16px;color:var(--paper-caption);font:12px/1.5 system-ui,sans-serif}
+.note-library-origin>span{flex:none}.note-library-origin>button{min-width:0;max-width:100%;padding:4px 0;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:underline;text-underline-offset:3px}
+.note-library-origin>button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+.note-source-peek .source-peek-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ui-text)}.note-source-peek .source-peek-library{flex:none;align-self:flex-start;margin:0 14px 12px;min-height:40px}.note-source-peek .source-peek-library[hidden],.note-source-peek .source-peek-name[hidden],#dialogBody .note-source-peek select[hidden],.source-from-canvas select[hidden]{display:none}
