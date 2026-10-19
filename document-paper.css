@@ -21,6 +21,6 @@
 .node[data-custom-font] :is(input,textarea,.note-markdown,.object-text,.object-label){font-family:var(--object-font)!important}
 .node[data-custom-ink] :is(input,textarea,.note-markdown,.object-text,.object-label){color:var(--object-ink)!important}
 .document-paragraph>.cell-move-handle{left:-24px;top:4px;opacity:0}.document-paragraph:hover>.cell-move-handle,.document-paragraph:focus-within>.cell-move-handle{opacity:1}
-.node.canvas-object .block-actions>.block-read,.node.canvas-object .block-actions>.block-write-record{display:none}
+.node.canvas-object .block-actions>.block-read:not(.object-edit),.node.canvas-object .block-actions>.block-write-record{display:none}
 .node.canvas-object .block-actions{gap:4px}.node.canvas-object .object-edit{white-space:nowrap}
 @media(max-width:600px){.node.canvas-object .block-actions>.block-transfer{display:none}.edit-table[data-document-paper] .cell-content{margin-left:10px;padding:10px}.document-paragraph>.cell-move-handle{opacity:.5;left:-20px}.document-insert button{font-size:12px}.immersive-surface:has([data-document-paper]) .inline-toolbar{flex-wrap:wrap}.document-table-actions button{min-height:36px}}

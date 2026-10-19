@@ -12,6 +12,9 @@
 .cell-object-art{position:relative;width:100%;height:160px;flex:none;margin-bottom:8px}.cell-object-art .object-art{width:100%;height:100%}.cell-content:has(>.cell-object-art)>.cell-images{display:none}
 .node.object-resizable>.resize.object-handle{position:absolute;display:none;z-index:15;touch-action:none;pointer-events:auto;background:white;border:1px solid #8b7aac;border-radius:50%;width:calc(10px * var(--canvas-control-scale,1));height:calc(10px * var(--canvas-control-scale,1));margin:0;transform:translate(-50%,-50%)}
 .node.object-resizable.active>.resize.object-handle{display:block}
+.node.object-resizable>.resize:not(.object-handle){display:none!important}
+.node.object-resizable>.resize.object-handle::after{content:none!important;display:none!important}
+.node.canvas-object .block-actions .object-edit{display:flex;width:auto;gap:5px;padding:0 6px;font-size:12px;white-space:nowrap;opacity:1}
 .node.object-resizable:not(.canvas-object){--object-border:1px}
 #nodes>.node.object-resizable>.resize.object-handle{right:auto;bottom:auto;transform:translate(-50%,-50%);transform-origin:center;background:transparent;border:0;box-shadow:none;width:calc(18px * var(--canvas-control-scale,1));height:calc(18px * var(--canvas-control-scale,1))}
 #nodes>.node.object-resizable>.resize.object-handle::before{content:'';position:absolute;inset:0;margin:auto;width:calc(7px * var(--canvas-control-scale,1));height:calc(7px * var(--canvas-control-scale,1));border:1px solid #8b7aac;border-radius:2px;background:#fff;box-shadow:none;transform:none}

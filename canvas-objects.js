@@ -65,7 +65,7 @@
    }
    if(o){
     const actions=el.querySelector('.block-actions');
-    if(actions&&!actions.querySelector('.object-edit')){const edit=document.createElement('button');edit.className='object-edit';edit.textContent=o.kind==='image'?'裁剪 / 标注':'样式 / 文字';edit.onclick=e=>{e.stopPropagation();editObject(n.id)};actions.prepend(edit)}
+    if(actions){const edit=actions.querySelector('.object-edit,.block-read')||document.createElement('button');edit.classList.add('object-edit');edit.textContent=o.kind==='image'?'裁剪 / 标注':'样式 / 文字';edit.title=edit.textContent;edit.setAttribute('aria-label',edit.textContent);edit.onclick=e=>{e.stopPropagation();editObject(n.id)};if(!edit.parentElement)actions.prepend(edit)}
    }
   }
  }
