@@ -27,6 +27,91 @@
  parser.core.ruler.after('inline','whiteboard_tasks',state=>{for(let i=1;i<state.tokens.length;i++){const token=state.tokens[i];if(token.type!=='inline'||state.tokens[i-1]?.type!=='paragraph_open'||state.tokens[i-2]?.type!=='list_item_open')continue;const first=token.children?.[0],match=first?.type==='text'&&/^\[([ xX])\] /.exec(first.content);if(!match)continue;first.content=first.content.slice(match[0].length);const checkbox=new state.Token('whiteboard_task','span',0);checkbox.content=match[1]!==' '?'true':'false';token.children.unshift(checkbox)}});
  parser.renderer.rules.whiteboard_task=(tokens,i)=>'<span class="note-task" role="checkbox" aria-checked="'+tokens[i].content+'">'+(tokens[i].content==='true'?'☑':'☐')+'</span> ';
  const rendered=text=>parser.render(String(text||''));
+ // Keep stable references in the document while editing their readable labels.
+ // This is a field projection, never a migration of the author's stored text.
+ const referenceFields=new WeakMap();
+ function wikiMatches(text){
+  const matches=[],pattern=/```[\s\S]*?```|~~~[\s\S]*?~~~|`+[^`\n]*`+|\\\[\[[^\n]*?\]\]|\[\[([^\n]{1,600}?)\]\]/g;let match;
+  while((match=pattern.exec(text)))if(match[1])matches.push({start:match.index,end:pattern.lastIndex,raw:match[0],content:match[1]});return matches;
+ }
+ function linkMarkup(content){const [target,...alias]=content.split('|');return '<button type="button" class="note-wikilink inline-ui" data-note-link="'+esc(target)+'">'+esc(alias.join('|')||target)+'</button>'}
+ function linkedText(text){text=String(text||'');let html='',at=0;for(const token of wikiMatches(text)){html+=esc(text.slice(at,token.start))+linkMarkup(token.content);at=token.end}return(html+esc(text.slice(at))).replace(/\n/g,'<br>')}
+ function projectReferences(raw){
+  let display='',at=0;const spans=[];for(const token of wikiMatches(raw)){if(!/^@[a-zA-Z0-9_-]+\/[^\]|]+\|/.test(token.content))continue;const label=token.content.slice(token.content.indexOf('|')+1),shown='[['+label+']]';display+=raw.slice(at,token.start);const start=display.length;display+=shown;spans.push({start,end:display.length,rawStart:token.start,rawEnd:token.end});at=token.end}display+=raw.slice(at);return{raw,display,spans};
+ }
+ const referenceIdentity=p=>JSON.stringify(p?.spans.map(s=>p.raw.slice(s.rawStart,s.rawEnd))||[]);
+ function rememberProjection(binding,projection,record=true){
+  const previous=binding.current,versions=binding.referenceVersions;
+  if(record&&versions&&(referenceIdentity(previous)!==referenceIdentity(projection)||!versions.size&&projection.spans.length))for(const p of [previous,projection])if(p){const rows=versions.get(p.display)||[];if(rows.at(-1)?.raw!==p.raw)rows.push(p);versions.set(p.display,rows)}
+  binding.current=projection;binding.cache.delete(projection.display);binding.cache.set(projection.display,projection);let size=0,count=0;for(const [key,value]of [...binding.cache].reverse()){size+=key.length+value.raw.length;if(++count>1&&(size>2*1024*1024||count>64))binding.cache.delete(key)}
+ }
+ function serializeField(el,value){
+  const b=referenceFields.get(el);if(!b)return value;const input=b.before;
+  if(input?.type==='historyUndo'||input?.type==='historyRedo'){
+   const versions=b.referenceVersions.get(value);let restored;
+   if(versions?.length){if(value===input.value){const index=versions.findLastIndex(p=>p.raw===b.current.raw);restored=versions[index+(input.type==='historyUndo'?-1:1)]}else restored=versions.at(-1)}
+   if(restored){b.before=null;rememberProjection(b,restored,false);return restored.raw}
+  }
+  const cached=b.cache.get(value);if(cached){b.current=cached;b.before=null;return cached.raw}
+  const p=b.current;let left=0,right=p.display.length,newRight=value.length;
+  while(left<right&&left<newRight&&p.display[left]===value[left])left++;while(right>left&&newRight>left&&p.display[right-1]===value[newRight-1]){right--;newRight--}
+  const before=b.before;b.before=null;if(before&&before.value===p.display&&!before.type.startsWith('history')){let start=before.start,end=before.end;if(start===end&&before.type==='deleteContentBackward')start=Math.max(0,start-1);if(start===end&&before.type==='deleteContentForward')end=Math.min(p.display.length,end+1);const inserted=value.length-(p.display.length-(end-start));if(inserted>=0&&value.slice(0,start)===p.display.slice(0,start)&&value.slice(start+inserted)===p.display.slice(end)){left=start;right=end;newRight=start+inserted}}
+  for(const s of p.spans){if(left>s.start&&left<s.end)left=s.start;if(right>s.start&&right<s.end)right=s.end}newRight=value.length-(p.display.length-right);
+  const offset=pos=>{let delta=0;for(const s of p.spans){if(pos<s.end)break;delta+=(s.rawEnd-s.rawStart)-(s.end-s.start)}return pos+delta};
+  let inserted=value.slice(left,newRight);const replaced=p.spans.filter(s=>s.start>=left&&s.end<=right),available=new Map();for(const s of replaced){const label=p.display.slice(s.start,s.end);if(!available.has(label))available.set(label,[]);available.get(label).push(p.raw.slice(s.rawStart,s.rawEnd))}
+  let restored='',at=0;for(const token of wikiMatches(inserted)){restored+=inserted.slice(at,token.start)+(available.get(token.raw)?.shift()||token.raw);at=token.end}inserted=restored+inserted.slice(at);
+  if(replaced.length===1&&left===replaced[0].start&&right===replaced[0].end&&/^\[\[[^\]\n|]+\]\]$/.test(inserted)){const original=p.raw.slice(replaced[0].rawStart,replaced[0].rawEnd);inserted=original.slice(0,original.indexOf('|')+1)+inserted.slice(2,-2)+']]'}
+  const raw=p.raw.slice(0,offset(left))+inserted+p.raw.slice(offset(right)),next=projectReferences(raw);if(next.display===value)rememberProjection(b,next);else rememberProjection(b,{raw,display:value,spans:[]});return raw;
+ }
+ const bindReferenceInput=bindContentInput;bindContentInput=function(el,read,write,parse=value=>value){
+  if(!el||el.tagName!=='TEXTAREA'||typeof read()!=='string')return bindReferenceInput(el,read,write,parse);
+  const b={read,write,parse,cache:new Map(),referenceVersions:new Map(),current:projectReferences(read()),before:null};referenceFields.set(el,b);rememberProjection(b,b.current);el.value=b.current.display;
+  el.addEventListener('beforeinput',event=>{b.before={value:el.value,start:el.selectionStart,end:el.selectionEnd,type:event.inputType||''}});
+  bindReferenceInput(el,read,write,value=>parse(serializeField(el,value)));
+ };
+ function referenceSlice(el,start,end){
+  const b=referenceFields.get(el);if(!b)return el.value.slice(start,end);serializeField(el,el.value);const p=b.current;let result='',at=start;
+  for(const s of p.spans){if(s.start<start||s.end>end)continue;result+=el.value.slice(at,s.start)+p.raw.slice(s.rawStart,s.rawEnd);at=s.end}return result+el.value.slice(at,end);
+ }
+ const referenceClipboardType='application/x-creative-reference-text';
+ function copyReference(event){const type=event.type;
+  const el=event.target,b=referenceFields.get(el);if(!b||el.selectionStart===el.selectionEnd||!event.clipboardData)return false;const start=el.selectionStart,end=el.selectionEnd,text=el.value.slice(start,end),raw=referenceSlice(el,start,end);if(raw===text)return false;
+  const payload={version:1,text,raw},html='<span data-creative-reference-text="'+esc(JSON.stringify(payload))+'">'+esc(text)+'</span>';event.clipboardData.setData('text/plain',text);event.clipboardData.setData('text/html',html);event.clipboardData.setData(referenceClipboardType,JSON.stringify(payload));event.preventDefault();event.stopImmediatePropagation();
+  const coordinator=window.whiteboardClipboardCoordinator;if(coordinator?.pending)coordinator.write(null,text,{formats:Promise.resolve({'text/plain':text,'text/html':html})});else coordinator?.markNativeCopy?.();
+  if(type==='cut'&&!el.readOnly&&!el.disabled){el.focus({preventScroll:true});document.execCommand('delete',false)}return true;
+ }
+ // The existing window clipboard handler deliberately stops text copy events.
+ // Join its native-text path instead of competing with a later listener.
+ if(window.whiteboardLibraryClipboard){const nativeText=whiteboardLibraryClipboard.nativeText;whiteboardLibraryClipboard.nativeText=event=>{if(!copyReference(event))nativeText(event)}}else for(const type of ['copy','cut'])document.addEventListener(type,copyReference,true);
+ document.addEventListener('paste',event=>{
+  const el=event.target,b=referenceFields.get(el);if(!b||el.readOnly||el.disabled||!event.clipboardData||event.clipboardData.files.length)return;
+  let payload;try{let data=event.clipboardData.getData(referenceClipboardType);if(!data){const html=event.clipboardData.getData('text/html');if(html.length>2*1024*1024)return;data=new DOMParser().parseFromString(html,'text/html').querySelector('[data-creative-reference-text]')?.getAttribute('data-creative-reference-text')}payload=JSON.parse(data||'null')}catch{return}
+  const normal=text=>text.replace(/\r\n/g,'\n');if(payload?.version!==1||typeof payload.raw!=='string'||payload.raw.length>512*1024||typeof payload.text!=='string'||normal(payload.text)!==normal(event.clipboardData.getData('text/plain'))||projectReferences(payload.raw).display!==payload.text)return;
+  const start=el.selectionStart,end=el.selectionEnd,projection=projectReferences(referenceSlice(el,0,start)+payload.raw+referenceSlice(el,end,el.value.length));rememberProjection(b,projection);event.preventDefault();event.stopImmediatePropagation();el.focus({preventScroll:true});if(!document.execCommand('insertText',false,payload.text)){el.setRangeText(payload.text,start,end,'end');el.dispatchEvent(new Event('input',{bubbles:true}))}
+ },true);
+
+ const retainReferenceEditor=retainLiveEditor;retainLiveEditor=function(n,el,signature){
+  if(n.type==='table'||n.type==='frame'||editorId!==n.id||!selected.has(n.id)||!el?.isConnected)return retainReferenceEditor(n,el,signature);
+  const surface=$('immersiveSurface'),root=el.querySelector('.inner')?el:surface?.dataset.id===n.id&&surface.isConnected?surface:el,keys=['title','body','userText','annotation','url','tags'];
+  for(const key of keys){const input=root.querySelector('#'+key);if(!input)return;const value=key==='tags'?input.value.split(/[,，\n]/).map(v=>v.trim()).filter(Boolean):serializeField(input,input.value),expected=key==='tags'?(n.tags||[]):(n[key]||'');if(JSON.stringify(value)!==JSON.stringify(expected))return}
+  let before,next;try{before=JSON.parse(el.dataset.documentSignature);next=JSON.parse(signature)}catch{return}if(!before||!next)return;
+  for(const key of new Set([...Object.keys(before),...Object.keys(next)]))if(!keys.includes(key)&&JSON.stringify(before[key])!==JSON.stringify(next[key]))return;el.dataset.documentSignature=signature;
+ };
+ function insertReference(n,row,label,start,end){
+  const b=referenceFields.get(field),safe=label.replace(/\|/g,'').replace(/\]\]/g,']'),raw='[[@'+row.board+'/'+row.node.id+'|'+safe+']]',shown='[['+safe+']]',value=field.value.slice(0,start)+shown+field.value.slice(end);
+  if(b){const next=projectReferences(referenceSlice(field,0,start)+raw+referenceSlice(field,end,field.value.length));rememberProjection(b,next)}
+  return setText(n,value,start+shown.length,start+shown.length);
+ }
+ function noteRecords(document,id){
+  const records=[];function visit(nodes,container=null,depth=0){if(depth>16)return;for(const node of nodes||[]){if(!node||node.type==='frame')continue;records.push({board:id,name:document.name,node,...(container?{container}:{} )});for(let r=0;r<(node.cellItems||[]).length;r++)for(let c=0;c<(node.cellItems[r]||[]).length;c++)visit(node.cellItems[r][c],{id:container?.id||node.id,row:r,column:c},depth+1)}}visit(document.nodes);return records;
+ }
+ function fieldSelector(el){if(el.id)return '#'+CSS.escape(el.id);const card=el.closest('[data-cell-item]');if(card&&el.dataset.cellNoteField)return '[data-cell-r="'+card.dataset.cellR+'"][data-cell-c="'+card.dataset.cellC+'"][data-cell-item="'+card.dataset.cellItem+'"] textarea[data-cell-note-field="'+el.dataset.cellNoteField+'"]';if(el.dataset.row!==undefined&&el.dataset.col!==undefined)return 'textarea[data-row="'+el.dataset.row+'"][data-col="'+el.dataset.col+'"]';if(el.dataset.column!==undefined)return 'textarea[data-column="'+el.dataset.column+'"]';return null}
+ function referenceFieldAt(place,root=document){const selector=place?.field?.selector||(place?.field?.id?'#'+CSS.escape(place.field.id):null);return selector?root.querySelector(selector):null}
+ function nestedTarget(id){return noteRecords(board,boardId).find(row=>row.node.id===id)}
+ function showNestedTarget(row){
+  const container=board.nodes.find(n=>n.id===row.container?.id);if(!container)return false;selected=new Set([container.id]);if(canvas.clientWidth<=680)whiteboardReading.open(container.id);else openEditor(container.id);const item=[...document.querySelectorAll('.live-layout [data-cell-item]')].find(el=>container.cellItems?.[+el.dataset.cellR]?.[+el.dataset.cellC]?.[+el.dataset.cellItem]?.id===row.node.id);item?.scrollIntoView({block:'nearest',inline:'nearest'});const input=item?.querySelector('textarea');input?.focus({preventScroll:true});return true;
+ }
+
  // Offer a keyboard stop only when there is content outside this local viewport.
  const scrollSurfaces=new Set(),scrollObserver=new ResizeObserver(scheduleScrollSurfaces);let scrollFrame=0;
  function scheduleScrollSurfaces(){if(!scrollFrame)scrollFrame=requestAnimationFrame(syncScrollSurfaces)}
@@ -65,18 +150,19 @@
   if(n.textFormat==='markdown'&&(readOnly||!(editorId===n.id&&selected.has(n.id)))){
    for(const key of ['body','userText','annotation'])html=html.replace(new RegExp('<textarea\\b[^>]*data-preview-id="'+key+'"[^>]*>[\\s\\S]*?</textarea>'),'<div class="note-markdown" data-markdown-field="'+key+'">'+rendered(n[key])+'</div>');
   }
+  if(readOnly||!(editorId===n.id&&selected.has(n.id)))html=html.replace(/<textarea\b([^>]*)>([\s\S]*?)<\/textarea>/g,(markup,attrs,text)=>{const decoder=document.createElement('textarea');decoder.innerHTML=text;const value=decoder.value;if(!wikiMatches(value).length)return markup;const safe=attrs.replace(/\s(?:readonly|tabindex="[^"]*")/g,'');return '<div class="note-markdown note-cell-text"'+safe+'>'+linkedText(value)+'</div>'});
   return html;
  };
  let panel=null,owner=null,field=null,range=null,preview=false,colourCheckpoint=null;
  // Reference browsing keeps ephemeral author positions, never a content copy to apply.
  const referenceTrail=[];let referenceEpoch=0,referenceReturning=false,referenceBar=null;
  function captureReferencePlace(id){
-  const n=board?.nodes.find(node=>node.id===id);if(!n||n.type!=='note'||loading||blocked)return null;
+  const n=board?.nodes.find(node=>node.id===id);if(!n||n.type==='frame'||loading||blocked)return null;
   const expanded=$('dialog').open&&$('dialog').classList.contains('immersive-dialog')&&$('immersiveSurface')?.dataset.id===id,root=expanded?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===id);
   const focused=document.activeElement,source=focused?.matches('textarea,input[type=text],input:not([type])')&&root?.contains(focused)?focused:field?.isConnected&&root?.contains(field)?field:null,area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
   const viewport=window.whiteboardPane?.viewport?.()||{width:canvas.clientWidth,height:canvas.clientHeight};
   return {board:boardId,id,name:noteLabel(n),view:{x:view().x,y:view().y,z:view().z},selected:[...selected],mode:editorId===id?(root?.id==='immersiveSurface'?'expanded':'canvas'):'read',preview:editorId===id&&preview,width:viewport.width,height:viewport.height,
-   field:source?{id:source.id,value:source.value.length<=512*1024?source.value:null,start:source.selectionStart,end:source.selectionEnd,direction:source.selectionDirection,top:source.scrollTop,left:source.scrollLeft}:null,scroll:area?.scrollTop||0,details:!!details?.open,detailsScroll:details?.scrollTop||0};
+   field:source?{id:source.id,selector:fieldSelector(source),value:source.value.length<=512*1024?source.value:null,start:source.selectionStart,end:source.selectionEnd,direction:source.selectionDirection,top:source.scrollTop,left:source.scrollLeft}:null,scroll:area?.scrollTop||0,details:!!details?.open,detailsScroll:details?.scrollTop||0};
  }
  function syncReferenceReturn(){
   const place=referenceTrail.at(-1);
@@ -113,7 +199,7 @@
    if(place.board!==boardId){await switchBoard(place.board);if(epoch!==referenceEpoch||boardId!==place.board)return;}
    if(loading||blocked)return;
    const n=board.nodes.find(node=>node.id===place.id);
-   if(!n||n.type!=='note'){referenceTrail.pop();syncReferenceReturn();toast('原便签已经移走、删除或改变类型，未还原旧内容。');return;}
+   if(!n||n.type==='frame'){referenceTrail.pop();syncReferenceReturn();toast('原便签已经移走、删除或改变类型，未还原旧内容。');return;}
    editorId=null;selected=new Set(place.selected.filter(id=>board.nodes.some(node=>node.id===id)));Object.assign(board.view,place.view);
    if(place.width!==canvas.clientWidth||place.height!==canvas.clientHeight){const z=Math.min(place.view.z,Math.max(.03,Math.min((canvas.clientWidth-40)/n.w,(canvas.clientHeight-140)/n.h)));Object.assign(board.view,{z,x:(canvas.clientWidth-n.w*z)/2-n.x*z,y:(canvas.clientHeight-n.h*z)/2-n.y*z});}
    drawNodes();renderOutline();moveView();
@@ -122,7 +208,7 @@
    if(details){details.open=place.details;details.scrollTop=place.detailsScroll;}
    if(place.preview&&editorId===n.id&&root?.querySelector('#notePreview'))togglePreview(root.querySelector('#notePreview'),n,root.querySelector('.inner'));
    if(area)area.scrollTop=place.scroll;
-   const input=place.field&&root?.querySelector('#'+CSS.escape(place.field.id));
+   const input=root&&referenceFieldAt(place,root);
    if(input&&place.field.value!==null&&input.value===place.field.value){
     input.setSelectionRange(place.field.start,place.field.end,place.field.direction);input.scrollTop=place.field.top;input.scrollLeft=place.field.left;
     if(!input.hidden&&(!details?.contains(input)||place.details)){input.focus({preventScroll:true});remember(input);}else root.querySelector('#notePreview')?.focus({preventScroll:true});
@@ -164,9 +250,9 @@
   hex.onchange=()=>{if(!active())return;if(!/^#[0-9a-f]{6}$/i.test(hex.value)){hex.setCustomValidity('请填写完整颜色，例如 #fff0aa');hex.reportValidity();return}hex.setCustomValidity('');if(n.color!==hex.value){checkpoint();choose(hex.value)}};hex.oninput=()=>hex.setCustomValidity('');
   box.querySelectorAll('[data-paper]').forEach(b=>b.onclick=()=>{if(!active()||(n.paperStyle||'plain')===b.dataset.paper)return;checkpoint();n.paperStyle=b.dataset.paper;updateSurface(n);refresh()});show(trigger);
  }
- function remember(el){if(el?.matches('textarea')&&['body','userText','annotation'].includes(el.id)){field=el;range={start:el.selectionStart,end:el.selectionEnd}}}
+ function remember(el){if(el?.matches('textarea')&&(referenceFields.has(el)||['body','userText','annotation'].includes(el.id))){field=el;range={start:el.selectionStart,end:el.selectionEnd}}}
  function ownsField(n){return !loading&&!blocked&&field?.isConnected&&editorId===n?.id&&board?.nodes.includes(n)&&field.closest('.node')?.dataset.id===n.id&&(!document.getElementById('dialog').open||Boolean(field.closest('#dialog.immersive-dialog')))}
- function setText(n,value,start,end){if(!ownsField(n))return false;checkpoint();n.textFormat='markdown';n[field.id]=value;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();return true;}
+ function setText(n,value,start,end){if(!ownsField(n))return false;checkpoint();if(n.type!=='table')n.textFormat='markdown';const binding=referenceFields.get(field),raw=serializeField(field,value);if(binding)binding.write(binding.parse(raw));else n[field.id]=raw;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();return true;}
  function format(n,kind){
   if(!ownsField(n))return false;const text=field.value,{start,end}=range||{start:field.selectionStart,end:field.selectionEnd};
   const pairs={bold:'**',italic:'*',strike:'~~',highlight:'==',code:'`'};
@@ -188,9 +274,9 @@
  }
  function togglePreview(trigger,n,root){
   preview=!preview;trigger.setAttribute('aria-pressed',String(preview));trigger.textContent=preview?'继续编辑':'预览';
-  root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.style.color=getComputedStyle(el).color;view.innerHTML=n.textFormat==='markdown'?rendered(el.value):'<p>'+esc(el.value).replace(/\n/g,'<br>')+'</p>'});if(!preview)growContentFields(root);window.whiteboardSizing?.invalidate(root);
+  root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.style.color=getComputedStyle(el).color;view.innerHTML=n.textFormat==='markdown'?rendered(serializeField(el,el.value)):'<p>'+linkedText(serializeField(el,el.value))+'</p>'});if(!preview)growContentFields(root);window.whiteboardSizing?.invalidate(root);
  }
- function references(n){if(n.textFormat!=='markdown')return [];const refs=[];for(const key of ['body','userText','annotation'])for(const block of parser.parse(String(n[key]||''),{}))for(const token of block.children||[])if(token.type==='whiteboard_link')refs.push(token.content.split('|')[0]);return refs}
+ function references(n){const refs=[];for(const key of ['body','userText','annotation'])for(const token of wikiMatches(String(n[key]||'')))refs.push(token.content.split('|')[0]);if(n.type==='table'){for(const text of [...(n.columns||[]),...(n.rows||[]).flat()])for(const token of wikiMatches(String(text||'')))refs.push(token.content.split('|')[0])}return refs}
  function resolveReference(value,records,sourceBoard=boardId){
   const explicit=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/.exec(value);
   if(explicit)return records.find(row=>row.board===explicit[1]&&row.node.id===explicit[2]);
@@ -198,10 +284,10 @@
   if(local.length)return null;const global=records.filter(row=>!row.unavailable&&row.node.title===value);return global.length===1?global[0]:null;
  }
  async function allNotes(){
-  const response=await api('/api/boards'),list=await response.json(),records=board.nodes.filter(n=>n.type!=='frame').map(node=>({board:boardId,name:board.name,node}));
+  const response=await api('/api/boards'),list=await response.json(),records=noteRecords(board,boardId);
   let incomplete=false;
   // Read a bounded batch at a time; these are explicit reference browsing requests.
-  for(let start=0;start<list.length;start+=4)await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();for(const node of data.nodes||[])if(node.type!=='frame')records.push({board:b.id,name:data.name,node})}catch{incomplete=true}}));
+  for(let start=0;start<list.length;start+=4)await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();records.push(...noteRecords(data,b.id))}catch{incomplete=true}}));
   return {records,incomplete};
  }
 
@@ -225,7 +311,7 @@
   const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=narrow?((session.row?.kind||session.originKind)==='library'?'查看原件':'查看资料'):session.heading;
   session.host.querySelector('#immersiveDetails')?.toggleAttribute('hidden',narrow);
   if(narrow&&session.root.contains(document.activeElement))session.aside.querySelector('.source-peek-return').focus({preventScroll:true});
-  if(session.row?.board===boardId){const node=board.nodes.find(n=>n.id===session.row.node.id);if(node!==session.row.node||JSON.stringify(node)!==session.signature)session.render(node?{...session.row,node}:null)}
+  if(session.row?.board===boardId){const node=nestedTarget(session.row.node.id)?.node;if(node!==session.row.node||JSON.stringify(node)!==session.signature)session.render(node?{...session.row,node}:null)}
  }
  function canCompare(row){return row&&['note','image','table'].includes(row.node.type)}
  function sourceAssetIds(node,ids=new Set()){for(const id of [node.assetId,node.mediaId])if(id)ids.add(id);for(const image of node.images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellImages||[])for(const images of row||[])for(const image of images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellItems||[])for(const items of row||[])for(const item of items||[])sourceAssetIds(item,ids);return [...ids]}
@@ -235,7 +321,7 @@
   const author=board.nodes.find(node=>node.id===editorId),expanded=place?.mode==='expanded',root=expanded?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===author?.id);
   if(!canCompare(row)||!['expanded','canvas'].includes(place?.mode)||!root||root.dataset.id!==author?.id||(row.board===boardId&&row.node===author)||expanded!==$('dialog').open)return false;
   closeSourcePeek(false);closePanel();const host=expanded?$('dialogBody'):document.body,aside=document.createElement('aside');aside.className='note-source-peek inline-ui'+(expanded?'':' source-from-canvas');aside.setAttribute('aria-label','对照资料');
-  const heading=host.querySelector('.immersive-heading>span'),input=(place.field&&root.querySelector('#'+CSS.escape(place.field.id)))||root.querySelector('#body');
+  const heading=host.querySelector('.immersive-heading>span'),input=referenceFieldAt(place,root)||root.querySelector('#body');
   const returnAction=expanded?host.querySelector('#immersiveReturn'):null,session={aside,host,root,author,mode:place.mode,source:board,board:boardId,input,returnAction,returnMarkup:returnAction?.innerHTML,heading:heading?.textContent||'展开编辑',epoch:0,trail:[],positions:new Map(),views:new Map(),originKind:row.kind,originAssetId:row.kind==='library'?row.assetId:null,originNodeId:row.originNodeId,rows:relatedRows(author,records).filter(canCompare)};sourcePeek=session;session.returnClick=event=>{if(innerWidth<=820||session.full){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}};returnAction?.addEventListener('click',session.returnClick,true);
   aside.innerHTML='<header><label>资料<select aria-label="对照资料"></select></label><button type="button" class="source-peek-return">返回记录</button></header><nav class="note-source-path" aria-label="资料浏览" hidden><button type="button" class="source-peek-back">上一份资料</button><span></span><button type="button" class="source-peek-open" hidden>打开白板</button></nav><p class="note-source-status" role="status" hidden></p><button type="button" class="source-peek-library" hidden>在内容库查看</button><div class="note-source-paper"></div>';
   const select=aside.querySelector('select'),status=aside.querySelector('[role=status]'),path=aside.querySelector('nav'),back=path.querySelector('.source-peek-back'),open=path.querySelector('.source-peek-open'),key=item=>item.kind==='library'?'library/'+item.assetId+'/'+(item.originNodeId||''):item.board+'/'+item.node.id;
@@ -269,7 +355,7 @@
 
    const label=aside.querySelector('header label');label.firstChild.textContent=item.kind==='library'?'库中原件':'资料';let name=label.querySelector('.source-peek-name');if(!name){name=document.createElement('span');name.className='source-peek-name';label.append(name)}name.textContent=item.name;const single=item.kind==='library'&&session.rows.length===1;name.hidden=!single;select.hidden=single;layoutSourcePeek();path.hidden=!session.trail.length&&(item.kind==='library'||item.board===session.board);back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.kind==='library'||item.board===session.board;open.title='打开白板：'+item.name;message('');
   };
-  const recordsFor=async id=>{if(id===session.board)return board.nodes.filter(n=>n.type!=='frame').map(node=>({board:id,name:board.name,node}));const value=await(await api('/api/boards/'+encodeURIComponent(id))).json();return(value.nodes||[]).filter(n=>n.type!=='frame').map(node=>({board:id,name:value.name,node}))};
+  const recordsFor=async id=>{if(id===session.board)return noteRecords(board,id);const value=await(await api('/api/boards/'+encodeURIComponent(id))).json();return noteRecords(value,id)};
   const rowsFor=async item=>{
    if(item.kind!=='library')return recordsFor(item.board);
    // A fresh read never replaces the live editor or its shared library index.
@@ -325,7 +411,7 @@
   }
   closePanel();await closeReferenceEditor();if(epoch!==referenceEpoch||place&&place.board!==boardId)return;
   if(row.board!==boardId){await switchBoard(row.board);if(epoch!==referenceEpoch||boardId!==row.board)return}
-  const n=board.nodes.find(n=>n.id===row.node.id);if(!n)return toast('这块内容已经移走或删除');
+  const located=nestedTarget(row.node.id),n=located?.node;if(!n)return toast('这块内容已经移走或删除');if(located.container){showNestedTarget(located);if(place&&(place.board!==boardId||place.id!==n.id)){referenceTrail.push({...place,destination:boardId});while(referenceTrail.length>12)referenceTrail.shift()}syncReferenceReturn();return;}
   editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();board.view.x=rect.width/2-(n.x+n.w/2)*view().z;board.view.y=rect.height/2-(n.y+n.h/2)*view().z;moveView();canvas.focus({preventScroll:true});
   if(place&&(place.board!==boardId||place.id!==n.id)){referenceTrail.push({...place,destination:boardId});while(referenceTrail.length>12||referenceTrail.reduce((size,p)=>size+(p.field?.value?.length||0)*2,0)>4*1024*1024)referenceTrail.shift();}
   syncReferenceReturn();
@@ -334,14 +420,14 @@
  async function visitReference(id,returnName,back,active){
   if(!active()||loading||blocked)return false;
   await closeReferenceEditor();if(!active()||loading||blocked)return false;
-  const n=board.nodes.find(node=>node.id===id);if(!n)throw Error('这块内容已经移走或删除');
+  const located=nestedTarget(id),n=located?.node;if(!n)throw Error('这块内容已经移走或删除');if(located.container){showNestedTarget(located);referenceTrail.push({external:true,destination:boardId,name:returnName,back});syncReferenceReturn();return true;}
   editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();Object.assign(board.view,{x:rect.width/2-(n.x+n.w/2)*view().z,y:rect.height/2-(n.y+n.h/2)*view().z});moveView();canvas.focus({preventScroll:true});
   if(n.type==='note'&&rect.width<=680){whiteboardReading.open(n.id);const surface=$('immersiveSurface'),trigger=surface?.querySelector('#notePreview');if(trigger)togglePreview(trigger,n,surface.querySelector('.inner'));}
   referenceTrail.push({external:true,destination:boardId,name:returnName,back});while(referenceTrail.length>12)referenceTrail.shift();syncReferenceReturn();return true;
  }
  // A relation is shown beside its object; authored text and plain graph edges stay literal.
  function noteLabel(n){return String(n.title||'').trim()||Array.from(String(n.body||'').split('\n').find(line=>line.trim())?.trim()||'').slice(0,60).join('')||'未命名'}
- function relatedRows(n,records=board.nodes.filter(v=>v.type!=='frame').map(node=>({board:boardId,name:board.name,node})),incoming=true){
+ function relatedRows(n,records=noteRecords(board,boardId),incoming=true){
   const rows=new Map(),add=row=>{if(row&&(row.board!==boardId||row.node.id!==n.id))rows.set(row.board+'/'+row.node.id,row)};
   for(const e of board.edges){const id=e.from===n.id?e.to:e.to===n.id?e.from:null;if(id)add(records.find(r=>r.board===boardId&&r.node.id===id))}
   for(const ref of references(n))add(resolveReference(ref,records));
@@ -390,7 +476,7 @@
   const records=[...result.records];
   // Keep explicit relationships legible even when their target cannot be read.
   // These transient labels come from the author's link, never source content.
-  if(n.textFormat==='markdown')for(const fieldName of ['body','userText','annotation'])for(const block of parser.parse(String(n[fieldName]||''),{}))for(const token of block.children||[]){
+  for(const fieldName of ['body','userText','annotation'])for(const block of parser.parse(String(n[fieldName]||''),{}))for(const token of block.children||[]){
    if(token.type!=='whiteboard_link')continue;const [value,...alias]=token.content.split('|'),match=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/.exec(value);if(!match||records.some(row=>row.board===match[1]&&row.node.id===match[2])||match[1]===sourceBoard&&match[2]===n.id)continue;
    records.push({board:match[1],name:'暂时无法查看',unavailable:true,node:{id:match[2],type:'note',title:alias.join('|')||'未命名资料',body:''}});
   }
@@ -398,15 +484,15 @@
   box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><label class="note-link-search">查找内容<input type="search" placeholder="搜索便签与白板" aria-label="搜索关联内容"></label><div class="note-link-results"></div><div class="note-backlinks"><b>已关联 · '+backlinks.length+'</b><div></div></div>'+(result.incomplete?'<p role="status">部分白板暂时无法读取，引用列表可能不完整。</p>':'');box.querySelector('header button').onclick=closePanel;
   const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=noteLabel(row.node);location.textContent=row.name;b.append(title,location);if(insert){b.className='note-link-cite';b.replaceChildren(document.createTextNode('引用'));b.setAttribute('aria-label','引用：'+(noteLabel(row.node)))}else b.title='查看：'+(noteLabel(row.node));b.onclick=async()=>{const active=()=>panel===box&&board===source&&boardId===sourceBoard&&board.nodes.includes(n)&&editorId===n.id&&!loading&&!blocked&&(!document.getElementById('dialog').open||!!trigger.closest('#dialog.immersive-dialog'));if(!active())return;
    if(row.unavailable){
-    const place=captureReferencePlace(n.id),epoch=++referenceEpoch,keys=['title','body','userText','annotation'],values=keys.map(key=>n[key]),authorField=place?.field&&document.getElementById(place.field.id),authorValue=authorField?.value,authorRoot=authorField?.closest('.inner')||authorField;
+    const place=captureReferencePlace(n.id),epoch=++referenceEpoch,keys=['title','body','userText','annotation'],values=keys.map(key=>n[key]),authorField=referenceFieldAt(place,trigger.closest('#immersiveSurface')||trigger.closest('.node')||document),authorValue=authorField?.value,authorRoot=authorField?.closest('.inner')||authorField;
     let cancelled=false;const cancel=()=>{cancelled=true},events=['input','select','pointerdown','keydown','focusin'];for(const name of events)authorRoot?.addEventListener(name,cancel,true);
-    const same=()=>!cancelled&&active()&&epoch===referenceEpoch&&keys.every((key,i)=>n[key]===values[i])&&(!place?.field||authorField?.isConnected&&authorField===document.getElementById(place.field.id)&&authorField.value===authorValue&&authorField.selectionStart===place.field.start&&authorField.selectionEnd===place.field.end&&authorField.selectionDirection===place.field.direction);
+    const same=()=>!cancelled&&active()&&epoch===referenceEpoch&&keys.every((key,i)=>n[key]===values[i])&&(!place?.field||authorField?.isConnected&&authorField===referenceFieldAt(place,authorRoot)&&authorField.value===authorValue&&authorField.selectionStart===place.field.start&&authorField.selectionEnd===place.field.end&&authorField.selectionDirection===place.field.direction);
     location.setAttribute('role','status');location.textContent='正在打开…';b.disabled=true;
-    try{const response=await api('/api/boards/'+encodeURIComponent(row.board)),value=await response.json();if(!same())return;const node=(value.nodes||[]).find(node=>node.id===row.node.id);if(!node)throw Error('这份资料暂时无法查看');await jumpReference({board:row.board,name:value.name,node},place,epoch,records)}
+    try{const response=await api('/api/boards/'+encodeURIComponent(row.board)),value=await response.json();if(!same())return;const node=noteRecords(value,row.board).find(item=>item.node.id===row.node.id)?.node;if(!node)throw Error('这份资料暂时无法查看');await jumpReference({board:row.board,name:value.name,node},place,epoch,records)}
     catch(error){if(active()){location.textContent='暂时无法查看';b.title='暂时无法查看：'+error.message}}
     finally{for(const name of events)authorRoot?.removeEventListener(name,cancel,true);if(b.isConnected){b.disabled=false;if(location.textContent==='正在打开…')location.textContent='暂时无法查看'}}return;
    }
-   if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!ownsField(n))return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||noteLabel(row.node),safeLabel=label.replace(/\|/g,'').replace(/\]\]/g,']'),link='[[@'+row.board+'/'+row.node.id+'|'+safeLabel+']]';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))closePanel()}else jumpReference(row,captureReferencePlace(n.id),++referenceEpoch,records).catch(error=>toast('暂时无法打开关联：'+error.message))};return b};
+   if(insert){if(!field?.isConnected){field=document.getElementById('body');remember(field)}if(!ownsField(n))return;const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||noteLabel(row.node);if(insertReference(n,row,label,start,end))closePanel()}else jumpReference(row,captureReferencePlace(n.id),++referenceEpoch,records).catch(error=>toast('暂时无法打开关联：'+error.message))};return b};
   const list=box.querySelector('.note-link-results'),search=box.querySelector('input'),incoming=box.querySelector('.note-backlinks>div'),section=incoming.parentElement,related=new Set(backlinks.map(row=>row.board+'/'+row.node.id));let limit=30;
   const otherHeading=document.createElement('b');otherHeading.className='note-other-heading';otherHeading.textContent='其他内容';list.before(section,otherHeading);
   const entry=row=>{const el=document.createElement('div');el.className='note-link-entry';el.append(rowButton(row,false));if(!row.unavailable)el.append(rowButton(row,true));return el};
@@ -416,11 +502,12 @@
  const originalBind=bindInline;
  bindInline=function(){originalBind();const n=board?.nodes.find(n=>n.id===editorId&&selected.has(n.id)),root=document.querySelector('.live-layout');if(!n||!root)return;closePanel();field=null;range=null;preview=false;
   const bar=root.querySelector('.inline-toolbar');if(!bar||bar.querySelector('.note-edit-tools'))return;
-  const tools=document.createElement('div');tools.className='note-edit-tools inline-ui';tools.innerHTML='<button type="button" id="noteColour" aria-label="便签颜色与纸面" title="颜色与纸面" style="--swatch:'+esc(n.color||'#fff0aa')+'"><i></i><span>外观</span></button>'+(n.type!=='table'?'<button type="button" id="noteFormat" title="文字格式">Aa</button><button type="button" id="noteLinks" title="关联内容与反向引用">关联</button><button type="button" id="notePreview" aria-pressed="false">预览</button>':'');bar.prepend(tools);
+  const tools=document.createElement('div');tools.className='note-edit-tools inline-ui';tools.innerHTML='<button type="button" id="noteColour" aria-label="便签颜色与纸面" title="颜色与纸面" style="--swatch:'+esc(n.color||'#fff0aa')+'"><i></i><span>外观</span></button>'+(n.type!=='table'?'<button type="button" id="noteFormat" title="文字格式">Aa</button><button type="button" id="noteLinks" title="关联内容与反向引用">关联</button><button type="button" id="notePreview" aria-pressed="false">预览</button>':'<button type="button" id="noteLinks" title="引用当前单元格中的内容">关联</button>');bar.prepend(tools);
   tools.querySelector('#noteColour').onclick=()=>openColour(tools.querySelector('#noteColour'),n);
   tools.querySelector('#noteFormat')?.addEventListener('click',()=>openFormat(tools.querySelector('#noteFormat'),n));
   tools.querySelector('#noteLinks')?.addEventListener('click',()=>openLinks(tools.querySelector('#noteLinks'),n));
   tools.querySelector('#notePreview')?.addEventListener('click',()=>{closePanel();togglePreview(tools.querySelector('#notePreview'),n,root)});
+  root.querySelectorAll('textarea').forEach(el=>{const refresh=()=>{let links=el.nextElementSibling;if(!links?.classList.contains('field-reference-links')){links=document.createElement('div');links.className='field-reference-links inline-ui';el.after(links)}const tokens=wikiMatches(serializeField(el,el.value));links.replaceChildren();for(const token of tokens){const template=document.createElement('template');template.innerHTML=linkMarkup(token.content);links.append(template.content)}links.hidden=!tokens.length};if(n.type==='table'){refresh();el.addEventListener('input',refresh)}});
   // Input and focus loss also cover text entry without a keyboard keyup.
   root.querySelectorAll('textarea').forEach(el=>{for(const name of ['focus','select','keyup','pointerup','input','blur'])el.addEventListener(name,()=>remember(el));el.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.isComposing&&['b','i'].includes(e.key.toLowerCase())&&['body','userText','annotation'].includes(el.id)){e.preventDefault();e.stopPropagation();remember(el);format(n,e.key.toLowerCase()==='b'?'bold':'italic')}})});
  };
@@ -446,7 +533,7 @@
   if(n?.type==='note'&&!e.target.closest('[data-edge]'))items=[['便签颜色与纸面',()=>openAppearance(id)],...items];
   return previousMenu(e,items);
  };
- window.whiteboardNoteEditor={sourceContext,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
+ window.whiteboardNoteEditor={sourceContext,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.

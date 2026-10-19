@@ -193,11 +193,15 @@
    const check=()=>{if(!entryPending||applyEntryViewport()||performance.now()>deadline)return;entryFrame=requestAnimationFrame(check)};entryFrame=requestAnimationFrame(check);
   }
   const viewportLoad=loadBoard;loadBoard=async function(...args){clearEntryRecovery();entryPending=null;const loaded=await viewportLoad(...args);if(loaded&&board){entryPending=board;scheduleEntryViewport()}return loaded};
+  function rememberViewContext(){const size=paneViewport();if(viewportValid(size)&&[view().x,view().y,view().z].every(Number.isFinite)&&view().z>0&&(!Object.hasOwn(board,'viewContext')||contextValid(board.viewContext)))board.viewContext={...board.viewContext,version:1,...size,x:view().x,y:view().y,z:view().z}}
+  // Capture the basis with the author's change, before downstream context
+  // readers take a snapshot. Persisting it later must not look like new input.
+  const viewportChange=change;change=function(...args){if(board&&!loading&&!blocked)rememberViewContext();return viewportChange(...args)};
   const viewportPersist=persist;persist=async function(...args){
-   if(board&&dirty&&!savePromise&&!loading&&!blocked){const size=paneViewport();if(viewportValid(size)&&[view().x,view().y,view().z].every(Number.isFinite)&&view().z>0&&(!Object.hasOwn(board,'viewContext')||contextValid(board.viewContext)))board.viewContext={...board.viewContext,version:1,...size,x:view().x,y:view().y,z:view().z}}
+   if(board&&dirty&&!savePromise&&!loading&&!blocked)rememberViewContext();
    return viewportPersist(...args);
   };
-  const viewportMove=moveView;moveView=function(...args){clearEntryRecovery();return viewportMove(...args)};
+  const viewportMove=moveView;moveView=function(...args){clearEntryRecovery();if(board&&dirty&&!loading&&!blocked)rememberViewContext();return viewportMove(...args)};
   const cancelEntryOnInput=e=>{if(e.target.closest?.('#offscreenEntry'))return;entryPending=null;clearEntryRecovery()};
   for(const type of ['pointerdown','keydown','wheel'])canvas.addEventListener(type,cancelEntryOnInput,true);
   if(board&&!loading){entryPending=board;scheduleEntryViewport()}
