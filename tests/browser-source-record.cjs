@@ -12,7 +12,9 @@ async function exerciseSourceRecord(p,url,fixture,options={}){
  const original=await a.evaluate(()=>clone(board));
  // A point near the border selects media as well as text without opening either.
  await a.locator('#nodes>[data-id="'+fixture.sourceId+'"]').click({position:{x:4,y:30}});
- await act(a.locator('#nodes>[data-id="'+fixture.sourceId+'"] .block-write-record'));
+ const recordAction=a.locator('#nodes>[data-id="'+fixture.sourceId+'"] .block-write-record');
+ if(await recordAction.isVisible())await act(recordAction);
+ else{await act(a.locator('#nodes>[data-id="'+fixture.sourceId+'"] button[aria-label="内容操作"]'));await act(a.getByRole('menuitem',{name:'写记录',exact:true}));}
  const id=await a.evaluate(()=>editorId);assert(id&&!original.nodes.some(n=>n.id===id));
  assert.equal(await a.locator('#body').inputValue(),'');assert.equal(await a.locator('#title').inputValue(),'');
  let created=await a.evaluate(()=>clone(board));assert.deepEqual(created.nodes.filter(n=>n.id!==id),original.nodes);

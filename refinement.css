@@ -81,7 +81,7 @@ button,summary,select{transition:none}
 .node .read-layout [data-preview-id=title]{font-size:19px;line-height:1.45;font-weight:600;margin-bottom:10px}
 .node .read-layout textarea{line-height:1.75!important}
 .node .read-layout [data-preview-id=userText]{margin-top:8px;padding-top:8px;border-top:1px solid #5553}
-.node .block-actions{right:0;top:auto;bottom:calc(100% + 7px);box-shadow:0 2px 8px #0002;background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-line);padding:3px;border-radius:6px;white-space:nowrap}
+.node .block-actions{right:0;top:auto;bottom:calc(100% + 7px);z-index:10;box-shadow:0 2px 8px #0002;background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-line);padding:3px;border-radius:6px;white-space:nowrap}
 .node.theme-surface .block-actions,.node.theme-dark .block-actions{color:var(--ui-text)}
 .node .block-actions button{opacity:.75;font-size:17px}.node .block-actions button:hover{opacity:1;background:#8882}
 .node .block-actions svg{width:16px;height:16px}
@@ -508,3 +508,9 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 #dialog .selection-contents-list{overflow:visible}
 #dialog:has(.selection-contents.in-dialog) #dialogActions{flex:none;display:flex;padding:4px 8px;margin:0;border-top:1px solid var(--ui-line)}#dialog:has(.selection-contents.in-dialog) #dialogActions button{min-height:44px}
 @media(max-height:240px){.selection-contents-heading{display:none}}
+
+/* Collect belongs to the selected object; new-content tools keep their own place. */
+.node .block-actions .block-collect{display:flex;width:auto;padding:0 8px;font-size:12px;font-weight:500;opacity:1}
+#canvas.multi-actions #nodes>.node .block-actions>.block-collect,#canvas.collect-in-menu #nodes>.node .block-actions>.block-collect{display:none}
+#canvas.local-collect #creationDock>#collectToLibrary{display:none}
+@media(pointer:coarse){#canvas:not(.tight-tools):not(.collect-in-menu) #nodes>.node .block-actions:not(.group-naming)>button{min-height:44px;min-width:44px}}

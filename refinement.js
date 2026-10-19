@@ -1,6 +1,9 @@
 // Reading, placement and table sizing use the same rules in every document.
 (() => {
  'use strict';
+ // A control can open a menu over its own point before a fast second tap arrives.
+ // Keep that double-click with its original controls instead of the canvas below.
+ window.addEventListener('dblclick',e=>{const path=e.composedPath();if(path.includes(canvas)&&path.some(el=>el instanceof Element&&el.matches('#creationDock,#canvasTools,.block-actions,.inline-toolbar')))e.stopPropagation()},true);
  interfaceSettings=()=>whiteboardAppearance.open();
  canvas.addEventListener('click',e=>{const action=e.target.closest('.table-options button');if(action)action.closest('details').open=false});
  let immersion=null,widthGesture=null,widthKey=null;const widthBindings=new WeakMap();
@@ -90,7 +93,7 @@
   items.push(...whiteboardExperience.importOptions());
   if(!$('undo').disabled)items.push(['撤销  Ctrl+Z',()=>$('undo').click()]);
   if(!$('redo').disabled)items.push(['重做  Ctrl+Shift+Z',()=>$('redo').click()]);
-  if(!$('collectToLibrary').hidden&&!canvas.classList.contains('multi-actions'))items.push(['保存到库  Ctrl+Shift+L',()=>$('collectToLibrary').click()]);
+  if(!$('collectToLibrary').hidden&&!canvas.classList.contains('multi-actions')&&!canvas.classList.contains('local-collect'))items.push(['保存到库  Ctrl+Shift+L',()=>$('collectToLibrary').click()]);
   if(!textTools.hidden)items.push(['调整字号…',()=>{textTools.open=true;positionActions();$('noteTitleSize').focus({preventScroll:true})}]);
   fileMenu({target:more,clientX:r.left,clientY:r.top,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},items);
  };
@@ -178,13 +181,16 @@
  function positionActions(){
   if(!board)return;const bounds=canvas.getBoundingClientRect();if(bounds.width<1||bounds.height<1)return;const z=view().z,scale=String(1/z);
   // Keep the primary verb readable; shorten the drag action before stacking.
-  canvas.classList.toggle('compact-actions',bounds.width<190);canvas.classList.toggle('stacked-actions',bounds.width<132);
-  canvas.classList.toggle('record-in-menu',bounds.width<280);
+  canvas.classList.toggle('compact-actions',bounds.width<280||bounds.height<180);canvas.classList.toggle('stacked-actions',bounds.width<132);
+  canvas.classList.toggle('record-in-menu',bounds.width<420);
+  canvas.classList.toggle('collect-in-menu',bounds.width<220||bounds.height<180);
   canvas.classList.toggle('short-selection',!!selectionScope&&bounds.height<300);
   canvas.classList.toggle('compact-tools',bounds.width<420);canvas.classList.toggle('tight-tools',bounds.width<220||(bounds.width<280&&bounds.height<180));canvas.classList.toggle('tiny-tools',bounds.width<180);
   if($('nodes').style.getPropertyValue('--canvas-control-scale')!==scale)$('nodes').style.setProperty('--canvas-control-scale',scale);
   const elements=[...$('nodes').querySelectorAll(':scope>.node.active')],focused=document.activeElement?.closest('.block-actions,.inline-toolbar')?.closest('.node');
   if(focused?.parentElement===$('nodes')&&!focused.classList.contains('active'))elements.push(focused);
+  const localCollect=selected.size===1&&!editorId&&!canvas.classList.contains('collect-in-menu')&&elements.some(el=>{const r=el.getBoundingClientRect();return selected.has(el.dataset.id)&&el.querySelector(':scope>.block-actions .block-collect')&&r.right>bounds.left&&r.left<bounds.right&&r.bottom>bounds.top&&r.top<bounds.bottom});
+  canvas.classList.toggle('local-collect',localCollect);
   // Measure before writing positions so selecting many cards does not force a layout per card.
   const obstacles=[$('canvasTools'),dock,textTools.open?textTools.querySelector('.text-size-popup'):null].map(el=>el?.getBoundingClientRect()).filter(r=>r?.width&&r.height);
   const shared=placeSelectionTools(bounds,obstacles);if(shared)obstacles.push(shared);
@@ -261,6 +267,12 @@
  }
  function groupPosition(){const field=document.activeElement,n=board?.nodes.find(n=>n.id===editorId);return field?.matches('[data-group-name]')&&n?.type==='frame'?{source:board,node:n,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,left:field.scrollLeft}:null}
  function restoreGroupPosition(position){if(!position||position.source!==board||!board.nodes.includes(position.node)||editorId!==position.node.id||!selected.has(position.node.id)||$('dialog').open)return;const field=canvasBlock(position.node.id)?.querySelector('[data-group-name]');if(field&&field.value===position.value){field.focus({preventScroll:true});field.setSelectionRange(position.start,position.end,position.direction);field.scrollLeft=position.left}}
+ function mountCollectAction(actions,n){
+  if(!actions||n.type==='frame'&&editorId===n.id)return;
+  let button=actions.querySelector('.block-collect');if(!button){button=document.createElement('button');button.type='button';button.className='block-collect';button.textContent='保存到库';button.title='将这块内容保存到内容库，下次继续使用';const primary=actions.querySelector('.block-read,.block-write-record');if(primary)primary.after(button);else actions.append(button)}
+  const source=board,sourceId=boardId;button.disabled=blocked;
+  button.onclick=e=>{e.stopPropagation();if(!button.isConnected||!actions.contains(button)||board!==source||boardId!==sourceId||loading||blocked||editorId||$('dialog').open||parentModal()||!visiblePane()||selected.size!==1||!selected.has(n.id)||!board.nodes.includes(n))return;askCollectSelection()};
+ }
  function mountPrimaryAction(actions,n){
   if(!actions||n.type==='frame')return;
   let button=actions.querySelector('.block-read');if(!button){button=document.createElement('button');button.type='button';button.className='block-read';actions.prepend(button)}
@@ -274,7 +286,7 @@
   if(record)record.onclick=e=>{e.stopPropagation();if(record.isConnected&&board===source&&boardId===sourceId&&!loading&&!blocked&&board.nodes.includes(n))whiteboardNoteEditor.writeFrom(n.id)};
   button.onclick=e=>{e.stopPropagation();if(!button.isConnected||board!==source||boardId!==sourceId||loading||!board.nodes.includes(n))return;if(n.assetId)wfSafe(()=>previewAsset(n.assetId));else readNote(n.id)};
  }
- function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;if(n.type==='frame')mountGroupActions(el,n);const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');mountPrimaryAction(actions,n);const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
+ function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;if(n.type==='frame')mountGroupActions(el,n);const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');mountPrimaryAction(actions,n);mountCollectAction(actions,n);const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
   for(const handle of el.querySelectorAll('.table-column-resize'))bindWidth(handle,n);
  }syncSelectionTools();const toolbar=$('nodes').querySelector(':scope>.node.table>.inner.live-layout>.inline-toolbar');if(toolbar!==tableToolbar){if(tableToolbar)canvasBounds.unobserve(tableToolbar);tableToolbar=toolbar;if(tableToolbar)canvasBounds.observe(tableToolbar)}positionActions()}
  const draw=drawNodes;drawNodes=function(){cancelWidth();const position=activePosition(),group=groupPosition();draw();mount();expandEditor();if(position)restorePosition(position);restoreGroupPosition(group)};const select=refreshSelectionUI;refreshSelectionUI=function(){select();mount()};
