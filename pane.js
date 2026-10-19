@@ -135,16 +135,26 @@
    captureEditingPlace();captureReading();pauseMedia();
    const place=editingPlace,field=place?.field,live=place?.editorId===editorId&&field?.isConnected;
    const selector=live&&(field.id?'#'+CSS.escape(field.id):field.dataset.row!==undefined&&field.dataset.col!==undefined?'[data-row="'+field.dataset.row+'"][data-col="'+field.dataset.col+'"]':field.dataset.column!==undefined?'[data-column="'+field.dataset.column+'"]':null);
+   const root=editorId?document.querySelector('.inner.live-layout'):null,area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta');
    // Undo entries are immutable JSON snapshots. Keep their values, never a live
    // document, DOM input or asynchronous writer from the closed iframe.
    return {boardId,version:etag,scope:closedViewScope(),selected:[...selected],history:history.slice(),future:future.slice(),view:{...view()},width:canvas.clientWidth,height:canvas.clientHeight,editorId,
+    writing:root?{expanded:!!whiteboardReading?.isEditing(),preview:root.querySelector('#notePreview')?.getAttribute('aria-pressed')==='true',details:!!details?.open,scroll:area?.scrollTop||0,detailsScroll:details?.scrollTop||0}:null,
     field:selector?{selector,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,top:field.scrollTop,left:field.scrollLeft}:null};
   }
   function restoreClosedView(place){
    if(!place||!board||loading||dirty||savePromise||blocked||saveError||place.boardId!==boardId||place.version!==etag||place.scope!==closedViewScope()||whiteboardHostedRoleIsReadOnly())return false;
    history=place.history.slice();future=place.future.slice();selected=new Set(place.selected.filter(id=>board.nodes.some(n=>n.id===id)));
    if(place.width===canvas.clientWidth&&place.height===canvas.clientHeight){Object.assign(view(),place.view);moveView()}
-   if(place.editorId&&board.nodes.some(n=>n.id===place.editorId)){openEditor(place.editorId);const field=document.querySelector('.live-layout '+(place.field?.selector||':not(*)'));if(field&&field.value===place.field.value){field.focus({preventScroll:true});if(Number.isInteger(place.field.start)&&Number.isInteger(place.field.end))field.setSelectionRange(place.field.start,place.field.end,place.field.direction);field.scrollTop=place.field.top;field.scrollLeft=place.field.left;captureEditingPlace(field)}}
+   if(place.editorId&&board.nodes.some(n=>n.id===place.editorId)){
+    if(place.writing?.expanded)whiteboardReading.open(place.editorId);else openEditor(place.editorId);
+    const root=document.querySelector('.inner.live-layout'),area=root?.querySelector('.edit-scroll'),details=root?.querySelector('#inlineMeta'),preview=root?.querySelector('#notePreview');
+    if(place.writing&&details)details.open=place.writing.details;growContentFields(root);
+    if(place.writing?.preview&&preview)preview.click();
+    const field=root?.querySelector(place.field?.selector||':not(*)');
+    if(field&&field.value===place.field.value){if(!field.hidden&&(!details?.contains(field)||details.open))field.focus({preventScroll:true});else preview?.focus({preventScroll:true});if(Number.isInteger(place.field.start)&&Number.isInteger(place.field.end))field.setSelectionRange(place.field.start,place.field.end,place.field.direction);field.scrollTop=place.field.top;field.scrollLeft=place.field.left;captureEditingPlace(field)}
+    if(place.writing){if(area)area.scrollTop=place.writing.scroll;if(details)details.scrollTop=place.writing.detailsScroll}
+   }
    else refreshSelectionUI();
    updateButtons();return true;
   }
