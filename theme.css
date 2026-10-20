@@ -66,7 +66,8 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node.table .edit-table th:not(.row-number),.node.table .read-layout .edit-table th:not(.row-number){padding:4px 0}
 .node.table .edit-table th input{padding:10px 23px}
 .node.table .edit-table th>.table-grip{top:50%;transform:translateY(-50%);left:3px}
-.node.table .edit-table th>.col-remove{top:50%;transform:translateY(-50%);right:3px}
+.node.table .edit-table th>.col-remove{top:50%;transform:translateY(-50%);right:calc(12px * var(--canvas-control-scale,1) + 3px)}
+.node.table:not(.document-paper) .edit-table>thead>tr>th>:is(textarea,input)[data-column]{padding-right:calc(26px + 12px * var(--canvas-control-scale,1))}
 .node.table .row-number .table-grip{position:static;display:block;padding:11px 0;font-size:11px;white-space:nowrap}
 .node.table .read-layout .row-number .table-grip{visibility:visible;cursor:default}
 .node.table .read-layout .grip-icon{display:none}
