@@ -186,10 +186,10 @@
   }
   function syncFields(){const m=tool==='select'?draft.marks[selectedMark]:null;textField.value=m?.kind==='text'?m.text||'':newText;colourField.value=m?colour(m.stroke):newColour}
   const local=e=>{const r=paper.getBoundingClientRect();return [Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)),Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100))]};
-  function hitMark(p){
+  function hitMark(p,withMargin=true){
    const r=paper.getBoundingClientRect();
    // A real hit wins before a nearby mark's touch margin can cover it.
-   for(const padding of [0,8]){const tolerance={x:padding/r.width*100,y:padding/r.height*100};
+   for(const padding of withMargin?[0,8]:[0]){const tolerance={x:padding/r.width*100,y:padding/r.height*100};
    for(let i=draft.marks.length-1;i>=0;i--){const m=draft.marks[i],box=markBounds(i);if(!box||p[0]<box.x-tolerance.x||p[0]>box.x+box.w+tolerance.x||p[1]<box.y-tolerance.y||p[1]>box.y+box.h+tolerance.y)continue;
     if(['text','rect','ellipse'].includes(m.kind))return i;
     const shape=svg.querySelector('[data-image-mark="'+i+'"]>path');if(shape?.isPointInStroke?.(new DOMPoint(...p)))return i;
@@ -250,7 +250,8 @@
   document.querySelectorAll('[data-image-tool]').forEach(b=>b.onclick=()=>{if(busy())return;finishField();tool=b.dataset.imageTool;selectedMark=-1;syncFields();paint()});
   paper.onpointerdown=e=>{
    if(busy()){if(e.pointerId!==(moving||cropStart||drawing).pointer)cancelPreview();return}if(e.button!==0||e.isPrimary===false||!same(session))return;stop(e);finishField();const p=local(e);paper.focus({preventScroll:true});
-   if(tool==='select'){const corner=e.target.closest?.('[data-image-mark-resize]')?.dataset.imageMarkResize;if(!corner)selectedMark=hitMark(p);syncFields();paint();if(selectedMark<0)return;moving={pointer:e.pointerId,start:p,mark:clone(draft.marks[selectedMark]),box:markBounds(selectedMark),resize:corner||null,before:snapshot(),redo:[...redo],changed:false};paper.setPointerCapture(e.pointerId);return}
+   // A visible grip wins; its larger touch margin must not hide another mark.
+   if(tool==='select'){const handle=e.target.closest?.('[data-image-mark-resize]'),hit=handle?hitMark(p,false):-1,r=handle?.getBoundingClientRect(),onGrip=r&&Math.abs(e.clientX-r.left-r.width/2)<=5&&Math.abs(e.clientY-r.top-r.height/2)<=5;const corner=handle&&(onGrip||hit<0||hit===selectedMark)?handle.dataset.imageMarkResize:null;if(!corner)selectedMark=hitMark(p);syncFields();paint();if(selectedMark<0)return;moving={pointer:e.pointerId,start:p,mark:clone(draft.marks[selectedMark]),box:markBounds(selectedMark),resize:corner||null,before:snapshot(),redo:[...redo],changed:false};paper.setPointerCapture(e.pointerId);return}
    const corner=tool==='crop'&&e.target.closest?.('[data-crop-handle]');if(corner){selectedMark=-1;redoBefore=[...redo];save();cropStart={pointer:e.pointerId,point:p,handle:corner.dataset.cropHandle,original:{...draft.crop}};paper.setPointerCapture(e.pointerId);paint();return}
    if(tool==='text'&&!textField.value.trim()){textField.focus();return}if(tool!=='crop'&&(draft.marks.length>=500||draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)>=20000))return toast('这张图的标注已满，可以撤销或清除部分标注后继续。');
    selectedMark=-1;redoBefore=[...redo];save();if(tool==='crop')cropStart={pointer:e.pointerId,point:p};else{drawing={pointer:e.pointerId,limit:Math.min(5000,20000-draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)),mark:{kind:tool,points:[p],stroke:colourField.value,fill:'none',weight:.8,...(tool==='text'?{text:textField.value,fontSize:7}:{})}};draft.marks.push(drawing.mark)}paper.setPointerCapture(e.pointerId);paint();
