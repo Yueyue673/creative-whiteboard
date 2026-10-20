@@ -66,3 +66,16 @@
 @media(max-width:600px){#canvasDrawMode{bottom:8px;gap:2px;padding:4px;flex-wrap:wrap}#canvasDrawMode>[data-canvas-tool=select]{min-width:48px}.canvas-mode-tools{flex:1}.canvas-mode-style{width:100%;justify-content:flex-end;padding-top:2px}#canvasDrawMode button{min-height:40px;padding:5px 10px}}
 
 .drawing-mode #empty{visibility:hidden;pointer-events:none}
+
+/* The original image draft owns these handles; the image and other marks stay intact. */
+#imageMarkSelection{border-color:var(--ui-accent,#8172a5);outline-color:var(--ui-panel,#fff)}
+.image-mark-resize{position:absolute;width:24px;height:24px;pointer-events:auto;touch-action:none;outline:none}
+.image-mark-resize::before{content:"";position:absolute;inset:8px;border:1px solid var(--ui-accent,#8172a5);background:var(--ui-panel,#fff);border-radius:1px}
+.image-mark-resize:focus-visible::before{outline:2px solid var(--ui-accent,#8172a5);outline-offset:2px}
+.image-mark-nw{left:0;top:0;transform:translate(-50%,-50%);cursor:nwse-resize}.image-mark-ne{left:100%;top:0;transform:translate(-50%,-50%);cursor:nesw-resize}
+.image-mark-sw{left:0;top:100%;transform:translate(-50%,-50%);cursor:nesw-resize}.image-mark-se{left:100%;top:100%;transform:translate(-50%,-50%);cursor:nwse-resize}
+@media(pointer:coarse){.image-mark-resize{width:32px;height:32px}.image-mark-resize::before{inset:12px}}
+
+.image-edit-modes{overflow:visible;max-width:100%}.image-edit-primary,.image-edit-create{display:flex;align-items:center;gap:4px;min-width:0}.image-edit-primary{flex:none}.image-edit-create{overflow-x:auto;scrollbar-width:thin;flex:0 1 auto}
+
+.image-mark-resize[hidden]{display:none}
