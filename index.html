@@ -13,6 +13,7 @@ window.addEventListener('keydown',function(e){
  if(document.getElementById('mediaPopover')){whiteboardMedia.close();e.preventDefault();e.stopImmediatePropagation();return;}
  if(gesture){cancelCanvasGesture();e.preventDefault();e.stopImmediatePropagation();return;}
  if(window.whiteboardDocumentPaper?.dismissFormat?.()){e.preventDefault();e.stopImmediatePropagation();return;}
+ if(window.whiteboardCellCreation?.dismiss?.()){e.preventDefault();e.stopImmediatePropagation();return;}
  var viewer=document.getElementById('imageViewer'),dialog=document.getElementById('dialog'),menu=document.getElementById('fileContext'),meta=document.getElementById('inlineMeta');
  var close=null;
  if(viewer&&!viewer.hidden)close=function(){if(typeof closeImageView==='function')closeImageView();else viewer.hidden=true};
