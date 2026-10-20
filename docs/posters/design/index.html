@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>创作白板 · 留下这一组，下次接着用</title>
+<style>
+:root{--paper:#faf9f3;--ink:#222923;--lime:#e2ef85;--blue:#4354d6}
+*{box-sizing:border-box}body{margin:0;background:#deded8;color:var(--ink);font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;-webkit-font-smoothing:antialiased}article{display:none;position:relative;width:800px;height:1000px;overflow:hidden;background:var(--paper)}article.active{display:block}h1,h2,p,figure{margin:0}.brand{position:absolute;left:48px;top:42px;display:flex;gap:13px;align-items:center}.brand img{width:46px;height:46px}.brand strong{display:block;font-size:25px;letter-spacing:.02em;font-weight:700}.brand small{display:block;margin-top:3px;font-size:16px;font-weight:400}.index{position:absolute;right:48px;top:48px;font:500 21px/1.5 Arial,sans-serif;letter-spacing:.06em}.eyebrow{position:absolute;left:50px;top:121px;font-size:18px;letter-spacing:.12em}.headline{position:absolute;left:44px;top:158px;font-size:80px;line-height:1.16;letter-spacing:-.065em;font-weight:700}.headline span{display:block}.deck{position:absolute;left:50px;font-size:27px;line-height:1.65;letter-spacing:-.025em}.footer{position:absolute;left:48px;right:48px;bottom:27px;border-top:1px solid currentColor;padding-top:13px;display:flex;align-items:center;justify-content:space-between;gap:16px}.url{font:500 21px/1.3 Arial,sans-serif;letter-spacing:-.02em;white-space:nowrap}.cta{font-size:19px;white-space:nowrap}.caption{font-size:18px;line-height:1.5;letter-spacing:.015em}.p1 .deck{top:364px}.art-one{position:absolute;left:0;top:442px;width:800px;height:360px;overflow:hidden}.art-one img{position:absolute;left:0;top:-153px;width:800px;height:auto}.p1 .concept-label{position:absolute;right:50px;top:807px;font-size:17px;color:#535a52}.p1 .promise{position:absolute;left:50px;top:831px;font-size:29px;line-height:1.55;font-weight:700;letter-spacing:-.035em}.p1 .promise em{font-style:normal;color:var(--blue)}
+.p2{background:var(--lime)}.p2 .headline{top:157px;font-size:78px}.p2 .deck{top:346px;font-size:26px}.pane-labels{position:absolute;left:48px;right:48px;top:398px;display:flex;gap:18px;font-size:22px;font-weight:700}.pane-labels span{width:50%}.pane-labels b{font:500 18px Arial,sans-serif;margin-right:11px;color:#46523b}.compare-shot{position:absolute;left:32px;top:438px;width:736px;height:423px;overflow:hidden}.compare-shot img{position:absolute;left:0;top:-28px;width:736px;height:auto;max-width:none}.p2 .caption{position:absolute;left:48px;top:886px}.p2 .footer{color:var(--ink)}
+.p3{background:var(--ink);color:var(--paper)}.p3 .headline{top:157px;font-size:78px}.p3 .headline span:last-child{color:var(--lime)}.p3 .deck{top:347px;font-size:26px}.steps{position:absolute;left:49px;right:49px;top:407px;display:flex;align-items:center;justify-content:space-between;font-size:23px;letter-spacing:-.035em}.steps span{display:flex;align-items:center;gap:9px}.steps b{font:500 18px Arial,sans-serif;color:var(--lime)}.steps i{font:400 25px Arial,sans-serif;color:var(--lime)}.reuse-shot{position:absolute;left:32px;top:459px;width:736px;height:381px;overflow:hidden}.reuse-shot img{position:absolute;left:0;top:-51px;width:736px;height:auto;max-width:none}.p3 .caption{position:absolute;left:48px;top:852px;color:#d3d8cc;font-size:17px}.p3 .result{position:absolute;left:48px;top:886px;font-size:26px;letter-spacing:-.04em}.p3 .footer{color:#eef2e6}.p3 .brand img{background:var(--paper);border-radius:3px}
+.p4{background:var(--blue);color:var(--paper)}.p4 .brand img{background:var(--paper);border-radius:3px}.p4 .headline{top:158px;font-size:73px}.p4 .headline span:last-child{color:var(--lime)}.p4 .deck{top:269px;font-size:26px}.first-paper{position:absolute;left:80px;top:310px;width:640px;height:auto}.sticky-copy{position:absolute;left:158px;top:369px;font-size:36px;line-height:1.4;font-weight:700;color:var(--ink);transform:rotate(-13deg);letter-spacing:-.04em}.p4 .concept-label{position:absolute;right:119px;top:414px;color:#576053;font-size:16px}.start-steps{position:absolute;left:181px;top:588px;color:var(--ink);display:flex;flex-direction:column;gap:14px;font-size:26px;line-height:1.4;letter-spacing:-.04em}.start-steps p{display:flex;align-items:flex-start;gap:17px;white-space:nowrap}.start-steps b{margin-top:7px;font:500 21px Arial,sans-serif;color:var(--blue)}code{font:500 .93em/1.3 Consolas,"DejaVu Sans Mono",monospace;letter-spacing:-.05em}.requirements{position:absolute;left:181px;top:827px;font-size:21px;line-height:1.8;letter-spacing:-.035em;color:var(--ink)}.requirements span{display:block}.requirements span:last-child{position:absolute;left:-133px;top:60px;white-space:nowrap;color:var(--paper)}.p4 .footer{bottom:24px}.p4 .url{font-size:21px}.p4 .cta{font-size:18px}
+.cover{width:800px;height:400px}.cover .brand{left:38px;top:29px}.cover .brand img{width:36px;height:36px}.cover .brand strong{font-size:22px}.cover .brand small{display:none}.cover-art{position:absolute;left:333px;top:21px;width:467px;height:379px;overflow:hidden}.cover-art img{position:absolute;width:467px;max-width:none;left:0;top:0}.cover .headline{font-size:47px;left:36px;top:124px;line-height:1.22;letter-spacing:-.06em;z-index:1}.cover .deck{left:39px;top:253px;font-size:18px;line-height:1.7;z-index:1}.cover .concept-label{position:absolute;left:40px;bottom:27px;font-size:13px;color:#62675e}
+</style>
+</head>
+<body>
+<article class="p1" data-poster="1" aria-label="海报一：这一组，下次接着用">
+<header class="brand"><img src="../../brand/mark.svg" alt="创作白板标志"><div><strong>创作白板</strong><small>笔记与资料整理工具</small></div></header><p class="index">01 / 04</p>
+<p class="eyebrow">留下这一组</p><h1 class="headline"><span>这一组，</span><span>下次接着用。</span></h1>
+<p class="deck">便签、表格和连线存成一组。<br>换张白板，取出副本继续。</p>
+<figure class="art-one"><img src="../illustrations/reuse-paper.png" alt="纸面概念示意：一组有连线的便签和表格经过收存，在新纸页上继续使用"></figure><p class="concept-label">纸面概念示意</p>
+<p class="promise">把整理好的内容，<br><em>留给下一次创作。</em></p>
+<footer class="footer"><span class="url">github.com/Yueyue673/creative-whiteboard</span><span class="cta">了解与下载 ↗</span></footer>
+</article>
+<article class="p2" data-poster="2" aria-label="海报二：资料在左，创作在右">
+<header class="brand"><img src="../../brand/mark.svg" alt="创作白板标志"><div><strong>创作白板</strong><small>笔记与资料整理工具</small></div></header><p class="index">02 / 04</p>
+<p class="eyebrow">看着原资料，继续写</p><h1 class="headline"><span>资料在左，</span><span>创作在右。</span></h1>
+<p class="deck">打开「左右分栏」，两张白板并排看。</p>
+<div class="pane-labels"><span><b>01</b>保留原资料</span><span><b>02</b>修改自己的这一份</span></div>
+<figure class="compare-shot"><img src="../../screenshots/readme-compare.png" alt="真实本机版界面的局部：左边是公开示例原白板，右边副本增加了“演示：这一份可以独立修改。”"></figure>
+<p class="caption">真实界面 · 演示示例｜右边的修改不会自动覆盖原件。</p>
+<footer class="footer"><span class="url">github.com/Yueyue673/creative-whiteboard</span><span class="cta">了解与下载 ↗</span></footer>
+</article>
+<article class="p3" data-poster="3" aria-label="海报三：带走副本，留下原件">
+<header class="brand"><img src="../../brand/mark.svg" alt="创作白板标志"><div><strong>创作白板</strong><small>笔记与资料整理工具</small></div></header><p class="index">03 / 04</p>
+<p class="eyebrow">把一组内容放进下一张白板</p><h1 class="headline"><span>带走副本，</span><span>留下原件。</span></h1>
+<p class="deck">便签、表格和内部连线，一起带过来。</p>
+<div class="steps"><span><b>01</b>选中一组</span><i>→</i><span><b>02</b>保存到库</span><i>→</i><span><b>03</b>放入新白板</span></div>
+<figure class="reuse-shot"><img src="../../screenshots/readme-reuse.png" alt="真实本机版界面的局部：左侧库中保留“观察与分镜”原件，右侧“下一次创作”白板已放入四块内容与三条连线"></figure>
+<p class="caption">真实界面 · 演示示例｜库中原件与新白板上的独立副本</p>
+<p class="result">改的是新副本，库中原件保留。</p>
+<footer class="footer"><span class="url">github.com/Yueyue673/creative-whiteboard</span><span class="cta">查看复用指南 ↗</span></footer>
+</article>
+<article class="p4" data-poster="4" aria-label="海报四：从一张便签开始">
+<header class="brand"><img src="../../brand/mark.svg" alt="创作白板标志"><div><strong>创作白板</strong><small>笔记与资料整理工具</small></div></header><p class="index">04 / 04</p>
+<p class="eyebrow">开始用自己的白板</p><h1 class="headline"><span>从一张便签开始。</span></h1>
+<p class="deck">下载本机版，在自己的电脑上写。</p>
+<img class="first-paper" src="../illustrations/first-note.png" alt="纸面概念示意：一张空白纸上放着第一张便签"><p class="sticky-copy">第一张<br>便签</p><p class="concept-label">纸面概念示意</p>
+<div class="start-steps"><p><b>01</b><span>下载并解压</span></p><p><b>02</b><span>在项目文件夹运行<br><code>python server.py</code></span></p><p><b>03</b><span>在浏览器打开<br><code>http://127.0.0.1:18746/</code></span></p></div>
+<p class="requirements"><span>需要 Python 3.10+ · Chrome / Edge</span><span>本机版无需账号 · 使用时保留启动窗口</span></p>
+<footer class="footer"><span class="url">github.com/Yueyue673/creative-whiteboard</span><span class="cta">下载与步骤 ↗</span></footer>
+</article>
+<article class="cover" data-poster="cover" aria-label="创作白板：这一组，下次接着用">
+<figure class="cover-art"><img src="../illustrations/reuse-paper.png" alt="有连线的纸面笔记与表格整组收存、再次使用的概念示意"></figure><header class="brand"><img src="../../brand/mark.svg" alt="创作白板标志"><div><strong>创作白板</strong></div></header>
+<h1 class="headline"><span>这一组，</span><span>下次接着用。</span></h1><p class="deck">便签、表格和连线，存成一组。<br>在新白板取出副本，继续创作。</p><p class="concept-label">原创纸面概念示意 · 真实操作见下文</p>
+</article>
+<script>
+const selected = new URLSearchParams(location.search).get('poster') || '1';
+const target = [...document.querySelectorAll('article')].find(el => el.dataset.poster === selected);
+if (target) target.classList.add('active');
+</script>
+</body></html>
