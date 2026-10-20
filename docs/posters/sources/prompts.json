@@ -1,0 +1,15 @@
+{
+  "mode": "built-in imagegen",
+  "use": "Conceptual paper illustrations only. Product UI uses unchanged public screenshots. Exact existing logo retained.",
+  "assets": [
+    {
+      "file": "../illustrations/reuse-paper.png",
+      "prompt": "Use case: ads-marketing. Asset type: an original tactile paper illustration to be placed in a finished Chinese 4:5 poster for Creative Whiteboard, a real tool for saving a group of notes, a table and their internal connections into a library, then taking an independent copy to another canvas. Generate only the illustration, NOT a complete poster and NOT a software UI. A memorable, elegant overhead paper cut collage: one coherent cluster of three small colored paper notes plus one folded paper table sheet, linked by thin dark hand-drawn lines, glides as a group toward a large open flat paper pocket; a matching second cluster emerges intact toward a fresh sheet. Show retention and reuse with a single graceful cobalt loop arrow, no duplicated arrows. Precise orthographic top-down composition, physical paper rather than a computer/device mockup. Museum editorial print quality, restrained human warmth, convincing fine paper fibers and very shallow shadows, no heavy 3D. Core palette strictly warm paper white #faf9f3, charcoal ink #222923, citrus paper #e2ef85 and one cobalt accent #4354d6. Sparse quiet composition on a uniform #faf9f3 background, illustration centered with generous breathing room, suitable for a horizontal crop within a portrait layout. No text, no numbers, no letters, no invented icons or logos, no watermark, no interface controls, no people, no screens, no frame, no gradients, no unrelated stationery."
+    },
+    {
+      "file": "../illustrations/first-note.png",
+      "transparent_background": true,
+      "prompt": "Use case: ads-marketing. Asset type: a single isolated original paper illustration for a Creative Whiteboard start-using poster. Generate an illustration only, not a finished poster and not a UI. Show a large clean warm ivory sheet viewed directly from overhead, with one citrus-lime square note lifted slightly above its upper-left corner, as if someone is about to write their first note; a tiny clean cobalt loop stroke at the lower edge echoes reuse without becoming a logo. The large sheet occupies most of the compact composition. Refined tactile editorial paper-cut aesthetic, visible subtle paper fibers, naturally curled corner, very shallow realistic paper shadows; quiet, confident, warm and highly crafted. Match palette: paper #faf9f3, lime #e2ef85, charcoal #222923, cobalt #4354d6. Fully transparent background around the isolated paper arrangement, crisp clean alpha edges. Every paper surface is completely blank: no text, no letters, no numbers, no words, no fake buttons or interfaces, no logos, no pencil, no hand, no people, no devices, no frames, no watermark. It will be placed on a cobalt blue graphic background with accurate typography added separately."
+    }
+  ]
+}

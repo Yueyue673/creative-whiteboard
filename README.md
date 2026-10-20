@@ -4,22 +4,21 @@
 
 <h1 align="center">创作白板</h1>
 
-创作白板是在浏览器里使用的笔记和资料整理工具。把便签、图片、文件和表格放在同一张白板，用连线整理关系；常用的一组内容可以收进**内容库**，下次取出副本接着用。下载后在自己的电脑上启动，需要 **Python 3.10 或更新版本**及 **Chrome / Edge**，内容默认保存在本机。
+创作白板是在浏览器里使用的笔记和资料整理工具。把便签、图片、文件和表格放到同一张白板，移动位置、连起相关内容。整理好的一组内容可以存进**内容库**，下次取出副本继续用。下载后在自己的电脑上启动，需要 **Python 3.10 或更新版本**及 **Chrome / Edge**；本机版无需账号，内容默认保存在电脑上。
 
 <p align="center">
   <a href="https://github.com/Yueyue673/creative-whiteboard/archive/refs/heads/main.zip"><strong>下载本机版</strong></a> ·
   <a href="#三步开始">三步开始</a> ·
   <a href="docs/usage.md">使用说明</a> ·
-  <a href="docs/status.md">版本区别</a>
+  <a href="docs/status.md">版本区别</a> ·
+  <a href="docs/posters/README.md">介绍海报</a>
 </p>
 
-![演示示例：左侧内容库保留“观察与分镜”原件，右侧已把同一组便签、表格和连线放进“下一次创作”白板。](docs/screenshots/readme-reuse.png)
-
-<sub>真实本机版界面，使用仓库公开示例演示。图中的四块内容与三条连线已整组复用，库中原件保留。</sub>
+![创作白板：这一组，下次接着用。纸面概念插画展示便签、表格与连线整组收存，再在新白板取出副本继续；不是软件界面。](docs/brand/reuse-paper-cover.png)
 
 ## 留下这一组，下次接着用
 
-这次整理好的笔记和表格，下次还想沿用。以图中的「观察与分镜」为例：
+为一段画面记下问题、观察，再列一张镜头表。下次还想用这组结构，可以把它留下来。下面用仓库自带的「观察与分镜」演示示例走一遍：
 
 1. 在白板上选中要留下的内容，点「保存到库」，给这组内容起个名字。
 2. 打开另一张白板，在内容库选中刚保存的资源，按 **Ctrl＋Enter** 整组放入；也可以从库里拖进画布。
@@ -27,11 +26,15 @@
 
 需要把修改带回原件时，再从副本的「来源与版本」查看差异，决定更新哪一边。
 
+![演示示例：左侧内容库保留“观察与分镜”原件，右侧已把同一组便签、表格和连线放进“下一次创作”白板。](docs/screenshots/readme-reuse.png)
+
+<sub>真实本机版界面，使用仓库公开示例演示。图中的四块内容与三条连线已整组复用，库中原件保留。</sub>
+
 [跟着做：保存一组内容 → 放到新白板 → 回看来源](docs/reuse.md)
 
 ## 看着原资料，继续写自己的这一份
 
-需要参考之前的内容时，先打开两张白板，再点右上角「左右分栏」。左边看原资料，右边编辑副本，不必来回切窗口。便签写长了，也可以展开编辑，再回到原来的位置。
+写新记录时，还想参考旧资料。先打开原白板和副本，再点右上角「左右分栏」：左边看原资料，右边编辑自己的这一份，不必来回切窗口。便签写长了，也可以展开编辑，再回到原来的位置。
 
 ![演示示例：左边是原白板，右边正在编辑新白板上的副本；新增的“这一份可以独立修改”只出现在右边。](docs/screenshots/readme-compare.png)
 
@@ -39,7 +42,7 @@
 
 ## 三步开始
 
-本机版不需要账号。先安装 [Python 3.10 或更新版本](https://www.python.org/downloads/)，并准备 Chrome 或 Edge。
+本机版不需要账号。第一次运行也可以跟着 [图文入门](docs/start.md) 完成。先安装 [Python 3.10 或更新版本](https://www.python.org/downloads/)，并准备 Chrome 或 Edge。
 
 **1. 下载并解压。** [下载项目 ZIP](https://github.com/Yueyue673/creative-whiteboard/archive/refs/heads/main.zip)，解压到自己的文件夹。
 
@@ -93,9 +96,9 @@ python server.py
 <details>
 <summary>English</summary>
 
-Creative Whiteboard is a browser-based workspace for notes, files and tables. Arrange them on a canvas, connect related items, and save a group to your library. Place an independent copy on another board and continue editing; the original stays in the library.
+Creative Whiteboard is a browser-based workspace for notes, images, files and tables. Move them around a canvas, connect related items, and save a group to your library. Place an independent copy on another board and continue editing; the original stays in the library.
 
-The local application needs Python 3.10+ and Chrome or Edge. Download and unzip the project, run `python server.py`, then open <http://127.0.0.1:18746/>. Data is stored in `data/` by default. The interface and guides are currently in Chinese.
+The local application needs Python 3.10+ and Chrome or Edge; no account is needed. Download and unzip the project, run `python server.py` from its folder, then open <http://127.0.0.1:18746/>. Keep the terminal open while using the app. Data is stored in `data/` by default. The interface and guides are currently in Chinese. [Getting started (Chinese)](docs/start.md) · [Four introduction posters (Chinese)](docs/posters/README.md).
 
 The default branch is the local application. Account-based hosting is on the development branch and requires deployment; this is not a real-time collaborative editor. See [version status](docs/status.md).
 
