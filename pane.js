@@ -172,10 +172,29 @@
    if(oldRoom>0&&newRoom>0&&leading>=16&&leading+extent<=before-16)return 16+(leading-16)*newRoom/oldRoom-start*v.z;
    return v[axis]+(after-before)/2;
   }
+  // A lone visible reading target may retain its entry while its pane changes.
+  // Deliberately empty/cropped views and explicit selections keep their old rules.
+  function loneReadingBlock(beforeWidth,beforeHeight){
+   if(!board||loading||gesture||canvas.classList.contains('space-overview'))return null;
+   const v=view();let found=null;
+   for(const n of board.nodes){
+    if(n.type==='frame'||!(n.w>0&&n.h>0))continue;
+    const left=n.x*v.z+v.x,top=n.y*v.z+v.y,w=n.w*v.z,h=n.h*v.z;
+    const overlapX=Math.min(beforeWidth,left+w)-Math.max(0,left),overlapY=Math.min(beforeHeight,top+h)-Math.max(0,top);
+    if(overlapX<=0||overlapY<=0)continue;
+    if(found)return null;found={node:n,left,top,w,h,overlapX,overlapY};
+   }
+   return found&&found.left>=0&&found.top>=0&&found.overlapX>=Math.min(beforeWidth,found.w)/2&&found.overlapY>=Math.min(beforeHeight,found.h)/2?found.node:null;
+  }
+  function readingViewAxis(axis,before,after,start,size){
+   const v=view(),extent=size*v.z,leading=start*v.z+v[axis];
+   if(extent+32>after)return Math.max(16,Math.min(leading,Math.max(16,after-44)))-start*v.z;
+   return resizeViewAxis(axis,before,after,start,size);
+  }
   // Dialogs temporarily fill the window; retain the original pane size and camera until they return.
   let width=0,height=0,timer;new ResizeObserver(entries=>{const r=entries[0].contentRect;if(modal||frameElement?.classList.contains('pane-modal')||r.width<1||r.height<1)return;const dx=r.width-width,dy=r.height-height;if(Math.abs(dx)<.01&&Math.abs(dy)<.01)return;if(board&&width&&height){
-   const chosen=!loading&&!gesture&&!canvas.classList.contains('space-overview')?board.nodes.filter(n=>selected.has(n.id)):[],x=chosen.length?Math.min(...chosen.map(n=>n.x)):0,y=chosen.length?Math.min(...chosen.map(n=>n.y)):0,w=chosen.length?Math.max(...chosen.map(n=>n.x+n.w))-x:0,h=chosen.length?Math.max(...chosen.map(n=>n.y+n.h))-y:0;
-   view().x=chosen.length?resizeViewAxis('x',width,r.width,x,w):view().x+dx/2;view().y=chosen.length?resizeViewAxis('y',height,r.height,y,h):view().y+dy/2;
+   const explicit=!loading&&!gesture&&!canvas.classList.contains('space-overview')?board.nodes.filter(n=>selected.has(n.id)):[],reading=explicit.length?null:loneReadingBlock(width,height),chosen=explicit.length?explicit:reading?[reading]:[],x=chosen.length?Math.min(...chosen.map(n=>n.x)):0,y=chosen.length?Math.min(...chosen.map(n=>n.y)):0,w=chosen.length?Math.max(...chosen.map(n=>n.x+n.w))-x:0,h=chosen.length?Math.max(...chosen.map(n=>n.y+n.h))-y:0;
+   view().x=chosen.length?(reading?readingViewAxis('x',width,r.width,x,w):resizeViewAxis('x',width,r.width,x,w)):view().x+dx/2;view().y=chosen.length?(reading?readingViewAxis('y',height,r.height,y,h):resizeViewAxis('y',height,r.height,y,h)):view().y+dy/2;
    moveView();window.whiteboardNavigation?.revealCaret?.(document.activeElement);clearTimeout(timer);timer=setTimeout(()=>{if(board&&!loading)change(true)},250)
   }width=r.width;height=r.height}).observe(canvas);
   document.addEventListener('pointerdown',()=>{send('pane-active');queueMicrotask(report)},true);document.addEventListener('creative-board-pan-start',()=>send('pane-active'));document.addEventListener('creative-document-active',()=>send('pane-active'));
