@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
  const executablePath=process.argv[2];
  if(!executablePath) throw new Error('Pass the path to your installed Chromium as the first argument.');
  const root=path.resolve(__dirname,'../../..');
- const outputs=[['1','docs/posters/01-reuse.png'],['2','docs/posters/02-compare.png'],['3','docs/posters/03-library.png'],['4','docs/posters/04-start.png'],['cover','docs/brand/reuse-paper-cover.png']];
+ const outputs=[['1','docs/posters/01-reuse.png'],['2','docs/posters/02-compare.png'],['3','docs/posters/03-library.png'],['4','docs/posters/04-start.png'],['cover','docs/brand/reuse-paper-cover.png'],['cover-mobile','docs/brand/reuse-paper-cover-mobile.png']];
  const browser=await chromium.launch({executablePath,headless:true});
  const context=await browser.newContext({viewport:{width:800,height:1000},deviceScaleFactor:2});
  // Limit the renderer to files in this checkout; it cannot fetch user data or remote resources.
@@ -31,10 +31,10 @@ const assert = require('node:assert/strict');
   await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href+'?poster='+id);
   await page.evaluate(async()=>{await document.fonts.ready; await Promise.all([...document.images].map(i=>i.decode()));});
   const size=await page.locator('article.active').evaluate(el=>({w:el.clientWidth,h:el.clientHeight}));
-  assert.equal(size.w,800);assert.equal(size.h,id==='cover'?400:1000);
+  assert.equal(size.w,800);assert.equal(size.h,id==='cover'?400:id==='cover-mobile'?800:1000);
   const text=await page.locator('article.active').innerText();
   assert(text.includes('创作白板'));
-  if(id!=='cover') assert(text.includes('github.com/Yueyue673/creative-whiteboard'));
+  if(!id.startsWith('cover')) assert(text.includes('github.com/Yueyue673/creative-whiteboard'));
   const overflow=await page.locator('article.active').evaluate(el=>[...el.querySelectorAll('p,h1,footer,header,.start-steps,.steps,.pane-labels')].flatMap(x=>{
     const r=x.getBoundingClientRect(),b=el.getBoundingClientRect();
     return r.left<b.left-.5||r.right>b.right+.5||r.top<b.top-.5||r.bottom>b.bottom+.5?[{text:x.innerText,x:r.x,y:r.y,w:r.width,h:r.height}]:[];
