@@ -50,6 +50,6 @@
 - [可编辑排版](design/index.html)：HTML/CSS，包含四张海报和首页横版封面。文字、网址和命令由排版工具绘制，真实界面直接引用公开截图。
 - [渲染脚本](design/render.cjs)：使用本机安装的 Playwright 与 Chromium，逐张导出图片。运行时只读取本仓库素材，不需要启动产品或接触用户数据。传入 Chromium 路径即可；第二个可选参数是仓库外的检查结果目录。
 - [生成记录与完整提示词](sources/prompts.json)：两幅纸面插画使用内置 imagegen 制作，透明插画的 alpha 保留。插画文件在 `illustrations/`；没有把生成界面冒充实际产品。
-- [首页横版封面](../brand/reuse-paper-cover.png)：1600 × 800，单独适配 README，未把四张竖版海报堆到首页。
+- [首页横版封面](../brand/reuse-paper-cover.png)：1600 × 800；[窄屏封面](../brand/reuse-paper-cover-mobile.png)为 1600 × 1600，单独重排以保留标题可读性。README 按窗口宽度选择，不把四张竖版海报堆到首页。
 
 排版使用系统中文字体，不分发字体文件。重新渲染时，准备 Microsoft YaHei、PingFang SC 或 Noto Sans CJK SC，并逐张检查中文换行、手机尺寸、网址对比和图片裁切。不要把正在开发或尚未核对的功能补进宣传文案。
