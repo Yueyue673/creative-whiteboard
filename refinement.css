@@ -514,3 +514,12 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 #canvas.multi-actions #nodes>.node .block-actions>.block-collect,#canvas.collect-in-menu #nodes>.node .block-actions>.block-collect{display:none}
 #canvas.local-collect #creationDock>#collectToLibrary{display:none}
 @media(pointer:coarse){#canvas:not(.tight-tools):not(.collect-in-menu) #nodes>.node .block-actions:not(.group-naming)>button{min-height:44px;min-width:44px}}
+
+/* Pending resources are not an empty document. Failed object tools stay local. */
+#canvas.document-unready #empty{visibility:hidden;pointer-events:none}
+.unavailable-object>.inner{height:100%;padding:0;overflow:hidden}
+.object-unavailable{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;min-height:100%;padding:16px;text-align:center;color:var(--ui-text);background:var(--ui-panel);overflow-wrap:anywhere}
+.object-unavailable b{font-size:16px;line-height:1.5;font-weight:600}.object-unavailable span{font-size:13px;color:var(--ui-muted)}.object-unavailable button{font-size:13px;padding:6px 10px}
+.cell-content>.object-unavailable{min-height:100px}
+
+#nodes>.unavailable-object{background:var(--ui-panel)!important}#nodes>.unavailable-object>.resize{display:none!important}

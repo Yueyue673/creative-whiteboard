@@ -98,6 +98,28 @@ async function closeTab(id){
  }catch(error){toast(error.message)}
  finally{closingTabs.delete(id);if(button?.isConnected)button.disabled=false}
 }
+// Explicit resource recovery reuses the same tab and the existing guarded view restore.
+// Never reload another pane or replace a writer whose save/import is unfinished.
+window.whiteboardShellResources=Object.freeze({async reopen(source){
+ const tab=model.tabs.find(t=>frames.get(t.id)?.contentWindow===source),frame=tab&&frames.get(tab.id),view=tab&&pane(tab);
+ if(!tab||current()!==tab||closingTabs.has(tab.id)||!view)return false;
+ closingTabs.add(tab.id);
+ const events=new AbortController(),revision=view.state().revision;let continued=false;
+ for(const type of ['pointerdown','keydown','input','compositionstart'])source.document.addEventListener(type,()=>{continued=true},{capture:true,signal:events.signal});
+ try{
+  const owns=()=>!continued&&view.state().revision===revision&&model.tabs.includes(tab)&&current()===tab&&frames.get(tab.id)===frame&&pane(tab)===view;
+  const state=view.state();if(state.loading||state.boardId!==tab.boardId||state.pendingImports||state.blocked)return false;
+  if(!await view.flush()||!owns())return false;
+  // Fresh hosted entry URLs already bind the original account and workspace.
+  if(source.whiteboardHosted&&!await source.whiteboardHosted.checkIdentity())return false;
+  if(!owns())return false;
+  const latest=view.state();if(latest.dirty||latest.saving||latest.saveError||latest.blocked||latest.pendingImports||latest.loading||latest.boardId!==tab.boardId)return false;
+  const context=view.captureClosedView();if(!context)return false;
+  discardClosedTab();clearPendingClosedView();
+  const row={tabId:tab.id,context,intent:closedIntent,applying:false};pendingClosedView=row;row.timer=setTimeout(()=>{if(pendingClosedView===row)clearPendingClosedView()},20000);
+  frame.remove();frames.delete(tab.id);createFrame(tab);renderTabs();return true;
+ }finally{events.abort();closingTabs.delete(tab.id)}
+}});
 function moveTab(id,side,before){const t=model.tabs.find(t=>t.id===id);if(!t)return;const old=t.side;if(side==='right')model.split=true;if(before&&before!==id){model.tabs=model.tabs.filter(n=>n.id!==id);model.tabs.splice(Math.max(0,model.tabs.findIndex(n=>n.id===before)),0,t)}t.side=side;if(old!==side&&model.active[old]===id)model.active[old]=model.tabs.find(n=>n.side===old)?.id||null;model.active[side]=id;model.side=side;dragTab=null;$('workspace').classList.remove('tab-dragging');renderTabs();pane(t)?.focus()}
 function toggleSplit(){if(model.split){const keep=current()?.id;for(const t of model.tabs)t.side='left';model.split=false;model.active.left=keep||model.active.left;model.side='left'}else{model.split=true;const active=current();if(model.tabs.filter(t=>t.side==='left').length>1&&active){moveTab(active.id,'right');return}}renderTabs()}
 async function picker(side=model.side,purpose=null){
