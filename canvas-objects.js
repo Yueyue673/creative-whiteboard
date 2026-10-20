@@ -151,7 +151,7 @@
   draft.crop=cropOf(draft.crop);if(!Array.isArray(draft.marks))draft.marks=[];
   const initial=clone(draft);let tool=draft.marks.length?'select':'crop';
   if(resume){Object.assign(draft,clone(resume.object));edits=resume.edits.slice();redo=resume.redo.slice();selectedMark=resume.selectedMark;tool=resume.tool;newText=resume.newText;newColour=resume.newColour}
-  showDialog('<div class="image-edit-heading"><h2>裁剪与标注</h2><button id="imageEditCancel" type="button">取消</button><button id="imageEditApply" type="button">应用</button></div><div class="image-edit-tools" role="toolbar" aria-label="图片编辑"><div class="image-edit-modes" role="group" aria-label="选择与绘图"><button data-image-tool="select">选择</button><button data-image-tool="crop">裁剪</button><button data-image-tool="freehand">画笔</button><button data-image-tool="rect">方框</button><button data-image-tool="ellipse">圆圈</button><button data-image-tool="arrow">箭头</button><button data-image-tool="text">文字</button></div><div class="image-edit-properties" role="group" aria-label="标注内容"><input id="imageMarkColour" type="color" value="#c94444" aria-label="标注颜色"><input id="imageMarkText" placeholder="标注文字" maxlength="1000" aria-label="标注文字"><button id="imageMarkDelete" aria-label="删除选中标注">删除</button></div><div class="image-edit-history" role="group" aria-label="修改记录"><button id="imageEditUndo">撤销</button><button id="imageEditRedo">重做</button><button id="imageEditRestore">恢复原图</button></div></div><div id="imageEditStage"><div id="imageEditPaper" tabindex="0" aria-label="图片标注"><img id="imageEditOriginal" draggable="false" alt="原图"><svg id="imageEditMarks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div id="imageCropBox"></div><div id="imageMarkSelection" hidden></div></div></div><p class="image-edit-status" id="imageEditStatus"></p>',[]);
+  showDialog('<div class="image-edit-heading"><h2>编辑图片</h2><button id="imageEditCancel" type="button">取消</button><button id="imageEditApply" type="button">应用</button></div><div class="image-edit-tools" role="toolbar" aria-label="图片编辑"><div class="image-edit-modes" role="group" aria-label="选择与绘图"><button data-image-tool="select">选择</button><button data-image-tool="pan">移动</button><button data-image-tool="crop">裁剪</button><button data-image-tool="freehand">画笔</button><button data-image-tool="rect">方框</button><button data-image-tool="ellipse">圆圈</button><button data-image-tool="arrow">箭头</button><button data-image-tool="text">文字</button></div><div class="image-edit-properties" role="group" aria-label="标注内容"><input id="imageMarkColour" type="color" value="#c94444" aria-label="标注颜色"><input id="imageMarkText" placeholder="标注文字" maxlength="1000" aria-label="标注文字"><button id="imageMarkDelete" aria-label="删除选中标注">删除</button></div></div><div id="imageEditStage"><div id="imageEditPaper" tabindex="0" aria-label="图片标注"><img id="imageEditOriginal" draggable="false" alt="原图"><svg id="imageEditMarks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div id="imageCropBox"><span class="image-crop-handle" data-crop-handle="nw" title="调整裁剪范围"></span><span class="image-crop-handle" data-crop-handle="ne" title="调整裁剪范围"></span><span class="image-crop-handle" data-crop-handle="sw" title="调整裁剪范围"></span><span class="image-crop-handle" data-crop-handle="se" title="调整裁剪范围"></span></div><div id="imageMarkSelection" hidden></div></div></div><div class="image-edit-footer"><div class="image-edit-history" role="group" aria-label="修改记录"><button id="imageEditUndo">撤销</button><button id="imageEditRedo">重做</button><button id="imageEditRestore">恢复原图</button></div><p class="image-edit-status" id="imageEditStatus"></p><div class="image-edit-zoom" role="group" aria-label="图片视图"><button id="imageZoomOut" aria-label="缩小图片">−</button><output id="imageZoomValue" aria-label="图片缩放比例"></output><button id="imageZoomIn" aria-label="放大图片">＋</button><button id="imageZoomFit">适合窗口</button></div></div>',[]);
   $('dialog').classList.add('image-edit-dialog');$('imageEditOriginal').src=source(n);
   const paper=$('imageEditPaper'),svg=$('imageEditMarks'),cropBox=$('imageCropBox'),selectionBox=$('imageMarkSelection'),textField=$('imageMarkText'),colourField=$('imageMarkColour'),events=new AbortController();
   // Existing marks are replaced, never mutated; history can share their unchanged points.
@@ -164,9 +164,10 @@
    svg.innerHTML=draft.marks.slice(0,500).map((mark,i)=>'<g data-image-mark="'+i+'">'+marksSVG([mark])+'</g>').join('');
    const box=tool==='select'&&m?markBounds(selectedMark):null;selectionBox.hidden=!box;if(box)Object.assign(selectionBox.style,{left:box.x+'%',top:box.y+'%',width:box.w+'%',height:box.h+'%'});
    $('imageEditUndo').disabled=held||!edits.length;$('imageEditRedo').disabled=held||!redo.length;$('imageEditApply').disabled=held;$('imageEditRestore').disabled=held;$('imageMarkDelete').disabled=held||tool!=='select'||!m;
-   textField.disabled=held||!(tool==='text'||tool==='select'&&m?.kind==='text');colourField.disabled=held||tool==='crop'||tool==='select'&&!m;
-   document.querySelectorAll('[data-image-tool]').forEach(b=>{const active=b.dataset.imageTool===tool;b.disabled=held;b.classList.toggle('chosen',active);b.setAttribute('aria-pressed',String(active))});paper.dataset.tool=tool;paper.classList.toggle('moving-mark',!!moving?.changed);
-   $('imageEditStatus').textContent=tool==='select'?(m?.kind==='text'?'拖动位置，或修改上方文字。':m?'拖动调整位置。':'点选标注，再拖动位置。'):tool==='crop'?'拖出保留范围。原图始终保留。':tool==='text'?'先输入文字，再点图片放置。':'在图片上拖动画出标注。';
+   textField.disabled=held||!(tool==='text'||tool==='select'&&m?.kind==='text');colourField.disabled=held||tool==='crop'||tool==='pan'||tool==='select'&&!m;
+   textField.style.visibility=tool==='text'||tool==='select'&&m?.kind==='text'?'visible':'hidden';colourField.style.visibility=tool==='crop'||tool==='pan'||tool==='select'&&!m?'hidden':'visible';$('imageMarkDelete').style.visibility=tool==='select'&&m?'visible':'hidden';
+   document.querySelectorAll('[data-image-tool]').forEach(b=>{const active=b.dataset.imageTool===tool;b.disabled=held;b.classList.toggle('chosen',active);b.setAttribute('aria-pressed',String(active))});paper.dataset.tool=tool;paper.classList.toggle('moving-mark',!!moving?.changed);$('imageEditStage').dataset.pan=String(tool==='pan');
+   $('imageEditStatus').textContent=tool==='pan'?'拖动图片，滚轮或双指缩放。':tool==='select'?(m?.kind==='text'?'拖动位置，或修改上方文字。':m?'拖动调整位置。':'点选标注，再拖动位置。'):tool==='crop'?'拖出保留范围。原图始终保留。':tool==='text'?'先输入文字，再点图片放置。':'在图片上拖动画出标注。';
   }
   function syncFields(){const m=tool==='select'?draft.marks[selectedMark]:null;textField.value=m?.kind==='text'?m.text||'':newText;colourField.value=m?colour(m.stroke):newColour}
   const local=e=>{const r=paper.getBoundingClientRect();return [Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)),Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100))]};
@@ -192,19 +193,49 @@
    if(!cancelled)trim();try{if(paper.hasPointerCapture(e.pointerId))paper.releasePointerCapture(e.pointerId)}catch{}syncFields();paint();
   }
   const cancelPreview=()=>{const active=moving||cropStart||drawing;if(active)end({pointerId:active.pointer,preventDefault(){},stopImmediatePropagation(){}},true)};
-  const fitPaper=()=>{const im=$('imageEditOriginal'),stage=$('imageEditStage');if(!im?.naturalWidth||!stage)return;const mobile=innerWidth<=600,available=mobile?Math.max(100,innerHeight-260):stage.clientHeight-24,maxHeight=mobile?Math.max(100,innerHeight-(document.querySelector('.image-edit-tools')?.offsetHeight||130)-130):available,ratio=Math.min((stage.clientWidth-24)/im.naturalWidth,maxHeight/im.naturalHeight),w=Math.max(1,im.naturalWidth*ratio),h=Math.max(1,im.naturalHeight*ratio);if(busy()&&(Math.abs(paper.offsetWidth-w)>1||Math.abs(paper.offsetHeight-h)>1))cancelPreview();paper.style.width=w+'px';paper.style.height=h+'px';if(mobile)stage.style.height=(h+24)+'px'};
-  const bounds=new ResizeObserver(fitPaper);bounds.observe($('imageEditStage'));$('imageEditOriginal').onload=fitPaper;
+  // This viewport belongs only to the unapplied editor. Original image coordinates
+  // and the whiteboard camera/history never contain zoom or pan state.
+  const stage=$('imageEditStage'),view={zoom:1,x:0,y:0,...resume?.imageView},touches=new Map();let fitScale=1,pan=null,pinch=null;
+  function fitPaper(){
+   const im=$('imageEditOriginal');if(!im?.naturalWidth||!stage.isConnected)return;
+   const next=Math.min(Math.max(1,stage.clientWidth-32)/im.naturalWidth,Math.max(1,stage.clientHeight-32)/im.naturalHeight);
+   if(busy()&&Math.abs(fitScale-next)>.00001)cancelPreview();fitScale=next;
+   const w=im.naturalWidth*fitScale*view.zoom,h=im.naturalHeight*fitScale*view.zoom;
+   view.x=Math.max(-w/2-stage.clientWidth/2+24,Math.min(w/2+stage.clientWidth/2-24,view.x));view.y=Math.max(-h/2-stage.clientHeight/2+24,Math.min(h/2+stage.clientHeight/2-24,view.y));
+   Object.assign(paper.style,{width:w+'px',height:h+'px',left:((stage.clientWidth-w)/2+view.x)+'px',top:((stage.clientHeight-h)/2+view.y)+'px'});
+   $('imageZoomValue').value=Math.round(fitScale*view.zoom*100)+'%';$('imageZoomOut').disabled=view.zoom<=.2;$('imageZoomIn').disabled=view.zoom>=8;
+  }
+  function zoomAt(zoom,x=stage.clientWidth/2,y=stage.clientHeight/2){
+   if(busy()||!same(session))return;const next=Math.max(.2,Math.min(8,zoom)),k=next/view.zoom,px=x-stage.clientWidth/2,py=y-stage.clientHeight/2;view.x=px-(px-view.x)*k;view.y=py-(py-view.y)*k;view.zoom=next;fitPaper();
+  }
+  const bounds=new ResizeObserver(fitPaper);bounds.observe(stage);$('imageEditOriginal').onload=fitPaper;
+  $('imageZoomIn').onclick=()=>zoomAt(view.zoom*1.25);$('imageZoomOut').onclick=()=>zoomAt(view.zoom/1.25);$('imageZoomFit').onclick=()=>{if(busy())return;Object.assign(view,{zoom:1,x:0,y:0});fitPaper()};
+  stage.addEventListener('wheel',e=>{stop(e);const r=stage.getBoundingClientRect();zoomAt(view.zoom*Math.exp(-e.deltaY*.002),e.clientX-r.left,e.clientY-r.top)},{passive:false,signal:events.signal});
+  const touchPair=()=>{const [a,b]=[...touches.values()];return a&&b?{x:(a.x+b.x)/2,y:(a.y+b.y)/2,d:Math.hypot(a.x-b.x,a.y-b.y)}:null};
+  stage.addEventListener('pointerdown',e=>{
+   if(!same(session))return;if(e.pointerType==='touch')touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+   if(touches.size>=2){cancelPreview();pan=null;const pair=touchPair(),r=stage.getBoundingClientRect();pinch={...pair,zoom:view.zoom,x0:view.x,y0:view.y,cx:pair.x-r.left-stage.clientWidth/2,cy:pair.y-r.top-stage.clientHeight/2};for(const id of touches.keys())try{stage.setPointerCapture(id)}catch{}stop(e);return}
+   if(tool!=='pan'&&e.button!==1)return;if(busy())return;finishField();pan={id:e.pointerId,x:e.clientX,y:e.clientY,fromX:view.x,fromY:view.y};stage.setPointerCapture(e.pointerId);stage.classList.add('panning');stop(e);
+  },{capture:true,signal:events.signal});
+  stage.addEventListener('pointermove',e=>{
+   if(touches.has(e.pointerId))touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+   if(pinch){if(!same(session))return;const pair=touchPair();if(!pair)return;const next=Math.max(.2,Math.min(8,pinch.zoom*pair.d/Math.max(1,pinch.d))),k=next/pinch.zoom;view.x=pinch.cx-(pinch.cx-pinch.x0)*k+pair.x-pinch.x;view.y=pinch.cy-(pinch.cy-pinch.y0)*k+pair.y-pinch.y;view.zoom=next;fitPaper();stop(e)}
+   else if(pan&&pan.id===e.pointerId){if(!same(session))return;view.x=pan.fromX+e.clientX-pan.x;view.y=pan.fromY+e.clientY-pan.y;fitPaper();stop(e)}
+  },{capture:true,signal:events.signal});
+  const endView=e=>{touches.delete(e.pointerId);if(pinch||pan?.id===e.pointerId){pinch=null;pan=null;stage.classList.remove('panning');try{if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId)}catch{}stop(e)}};
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])stage.addEventListener(type,endView,{capture:true,signal:events.signal});
   document.querySelectorAll('[data-image-tool]').forEach(b=>b.onclick=()=>{if(busy())return;finishField();tool=b.dataset.imageTool;selectedMark=-1;syncFields();paint()});
   paper.onpointerdown=e=>{
    if(busy()){if(e.pointerId!==(moving||cropStart||drawing).pointer)cancelPreview();return}if(e.button!==0||e.isPrimary===false||!same(session))return;stop(e);finishField();const p=local(e);paper.focus({preventScroll:true});
    if(tool==='select'){selectedMark=hitMark(p);syncFields();paint();if(selectedMark<0)return;moving={pointer:e.pointerId,start:p,mark:clone(draft.marks[selectedMark]),box:markBounds(selectedMark),before:snapshot(),redo:[...redo],changed:false};paper.setPointerCapture(e.pointerId);return}
+   const corner=tool==='crop'&&e.target.closest?.('[data-crop-handle]');if(corner){selectedMark=-1;redoBefore=[...redo];save();cropStart={pointer:e.pointerId,point:p,handle:corner.dataset.cropHandle,original:{...draft.crop}};paper.setPointerCapture(e.pointerId);paint();return}
    if(tool==='text'&&!textField.value.trim()){textField.focus();return}if(tool!=='crop'&&(draft.marks.length>=500||draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)>=20000))return toast('这张图的标注已满，可以撤销或清除部分标注后继续。');
    selectedMark=-1;redoBefore=[...redo];save();if(tool==='crop')cropStart={pointer:e.pointerId,point:p};else{drawing={pointer:e.pointerId,limit:Math.min(5000,20000-draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)),mark:{kind:tool,points:[p],stroke:colourField.value,fill:'none',weight:.8,...(tool==='text'?{text:textField.value,fontSize:7}:{})}};draft.marks.push(drawing.mark)}paper.setPointerCapture(e.pointerId);paint();
   };
   paper.onpointermove=e=>{
    const active=moving||cropStart||drawing;if(!active||e.pointerId!==active.pointer)return;stop(e);if(!same(session)){cancelPreview();return}const p=local(e);
    if(moving){const r=paper.getBoundingClientRect(),dx=p[0]-moving.start[0],dy=p[1]-moving.start[1];if(!moving.changed&&Math.hypot(dx*r.width/100,dy*r.height/100)<3)return;const next=shifted(moving.mark,moving.box,dx,dy);if(!moving.changed&&JSON.stringify(next)===JSON.stringify(moving.mark))return;if(!moving.changed){save();moving.changed=true}draft.marks[selectedMark]=next}
-   if(cropStart){const a=cropStart.point;draft.crop={x:Math.min(a[0],p[0]),y:Math.min(a[1],p[1]),w:Math.max(1,Math.abs(a[0]-p[0])),h:Math.max(1,Math.abs(a[1]-p[1]))};draft.crop.w=Math.min(draft.crop.w,100-draft.crop.x);draft.crop.h=Math.min(draft.crop.h,100-draft.crop.y)}
+   if(cropStart){const c=cropStart.original,a=cropStart.handle?[cropStart.handle.includes('w')?c.x+c.w:c.x,cropStart.handle.includes('n')?c.y+c.h:c.y]:cropStart.point;draft.crop={x:Math.min(a[0],p[0]),y:Math.min(a[1],p[1]),w:Math.max(1,Math.abs(a[0]-p[0])),h:Math.max(1,Math.abs(a[1]-p[1]))};draft.crop.w=Math.min(draft.crop.w,100-draft.crop.x);draft.crop.h=Math.min(draft.crop.h,100-draft.crop.y)}
    if(drawing&&tool!=='text'){if(tool==='freehand'){if(drawing.mark.points.length<drawing.limit)drawing.mark.points.push(p)}else if(drawing.limit>=2)drawing.mark.points[1]=p}paint();
   };
   paper.onpointerup=e=>end(e);paper.onpointercancel=e=>end(e,true);paper.onlostpointercapture=e=>end(e,true);
@@ -218,7 +249,7 @@
   $('imageEditCancel').onclick=()=>$('dialog').close();$('imageEditApply').onclick=()=>{if(busy())return;finishField();if(same(session)&&JSON.stringify(draft)!==JSON.stringify(initial)){undoPoint();const old=object(n).crop||{w:100,h:100};n.h=Math.round(n.h*(draft.crop.h/draft.crop.w)/(old.h/old.w)*1e6)/1e6;n.canvasObject=clone(draft);change();drawNodes()}$('dialog').close()};
   // Immutable draft snapshots share unchanged point arrays; no DOM or writer
   // survives a closed iframe, and an unfinished gesture is never restored.
-  keepDraft(session,()=>{cancelPreview();finishField();return{kind:'image',object:clone(draft),edits:edits.slice(),redo:redo.slice(),selectedMark,tool,newText,newColour}});
+  keepDraft(session,()=>{cancelPreview();finishField();return{kind:'image',object:clone(draft),edits:edits.slice(),redo:redo.slice(),selectedMark,tool,newText,newColour,imageView:{...view}}});
   onDialogDismiss(()=>{events.abort();bounds.disconnect();$('dialog').classList.remove('image-edit-dialog')});syncFields();paint();fitPaper();if(resume)restoreDraftField(resume.field);
  }
  function add(kind,position=center(),extra={}){

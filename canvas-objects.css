@@ -1,6 +1,6 @@
 /* Unselected artwork has no card chrome; selection and actions remain discoverable. */
 .node.canvas-object{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important}
-.node.canvas-object.active{outline:1.5px solid var(--accent,#8172a5)!important;outline-offset:3px}
+.node.canvas-object.active{outline:1.5px solid var(--accent,#8172a5)!important;outline-offset:-1px}
 .node.canvas-object>.inner.object-surface{padding:0!important;overflow:visible!important;position:relative;width:100%;height:100%;background:transparent!important}
 .object-art{display:block;width:100%;height:100%;margin:0!important;user-select:none;touch-action:none;color:var(--ui-text,#364152)}
 .object-art.image-art{overflow:hidden;position:relative}
@@ -33,16 +33,23 @@
 .drawing-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.drawing-choices button{min-height:44px}
 .canvas-stroke-preview{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:18}.canvas-stroke-preview[hidden]{display:none}.drawing-mode{cursor:crosshair}
 .object-style-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.object-style-fields input[type=checkbox]{width:auto}.object-style-fields input[type=color]{width:60px;min-height:34px;padding:3px}
-#dialog.image-edit-dialog{width:min(1100px,calc(100vw - 24px));height:min(860px,calc(100dvh - 24px));max-width:none;max-height:none;padding:16px;overflow:hidden}
-.image-edit-heading{display:flex;align-items:center;gap:10px}.image-edit-heading h2{flex:1;font-size:18px;margin:0}.image-edit-heading button{min-height:36px}.image-edit-tools{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0}.image-edit-tools button{min-height:36px}.image-edit-tools .chosen{background:#e7e2f0;color:#342a49;border-color:#9788b0}.image-edit-tools input[type=color]{width:38px;height:36px;padding:3px}.image-edit-tools input[type=text],#imageMarkText{width:150px;min-width:80px;padding:6px}
-#imageEditStage{height:calc(100% - 165px);min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#e9e8e2;border-radius:6px;padding:12px}
-#imageEditPaper{position:relative;max-width:100%;max-height:100%;touch-action:none;cursor:crosshair;user-select:none;line-height:0}
-#imageEditOriginal{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;pointer-events:none}
+#dialog.image-edit-dialog{width:min(1280px,calc(100vw - 24px));height:min(900px,calc(100dvh - 24px));max-width:none;max-height:none;padding:0;overflow:hidden}
+#dialog.image-edit-dialog[open]{display:flex;flex-direction:column}
+#dialog.image-edit-dialog #dialogBody{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;padding:0;overflow:hidden}
+#dialog.image-edit-dialog #dialogActions{display:none}
+.image-edit-heading{display:flex;align-items:center;gap:8px;padding:12px 16px;flex:none}.image-edit-heading h2{flex:1;font-size:16px;margin:0}.image-edit-heading button{min-height:36px}.image-edit-heading #imageEditApply{background:var(--ui-accent,#645390);color:var(--ui-accent-text,#fff);border-color:transparent}
+.image-edit-tools{display:flex;flex-wrap:wrap;gap:6px 16px;flex:none;padding:0 16px 10px;align-items:center}.image-edit-tools button,.image-edit-footer button{min-height:36px;border-color:transparent;background:transparent}.image-edit-tools .chosen{background:color-mix(in srgb,var(--ui-accent,#8172a5) 15%,transparent);color:var(--ui-text,#342a49)}.image-edit-tools input[type=color]{width:34px;height:32px;padding:3px;border:0;background:transparent}.image-edit-tools input[type=text],#imageMarkText{width:150px;min-width:80px;padding:5px 8px;min-height:32px}.image-edit-modes,.image-edit-properties,.image-edit-history,.image-edit-zoom{display:flex;align-items:center;gap:4px;min-width:0}.image-edit-modes{overflow-x:auto;flex-shrink:1;scrollbar-width:thin}.image-edit-modes button{flex:none;white-space:nowrap;padding:6px 9px}.image-edit-properties{margin-left:auto}.image-edit-properties #imageMarkText{width:150px}.image-edit-properties button{padding:6px}
+#imageEditStage{position:relative;flex:1;min-height:80px;overflow:hidden;background:color-mix(in srgb,var(--ui-text,#364152) 7%,var(--ui-panel,#f6f5f1));touch-action:none;isolation:isolate}
+#imageEditPaper{position:absolute;max-width:none;max-height:none;touch-action:none;cursor:crosshair;user-select:none;line-height:0}
+#imageEditOriginal{display:block;max-width:none;max-height:none;width:100%;height:100%;pointer-events:none}
 #imageEditMarks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #imageCropBox{position:absolute;border:2px solid white;outline:1px solid #555;box-shadow:0 0 0 100vmax #2226;pointer-events:none}
-#imageEditPaper:not([data-tool=crop]) #imageCropBox{box-shadow:none;border:1px dashed #fff8;outline:0}.image-edit-status{font-size:12px;color:var(--ui-muted,#666);margin:8px 0 0}
-@media(pointer:coarse){#nodes>.node.object-resizable>.resize.object-handle{width:calc(30px * var(--canvas-control-scale,1));height:calc(30px * var(--canvas-control-scale,1))}.object-resizable .block-actions button{min-width:36px;min-height:36px}.node .read-layout{touch-action:none}}
-@media(max-width:600px){#dialog.image-edit-dialog{padding:10px;height:fit-content;max-height:calc(100dvh - 24px)}.image-edit-tools{gap:5px;padding:8px 0}.image-edit-tools button{padding:5px 8px;font-size:12px}#imageEditStage{height:200px}.image-edit-heading h2{font-size:16px}.object-style-fields{grid-template-columns:1fr 1fr}}
+#imageEditPaper:not([data-tool=crop]) #imageCropBox{display:none}
+.image-crop-handle{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:auto;touch-action:none}.image-crop-handle::before{content:'';position:absolute;inset:6px;background:white;border:1px solid #444;border-radius:1px}.image-crop-handle[data-crop-handle=nw]{left:0;top:0;cursor:nwse-resize}.image-crop-handle[data-crop-handle=ne]{left:100%;top:0;cursor:nesw-resize}.image-crop-handle[data-crop-handle=sw]{left:0;top:100%;cursor:nesw-resize}.image-crop-handle[data-crop-handle=se]{left:100%;top:100%;cursor:nwse-resize}
+.image-edit-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;padding:6px 12px;flex:none}.image-edit-status{font-size:12px;color:var(--ui-muted,#666);margin:0;min-width:0;flex:1}.image-edit-zoom{margin-left:auto}.image-edit-zoom output{min-width:46px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}.image-edit-zoom button{min-width:36px;padding:4px 8px}.image-edit-history button{padding:4px 8px}#imageEditStage.panning,#imageEditStage[data-pan=true] #imageEditPaper{cursor:grab}#imageEditStage.panning #imageEditPaper{cursor:grabbing}
+@media(pointer:coarse){#nodes>.node.object-resizable>.resize.object-handle{width:calc(30px * var(--canvas-control-scale,1));height:calc(30px * var(--canvas-control-scale,1))}.object-resizable .block-actions button{min-width:36px;min-height:36px}.node .read-layout{touch-action:none}.image-edit-tools button,.image-edit-footer button,.image-edit-heading button{min-height:40px}.image-crop-handle{width:30px;height:30px}.image-crop-handle::before{inset:10px}}
+@media(max-width:600px){#dialog.image-edit-dialog{width:100vw;height:min(640px,100dvh);border:0;border-radius:0}.image-edit-heading{padding:8px 10px}.image-edit-heading h2{font-size:15px}.image-edit-tools{padding:0 8px 6px;gap:4px}.image-edit-modes{width:100%;flex:none}.image-edit-modes button{padding:5px 10px;font-size:13px}.image-edit-properties{width:100%;margin:0;min-height:36px}.image-edit-properties #imageMarkText{width:80px;min-width:0;flex:1}.image-edit-footer{padding:4px 6px;gap:0;justify-content:space-between}.image-edit-status{display:none}.image-edit-history button{font-size:12px;padding:4px 6px}.image-edit-zoom{gap:0}.image-edit-zoom output{min-width:38px}.image-edit-zoom button{min-width:32px;padding:4px 6px;font-size:12px}.object-style-fields{grid-template-columns:1fr 1fr}}
+@media(max-height:400px){.image-edit-heading{padding-top:4px;padding-bottom:4px}.image-edit-tools{padding-bottom:4px;flex-wrap:nowrap;overflow-x:auto}.image-edit-modes{width:auto;flex:none}.image-edit-properties{width:auto;flex:none}.image-edit-footer{padding-top:0;padding-bottom:0;flex-wrap:nowrap;overflow-x:auto}.image-edit-history,.image-edit-zoom{flex:none}.image-edit-status{display:none}}
 
 /* Editing selects the original mark; the outline never becomes image content. */
 #imageMarkSelection{position:absolute;pointer-events:none;border:1px dashed #645390;outline:1px solid #fffc;outline-offset:2px;min-width:1px;min-height:1px}
@@ -50,7 +57,3 @@
 #imageEditPaper[data-tool=select]{cursor:default}
 #imageEditPaper.moving-mark{cursor:grabbing}
 #imageEditPaper:focus-visible{outline:2px solid var(--accent,#8172a5);outline-offset:4px}
-
-.image-edit-tools{column-gap:12px}
-.image-edit-modes,.image-edit-properties,.image-edit-history{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
-@media(max-width:600px){.image-edit-modes,.image-edit-properties,.image-edit-history{width:100%;gap:5px}.image-edit-properties #imageMarkText{flex:1;width:80px;min-width:0}}
