@@ -35,7 +35,7 @@ async function exerciseSourceRecord(p,url,fixture,options={}){
  await options.snapshot?.(p,'expanded-source-beside-writing');
  const shortcut=a.locator('#immersiveSurface .note-related-links [data-note-link]');
  if(await shortcut.isVisible())await act(shortcut);
- else{await act(a.locator('#noteLinks'));const source=a.locator('.note-backlinks .note-link-row').filter({hasText:fixture.sourceTitle});await source.waitFor();assert.equal(await source.count(),1);await act(source);}
+ else{await act(a.locator('#noteLinks'));const source=a.locator('.note-backlinks').getByTitle('查看：'+fixture.sourceTitle,{exact:true});await source.waitFor();assert.equal(await source.count(),1);await act(source);}
  await a.waitForFunction(id=>whiteboardNoteEditor.sourceContext(document.querySelector('.note-source-card:not([hidden])'))?.node.id===id,fixture.sourceId);
  assert.deepEqual(await a.evaluate(()=>[...selected]),[id]);assert.equal(await a.evaluate(()=>$('dialog').open),true);assert.equal(await originalField.evaluate(el=>el===document.querySelector('#body')&&el.isConnected),true);
  await options.viewSource?.(a,fixture.sourceId,a.locator('.note-source-card:not([hidden])'));
@@ -45,8 +45,10 @@ async function exerciseSourceRecord(p,url,fixture,options={}){
  await p.keyboard.press('Control+z');assert.equal(await body.inputValue(),fixture.textA);assert.equal(await originalField.evaluate(el=>el===document.querySelector('#body')&&el.isConnected),true);
  accept('Expanded writing compares its source and returns to the same live author field, exact camera, backward selection, focus and source geometry; real prior native text Undo remains usable.');
  await p.keyboard.press('Control+End');await act(a.locator('#noteLinks'));
- const linked=a.locator('.note-backlinks .note-link-row').filter({hasText:fixture.sourceTitle});await linked.waitFor();assert.equal(await linked.count(),1);
- assert.equal(await a.locator('.note-link-results .note-link-row').filter({hasText:fixture.sourceTitle}).count(),0);
+ const linked=a.locator('.note-backlinks').getByTitle('查看：'+fixture.sourceTitle,{exact:true});await linked.waitFor();assert.equal(await linked.count(),1);
+ // A whole-board preview can mention its source; compare the actual destination title.
+ assert.equal(await a.locator('.note-link-results').getByTitle('查看：'+fixture.sourceTitle,{exact:true}).count(),0);
+ const wholeBoard=a.locator('.note-link-results').getByTitle('查看：'+original.name,{exact:true});assert.equal(await wholeBoard.count(),1);assert.match(await wholeBoard.innerText(),/整张白板/);
  await options.snapshot?.(p,'associated-and-other-content');
  await act(a.getByRole('button',{name:'引用：'+fixture.sourceTitle,exact:true}));
  assert.equal(await body.inputValue(),fixture.textA+'[['+fixture.sourceTitle+']]');assert.equal(await a.evaluate(id=>board.nodes.find(n=>n.id===id).body,id),fixture.textA+'[[@'+fixture.key+'/'+fixture.sourceId+'|'+fixture.sourceTitle+']]','Readable title retains the exact stable source destination');
