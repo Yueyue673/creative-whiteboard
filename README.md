@@ -1,116 +1,106 @@
-# 创作白板
+<p align="center">
+  <img src="docs/brand/mark.svg" alt="创作白板标志" width="64" height="64">
+</p>
 
-**让做过的内容，成为下次创作的资源。**
+<h1 align="center">创作白板</h1>
 
-[开始使用](#三步开始) · [看一次完整复用](docs/reuse.md) · [使用说明](docs/usage.md) · [English](#english)
+创作白板是在浏览器里使用的笔记和资料整理工具。把便签、图片、文件和表格放在同一张白板，用连线整理关系；常用的一组内容可以收进**内容库**，下次取出副本接着用。下载后在自己的电脑上启动，需要 **Python 3.10 或更新版本**及 **Chrome / Edge**，内容默认保存在本机。
 
-<picture>
-  <source media="(max-width: 640px)" srcset="docs/brand/reuse-cover-mobile.png">
-  <img src="docs/brand/reuse-cover.png" alt="把这次的创作，用在下一次：笔记、素材、表格与组合收进内容库，再取出独立副本，用于新的白板。原内容保留，组合与内部连线一起保存。" width="1600">
-</picture>
+<p align="center">
+  <a href="https://github.com/Yueyue673/creative-whiteboard/archive/refs/heads/main.zip"><strong>下载本机版</strong></a> ·
+  <a href="#三步开始">三步开始</a> ·
+  <a href="docs/usage.md">使用说明</a> ·
+  <a href="docs/status.md">版本区别</a>
+</p>
 
-<sub>积累与复用的流程示意；下面展示原工作台的实际界面。</sub>
+![演示示例：左侧内容库保留“观察与分镜”原件，右侧已把同一组便签、表格和连线放进“下一次创作”白板。](docs/screenshots/readme-reuse.png)
 
-## 做过的内容，不必从头再做
+<sub>真实本机版界面，使用仓库公开示例演示。图中的四块内容与三条连线已整组复用，库中原件保留。</sub>
 
-在白板上写笔记、放资料、整理表格。值得留下的部分，可以存进**内容库**，成为自己积累的资源。
+## 留下这一组，下次接着用
 
-下一次创作，把它取到另一张白板，继续修改、连接和组合。一张便签可以复用，一整组内容连同内部连线也可以。
+这次整理好的笔记和表格，下次还想沿用。以图中的「观察与分镜」为例：
 
-**01　选出要留下的内容**
+1. 在白板上选中要留下的内容，点「保存到库」，给这组内容起个名字。
+2. 打开另一张白板，在内容库选中刚保存的资源，按 **Ctrl＋Enter** 整组放入；也可以从库里拖进画布。
+3. 在新白板上继续修改。便签、表格和内部连线一起带过来，原白板与库中原件不会被这些修改自动覆盖。
 
-在白板上多选便签、表格或组合，点底部的「保存到库」。原白板上的内容会保留。
+需要把修改带回原件时，再从副本的「来源与版本」查看差异，决定更新哪一边。
 
-**02　存成自己的资源**
+[跟着做：保存一组内容 → 放到新白板 → 回看来源](docs/reuse.md)
 
-给它起个名字，放进内容库。可以按文件夹整理，也可以搜索后再找回来。
+## 看着原资料，继续写自己的这一份
 
-**03　换张白板，接着用**
+需要参考之前的内容时，先打开两张白板，再点右上角「左右分栏」。左边看原资料，右边编辑副本，不必来回切窗口。便签写长了，也可以展开编辑，再回到原来的位置。
 
-从内容库拖到新白板，得到可独立编辑的副本。也可以选中库中资源，按 **Ctrl＋Enter** 整体放入。
+![演示示例：左边是原白板，右边正在编辑新白板上的副本；新增的“这一份可以独立修改”只出现在右边。](docs/screenshots/readme-compare.png)
 
-![原工作台的真实复用结果：左侧内容库保存“观察与分镜”组合，包含4块内容与3条连线；右侧“下一次创作”白板已经取出完整副本。](docs/screenshots/reuse-new-board.png)
-
-<sub>使用仓库自带的示例白板演示：同一组笔记、表格和连线，已经用于另一张白板。</sub>
-
-### 原件留下，副本继续生长
-
-白板上的改动不会自动覆盖库中原件。想把改好的部分带回去时，右键打开「来源与版本」，先比较，再决定更新哪一边；其他副本仍然独立。
-
-[跟着做：收存 → 复用 → 回看来源](docs/reuse.md)
-
-<details>
-<summary><strong>除了复用，也能自由编排、展开写作、并排查看</strong></summary>
-
-- **在同一张白板里整理。** 文字、图片、音视频、表格、本地 HTML 和 JSON 可以摆在一起，用连线说明关系。
-- **把一条想法写长。** 展开原便签继续编辑，返回后保留在原来的位置。
-- **把两张白板放在眼前。** 标签页与左右分栏用于对照资料；窄窗口集中显示当前一侧，再从标签切换。
-
-![原便签展开编辑的真实界面](docs/screenshots/writing.png)
-
-![原工作台同时打开两张白板的真实界面](docs/screenshots/split.png)
-
-</details>
+<sub>同一份公开示例：右边输入、撤销和重做后再保存，左边原文与内容库原件保持不变。</sub>
 
 ## 三步开始
 
-需要 **Python 3.10 或更新版本**，以及 Chrome 或 Edge。运行应用无需安装 npm 或 Python 第三方依赖。
+本机版不需要账号。先安装 [Python 3.10 或更新版本](https://www.python.org/downloads/)，并准备 Chrome 或 Edge。
 
-**1. 下载项目。** [下载 ZIP](https://github.com/Yueyue673/creative-whiteboard/archive/refs/heads/main.zip) 并解压，或者：
+**1. 下载并解压。** [下载项目 ZIP](https://github.com/Yueyue673/creative-whiteboard/archive/refs/heads/main.zip)，解压到自己的文件夹。
 
-```sh
-git clone https://github.com/Yueyue673/creative-whiteboard.git
-cd creative-whiteboard
-```
-
-**2. 在项目目录启动。**
+**2. 启动。** 在解压后的项目文件夹打开终端，运行：
 
 ```sh
 python server.py
 ```
 
-如果系统使用 `python3`，改为 `python3 server.py`。使用时保留这个终端窗口。
+系统使用 `python3` 时，改为 `python3 server.py`。使用白板时保留这个终端窗口。
 
-**3. 打开白板，写第一条。** 在浏览器访问 [http://127.0.0.1:18746/](http://127.0.0.1:18746/)，双击画布空白处开始写。也可以把 [示例白板](examples/getting-started.json) 下载后拖入画布，试着移动、编辑和连接。
+**3. 在浏览器打开。** 访问 [http://127.0.0.1:18746/](http://127.0.0.1:18746/)，双击空白处写第一张便签。想先试试看，可以把项目里的 [examples/getting-started.json](examples/getting-started.json) 拖入画布，移动、编辑和连接其中的内容。
 
-## 用得上的几个操作
+<details>
+<summary>习惯使用 Git？</summary>
+
+```sh
+git clone https://github.com/Yueyue673/creative-whiteboard.git
+cd creative-whiteboard
+python server.py
+```
+
+</details>
+
+## 日常用得上的操作
 
 | 想做什么 | 怎么做 |
 | --- | --- |
-| 新建、编辑便签 | 双击空白处、双击便签 |
-| 移动画布 | 按住右键或中键拖动 |
-| 放大、缩小 | Ctrl＋滚轮 |
-| 连接内容 | 从选中内容边缘的圆点拖向另一块 |
-| 存成资源、再次使用 | 选中白板内容后 Ctrl＋Shift＋L；在内容库选中资源后 Ctrl＋Enter |
-| 撤销、搜索 | Ctrl＋Z、Ctrl＋K |
-| 回看全局 | Shift＋1 |
+| 记一条想法、继续编辑 | 双击空白处新建便签；双击便签编辑 |
+| 把资料放进来 | 将文件拖入画布，或使用「导入」 |
+| 看清整体、调整远近 | 点「全览」；Ctrl＋滚轮缩放；按住右键或中键拖动画布 |
+| 连起两条内容 | 从选中内容边缘的圆点，拖向另一块内容 |
+| 找回内容、撤销误操作 | Ctrl＋K 搜索；Ctrl＋Z 撤销；「恢复与历史」查看记录 |
+| 按自己的习惯显示 | 在「外观」调整颜色和界面大小；选中文字或内容后调整字号 |
 
-更多操作见 [使用说明](docs/usage.md)：[资料阅读](docs/usage.md#资料阅读)、[标签与分栏](docs/usage.md#标签页与左右分栏)、[外观与大小](docs/usage.md#怎样调整显示大小)、[删除与找回](docs/usage.md#删除与找回)。
+详细操作见 [使用说明](docs/usage.md)。运行应用不需要 npm；开发和测试方法见 [参与开发](CONTRIBUTING.md)。
 
-## 保存在哪里，哪些事情需要留意
+## 版本、平台与保存位置
 
-默认保存在本机 `data/` 文件夹。备份时复制该文件夹；引用在其他目录的原文件需要一起备份。历史记录可以帮助恢复误操作，不能代替独立备份。[文件位置与配置](docs/usage.md#文件位置与配置)
+- **下载的是本机版。** 内容默认保存在项目的 `data/` 文件夹。备份时保留它；如果引用了其他目录的原文件，也要一起备份。历史记录不能代替独立备份。
+- **主要面向电脑。** 本机运行和浏览器操作已在 Windows、Linux 环境核对；macOS 尚未完成实机验收。手机、平板上的复杂表格触摸输入仍有已知问题，暂建议在电脑上编辑。
+- **账号版需要另行部署。** 带登录和工作区的网页版本在开发分支，尚未合并到默认分支，需要维护者部署并提供账号。本机版不能直接开放到公网使用。[查看版本区别与当前进度](docs/status.md)
+- **多窗口不等于多人实时协作。** 同时改同一张白板可能产生保存冲突；外观设置和阅读位置也不会自动同步到所有设备。
 
-本机版没有远程访问鉴权，请勿直接开放到公网。多个窗口可以分别工作、跨白板复制；同时修改同一张白板仍需处理保存冲突。当前浏览器的外观与阅读位置暂不跨设备同步。
-
-AI 入口用于整理研究任务和核对有来源的参考资料，工具不调用模型或自动上传内容，也不代写、改写你的正文。[AI 协作说明](docs/ai-workflow.md)
-
-**默认分支提供本机版。** 账号、工作区与资料对照在开发分支中继续完善；已发布的开发版尚未合并到默认分支。[查看版本区别与进度](docs/status.md)
+「参考」入口用于整理查资料的任务和有来源的参考材料。应用本身不调用 AI 模型，不会代写或改写你的正文。[了解这个入口](docs/ai-workflow.md)
 
 ## 反馈与参与
 
-发现操作问题，欢迎 [提交 Issue](https://github.com/Yueyue673/creative-whiteboard/issues)，说明想完成的任务、操作步骤和实际结果。截图请去掉私人材料。开发与检查方法见 [参与开发](CONTRIBUTING.md)。
+遇到问题，欢迎 [提交 Issue](https://github.com/Yueyue673/creative-whiteboard/issues)，写清楚想完成什么、怎样操作、实际发生了什么。截图请先去掉私人材料。欢迎改进文档、报告问题或提交代码：[参与开发](CONTRIBUTING.md)。
 
-## English
+<details>
+<summary>English</summary>
 
-**Turn what you create into resources for your next project.**
+Creative Whiteboard is a browser-based workspace for notes, files and tables. Arrange them on a canvas, connect related items, and save a group to your library. Place an independent copy on another board and continue editing; the original stays in the library.
 
-Creative Whiteboard lets you save notes, tables, media and groups of content to your own library, then reuse them on another board. A saved group keeps its internal connections. Place an independent copy, adapt it to the new work, and compare it with the library original when you choose to update either side.
+The local application needs Python 3.10+ and Chrome or Edge. Download and unzip the project, run `python server.py`, then open <http://127.0.0.1:18746/>. Data is stored in `data/` by default. The interface and guides are currently in Chinese.
 
-It is a local-first application that runs with Python’s standard library and opens in a browser. The interface and guides are currently in Chinese. [Start locally](#三步开始) · [Reuse walkthrough](docs/reuse.md)
+The default branch is the local application. Account-based hosting is on the development branch and requires deployment; this is not a real-time collaborative editor. See [version status](docs/status.md).
 
-The default branch provides the local application. Account/workspace support and additional source-reading workflows are available on the development branch; see [version status](docs/status.md). This is not a real-time collaborative editor.
+</details>
 
 ---
 
-[MIT License](LICENSE) · Bundled html2canvas: [MIT](vendor/html2canvas.LICENSE). Imported media keeps its original license.
+[MIT License](LICENSE) · Creative Whiteboard contributors · Bundled html2canvas: [MIT](vendor/html2canvas.LICENSE). Imported media keeps its original license.
