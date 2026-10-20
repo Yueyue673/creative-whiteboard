@@ -28,6 +28,8 @@
 #nodes>.node.object-resizable:has(>.inner.live-layout)>.object-handle:is(.handle-n,.handle-s,.handle-w,.handle-e){display:none!important}
 .node.object-resizable>.port{display:none}.node.object-resizable.active>.port{display:block}
 .node.table>.inner>.inline-toolbar{zoom:calc(1 / var(--object-scale,1))}
+/* Canvas scale belongs to the object on the board, never to the expanded writing surface. */
+.node.table.immersive-surface>.inner{zoom:1!important}
 #drawingTools{position:relative}#drawingTools>summary{cursor:pointer;list-style:none;padding:6px 10px;white-space:nowrap}#drawingTools>div{position:absolute;bottom:calc(100% + 10px);left:0;display:grid;grid-template-columns:repeat(3,minmax(60px,1fr));gap:6px;padding:10px;background:var(--ui-panel,#fffefa);border:1px solid #d8d6ce;border-radius:10px;box-shadow:0 6px 24px #0002}#drawingTools:not([open])>div{display:none}
 #canvas.compact-tools #creationDock>#drawingTools,#canvas.compact-tools #creationDock>#addDocument{display:none}
 .drawing-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.drawing-choices button{min-height:44px}

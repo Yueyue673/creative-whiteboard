@@ -17,6 +17,29 @@ function cellContentMarkup(n,r,c){return '<div class="cell-contents">'+(n.cellIt
 (()=>{
 function tableAt(target){const n=board?.nodes.find(n=>n.id===target.nodeId);return n?.type==='table'&&Number.isInteger(target.r)&&Number.isInteger(target.c)&&n.rows[target.r]?.[target.c]!==undefined?n:null}
 function appendItems(nodes,target){const n=tableAt(target);if(!n)return;const items=nodes.filter(x=>x&&x.type!=='frame').map(x=>({...clone(x),id:uid()}));if(!items.length)return toast('请选中便签、表格或文件内容');undoPoint();cellItemGrid(n)[target.r][target.c].push(...items);openEditor(n.id);change();toast('已放入单元格，原内容保留')}
+// Object clipboard ownership follows the cell copy, never the enclosing table selection.
+function clipboardCell(target){
+ const live=target?.closest?.('.live-layout'),host=live?.closest('#nodes>.node[data-id],#immersiveSurface[data-id]');
+ if(!host||target.closest('.note-source-card')||$('dialog').open&&!host.closest('#dialog.immersive-dialog'))return null;
+ const n=board?.nodes.find(n=>n.id===host.dataset.id&&n.type==='table');
+ if(!n||editorId!==n.id||!selected.has(n.id))return null;
+ const owner=board,id=boardId,valid=()=>board===owner&&boardId===id&&board.nodes.includes(n)&&host.isConnected&&host.contains(live)&&editorId===n.id&&!loading&&!blocked&&!window.whiteboardHosted?.paused&&window.whiteboardHosted?.role!=='viewer';
+ return {n,live,valid};
+}
+function captureCell(target){
+ const context=clipboardCell(target);if(!context)return null;
+ const section=target.closest('[data-cell-item]')||context.live.querySelector('.cell-target');
+ if(!section||!context.live.contains(section))return null;
+ const r=+section.dataset.cellR,c=+section.dataset.cellC,index=+section.dataset.cellItem,items=context.n.cellItems?.[r]?.[c],item=items?.[index];if(!item)return null;
+ return {bundle:{nodes:[clone(item)],edges:[]},valid:()=>context.valid()&&context.n.cellItems?.[r]?.[c]===items&&items[index]===item,remove(){if(!this.valid())return false;undoPoint();items.splice(index,1);openEditor(context.n.id);change();return true},duplicate(){if(!this.valid())return false;undoPoint();items.splice(index+1,0,{...clone(item),id:uid()});openEditor(context.n.id);change();return true}};
+}
+function pasteCell(target){
+ const context=clipboardCell(target),cell=target?.closest?.('td[data-cell]');if(!context||!cell||!context.live.contains(cell))return null;
+ const [r,c]=cell.dataset.cell.split(',').map(Number),row=context.n.rowIds?.[r],column=context.n.columnIds?.[c];
+ return {apply(text){if(!context.valid()||context.n.rowIds?.[r]!==row||context.n.columnIds?.[c]!==column)return false;let value;try{value=JSON.parse(text)}catch{return false}if(value?.format!=='creative-board-fragment'||!Array.isArray(value.nodes)||!Array.isArray(value.edges))return false;appendItems(value.nodes,{nodeId:context.n.id,r,c});return true}};
+}
+window.whiteboardCellClipboard={capture:captureCell,pasteTarget:pasteCell};
+window.addEventListener('keydown',event=>{if(event.isComposing||!event.target.closest?.('[data-cell-move]'))return;const cell=captureCell(event.target);if(!cell)return;const duplicate=(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='d',remove=!event.ctrlKey&&!event.metaKey&&!event.altKey&&['Delete','Backspace'].includes(event.key);if(!duplicate&&!remove)return;event.preventDefault();event.stopImmediatePropagation();if(duplicate)cell.duplicate();else cell.remove()},true);
 const priorAssets=attachAssets;attachAssets=function(ids,target){if(!tableAt(target))return priorAssets(ids,target);const nodes=[];for(const a of ids.map(assetById).filter(Boolean)){if(a.bundle?.nodes)nodes.push(...a.bundle.nodes);else nodes.push({id:uid(),type:'note',title:a.title,body:a.notes||'',assetId:a.id,mediaId:/^(audio|video)\//.test(a.mime)?a.id:undefined,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],tags:a.tags||[],url:a.path,x:0,y:0,w:340,h:240})}appendItems(nodes,target)};
 const priorFiles=attachFiles;attachFiles=async function(files,target){if(!tableAt(target))return priorFiles(files,target);try{const added=await uploadFiles([...files]);attachAssets(added.map(a=>a.id),target)}catch(e){toast(e.message)}};
 const priorChoose=chooseImages;chooseImages=function(target){$('imageFiles').accept=tableAt(target)?'':'image/png,image/jpeg,image/webp,image/gif';priorChoose(target)};

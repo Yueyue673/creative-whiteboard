@@ -77,7 +77,7 @@
    for(const dir of (o?.kind==='image'?['nw','ne','sw','se']:['nw','ne','sw','se','n','s','w','e'])){
     let h=el.querySelector(':scope>[data-resize-direction="'+dir+'"]');
     if(!h){h=document.createElement('span');h.className='resize object-handle handle-'+dir;h.dataset.resizeDirection=dir;el.append(h)}
-    h.classList.add('object-handle','handle-'+dir);h.title=dir.length===2?'等比调整大小':'调整'+(dir==='n'||dir==='s'?'高度':'宽度');h.setAttribute('aria-label',h.title);h.tabIndex=0;h.setAttribute('role','button');
+    h.classList.add('object-handle','handle-'+dir);h.title=n.type==='table'?(dir.length===2?'等比缩放表格和内容':'调整表格'+(dir==='n'||dir==='s'?'高度':'宽度')+'，字号不变'):(dir.length===2?'等比调整大小':'调整'+(dir==='n'||dir==='s'?'高度':'宽度'));h.setAttribute('aria-label',h.title);h.tabIndex=0;h.setAttribute('role','button');
    }
    if(o){
     const actions=el.querySelector('.block-actions');
@@ -90,10 +90,23 @@
  // Keep image insertion atomic with the existing scoped library operation.
  const bundle=itemBundle;itemBundle=function(a){const result=bundle(a);if(a.mime?.startsWith('image/')&&a.mime!==bundleMime&&!a.notes?.trim()){const n=result.nodes[0];n.canvasObject={kind:'image'};n.sizeMode='manual'}return result};
  let resize=null;
+ // Layout edges use the same logical units as column editing. Corners only scale the whole table.
+ function fitTableColumns(n,width,scale){
+  if(!Array.isArray(n.columnWidths)||n.columnWidths.length!==n.columns.length||!n.columnWidths.every(v=>Number.isFinite(v)&&v>0))return null;
+  const weights=n.columnWidths.map(v=>Math.max(100,Math.min(900,v))),total=Math.max(100*weights.length,Math.min(900*weights.length,(width-2)/scale-38)),result=Array(weights.length),free=new Set(weights.map((_,i)=>i));let remaining=total;
+  while(free.size){const sum=[...free].reduce((value,i)=>value+weights[i],0),fixed=[...free].filter(i=>remaining*weights[i]/sum<100||remaining*weights[i]/sum>900);if(!fixed.length){for(const i of free)result[i]=remaining*weights[i]/sum;break}for(const i of fixed){result[i]=Math.max(100,Math.min(900,remaining*weights[i]/sum));remaining-=result[i];free.delete(i)}}return result;
+ }
+ function paintColumns(s,values){
+  const table=hostOf(s.node.id)?.querySelector('.edit-table');if(!table)return;
+  const cols=[...table.querySelectorAll(':scope>colgroup>col')];if(!s.columnStyles)s.columnStyles={table,width:table.style.width,min:table.style.minWidth,columns:cols.map(col=>col.style.width)};
+  if(values){cols.slice(1).forEach((col,i)=>col.style.width=values[i]+'px');table.style.width=table.style.minWidth=(38+values.reduce((a,b)=>a+b,0))+'px'}
+  else if(s.columnStyles.table===table){table.style.width=s.columnStyles.width;table.style.minWidth=s.columnStyles.min;cols.forEach((col,i)=>col.style.width=s.columnStyles.columns[i])}
+  growContentFields(table);
+ }
  function paintResize(s){
   const el=hostOf(s.node.id),p=s.pending;if(!el||!p)return;Object.assign(el.style,{left:p.x+'px',top:p.y+'px',width:p.w+'px',height:p.h+'px'});
   if(s.node.type==='table'){const inner=el.querySelector(':scope>.inner'),scale=p.contentScale??s.scale;el.style.setProperty('--object-scale',scale);if(inner){inner.style.zoom=String(scale);inner.style.width='100%';inner.style.height='100%'}}
-  if(p.fontSize)el.querySelector('.object-text')?.style.setProperty('font-size',p.fontSize+'px');if(object(s.node)?.strokeMode==='uniform')el.querySelector(':scope>.object-surface').innerHTML=artwork({...s.node,...p});
+  if(p.columnWidths||s.columnStyles)paintColumns(s,p.columnWidths);if(p.fontSize)el.querySelector('.object-text')?.style.setProperty('font-size',p.fontSize+'px');if(object(s.node)?.strokeMode==='uniform')el.querySelector(':scope>.object-surface').innerHTML=artwork({...s.node,...p});
   drawEdges(new Set([s.node.id]));window.whiteboardReading?.placeActions?.();
  }
  function finishResize(commit){
@@ -102,14 +115,15 @@
   if(!same(s)){try{canvas.releasePointerCapture(s.pointer)}catch{}return}
   const changed=s.pending&&(['x','y','w','h','fontSize'].some(key=>s.pending[key]!==undefined&&Math.abs(s.pending[key]-(s.node[key]??24))>1e-9)||s.pending.contentScale!==undefined&&Math.abs(s.pending.contentScale-s.scale)>1e-9);
   if(commit&&s.changed&&changed){undoPoint();Object.assign(s.node,s.pending);s.node.sizeMode='manual';change();render()}
-  else if(s.changed)drawNodes();
+  else if(s.changed){if(s.columnStyles)paintColumns(s,null);drawNodes();}
   document.body.classList.remove('canvas-gesture');try{if(canvas.hasPointerCapture(s.pointer))canvas.releasePointerCapture(s.pointer)}catch{}
  }
  function sizeAt(s,dx,dy){
   const dir=s.dir,o=s.original;let w=/[ew]/.test(dir)?Math.max(24,o.w+(dir.includes('w')?-dx:dx)):o.w,h=/[ns]/.test(dir)?Math.max(24,o.h+(dir.includes('n')?-dy:dy)):o.h;
   if(dir.length===2){const ax=dir.includes('w')?-dx:dx,ay=dir.includes('n')?-dy:dy,f=(o.w*(o.w+ax)+o.h*(o.h+ay))/(o.w*o.w+o.h*o.h),factor=Math.max(Math.max(24/o.w,24/o.h,.2/s.scale),Math.min(5/s.scale,f));w=o.w*factor;h=o.h*factor}
   const x=dir.includes('w')?o.x+o.w-w:o.x,y=dir.includes('n')?o.y+o.h-h:o.y;
-  return {x,y,w,h,...(s.node.type==='table'&&dir.length===2?{contentScale:s.scale*w/o.w}:{}),...(object(s.node)?.kind==='text'&&dir.length===2?{fontSize:Math.max(8,Math.min(200,(o.fontSize||24)*w/o.w))}:{})};
+  const columns=s.node.type==='table'&&dir.length===1&&/[ew]/.test(dir)&&Math.abs(w-o.w)>1e-9?fitTableColumns(s.node,w,s.scale):null;
+  return {x,y,w,h,...(columns?{columnWidths:columns}:{}),...(s.node.type==='table'&&dir.length===2?{contentScale:s.scale*w/o.w}:{}),...(object(s.node)?.kind==='text'&&dir.length===2?{fontSize:Math.max(8,Math.min(200,(o.fontSize||24)*w/o.w))}:{})};
  }
  canvas.addEventListener('pointerdown',e=>{
   const handle=e.target.closest('.object-handle'),el=handle?.closest('.node'),n=board?.nodes.find(n=>n.id===el?.dataset.id);

@@ -359,9 +359,9 @@
   return run(position => pasteBefore(text, snapshot, {...saved,...(position?{_insertionPoint:position}:{})}), explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, borrowed:placements.has(point?._insertion), key:fileKey('paste', snapshot, text)} : {});
  };
  const pasteMenuBefore = pasteBlocks;
- pasteBlocks = function(anchor = pasteAnchor()) {
-  const saved={...anchor},point=!explorer&&board?worldPoint(anchor.x,anchor.y):undefined;
-  return run(position => pasteMenuBefore({...saved,...(position?{_insertionPoint:position}:{})}), explorer ? 'library' : 'canvas',{label:'读取中',names:'剪贴板',items:[{title:'剪贴板'}],point,spatial:true});
+ pasteBlocks = function(anchor = pasteAnchor(), cell = null) {
+  const saved={...anchor},point=!cell&&!explorer&&board?worldPoint(anchor.x,anchor.y):undefined;
+  return run(position => pasteMenuBefore({...saved,...(position?{_insertionPoint:position}:{})},cell), explorer ? 'library' : 'canvas',{label:'读取中',names:'剪贴板',items:[{title:'剪贴板'}],point,spatial:!cell});
  };
  const placeBefore = placeAssets;
  placeAssets = function(ids, position) {
