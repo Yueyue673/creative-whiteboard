@@ -242,7 +242,7 @@
  function updateSurface(n){
   for(const el of document.querySelectorAll('.node[data-id]'))if(el.dataset.id===n.id){
    el.style.background=n.color;const paper=paperSurface(n);el.classList.toggle('theme-surface',contentSurfaceClass(n)==='theme-surface');el.classList.toggle('theme-dark',!!paper?.dark);
-   for(const [key,value]of [['--paper-ink',paper?.ink],['--paper-caption',paper?.caption]])value?el.style.setProperty(key,value):el.style.removeProperty(key);
+   for(const [key,value]of [['--paper-ink',paper?.ink],['--paper-caption',paper?.caption],['--paper-edge',paper?.edge],['--paper-header',paper?.header]])value?el.style.setProperty(key,value):el.style.removeProperty(key);
    for(const style of ['plain','lined','grid'])el.classList.toggle('paper-'+style,n.type!=='table'&&(n.paperStyle||'plain')===style);
    for(const preview of el.querySelectorAll('.note-editor-preview')){const source=preview.previousElementSibling;if(source?.matches('textarea'))preview.style.color=getComputedStyle(source).color;}
   }

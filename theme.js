@@ -16,7 +16,7 @@ const paperSurface=(()=>{
    const candidate=ink.map((c,i)=>Math.round(background[i]+(c-background[i])*step/100));
    if(contrast(candidate,background)>=4.5){caption=candidate;break}
   }
-  const value={ink:css(ink),caption:css(caption),dark:luminance(ink)>luminance(background)};
+  const value={ink:css(ink),caption:css(caption),edge:'rgba('+ink.join(',')+',0.3)',header:'rgba('+ink.join(',')+',0.06)',dark:luminance(ink)>luminance(background)};
   cache.set(color,value);return value;
  };
 })();
@@ -24,7 +24,7 @@ function contentSurfaceClass(n){
  if(n.type==='table'&&n.documentMode||n.type!=='table'&&(n.assetId||n.mediaId)||(n.color||'').toLowerCase()==='#ffffff')return 'theme-surface';
  return paperSurface(n)?.dark?'theme-dark':'';
 }
-function contentSurfaceStyle(n){const paper=paperSurface(n);return paper?'--paper-ink:'+paper.ink+';--paper-caption:'+paper.caption+';':''}
+function contentSurfaceStyle(n){const paper=paperSurface(n);return paper?'--paper-ink:'+paper.ink+';--paper-caption:'+paper.caption+';--paper-edge:'+paper.edge+';--paper-header:'+paper.header+';':''}
 (()=>{const before=noteMarkup;noteMarkup=function(n){const extra=contentSurfaceClass(n);return before(n)
  .replace('class="node ','class="node '+(extra?extra+' ':''))
  .replace('style="','style="'+contentSurfaceStyle(n))}})();
