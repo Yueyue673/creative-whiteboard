@@ -189,7 +189,7 @@
   function readingViewAxis(axis,before,after,start,size){
    const v=view(),extent=size*v.z,leading=start*v.z+v[axis];
    if(extent+32>after)return Math.max(16,Math.min(leading,Math.max(16,after-44)))-start*v.z;
-   return resizeViewAxis(axis,before,after,start,size);
+   return Math.max(16,Math.min(leading,after-extent-16))-start*v.z;
   }
   // Dialogs temporarily fill the window; retain the original pane size and camera until they return.
   let width=0,height=0,timer;new ResizeObserver(entries=>{const r=entries[0].contentRect;if(modal||frameElement?.classList.contains('pane-modal')||r.width<1||r.height<1)return;const dx=r.width-width,dy=r.height-height;if(Math.abs(dx)<.01&&Math.abs(dy)<.01)return;if(board&&width&&height){
