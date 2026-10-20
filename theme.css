@@ -289,3 +289,16 @@ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summa
  body #workspaceSidebar .library-bottom-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
  body #workspaceSidebar .library-bottom-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
 }
+
+/* A table owns its paper and its authored rectangle; controls remain outside. */
+#nodes>.node.table.active{outline-offset:-1px}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table{padding:0;gap:0;scrollbar-gutter:auto}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table>:is(#title,[data-preview-id=title]){font-size:16px;line-height:1.5;padding:7px 10px;margin:0;min-height:38px}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table>.visible-annotation{padding:0 10px}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table :is(#inlineTable,[data-preview-id=inlineTable])>.table-scroll{scrollbar-gutter:auto;border-radius:0}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table .table-scroll>.edit-table{height:100%}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table{background:transparent;color:var(--paper-ink,#242529)}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th,.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>.row-number{background:color-mix(in srgb,var(--paper-ink,#242529) 6%,transparent);color:var(--paper-caption,#555)}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(textarea,input),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>td>textarea{color:var(--paper-ink,#242529);background:transparent}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table,.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th,.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>td{border-color:color-mix(in srgb,var(--paper-ink,#242529) 30%,transparent)}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(.table-grip,.col-remove),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>.row-number>:is(.table-grip,.col-remove){color:var(--paper-caption,#555)}

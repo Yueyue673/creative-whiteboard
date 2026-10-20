@@ -243,14 +243,16 @@
   for(const el of document.querySelectorAll('.node[data-id]'))if(el.dataset.id===n.id){
    el.style.background=n.color;const paper=paperSurface(n);el.classList.toggle('theme-surface',contentSurfaceClass(n)==='theme-surface');el.classList.toggle('theme-dark',!!paper?.dark);
    for(const [key,value]of [['--paper-ink',paper?.ink],['--paper-caption',paper?.caption]])value?el.style.setProperty(key,value):el.style.removeProperty(key);
-   for(const style of ['plain','lined','grid'])el.classList.toggle('paper-'+style,(n.paperStyle||'plain')===style);
+   for(const style of ['plain','lined','grid'])el.classList.toggle('paper-'+style,n.type!=='table'&&(n.paperStyle||'plain')===style);
    for(const preview of el.querySelectorAll('.note-editor-preview')){const source=preview.previousElementSibling;if(source?.matches('textarea'))preview.style.color=getComputedStyle(source).color;}
   }
   change();
  }
  function openColour(trigger,n){const box=popup(trigger,n,'colour');if(!box)return;
+  const table=n.type==='table'&&!n.documentMode;if(table)box.setAttribute('aria-label','表格颜色');
   const source=board,sourceId=boardId,active=()=>panel===box&&board===source&&boardId===sourceId&&board.nodes.includes(n)&&!loading&&!blocked;
-  box.innerHTML='<header><b>便签外观</b><button type="button" aria-label="关闭便签外观">×</button></header><div class="note-colours">'+swatches.map(([value,name])=>'<button type="button" data-colour="'+value+'" aria-label="'+name+'" title="'+name+'" style="--swatch:'+value+'" aria-pressed="'+(n.color===value)+'"></button>').join('')+'</div><label class="note-custom-colour">自定义颜色<input type="color" aria-label="自定义便签颜色" value="'+esc(/^#[0-9a-f]{6}$/i.test(n.color||'')?n.color:'#fff0aa')+'"><input type="text" aria-label="便签颜色值" maxlength="7" value="'+esc(n.color||'#fff0aa')+'"></label><div class="note-paper-choices">'+paperChoices.map(([value,label])=>'<button type="button" data-paper="'+value+'" aria-pressed="'+((n.paperStyle||'plain')===value)+'">'+label+'</button>').join('')+'</div>';
+  const patterns=table?'':'<div class="note-paper-choices">'+paperChoices.map(([value,label])=>'<button type="button" data-paper="'+value+'" aria-pressed="'+((n.paperStyle||'plain')===value)+'">'+label+'</button>').join('')+'</div>';
+  box.innerHTML='<header><b>'+(table?'表格颜色':'便签外观')+'</b><button type="button" aria-label="关闭'+(table?'表格颜色':'便签外观')+'">×</button></header><div class="note-colours">'+swatches.map(([value,name])=>'<button type="button" data-colour="'+value+'" aria-label="'+name+'" title="'+name+'" style="--swatch:'+value+'" aria-pressed="'+(n.color===value)+'"></button>').join('')+'</div><label class="note-custom-colour">自定义颜色<input type="color" aria-label="'+(table?'自定义表格颜色':'自定义便签颜色')+'" value="'+esc(/^#[0-9a-f]{6}$/i.test(n.color||'')?n.color:'#fff0aa')+'"><input type="text" aria-label="'+(table?'表格颜色值':'便签颜色值')+'" maxlength="7" value="'+esc(n.color||'#fff0aa')+'"></label>'+patterns;
   box.querySelector('header button').onclick=closePanel;
   const colour=box.querySelector('input[type=color]'),hex=box.querySelector('input[type=text]');
   const refresh=()=>{colour.value=hex.value=n.color;box.querySelectorAll('[data-colour]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.colour===n.color)));box.querySelectorAll('[data-paper]').forEach(b=>b.setAttribute('aria-pressed',String((n.paperStyle||'plain')===b.dataset.paper)));trigger.style.setProperty('--swatch',n.color)};
@@ -513,6 +515,7 @@
  bindInline=function(){originalBind();const n=board?.nodes.find(n=>n.id===editorId&&selected.has(n.id)),root=document.querySelector('.live-layout');if(!n||!root)return;closePanel();field=null;range=null;preview=false;
   const bar=root.querySelector('.inline-toolbar');if(!bar||bar.querySelector('.note-edit-tools'))return;
   const tools=document.createElement('div');tools.className='note-edit-tools inline-ui';tools.innerHTML='<button type="button" id="noteColour" aria-label="便签颜色与纸面" title="颜色与纸面" style="--swatch:'+esc(n.color||'#fff0aa')+'"><i></i><span>外观</span></button>'+(n.type!=='table'?'<button type="button" id="noteFormat" title="文字格式">Aa</button><button type="button" id="noteLinks" title="关联内容与反向引用">关联</button><button type="button" id="notePreview" aria-pressed="false">预览</button>':'<button type="button" id="noteLinks" title="引用当前单元格中的内容">关联</button>');bar.prepend(tools);
+  if(n.type==='table'&&!n.documentMode){const colour=tools.querySelector('#noteColour');colour.setAttribute('aria-label','表格颜色');colour.title='表格颜色'}
   tools.querySelector('#noteColour').onclick=()=>openColour(tools.querySelector('#noteColour'),n);
   tools.querySelector('#noteFormat')?.addEventListener('click',()=>openFormat(tools.querySelector('#noteFormat'),n));
   tools.querySelector('#noteLinks')?.addEventListener('click',()=>openLinks(tools.querySelector('#noteLinks'),n));

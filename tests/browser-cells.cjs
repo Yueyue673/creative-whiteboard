@@ -58,7 +58,7 @@ async function verifyPaperSurfaces(page,audioId){
    const cells=document.querySelectorAll('[data-id="papers"] .cell-content');
    return {nested:getComputedStyle(cells[7]).backgroundColor,panel:getComputedStyle(document.documentElement).getPropertyValue('--ui-panel').trim(),invalid:getComputedStyle(cells[8]).backgroundColor,unexpected:cells[8].style.getPropertyValue('--unexpected')};
   });
-  assert.equal(extras.nested,'rgb('+extras.panel.slice(1).match(/../g).map(x=>parseInt(x,16)).join(', ')+')','Nested table uses the neutral interface surface');
+  assert.equal(extras.nested,'rgb(205, 232, 251)','Nested table retains its authored paper in every interface theme');
   assert.equal(extras.invalid,'rgb(255, 240, 170)','Invalid stored colour falls back to default paper');
   assert.equal(extras.unexpected,'','Stored colour cannot introduce arbitrary style properties');
   assert.equal(await page.evaluate(()=>JSON.stringify(board)),content,'Appearance never changes authored content, copies or layout');

@@ -71,7 +71,7 @@
   for(const n of board.nodes){
    const o=object(n);if(!o&&n.type!=='table')continue;
    const el=elements.get(n.id);if(!el)continue;const s=scaleOf(n),inner=el.querySelector(':scope>.inner');
-   if(n.type==='table'&&inner){el.style.setProperty('--object-scale',s);inner.style.zoom=String(s);inner.style.width=(100/s)+'%';inner.style.height=(100/s)+'%'}
+   if(n.type==='table'&&inner){el.style.setProperty('--object-scale',s);inner.style.zoom=String(s);inner.style.width='100%';inner.style.height='100%'}
    el.classList.add('object-resizable');
    for(const dir of (o?.kind==='image'?['nw','ne','sw','se']:['nw','ne','sw','se','n','s','w','e'])){
     let h=el.querySelector(':scope>[data-resize-direction="'+dir+'"]');
@@ -91,7 +91,7 @@
  let resize=null;
  function paintResize(s){
   const el=hostOf(s.node.id),p=s.pending;if(!el||!p)return;Object.assign(el.style,{left:p.x+'px',top:p.y+'px',width:p.w+'px',height:p.h+'px'});
-  if(s.node.type==='table'){const inner=el.querySelector(':scope>.inner'),scale=p.contentScale??s.scale;el.style.setProperty('--object-scale',scale);if(inner){inner.style.zoom=String(scale);inner.style.width=(100/scale)+'%';inner.style.height=(100/scale)+'%'}}
+  if(s.node.type==='table'){const inner=el.querySelector(':scope>.inner'),scale=p.contentScale??s.scale;el.style.setProperty('--object-scale',scale);if(inner){inner.style.zoom=String(scale);inner.style.width='100%';inner.style.height='100%'}}
   if(p.fontSize)el.querySelector('.object-text')?.style.setProperty('font-size',p.fontSize+'px');
   drawEdges(new Set([s.node.id]));window.whiteboardReading?.placeActions?.();
  }
