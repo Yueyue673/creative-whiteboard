@@ -289,11 +289,18 @@
   root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.style.color=getComputedStyle(el).color;view.innerHTML=n.textFormat==='markdown'?rendered(serializeField(el,el.value)):'<p>'+linkedText(serializeField(el,el.value))+'</p>'});if(!preview)growContentFields(root);window.whiteboardSizing?.invalidate(root);
  }
  function references(n){const refs=[];for(const key of ['body','userText','annotation'])for(const token of wikiMatches(String(n[key]||'')))refs.push(token.content.split('|')[0]);if(n.type==='table'){for(const text of [...(n.columns||[]),...(n.rows||[]).flat()])for(const token of wikiMatches(String(text||'')))refs.push(token.content.split('|')[0])}return refs}
- function resolveReference(value,records,sourceBoard=boardId){
+ function referenceCandidates(value,records,sourceBoard=boardId){
   const explicit=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/.exec(value);
-  if(explicit)return records.find(row=>row.board===explicit[1]&&row.node.id===explicit[2]);
-  const local=records.filter(row=>!row.unavailable&&row.board===sourceBoard&&(row.node.id===value||row.node.title===value));if(local.length===1)return local[0];
-  if(local.length)return null;const global=records.filter(row=>!row.unavailable&&row.node.title===value);return global.length===1?global[0]:null;
+  if(explicit)return records.filter(row=>row.board===explicit[1]&&row.node.id===explicit[2]);
+  const available=records.filter(row=>!row.unavailable),ids=available.filter(row=>row.board===sourceBoard&&row.node.id===value);if(ids.length)return ids;
+  const matches=row=>row.node.title===value||noteLabel(row.node)===value.trim(),local=available.filter(row=>row.board===sourceBoard&&matches(row));
+  return local.length?local:available.filter(matches);
+ }
+ function resolveReference(value,records,sourceBoard=boardId){const rows=referenceCandidates(value,records,sourceBoard);return rows.length===1?rows[0]:null}
+ function showReferenceChoices(trigger,value,records,sourceBoard,onSelect,incomplete=false){
+  const originBoard=boardId,box=popup(trigger,null,'reference');if(!box)return;box.setAttribute('aria-label','打开关联内容');const rows=referenceCandidates(value,records,sourceBoard),heading=document.createElement('header'),title=document.createElement('b'),close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','关闭关联选择');close.onclick=closePanel;title.textContent=rows.length?'打开哪一条？':'暂时打不开这条关联';heading.append(title,close);box.append(heading);
+  if(incomplete||!rows.length){const message=document.createElement('p');message.textContent=incomplete?'部分资料未能读到，请稍后重试。':'没有找到对应内容，可能已移走、删除或当前账号无法查看。';box.append(message)}
+  const list=document.createElement('div');list.className='note-reference-choices';for(const row of rows){const button=document.createElement('button');button.type='button';button.className='note-reference-choice';const name=document.createElement('strong'),where=document.createElement('small'),excerpt=document.createElement('span');name.textContent=noteLabel(row.node);where.textContent=row.name+(row.container?' · 表格内':'');excerpt.textContent=String(row.node.body||'').split('\n').find(line=>line.trim())?.slice(0,90)||'';button.append(name,where,excerpt);button.onclick=async()=>{if(panel!==box||boardId!==originBoard||!trigger.isConnected)return;closePanel();await onSelect(row)};list.append(button)}box.append(list);show(trigger);(list.querySelector('button')||close).focus({preventScroll:true});
  }
  async function allNotes(){
   const response=await api('/api/boards'),list=await response.json(),records=noteRecords(board,boardId);
@@ -396,11 +403,13 @@
     const local=await rowsFor(from);if(!live(epoch))return;const current=local.find(r=>r.node.id===from.node.id);
     if(!current){message('这份资料已移走或删除。');return}
     if(!references(current.node).includes(value)){session.render(current);message('资料已有变化，请查看当前原文。');return}
-    let target=resolveReference(value,local,from.board);
+    let records=local,incomplete=false,target=resolveReference(value,local,from.board);
     const explicit=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/.exec(value);
     if(!target&&explicit){const rows=await recordsFor(explicit[1]);if(!live(epoch))return;target=rows.find(r=>r.node.id===explicit[2])}
-    else if(!target){const result=await allNotes();if(!live(epoch))return;target=resolveReference(value,result.records,from.board)}
-    if(!target){message('没有找到唯一的资料，请从“关联”重新选择。');return}
+    else if(!target&&!referenceCandidates(value,local,from.board).length){const result=await allNotes();if(!live(epoch))return;records=result.records;incomplete=result.incomplete;target=resolveReference(value,records,from.board)}
+    // An ambiguity in the original board or library stays a choice there.
+    if(target&&incomplete&&!explicit&&target.board!==from.board)target=null;
+    if(!target){message('');showReferenceChoices(link,value,records,from.board,async row=>{if(!live(epoch))return;try{await visit(row,epoch,[...session.trail,from].slice(-32))}catch(error){failed(error,epoch)}},incomplete);return}
     await visit(target,epoch,[...session.trail,from].slice(-32));
    }catch(error){failed(error,epoch)}
   });
@@ -528,7 +537,7 @@
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}},true);
  document.getElementById('dialog').addEventListener('cancel',e=>{if(!panel)return;e.preventDefault();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})});
  window.addEventListener('resize',closePanel);
- document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records);if(row)await jumpReference(row,place,epoch,records);else toast('没有找到唯一的目标，请从“关联”重新选择')}catch(error){toast('暂时无法打开关联：'+error.message)}});
+ document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records,incomplete}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records),explicit=/^@/.test(value),local=row?.board===requestedBoard;if(row&&(!incomplete||explicit||local))await jumpReference(row,place,epoch,records);else showReferenceChoices(link,value,records,requestedBoard,async target=>{if(epoch!==referenceEpoch||boardId!==requestedBoard)return;try{await jumpReference(target,place,epoch,records)}catch(error){toast('暂时无法打开关联：'+error.message)}},incomplete)}catch(error){toast('暂时无法打开关联：'+error.message)}});
  const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw();syncReferenceReturn();syncRelations();layoutSourcePeek()};
  const originalSelection=refreshSelectionUI;refreshSelectionUI=function(){originalSelection();syncRelations()};
  window.addEventListener('creative-board-loading',()=>{if(referenceBar)referenceBar.hidden=true;});

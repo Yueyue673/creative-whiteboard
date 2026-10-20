@@ -224,7 +224,7 @@
   board.view={x:(r.width-w*z)/2-left*z,y:(r.height-h*z)/2-top*z,z};moveView();change(true);
  };
  $('fit').onclick=fit;
- window.whiteboardNavigation={read,write,fitSelection,arrange,openArrangement:arrangement,revealCaret,focusPreservingView};
+ window.whiteboardNavigation={read,write,fitSelection,arrange,openArrangement:arrangement,revealCaret,focusPreservingView,useSelection:()=>{hand=false;canvas.classList.remove('hand-tool')}};
 })();
 
 // Two fingers navigate the canvas; a remaining finger never turns into a card drag.

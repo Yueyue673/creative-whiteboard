@@ -120,11 +120,12 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node .wf-origin{display:block;width:100%;text-align:left;margin:10px 0;padding:8px 10px;font-size:12px;overflow-wrap:anywhere}
 .node:not(.active):not(.connector-target) .port,.node.resizable-note:not(.active) .resize{opacity:0;pointer-events:none}
 .node.active .port,.node.connector-target .port,.node.resizable-note.active .resize{opacity:1;pointer-events:auto}
-/* Contextual copy actions stay in the table toolbar, clear of paper text. */
-.node .inline-toolbar .cell-tools{display:flex;align-items:center;gap:2px;margin-left:auto}
-.node .inline-toolbar .cell-tools[hidden]{display:none}
-.node .inline-toolbar .cell-tools button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:4px;font-size:17px}
-.node .inline-toolbar:has(.cell-tools:not([hidden])) #inlineDone{margin-left:6px}
+/* Less frequent copy actions stay in the original table More menu. */
+.node .table-options .cell-tools{display:grid;gap:4px;margin-top:4px;padding-top:6px;border-top:1px solid var(--ui-line)}
+.node .table-options .cell-tools[hidden]{display:none}
+.node .table-options .cell-tools button{width:auto;height:auto;padding:6px 9px;font-size:12px;justify-content:start}
+.node .table-options .cell-tools small{display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 9px;color:var(--ui-muted)}
+.node.table .table-options[open]>div{left:auto;right:0;min-width:180px;max-width:min(260px,calc(100vw - 32px))}
 .node .live-layout .cell-content.cell-target{outline:1px solid var(--ui-accent);outline-offset:1px}
 #fileContext{max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;border-radius:6px;padding:4px;min-width:min(210px,calc(100vw - 16px))}
 #fileContext button{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:8px 10px;min-height:32px;border-radius:3px;line-height:1.4}
@@ -303,3 +304,5 @@ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summa
 .node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(textarea,input),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>td>textarea{color:var(--paper-ink,#242529);background:transparent}
 .node.table:not(.theme-surface):not(.document-paper) .edit-table,.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th,.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>td{border-color:var(--paper-edge,rgba(36,37,41,.3))}
 .node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(.table-grip,.col-remove),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>.row-number>:is(.table-grip,.col-remove){color:var(--paper-caption,#555)}
+
+.note-reference-choices{display:grid;gap:6px;max-height:min(380px,55dvh);overflow:auto}.note-reference-choice{display:grid;text-align:left;gap:3px;width:100%;padding:10px 12px}.note-reference-choice small{color:var(--ui-muted,#666)}.note-reference-choice strong,.note-reference-choice span{overflow-wrap:anywhere}.note-reference-choice span{font-size:12px;max-height:3em;overflow:hidden}

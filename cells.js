@@ -24,21 +24,24 @@ const priorDrop=attachDrop;attachDrop=async function(e,target){if(!tableAt(targe
 const priorMount=mountTableEditor;
 mountTableEditor=function(n){
  priorMount(n);
- const root=$('inlineTable'),live=root.closest('.live-layout'),toolbar=live.querySelector('.inline-toolbar');
+ const root=$('inlineTable'),live=root.closest('.live-layout');
  const tools=document.createElement('div');tools.className='cell-tools';tools.hidden=true;
  tools.setAttribute('role','group');tools.setAttribute('aria-label','单元格内容操作');
- tools.innerHTML='<button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">↗</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">×</button>';
- toolbar.insertBefore(tools,$('inlineDone'));
+ tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
+ const options=root.querySelector('.table-options');options.querySelector(':scope>div').append(tools);
  let target=null;
  const clear=()=>{target?.classList.remove('cell-target');target=null;tools.hidden=true};
  const labelTarget=()=>{
   const title=target.querySelector('[data-cell-note-field=title]')?.value.trim()||'未命名内容';
-  for(const b of tools.children){const label=b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
+  tools.querySelector('[data-cell-caption]').textContent='内容：'+title;
+  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
  };
  const choose=el=>{if(target===el)return;clear();target=el;target.classList.add('cell-target');tools.hidden=false;labelTarget()};
- live.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el);else if(!e.target.closest('.cell-tools'))clear()});
+ live.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el);else if(!e.target.closest('.cell-tools,.table-options'))clear()});
  // Keep the chosen copy while tabbing back to its toolbar actions.
  live.addEventListener('focusin',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el)});
+ live.addEventListener('keydown',e=>{const handle=e.target.closest('[data-cell-move]');if(!handle||!(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'))return;e.preventDefault();e.stopImmediatePropagation();choose(handle.closest('[data-cell-item]'));options.open=true;tools.querySelector('button')?.focus({preventScroll:true})});
+ for(const handle of root.querySelectorAll('[data-cell-move]'))handle.setAttribute('aria-keyshortcuts','Shift+F10');
  root.querySelectorAll('[data-cell-note-field]').forEach(field=>{
   const el=field.closest('[data-cell-item]'),item=n.cellItems[+el.dataset.cellR][+el.dataset.cellC][+el.dataset.cellItem];
   bindContentInput(field,()=>item[field.dataset.cellNoteField]||'',value=>{item[field.dataset.cellNoteField]=value;if(target===el&&field.dataset.cellNoteField==='title')labelTarget();change()});
@@ -47,6 +50,7 @@ mountTableEditor=function(n){
   if(!target?.isConnected||editorId!==n.id||board.nodes.find(x=>x.id===n.id)!==n)return;
   const items=n.cellItems[+target.dataset.cellR]?.[+target.dataset.cellC],index=+target.dataset.cellItem,item=items?.[index];
   if(!item)return;
+  options.open=false;
   if(button.hasAttribute('data-cell-remove')){undoPoint();items.splice(index,1);openEditor(n.id);change()}
   else{insertBundle({nodes:[clone(item)],edges:[]},{x:n.x+n.w+40,y:n.y});toast('已将副本放到表格右侧')}
  }});

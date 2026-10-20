@@ -28,7 +28,7 @@
 #nodes>.node.object-resizable:has(>.inner.live-layout)>.object-handle:is(.handle-n,.handle-s,.handle-w,.handle-e){display:none!important}
 .node.object-resizable>.port{display:none}.node.object-resizable.active>.port{display:block}
 .node.table>.inner>.inline-toolbar{zoom:calc(1 / var(--object-scale,1))}
-#drawingTools{position:relative}#drawingTools>summary{cursor:pointer;list-style:none;padding:6px 10px;white-space:nowrap}#drawingTools>div{position:absolute;bottom:calc(100% + 10px);left:0;display:grid;grid-template-columns:repeat(3,minmax(60px,1fr));gap:6px;padding:10px;background:var(--panel-bg,#fffefa);border:1px solid #d8d6ce;border-radius:10px;box-shadow:0 6px 24px #0002}#drawingTools:not([open])>div{display:none}
+#drawingTools{position:relative}#drawingTools>summary{cursor:pointer;list-style:none;padding:6px 10px;white-space:nowrap}#drawingTools>div{position:absolute;bottom:calc(100% + 10px);left:0;display:grid;grid-template-columns:repeat(3,minmax(60px,1fr));gap:6px;padding:10px;background:var(--ui-panel,#fffefa);border:1px solid #d8d6ce;border-radius:10px;box-shadow:0 6px 24px #0002}#drawingTools:not([open])>div{display:none}
 #canvas.compact-tools #creationDock>#drawingTools,#canvas.compact-tools #creationDock>#addDocument{display:none}
 .drawing-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.drawing-choices button{min-height:44px}
 .canvas-stroke-preview{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:18}.canvas-stroke-preview[hidden]{display:none}.drawing-mode{cursor:crosshair}
@@ -57,3 +57,10 @@
 #imageEditPaper[data-tool=select]{cursor:default}
 #imageEditPaper.moving-mark{cursor:grabbing}
 #imageEditPaper:focus-visible{outline:2px solid var(--accent,#8172a5);outline-offset:4px}
+
+/* The active drawing tool stays visible; drawing is a canvas action. */
+#canvasDrawMode{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:60;display:flex;gap:6px;align-items:center;max-width:calc(100% - 24px);padding:6px;background:var(--ui-panel,#fffefa);color:var(--ui-text,#364152);border:1px solid var(--ui-border,#d8d6ce);border-radius:12px;box-shadow:0 4px 18px #0002}
+#canvasDrawMode[hidden]{display:none}#canvasDrawMode button{white-space:nowrap;min-height:38px;border:0;background:transparent}#canvasDrawMode [aria-pressed=true]{background:color-mix(in srgb,var(--ui-accent,#8172a5) 18%,transparent)}.canvas-mode-tools{display:flex;min-width:60px;overflow-x:auto;scrollbar-width:thin}.canvas-mode-tools button{flex:none}.canvas-mode-style{display:flex;gap:6px;align-items:center;flex:none}.canvas-mode-style input[type=color]{width:30px;height:32px;padding:2px;border:0}.canvas-mode-style select{max-width:52px;min-height:32px;padding:2px}.canvas-mode-style label{display:flex;gap:3px;align-items:center;white-space:nowrap;font-size:12px}.canvas-mode-style input[type=checkbox]{width:auto}.drawing-mode #creationDock,.drawing-mode #nodes .block-actions,.drawing-mode #nodes .object-handle,.drawing-mode #nodes .port{display:none!important}
+@media(max-width:600px){#canvasDrawMode{bottom:8px;gap:2px;padding:4px;flex-wrap:wrap}#canvasDrawMode>[data-canvas-tool=select]{min-width:48px}.canvas-mode-tools{flex:1}.canvas-mode-style{width:100%;justify-content:flex-end;padding-top:2px}#canvasDrawMode button{min-height:40px;padding:5px 10px}}
+
+.drawing-mode #empty{visibility:hidden;pointer-events:none}
