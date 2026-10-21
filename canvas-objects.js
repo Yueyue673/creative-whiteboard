@@ -66,12 +66,48 @@
   return html.slice(0,start).replace('class="node ','class="node canvas-object object-'+object(n).kind+' ')+'<div class="inner object-surface">'+artwork(n)+'</div>'+html.slice(end);
  };
  const cells=cellContentMarkup;cellContentMarkup=function(n,r,c){return cells(n,r,c).replace(/(<section\b[^>]*\bdata-cell-item="(\d+)"[^>]*>)/g,(markup,indexTag,index)=>{const item=n.cellItems?.[r]?.[c]?.[+index],o=object(item);return !o||o.kind==='text'?markup:markup+'<div class="cell-object-art">'+artwork({...item,body:''})+'</div>'})};
+ // An unfilled mark owns its ink and text, not the visible notes inside its bounds.
+ const outlineKinds=new Set(['rect','ellipse','arrow','line','freehand']);
+ function isOutline(n){const o=object(n);return o&&outlineKinds.has(o.kind)&&(!o.fill||o.fill==='none')}
+ let drawingHitWidth=null;
+ function syncDrawingHitWidth(){
+  const width=String(12/view().z)+'px';if(width===drawingHitWidth)return;
+  $('nodes').style.setProperty('--drawing-hit-width',width);drawingHitWidth=width;
+ }
+ function mountOutline(n,el){
+  const active=!!isOutline(n);el.classList.toggle('drawing-outline',active);if(!active)return;
+  const label=el.querySelector(':scope>.object-surface>.object-label');
+  if(label)for(const child of [...label.childNodes])if(child.nodeType===Node.TEXT_NODE&&child.textContent.trim()){
+   // display:contents keeps the original anonymous grid item and native glyph hit testing.
+   const fragment=document.createElement('span');fragment.className='object-label-text';child.replaceWith(fragment);fragment.append(child);
+  }
+  const svg=el.querySelector(':scope>.object-surface>.object-drawing');if(!svg||el.querySelector(':scope>.object-surface>.object-hit-layer'))return;
+  // The hit corridor may extend past a newly drawn SVG's small padding. Keep
+  // original artwork clipping intact; only this invisible layer allows overflow.
+  const layer=svg.cloneNode(false);layer.setAttribute('class','object-hit-layer');layer.removeAttribute('aria-label');layer.setAttribute('aria-hidden','true');
+  for(const original of svg.children){
+   const hit=original.cloneNode(true);hit.setAttribute('class','object-stroke-hit');hit.setAttribute('aria-hidden','true');
+   hit.setAttribute('fill','none');hit.setAttribute('stroke','#000');hit.setAttribute('stroke-opacity','0');hit.setAttribute('vector-effect','non-scaling-stroke');
+   hit.style.setProperty('--drawing-hit-weight',Math.max(.2,Math.min(8,object(n).weight||1))+'px');layer.append(hit);
+  }
+  svg.before(layer);
+ }
+ function drawingTarget(event){
+  const actual=event.target;if(!ready()||drawingTool||!actual?.closest?.('#canvas')||actual.closest('.node,.inline-ui,#canvasTools,#creationDock,[data-edge]'))return actual;
+  // Only otherwise empty space may move a selected outline. Existing visible content keeps its target.
+  for(const el of [...$('nodes').querySelectorAll(':scope>.drawing-outline.active')].reverse()){
+   if(!selected.has(el.dataset.id))continue;const r=el.getBoundingClientRect();
+   if(event.clientX>r.left&&event.clientX<r.right&&event.clientY>r.top&&event.clientY<r.bottom)return el;
+  }
+  return actual;
+ }
+ function eventWithTarget(event,target){return new Proxy(event,{get(original,key){if(key==='target')return target;const value=Reflect.get(original,key,original);return typeof value==='function'?value.bind(original):value}})}
  function mount(){
   if(!board)return;
-  const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el]));
+  syncDrawingHitWidth();const elements=new Map([...$('nodes').children].map(el=>[el.dataset.id,el]));
   for(const n of board.nodes){
-   const o=object(n);if(!o&&n.type!=='table')continue;
-   const el=elements.get(n.id);if(!el)continue;const s=scaleOf(n),inner=el.querySelector(':scope>.inner');
+   const o=object(n),el=elements.get(n.id);if(!el)continue;mountOutline(n,el);if(!o&&n.type!=='table')continue;
+   const s=scaleOf(n),inner=el.querySelector(':scope>.inner');
    if(n.type==='table'&&inner){el.style.setProperty('--object-scale',s);inner.style.zoom=String(s);inner.style.width='100%';inner.style.height='100%'}
    el.classList.add('object-resizable');
    for(const dir of (o?.kind==='image'?['nw','ne','sw','se']:['nw','ne','sw','se','n','s','w','e'])){
@@ -87,6 +123,7 @@
  }
  const draw=drawNodes;drawNodes=function(){draw();mount();if(resize?.pending&&same(resize))paintResize(resize)};
  const refresh=refreshSelectionUI;refreshSelectionUI=function(){refresh();mount()};
+ const move=moveView;moveView=function(...args){const result=move.apply(this,args);syncDrawingHitWidth();return result};
  // Keep image insertion atomic with the existing scoped library operation.
  const bundle=itemBundle;itemBundle=function(a){const result=bundle(a);if(a.mime?.startsWith('image/')&&a.mime!==bundleMime&&!a.notes?.trim()){const n=result.nodes[0];n.canvasObject={kind:'image'};n.sizeMode='manual'}return result};
  let resize=null;
@@ -147,7 +184,7 @@
   stop(e);const unit=e.shiftKey?10:1,s={node:n,dir:h.dataset.resizeDirection,original:clone(n),scale:scaleOf(n)},dx=e.key==='ArrowLeft'?-unit:e.key==='ArrowRight'?unit:0,dy=e.key==='ArrowUp'?-unit:e.key==='ArrowDown'?unit:0;
   undoPoint();Object.assign(n,sizeAt(s,dx,dy));n.sizeMode='manual';drawNodes();change();hostOf(n.id)?.querySelector('[data-resize-direction="'+s.dir+'"]')?.focus({preventScroll:true});
  });
- canvas.addEventListener('dblclick',e=>{if(drawingTool){stop(e);return}const el=e.target.closest('.canvas-object'),n=board?.nodes.find(n=>n.id===el?.dataset.id);if(n&&!e.target.closest('.inline-ui,.resize,.port')){stop(e);editObject(n.id)}},true);
+ canvas.addEventListener('dblclick',e=>{if(drawingTool){stop(e);return}const target=drawingTarget(e),el=target.closest('.canvas-object'),n=board?.nodes.find(n=>n.id===el?.dataset.id);if(n&&!target.closest('.inline-ui,.resize,.port')){stop(e);editObject(n.id)}},true);
  const open=openEditor;openEditor=function(id){const n=board?.nodes.find(n=>n.id===id);if(object(n))return editObject(id);return open(id)};
  function commitObject(session,next){if(!same(session))return false;undoPoint();session.node.canvasObject=clone(next);change();drawNodes();return true}
  function editObject(id,resume=null){
@@ -308,6 +345,12 @@
  Object.assign(wfLabels,{canvasObject:'图形与图片编辑',contentScale:'整体大小'});
  const menuItems=(event,items)=>{const n=board?.nodes.find(n=>n.id===event.target.closest?.('.node[data-id]')?.dataset.id),o=object(n);if(!o)return items;return [[o.kind==='image'?'裁剪与标注':'图形与文字',()=>editObject(n.id)],...(o.kind==='image'?[['查看原图',()=>openImageView(source(n),n.title||'图片')]]:[]),...items.filter(([label])=>!['编辑','展开编辑','便签颜色与纸面','按内容调整大小','自动适应内容','固定当前尺寸','查看原图 / 放大','打开查看  Enter'].includes(label))]};
  const reading=whiteboardReading.open;whiteboardReading.open=function(id){const n=board?.nodes.find(n=>n.id===id);return object(n)?editObject(id):reading(id)};
+ // Delegate the original event, pointer capture and history to the existing canvas gesture.
+ const pointerDown=canvas.onpointerdown;canvas.onpointerdown=function(event){const target=drawingTarget(event);return pointerDown.call(this,target===event.target?event:eventWithTarget(event,target))};
+ canvas.addEventListener('contextmenu',event=>{
+  const target=drawingTarget(event);if(target===event.target||contextDown&&Math.hypot(event.clientX-contextDown.x,event.clientY-contextDown.y)>5)return;
+  stop(event);fileMenu(eventWithTarget(event,target),[]);
+ },true);
  window.whiteboardCanvasObjects={add,edit:editObject,isObject:n=>!!object(n),scaleOf,marksSVG,showTools,menuItems,captureDraft,restoreDraft,focusDraft};
  if(board)mount();
 })();
