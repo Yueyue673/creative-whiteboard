@@ -4,16 +4,16 @@
  const players=new WeakMap(),restoredOwners=new Set();let active=null;
  const stamp=s=>{const units=Math.round(Math.max(0,Number(s)||0)*100),fraction=String(units%100).padStart(2,'0').replace(/0+$/,'');return Math.floor(units/6000)+':'+String(Math.floor(units%6000/100)).padStart(2,'0')+(fraction?'.'+fraction:'')};
  function parseTime(raw){const parts=raw.trim().split(':');return parts.length<=3&&parts.every((p,i)=>(i===parts.length-1?/^\d+(?:\.\d+)?$/:/^\d+$/).test(p)&&(i===0||Number(p)<60))?parts.reduce((sum,p)=>sum*60+Number(p),0):NaN}
- function owner(el){const n=board?.nodes.find(n=>n.id===el.closest('.node')?.dataset.id),cell=el.closest('[data-cell-item]');return cell?n?.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem]:n}
+ function owner(el){const n=contentContext(el)?.node,cell=el.closest('[data-cell-item]');return cell?n?.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem]:n}
  const mediaKey=el=>el.getAttribute('src')||el.querySelector('source')?.getAttribute('src')||'media';
  function timeline(el,create=false){const n=owner(el);if(!n)return null;if(create){n.mediaTimeline??={};n.mediaTimeline[mediaKey(el)]??={markers:[],startMarkerId:null}}return n.mediaTimeline?.[mediaKey(el)]||null}
  const sorted=el=>(timeline(el)?.markers||[]).slice().sort((a,b)=>a.time-b.time);
  function jump(el,time,play=false){if(!Number.isFinite(el.duration)||el.duration<=0)return;el.currentTime=Math.max(0,Math.min(time,el.duration));el._captureReading?.();if(play)el.play().catch(()=>toast('无法播放，请检查原文件'))}
- function write(el,fn,checkpoint=true){if(blocked)return toast('请先处理保存冲突');if(!owner(el))return;if(checkpoint)undoPoint();fn(timeline(el,true));change();update(el);if(active?.el===el)renderPanel(active);renderOutline()}
+ function write(el,fn,checkpoint=true){if(contentContext(el)?.readOnly)return;if(blocked)return toast('请先处理保存冲突');if(!owner(el))return;if(checkpoint)undoPoint();fn(timeline(el,true));change();update(el);if(active?.el===el)renderPanel(active);renderOutline()}
  function open(el,id=null){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};ui.querySelector('.media-time').click();decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
  function update(el){
   const info=players.get(el);if(!info)return;const t=timeline(el),list=sorted(el),ready=Number.isFinite(el.duration)&&el.duration>0;
-  if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=boardId+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
+  if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=(contentContext(el)?.board||boardId)+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
   const roots=[el.nextElementSibling];if(active?.el===el&&$('mediaPopover'))roots.push($('mediaPopover').querySelector('.media-controls'));
   for(const root of roots){if(!root?.matches('.media-controls'))continue;let ticks=root.querySelector('.media-marker-ticks');if(!ticks){ticks=document.createElement('div');ticks.className='media-marker-ticks';root.append(ticks)}
    const seek=root.querySelector('.media-seek');if(seek){ticks.style.left=(seek.offsetLeft+7)+'px';ticks.style.right=Math.max(7,root.clientWidth-seek.offsetLeft-seek.offsetWidth+7)+'px';ticks.style.top=(seek.offsetTop+seek.offsetHeight/2+4)+'px'}
@@ -28,7 +28,7 @@
   if(!s.list?.isConnected)return;const focus=document.activeElement,keepFocus=s.list.contains(focus),all=sorted(s.el),t=timeline(s.el);s.list.replaceChildren();
   if(!all.length){const empty=document.createElement('p');empty.className='media-marker-empty';empty.textContent='在需要回看的位置添加标记，再写下它的用途或你的想法。';s.list.append(empty)}
   for(const m of all){const row=document.createElement('button');row.type='button';row.className='media-marker-row';row.dataset.markerId=m.id;row.setAttribute('role','option');row.setAttribute('aria-selected',String(m.id===s.selected));row.tabIndex=m.id===s.selected?0:-1;const time=document.createElement('span'),title=document.createElement('span'),flag=document.createElement('small');time.textContent=stamp(m.time);title.textContent=title.title=m.title||'未命名标记';flag.textContent=m.id===t?.startMarkerId?'重播起点':'';row.append(time,title,flag);row.onclick=()=>{s.selected=m.id;jump(s.el,m.time);renderPanel(s)};s.list.append(row)}
-  const m=all.find(m=>m.id===s.selected);s.editor.hidden=!m;s.summary.textContent=t?.startMarkerId?'再次打开从选定标记开始。':'再次打开接着上次的位置。';s.resume.hidden=!t?.startMarkerId;
+  const m=all.find(m=>m.id===s.selected);s.editor.hidden=!m;s.summary.textContent=t?.startMarkerId?'再次打开从选定标记开始。':'再次打开接着上次的位置。';s.resume.hidden=!!contentContext(s.el)?.readOnly||!t?.startMarkerId;
   if(m){s.title.value=m.title||'';s.note.value=m.note||'';s.time.value=String(Math.round(m.time*100)/100);s.start.checked=m.id===t?.startMarkerId;s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true;s.error.textContent='';growTitle(s)}
   const row=[...s.list.children].find(row=>row.dataset.markerId===s.selected);if(row){if(keepFocus)row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'})}
   if(focus===s.resume&&s.resume.hidden)(m?s.start:s.add).focus({preventScroll:true});else if(s.editor.hidden&&s.editor.contains(focus))s.add.focus({preventScroll:true});
@@ -42,7 +42,7 @@
   s.add.onclick=()=>{const id=uid();s.selected=id;write(el,t=>t.markers.push({id,time:Math.round(el.currentTime*100)/100,title:'',note:''}));s.title.focus()};
   s.replay.onclick=()=>{const t=timeline(el),m=t?.markers.find(m=>m.id===t.startMarkerId);jump(el,m?.time||0,true)};
   const current=()=>timeline(el)?.markers.find(m=>m.id===s.selected);
-  for(const [field,key]of [[s.title,'title'],[s.note,'note']]){bindContentInput(field,()=>current()?.[key]||'',value=>{const m=current();if(m){m[key]=value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'){if(row)row.children[1].textContent=row.children[1].title=m.title||'未命名标记';growTitle(s);whiteboardMedia.fit()}}});const input=field.oninput;field.oninput=()=>{if(!blocked&&current())input()}}
+  for(const [field,key]of [[s.title,'title'],[s.note,'note']]){bindContentInput(field,()=>current()?.[key]||'',value=>{if(contentContext(el)?.readOnly)return;const m=current();if(m){m[key]=value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'){if(row)row.children[1].textContent=row.children[1].title=m.title||'未命名标记';growTitle(s);whiteboardMedia.fit()}}});const input=field.oninput;field.oninput=()=>{if(!blocked&&!contentContext(el)?.readOnly&&current())input()}}
   s.time.oninput=()=>{s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true};
   s.time.onchange=()=>{
    const value=parseTime(s.time.value),ready=Number.isFinite(el.duration)&&el.duration>0;let message='';
@@ -53,7 +53,8 @@
   };
   s.start.onchange=()=>write(el,t=>t.startMarkerId=s.start.checked?s.selected:null);s.resume.onclick=()=>write(el,t=>t.startMarkerId=null);
   section.querySelector('.media-remove-marker').onclick=()=>write(el,t=>{t.markers=t.markers.filter(m=>m.id!==s.selected);if(t.startMarkerId===s.selected)t.startMarkerId=null;s.selected=t.markers[0]?.id||null});
-  renderPanel(s);update(el);
+  if(contentContext(el)?.readOnly){s.add.hidden=true;s.resume.hidden=true;s.title.readOnly=s.note.readOnly=s.time.readOnly=true;s.start.disabled=true;section.querySelector('.media-marker-actions').hidden=true;}
+  renderPanel(s);if(contentContext(el)?.readOnly)s.resume.hidden=true;update(el);
  }
  function mount(){
   for(const el of document.querySelectorAll('.node audio,.node video')){let info=players.get(el);const controls=el.nextElementSibling;if(!controls?.matches('.media-controls'))continue;

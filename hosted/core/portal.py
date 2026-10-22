@@ -1,0 +1,86 @@
+"""Small independent portal; never serves the desktop entry or its file API."""
+from pathlib import Path
+from django.conf import settings
+
+from django.http import HttpResponse, HttpResponseNotAllowed, Http404
+from django.shortcuts import render, redirect
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+from .views import account_json
+
+
+ASSETS = {
+    "space-reading.js": "text/javascript",
+    "paper-reading.js": "text/javascript", "paper-reading.css": "text/css",
+    "account-panel.js": "text/javascript", "account-panel.css": "text/css",
+    "note-references.js": "text/javascript", "note-references.css": "text/css",
+    "board-views.js": "text/javascript", "board-views.css": "text/css",
+    "board-frames.js": "text/javascript", "board-frames.css": "text/css",
+    "board-tables.js": "text/javascript", "board-tables.css": "text/css", "table-model.js": "text/javascript",
+    "board-table-paste.js": "text/javascript", "table-paste-model.js": "text/javascript",
+    "board-cell-notes.js": "text/javascript", "board-cell-notes.css": "text/css", "cell-notes-model.js": "text/javascript",
+    "board-cell-media.js": "text/javascript", "cell-media-model.js": "text/javascript",
+    "media-cues.js": "text/javascript", "media-cues.css": "text/css", "media-cue-model.js": "text/javascript",
+    "portal.js": "text/javascript", "portal.css": "text/css", "entry.css": "text/css",
+    "workspace-search.js": "text/javascript",
+    "board-transport.js": "text/javascript", "board-drafts.js": "text/javascript",
+    "board-session.js": "text/javascript",
+    "board-reconciliation.js": "text/javascript",
+    "native-reception.js": "text/javascript",
+    "board-recovery.js": "text/javascript", "recovery-review.js": "text/javascript",
+    "board-finder.js": "text/javascript", "board-editor.js": "text/javascript", "board-editor.css": "text/css",
+    "markdown-it.js": "text/javascript", "html2canvas.js": "text/javascript",
+    "board-media.js": "text/javascript", "board-library.js": "text/javascript",
+    "board-metadata.js": "text/javascript",
+    "board-folders.js": "text/javascript", "folder-plan.js": "text/javascript",
+    "workspace-recovery.js": "text/javascript", "browser-recovery.css": "text/css",
+    "archive-transport.js": "text/javascript", "workspace-archive.js": "text/javascript", "workspace-archive.css": "text/css",
+}
+ASSET_ROOT = Path(__file__).resolve().parent / "portal_assets"
+
+
+@ensure_csrf_cookie
+def page(request, workspace_id=None, key=None, create=False):
+    if request.method not in ("GET", "HEAD"):
+        return HttpResponseNotAllowed(("GET", "HEAD"))
+    if request.user.is_authenticated and settings.HOSTED_NATIVE_WORKBENCH:
+        if request.path == '/':
+            from .models import Membership
+            from .scope import valid_membership
+            member = Membership.objects.select_related('workspace').filter(account=request.user, workspace__kind='personal', workspace__owner=request.user).first()
+            if member and valid_membership(member):
+                return redirect(f'/w/{member.workspace_id}/app/')
+        if workspace_id and (key is not None or request.path == f'/w/{workspace_id}/'):
+            query = '?create=1' if create else (f'?board={key}' if key is not None else '')
+            return redirect(f'/w/{workspace_id}/app/' + query)
+    # A UUID is only a requested destination, not an authority. No workspace
+    # name/data is embedded: fresh scoped APIs authorize the actual contents.
+    editor = key is not None and request.user.is_authenticated
+    response = render(request, "core/board_editor.html" if editor else "core/portal.html", {"bootstrap": {
+        "account": account_json(request.user) if request.user.is_authenticated else None,
+        "workspace": str(workspace_id) if workspace_id else None,
+        "join": request.path == "/join",
+        "key": key, "create": create,
+        "destination": request.path if key is not None else None,
+        "emailRegistration": settings.HOSTED_EMAIL_REGISTRATION,
+    }})
+    response.creative_portal = True
+    response.creative_editor = editor
+    return response
+
+
+page.creative_portal_page = True
+
+
+def asset(request, name):
+    if request.method not in ("GET", "HEAD"):
+        return HttpResponseNotAllowed(("GET", "HEAD"))
+    if name not in ASSETS:
+        raise Http404
+    # This vendor alias is one fixed program file, never a supplied path.
+    vendor = {"markdown-it.js": "markdown-it.min.js", "html2canvas.js": "html2canvas.min.js"}
+    path = Path(__file__).resolve().parents[2] / "vendor" / vendor[name] if name in vendor else ASSET_ROOT / name
+    if path.resolve() != path.absolute() or not path.is_file():
+        raise Http404
+    from .program_response import program_response
+    return program_response(request, path.read_bytes(), ASSETS[name])

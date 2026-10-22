@@ -1,0 +1,37 @@
+const assert=require('node:assert/strict');
+
+// The shell, a canvas and the shared explorer own different documents. A modal
+// or input-method event in one of them must not choose a different canvas.
+async function exercise(page,first='A',second='B',from=0){
+ const checks=[],select=async id=>{await page.evaluate(id=>activate(model.tabs.find(t=>t.boardId===id).id),id);await page.waitForFunction(id=>pane(current())?.state().boardId===id&&!pane(current()).state().loading,id)},settle=()=>page.waitForTimeout(100);
+ await select(second);const frame=page.frames().find(f=>new URL(f.url()).searchParams.get('board')===second&&f.parentFrame()===page.mainFrame());
+ const original=await frame.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)}));
+ if(from<1){await page.locator('#shellMore summary').click();await page.locator('[data-command=rename]').click();const name=frame.locator('#nameInput');await name.fill('尚未确认的名称');await name.evaluate(e=>e.setSelectionRange(2,7,'backward'));const nameHandle=await name.elementHandle();
+ for(const key of ['Control+Tab','Control+Shift+Tab']){await page.keyboard.press(key);await settle();assert.equal(await page.evaluate(()=>current().boardId),second);assert(await nameHandle.evaluate(e=>e.isConnected&&document.activeElement===e&&e.closest('dialog').open&&!frameElement.hidden));assert.deepEqual(await nameHandle.evaluate(e=>[e.value,e.selectionStart,e.selectionEnd,e.selectionDirection]),['尚未确认的名称',2,7,'backward'])}
+ checks.push('Original rename retains its document, mounted dialog, draft and backward text selection for both tab shortcuts.');
+ await page.keyboard.press('Escape');await frame.locator('#dialog').waitFor({state:'hidden'});}
+ if(from<2){await page.locator('.add-tab[data-side=left]').click();await page.locator('#boardQuery').fill('尚未提交的搜索');const query=await page.locator('#boardQuery').elementHandle();
+ for(const key of ['Control+Tab','Control+Shift+Tab']){await page.keyboard.press(key);await settle();assert.equal(await page.evaluate(()=>current().boardId),second);assert(await query.evaluate(e=>e.isConnected&&document.activeElement===e&&e.closest('dialog').open));assert.equal(await query.evaluate(e=>e.value),'尚未提交的搜索')}
+ checks.push('Original board picker leaves the underlying document unchanged and retains its search and focus.');
+ await page.keyboard.press('Escape');if(await page.locator('#boardPicker').evaluate(e=>e.open))await page.keyboard.press('Escape');await page.locator('#boardPicker').waitFor({state:'hidden'});}
+ const composing=async target=>{const result=await target.evaluate(()=>{const e=new KeyboardEvent('keydown',{key:'Tab',ctrlKey:true,isComposing:true,bubbles:true,cancelable:true});document.activeElement.dispatchEvent(e);return e.defaultPrevented});await settle();assert.equal(result,false);assert.equal(await page.evaluate(()=>current().boardId),second)};
+ if(from<3){await composing(page);await composing(frame);checks.push('Shell and canvas leave composing key events available to the input method and retain the active document.');}
+ if(from<4){if(await page.locator('#globalExplorer').isHidden())await page.locator('#openBoards').click();await page.waitForFunction(()=>!!whiteboardWorkspace.explorer());const explorer=page.frames().find(f=>new URL(f.url()).searchParams.get('explorer')==='1');await composing(explorer);await explorer.evaluate(()=>whiteboardExplorer.command('search'));await explorer.locator('#wfSearchQuery').fill('仍在搜索');await page.keyboard.press('Control+Tab');await settle();assert.equal(await page.evaluate(()=>current().boardId),second);assert.equal(await explorer.locator('#wfSearchQuery').inputValue(),'仍在搜索');await page.keyboard.press('Escape');await explorer.locator('#dialog').waitFor({state:'hidden'});await page.locator('#openBoards').click();
+ checks.push('Shared explorer keeps its existing modal and composing protections.');}
+ await frame.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));const camera=await frame.evaluate(()=>clone(view()));
+ await frame.evaluate(()=>openEditor('note'));const body=frame.locator('#body');await body.focus();await body.evaluate(e=>e.setSelectionRange(1,6,'backward'));const field=await body.elementHandle();await page.keyboard.press('Control+Tab');await page.waitForFunction(id=>current().boardId===id&&pane(current())?.state().boardId===id&&!pane(current()).state().loading,first);await page.keyboard.press('Control+Shift+Tab');await page.waitForFunction(id=>current().boardId===id,second);assert(await field.evaluate(e=>e.isConnected&&document.activeElement===e));assert.deepEqual(await field.evaluate(e=>[e.selectionStart,e.selectionEnd,e.selectionDirection]),[1,6,'backward']);
+ assert.deepEqual(await frame.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)})),original);assert.deepEqual(await frame.evaluate(()=>clone(view())),camera);
+ checks.push('After dismissal normal forward/reverse switching works and restores the original editor, selection, content, view and Undo/Redo.');
+ return checks;
+}
+module.exports={exercise};
+
+if(require.main===module)(async()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process'),{chromium}=require('playwright'),root=path.resolve(__dirname,'..'),temp=fs.mkdtempSync(path.join(os.tmpdir(),'creative-tab-context-')),port=await require('./browser-port.cjs')(),base='http://127.0.0.1:'+port,server=spawn(process.env.PYTHON||'python',[root+'/server.py'],{windowsHide:true,env:{...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:temp}});let browser;
+ try{
+  for(let i=0;i<100;i++){try{if((await fetch(base+'/api/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
+  const originals={};for(const id of ['A','B']){const value={format:'creative-board',version:1,name:'通用检查'+id,nodes:[{id:'note',type:'note',title:'原名称',body:'Exact original text\n原文保留',x:20,y:30,w:300,h:220}],edges:[],view:{x:0,y:0,z:1}};assert((await fetch(base+'/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)})).ok);originals[id]=value}
+  browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||undefined});const page=await browser.newPage({viewport:{width:1100,height:760}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.waitForFunction(()=>pane(current())?.state().boardId&&!pane(current()).state().loading);await page.evaluate(()=>{openBoard('A');openBoard('B')});await page.waitForFunction(()=>model.tabs.length===2&&pane(current())?.state().boardId==='B'&&!pane(current()).state().loading);
+  for(const check of await exercise(page,'A','B',Number(process.env.CONTEXT_FROM||0)))console.log('PASS '+check);for(const id of ['A','B']){const actual=await fetch(base+'/api/boards/'+id).then(r=>r.json());assert.deepEqual(actual.nodes,originals[id].nodes);assert.deepEqual(actual.edges,originals[id].edges);assert.equal(actual.name,originals[id].name)}assert.deepEqual(errors,[]);
+ }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.once('exit',r));assert(path.resolve(temp).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(temp,{recursive:true,force:true})}
+})().catch(e=>{console.error(e);process.exitCode=1});

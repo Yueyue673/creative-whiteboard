@@ -1,3 +1,27 @@
+/* Additional public palette role data: Flexoki, Catppuccin, Rosé Pine and Nord.
+Copyright (c) 2023 Steph Ango
+Copyright (c) 2021 Catppuccin
+Copyright (c) mvllow
+Copyright (c) 2016-present Sven Greb <development@svengreb.de> (https://www.svengreb.de)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 // Appearance is a browser preference, never authored content.
 (() => {
  'use strict';
@@ -17,8 +41,21 @@
   slate:{name:'蓝灰',bg:'#19212a',canvas:'#273340',panel:'#202b36',raised:'#313f4e',field:'#18232e',border:'#121b25',line:'#455363',text:'#e1e8ef',muted:'#a6b4c3',hover:'#3a4c5d',selected:'#43586e',accent:'#85b5d8'},
   sand:{name:'暖砂',bg:'#ede7dc',canvas:'#e3dacc',panel:'#f2ecdf',raised:'#fff9ef',field:'#fffcf6',border:'#ccc1af',line:'#c5b89f',text:'#3c352c',muted:'#716557',hover:'#e5dbc9',selected:'#dacdb6',accent:'#805735'},
   forest:{name:'森林',bg:'#15201d',canvas:'#23332d',panel:'#24302a',raised:'#303f37',field:'#17241e',border:'#121e18',line:'#485b4f',text:'#e4eee6',muted:'#acbdae',hover:'#3b4e40',selected:'#455c4a',accent:'#b9d49a'},
-  iris:{name:'墨紫',bg:'#1e1b26',canvas:'#302a3c',panel:'#2b2735',raised:'#3b3447',field:'#211c2a',border:'#17131e',line:'#55495f',text:'#eee8f5',muted:'#bfb1cb',hover:'#473d53',selected:'#554862',accent:'#d2b2eb'}
+  iris:{name:'墨紫',bg:'#1e1b26',canvas:'#302a3c',panel:'#2b2735',raised:'#3b3447',field:'#211c2a',border:'#17131e',line:'#55495f',text:'#eee8f5',muted:'#bfb1cb',hover:'#473d53',selected:'#554862',accent:'#d2b2eb'},
+  "flexoki-light":{"name":"Flexoki Light","bg":"#fffcf0","canvas":"#f2f0e5","panel":"#fffcf0","raised":"#fffcf0","field":"#fffcf0","border":"#e6e4d9","line":"#cecdc3","text":"#100f0f","muted":"#6f6e69","hover":"#f2f0e5","selected":"#e6e4d9","accent":"#205ea6","link":"#205ea6"},
+  "flexoki-dark":{"name":"Flexoki Dark","bg":"#100f0f","canvas":"#1c1b1a","panel":"#1c1b1a","raised":"#282726","field":"#100f0f","border":"#282726","line":"#403e3c","text":"#cecdc3","muted":"#878580","hover":"#282726","selected":"#343331","accent":"#3aa99f","link":"#4385be"},
+  "catppuccin-latte":{"name":"Catppuccin Latte","bg":"#dce0e8","canvas":"#eff1f5","panel":"#e6e9ef","raised":"#ccd0da","field":"#dce0e8","border":"#ccd0da","line":"#acb0be","text":"#4c4f69","muted":"#6c6f85","hover":"#ccd0da","selected":"#bcc0cc","accent":"#8839ef","link":"#1e66f5"},
+  "catppuccin-frappe":{"name":"Catppuccin Frappé","bg":"#232634","canvas":"#303446","panel":"#292c3c","raised":"#414559","field":"#232634","border":"#414559","line":"#626880","text":"#c6d0f5","muted":"#a5adce","hover":"#414559","selected":"#51576d","accent":"#ca9ee6","link":"#8caaee"},
+  "catppuccin-macchiato":{"name":"Catppuccin Macchiato","bg":"#181926","canvas":"#24273a","panel":"#1e2030","raised":"#363a4f","field":"#181926","border":"#363a4f","line":"#5b6078","text":"#cad3f5","muted":"#a5adcb","hover":"#363a4f","selected":"#494d64","accent":"#c6a0f6","link":"#8aadf4"},
+  "catppuccin-mocha":{"name":"Catppuccin Mocha","bg":"#11111b","canvas":"#1e1e2e","panel":"#181825","raised":"#313244","field":"#11111b","border":"#313244","line":"#585b70","text":"#cdd6f4","muted":"#a6adc8","hover":"#313244","selected":"#45475a","accent":"#cba6f7","link":"#89b4fa"},
+  "rose-pine":{"name":"Rosé Pine","bg":"#191724","canvas":"#191724","panel":"#1f1d2e","raised":"#26233a","field":"#191724","border":"#403d52","line":"#524f67","text":"#e0def4","muted":"#908caa","hover":"#21202e","selected":"#403d52","accent":"#ebbcba","link":"#c4a7e7"},
+  "rose-pine-moon":{"name":"Rosé Pine Moon","bg":"#232136","canvas":"#232136","panel":"#2a273f","raised":"#393552","field":"#232136","border":"#44415a","line":"#56526e","text":"#e0def4","muted":"#908caa","hover":"#2a283e","selected":"#44415a","accent":"#ea9a97","link":"#c4a7e7"},
+  "rose-pine-dawn":{"name":"Rosé Pine Dawn","bg":"#faf4ed","canvas":"#faf4ed","panel":"#fffaf3","raised":"#f2e9e1","field":"#faf4ed","border":"#dfdad9","line":"#cecacd","text":"#575279","muted":"#797593","hover":"#f4ede8","selected":"#dfdad9","accent":"#286983","link":"#907aa9"},
+  "nord-dark":{"name":"Nord 极夜","bg":"#2e3440","canvas":"#2e3440","panel":"#3b4252","raised":"#434c5e","field":"#2e3440","border":"#434c5e","line":"#4c566a","text":"#eceff4","muted":"#d8dee9","hover":"#434c5e","selected":"#4c566a","accent":"#88c0d0","link":"#88c0d0"},
+  "nord-light":{"name":"Nord 雪原","bg":"#eceff4","canvas":"#e5e9f0","panel":"#eceff4","raised":"#eceff4","field":"#eceff4","border":"#d8dee9","line":"#4c566a","text":"#2e3440","muted":"#4c566a","hover":"#e5e9f0","selected":"#d8dee9","accent":"#5e81ac","link":"#5e81ac"}
  };
+ // Base role values come from the named projects; see PALETTE_SOURCES.txt.
+ const paletteSources={"flexoki-light":{"family":"Flexoki","variant":"纸墨浅色","tone":"light","url":"https://stephango.com/flexoki"},"flexoki-dark":{"family":"Flexoki","variant":"纸墨深色","tone":"dark","url":"https://stephango.com/flexoki"},"catppuccin-latte":{"family":"Catppuccin","variant":"Latte","tone":"light","url":"https://catppuccin.com/palette/"},"catppuccin-frappe":{"family":"Catppuccin","variant":"Frappé","tone":"dark","url":"https://catppuccin.com/palette/"},"catppuccin-macchiato":{"family":"Catppuccin","variant":"Macchiato","tone":"dark","url":"https://catppuccin.com/palette/"},"catppuccin-mocha":{"family":"Catppuccin","variant":"Mocha","tone":"dark","url":"https://catppuccin.com/palette/"},"rose-pine":{"family":"Rosé Pine","variant":"Rosé Pine","tone":"dark","url":"https://rosepinetheme.com/palette/"},"rose-pine-moon":{"family":"Rosé Pine","variant":"Moon","tone":"dark","url":"https://rosepinetheme.com/palette/"},"rose-pine-dawn":{"family":"Rosé Pine","variant":"Dawn","tone":"light","url":"https://rosepinetheme.com/palette/"},"nord-dark":{"family":"Nord","variant":"极夜","tone":"dark","url":"https://www.nordtheme.com/docs/colors-and-palettes"},"nord-light":{"family":"Nord","variant":"雪原","tone":"light","url":"https://www.nordtheme.com/docs/colors-and-palettes"}};
  const valid=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
  const bounded=(v,min,max,fallback)=>Number.isFinite(Number(v))?Math.max(min,Math.min(max,Number(v))):fallback;
  function navigationPrefs(value){
@@ -64,7 +101,7 @@
   }
   const surfaces=['bg','panel','field','raised','hover','selected'].map(role=>palette[role]);
   palette.text=readable(palette.text,surfaces,4.5,ink);palette.muted=readable(palette.muted,surfaces,4.5,ink);
-  palette.link=readable(tone==='light'?'#345e8b':'#95bddc',surfaces,4.5,ink);
+  palette.link=readable(palette.link||(tone==='light'?'#345e8b':'#95bddc'),surfaces,4.5,ink);
   palette.focus=readable(palette.accent,surfaces,3,ink);
   palette['canvas-focus']=readable(palette.accent,[palette.canvas],3);
   palette['canvas-text']=readable(palette.text,[palette.canvas],4.5);
@@ -99,8 +136,8 @@
   const previous=document.getElementById('appearanceDialog');if(previous){previous.disposeAppearance?.();previous.remove()}const d=document.createElement('dialog');d.id='appearanceDialog';
   d.innerHTML='<form method="dialog" class="appearance-heading"><h2>外观</h2><button aria-label="关闭外观设置">×</button></form><div class="appearance-body"><p>先选一种感觉，再调成自己的工作台。已有内容保持原色与尺寸。</p><h3>配色预设</h3><div class="appearance-presets"></div><section class="appearance-saved"><h3>我的预设</h3><p>保存颜色、画布底纹、界面大小与侧栏宽度，仅保存在当前浏览器。</p><div class="appearance-saved-list"></div><div class="appearance-save-row"><input id="appearanceName" aria-label="预设名称" maxlength="40" placeholder="给当前外观起个名字"><button type="button" id="appearanceSave">保存当前外观</button></div><div class="appearance-message" role="status" aria-live="polite"></div></section><details class="appearance-custom" open><summary>继续自定义</summary><div class="appearance-colors"></div><section class="appearance-pattern"><h3>画布底纹</h3><div role="group" aria-label="画布底纹"><button type="button" data-pattern="plain">纯色</button><button type="button" data-pattern="dots">点阵</button><button type="button" data-pattern="grid">细网格</button></div><label>底纹间距<input id="appearanceGrid" type="range" min="12" max="64" step="4"><output></output></label><p>底纹跟随画布移动与缩放，帮助定位，不改变内容位置或吸附方式。</p></section><div class="appearance-size"><label>界面大小<input id="appearanceScale" type="range" min="80" max="125" step="5"><output></output></label><label>侧栏宽度<input id="appearanceWidth" type="range" min="260" max="520" step="10"><output></output></label></div></details></div><footer><button type="button" id="appearanceReset">恢复默认</button><button type="button" id="appearanceRevert" title="还原打开设置时的外观；已保存的预设保留">还原本次调整</button><button type="button" id="appearanceDone">完成</button></footer>';
   d.querySelector('.appearance-heading h2').textContent='外观与操作';d.querySelector('#appearanceRevert').title='还原打开设置时的外观与操作偏好；已保存的预设保留';
-  d.querySelector('.appearance-body>p').textContent='先选一种感觉，再调成自己的工作台。已有原文与内容配色保留，自动便签仍随内容适应。';
-   d.querySelector('.appearance-saved p').textContent='保存颜色、画布底纹、纸面字体、缩略显示、界面大小、侧栏宽度与操作偏好，仅保存在当前浏览器。';
+  d.querySelector('.appearance-body>p').textContent='选一套配色，也可以继续微调。已有便签保留原来的颜色。';
+   d.querySelector('.appearance-saved p').textContent='保存自己的外观和操作偏好，仅保存在当前浏览器。';
    const typography=document.createElement('section');typography.className='appearance-pattern appearance-typography';typography.innerHTML='<h3>纸面字体</h3><label>阅读搭配<select id="appearancePaperTypeface">'+Object.entries(paperTypefaces).map(([id,row])=>'<option value="'+id+'">'+row.name+'</option>').join('')+'</select></label><p>标题和正文一起切换，按钮与代码保持原样。文字、字号、位置和手动尺寸保留；自动便签仍随内容适应。字体由当前设备提供。</p>';d.querySelector('.appearance-size').before(typography);
   const overview=document.createElement('section');overview.className='appearance-pattern appearance-overview';overview.innerHTML='<h3>缩远后的便签</h3><div role="group" aria-label="缩略显示方式"><button type="button" data-overview-mode="smart">名称导航</button><button type="button" data-overview-mode="original">原样缩小</button></div><label>阅读预设<select id="appearanceOverviewPreset" aria-label="概览阅读预设">'+Object.entries(overviewPresets).map(([id,p])=>'<option value="'+id+'">'+p.name+'</option>').join('')+'<option value="custom" disabled>自定义</option></select></label><details class="appearance-custom"><summary>精细调整</summary><label>开始概览<input id="appearanceOverviewAt" aria-label="开始概览的比例" type="range" min="15" max="75" step="1"><output></output></label><label>文字上限<input id="appearanceOverviewFont" aria-label="概览文字上限" type="range" min="9" max="18" step="1"><output></output></label></details><p>名称导航在缩远时显示名称；原样缩小保留纸面原貌。概览会按纸面空间缩小文字，已有内容、字号、位置和尺寸保持原样。</p>';d.querySelector('.appearance-size').before(overview);
   const navigation=document.createElement('section');navigation.className='navigation-settings';navigation.innerHTML='<h3>白板操作</h3><label class="navigation-check"><input id="navSnap" type="checkbox">拖动时显示对齐参考线并吸附</label><label>缩放速度<input id="navZoom" type="range" min="30" max="200" step="10"><output></output></label><div><label>方向键移动<input id="navNudge" required type="number" min="0.1" max="100" step="0.1"></label><label>Shift＋方向键<input id="navBigNudge" required type="number" min="1" max="500" step="any"></label></div><p>右键或空格＋拖动移动画布；Ctrl＋滚轮缩放；H 切到手形工具，V 切回选择。Shift＋拖动限制方向，Alt＋拖动创建副本。拖动时按 Ctrl 可临时关闭吸附。</p><p class="navigation-message" role="status" aria-live="polite"></p>';d.querySelector('.appearance-body').append(navigation);
@@ -116,10 +153,16 @@
    catch{navigation.querySelector('.navigation-message').textContent='浏览器未保存这次操作设置，仍使用原来的操作偏好。';renderNavigation(true);return false}
   }
   const message=(text,undo)=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent='撤销移除';b.onclick=()=>{if(owns())undo()};box.append(b)}};
-  for(const [id,v]of Object.entries(palettes)){
-   const b=document.createElement('button');b.type='button';b.dataset.preset=id;
-   b.innerHTML='<span style="background:'+v.canvas+';border-color:'+v.line+'"><i style="background:#fff0aa"></i><i style="background:'+v.raised+'"></i><i style="background:'+v.accent+'"></i></span>'+v.name;
-   b.onclick=()=>{p.preset=id;p.custom={};update()};presets.append(b);
+  const sourceLine=document.createElement('p');sourceLine.className='appearance-source';presets.after(sourceLine);
+  for(const tone of ['light','dark']){
+   const heading=document.createElement('h4');heading.textContent=tone==='light'?'浅色':'深色';presets.append(heading);
+   for(const [id,v]of Object.entries(palettes)){
+    const reference=paletteSources[id];if((reference?.tone||(inkFor(v.panel)==='#ffffff'?'dark':'light'))!==tone)continue;
+    const b=document.createElement('button');b.type='button';b.dataset.preset=id;b.setAttribute('aria-label',v.name);
+    b.innerHTML='<span aria-hidden="true" style="background:'+v.canvas+';border-color:'+v.line+'"><i data-preset-note style="background:'+p.note+'"></i><i style="background:'+v.raised+'"></i><i style="background:'+v.accent+'"></i></span>';
+    const name=document.createElement('strong');name.textContent=reference?.variant||v.name;const detail=document.createElement('small');detail.textContent=reference?.family||'原有配色';b.append(name,detail);
+    b.onclick=()=>{p.preset=id;p.custom={};update()};presets.append(b);
+   }
   }
   function refreshSaved(){
    const list=d.querySelector('.appearance-saved-list');list.replaceChildren();const rows=savedPresets();
@@ -157,6 +200,9 @@
   function labels(){for(const [id,unit]of [['appearanceScale','%'],['appearanceWidth',' px'],['appearanceGrid',' px'],['appearanceOverviewAt','%'],['appearanceOverviewFont',' px']]){const input=d.querySelector('#'+id);input.nextElementSibling.textContent=input.value+unit}}
   function update(save=true){
    if(!owns())return false;p=normalise(p);const saved=apply(p,save);presets.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.preset===p.preset&&!Object.keys(p.custom).length)));
+   const reference=paletteSources[p.preset];sourceLine.replaceChildren();
+   if(reference){sourceLine.append(document.createTextNode('基于 '+reference.family+' 色板 · '));const link=document.createElement('a');link.href=reference.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='查看来源';sourceLine.append(link)}
+   sourceLine.hidden=!reference;for(const note of presets.querySelectorAll('[data-preset-note]'))note.style.background=p.note;
    for(const input of d.querySelectorAll('[data-color]')){const id=input.dataset.color,value=id==='note'?p.note:p.custom[id]||palettes[p.preset][id];input.value=value;const hex=d.querySelector('[data-hex="'+id+'"]');if(document.activeElement!==hex||!hex.hasAttribute('aria-invalid')){hex.value=value;hex.removeAttribute('aria-invalid')}}
    d.querySelectorAll('[data-pattern]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pattern===p.pattern)));d.querySelector('#appearanceGrid').value=p.gridSize;d.querySelector('#appearanceGrid').disabled=p.pattern==='plain';
    d.querySelector('#appearancePaperTypeface').value=p.paperTypeface;
@@ -197,7 +243,7 @@
  // Storage notifications can arrive after a later choice. Read the latest
  // value, and never broadcast a received older preference back to other panes.
  window.addEventListener('storage',e=>{if(e.key===key)apply(read());if(e.key==='creative-interface'&&typeof applyInterfacePrefs==='function')applyInterfacePrefs(readInterfacePrefs(),false)});
- apply(read());window.whiteboardAppearance={open,read,apply,palettes};
+ apply(read());window.whiteboardAppearance={open,read,apply,palettes,paletteSources};
  // The earlier workflow menu captured its old sizing function. Resolve the
  // current appearance entry when clicked so standalone boards use it too.
  const menu=document.getElementById('menu'),legacy=menu&&[...menu.querySelectorAll('button')].find(b=>b.textContent==='界面大小');

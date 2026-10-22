@@ -1,0 +1,28 @@
+<dialog id="accountDialog" aria-labelledby="accountTitle">
+  <header class="account-panel-head"><div><small>属于这个账号的登录</small><h2 id="accountTitle">账号与登录</h2></div><button id="closeAccount" type="button" data-account-safe aria-label="关闭账号与登录">关闭</button></header>
+  <div class="account-summary"><span id="accountAvatar" aria-hidden="true"></span><div><strong id="accountDisplayName"></strong><p id="accountEmail"></p></div></div>
+  <div class="account-tabs" role="group" aria-label="账号设置范围"><button id="accountSessionsTab" type="button" aria-pressed="true">登录记录</button><button id="accountPasswordTab" type="button" aria-pressed="false">修改密码</button></div>
+  <p id="accountState" class="account-state" role="status" aria-live="polite"></p>
+  <section id="accountSessionsPane" aria-label="自己的登录记录">
+    <div class="account-list-heading"><h3>哪些登录还能使用这个账号</h3><button id="refreshAccountSessions" type="button">重新读取</button></div>
+    <p class="account-caption">仅显示这个账号尚有效的登录。名称来自浏览器提供的信息，用于辨认，不代表已核实的设备；时间表示建立与到期时间，不表示最后在线。</p>
+    <div id="accountSessionRows" class="account-session-rows"></div>
+    <button id="prepareOtherSessions" type="button" disabled>退出列表中的其他登录</button>
+    <form id="accountRevokeForm" hidden>
+      <h3 id="accountRevokeTitle"></h3><p class="account-caption">对方下一次检查或请求会失去访问权限，已获准执行的请求可能仍完成。未保存的内容需要在原页面保留或导出。</p>
+      <label>再次填写当前密码<input id="accountRevokePassword" type="password" autocomplete="current-password" maxlength="1024" required></label>
+      <label class="account-confirm"><input id="accountRevokeConfirm" type="checkbox" required><span id="accountRevokeScope"></span></label>
+      <div class="account-action-row"><button id="confirmRevokeSessions" type="submit">确认退出所选登录</button><button id="cancelRevokeSessions" type="button">取消选择</button></div>
+    </form>
+  </section>
+  <section id="accountPasswordPane" aria-label="修改自己的密码" hidden>
+    <h3>给这个账号换一个密码</h3><p class="account-caption">新密码至少 12 位。确认成功后，保留当前登录，其他登录失效。不会改动白板内容。</p>
+    <form id="accountPasswordForm">
+      <label>当前密码<input id="accountOldPassword" type="password" autocomplete="current-password" maxlength="1024" required></label>
+      <label>新密码<input id="accountNewPassword" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required></label>
+      <label>再填一次新密码<input id="accountConfirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required></label>
+      <button id="changeAccountPassword" type="submit">确认修改密码</button>
+    </form>
+    <p class="account-caption account-recovery-boundary">忘记密码的恢复流程还未提供；这里只能用当前密码更换新密码。</p>
+  </section>
+</dialog>

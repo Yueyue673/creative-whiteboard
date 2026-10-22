@@ -158,6 +158,33 @@ const {chromium} = require('playwright');
   assert(scopeOld.error?.includes('重新准备'));
   assert.deepEqual(scopeNew.pack.data.nodes.map(node=>node.id),['note']);
   assert(!JSON.stringify(scopeNew.pack).includes('这块没有被选择'));
+  // Long panels retain their name and exit while scrolling in a small window.
+  await page.getByRole('button', {name:'关闭', exact:true}).click();
+  await page.setViewportSize({width:320,height:568});
+  await page.evaluate(()=>whiteboardAI.compose());
+  assert.equal(await page.evaluate(()=>document.activeElement.textContent),'查资料与参考');
+  for(const id of ['aiResearchClose','aiCompose','aiHaveReply','aiTaskText']){
+   await page.keyboard.press('Tab');
+   assert.equal(await page.evaluate(()=>document.activeElement.id),id);
+  }
+  await page.locator('#aiTaskText').fill('窗口改变时保留的问题。');
+  await page.locator('#aiHaveReply').click();
+  await page.locator('#aiReplyText').fill('尚未提交的资料回复。');
+  for(const viewport of [{width:320,height:568},{width:680,height:390}]){
+   await page.setViewportSize(viewport);
+   await page.locator('#aiReplyText').evaluate(el=>el.scrollIntoView({block:'end'}));
+   assert(await page.locator('#dialog').evaluate(dialog=>{
+    const d=dialog.getBoundingClientRect(),title=dialog.querySelector('h2').getBoundingClientRect();
+    return title.top>=d.top&&title.bottom<=d.bottom&&[...document.querySelectorAll('#dialogActions button:not([hidden])')].every(button=>{
+     const r=button.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=d.top&&r.bottom<=innerHeight;
+    });
+   }));
+   assert.equal(await page.locator('#aiTaskText').inputValue(),'窗口改变时保留的问题。');
+   assert.equal(await page.locator('#aiReplyText').inputValue(),'尚未提交的资料回复。');
+  }
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#dialog').evaluate(el=>el.open),false);
+  await page.evaluate(()=>wfHelp());assert.equal(await page.locator('#dialog').getAttribute('aria-labelledby'),null);
+  await page.keyboard.press('Escape');
   assert.deepEqual(errors, []);
   console.log('Research continuity: changed questions, content, library pieces and scope; stale previews, form reopening, caching, retry and research-only legacy entry points passed');
  } finally {

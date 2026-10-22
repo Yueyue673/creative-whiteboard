@@ -23,3 +23,13 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 #windowWorkspace,#aiWorkspace,#workspaceGuide{font-size:12px;white-space:nowrap;border-color:#e3e4dc;background:#fafbf7}#aiWorkspace{background:#edf1e7;border-color:#d6dec9}
 .interaction-help{background:#f4f5f0;padding:14px 16px;border-radius:8px;margin-top:14px}.interaction-help h3{font-size:15px;margin:12px 0 5px}.interaction-help p{font-size:13px;line-height:1.8;margin:5px 0 12px}.interaction-help button{font-size:12px;margin:4px 5px 0 0}.window-peer{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #eee}.window-peer span{overflow-wrap:anywhere}.task-presets{display:flex;gap:7px;margin:13px 0;flex-wrap:wrap}.task-presets button{font-size:12px;padding:5px 9px}.task-options{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}.task-options label{display:flex;align-items:center;gap:7px;font-size:13px}.task-options input{width:auto}#aiTaskText{min-height:90px;margin-top:6px}#dialog{max-height:88vh;overflow:auto}#dialog label{line-height:1.8}#dialogActions{flex-wrap:wrap}#openWindowList{font-size:13px;color:#596251}
 @media(max-width:1000px){#workspaceGuide{display:none}header{gap:5px}header #boards{max-width:28vw}#textSizeTools{gap:7px}#textSizeCount{display:none}}
+
+/* The query, its location and the result locations stay together. */
+#assetPane .wf-library-search-context{display:flex;align-items:center;gap:4px;margin:0 0 8px;flex:none;color:var(--ui-muted);font-size:11px}
+#assetPane .wf-library-search-context[hidden]{display:none}
+#assetPane .wf-library-search-context button{flex:1;min-width:0;padding:7px 6px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ui-muted);font-size:12px}
+#assetPane .wf-library-search-context button[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-line);color:var(--ui-text)}
+#assetPane .wf-library-search-context button:focus-visible{outline:2px solid var(--ui-accent);outline-offset:1px}
+#assetPane .asset-row .wf-result-location{font-size:11px;line-height:1.5;color:var(--ui-muted);margin-top:3px;overflow-wrap:anywhere}
+
+@media(max-width:700px){#assetPane .wf-library-search-context button{min-height:44px}}

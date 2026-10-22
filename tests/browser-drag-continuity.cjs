@@ -26,6 +26,7 @@ const {chromium}=require('playwright');
    window.originalCell=document.querySelector('[data-id=table] audio');originalCell.currentTime=3;
    window.originalText=document.querySelector('[data-id=auto-400] [data-preview-id=body]');window.originalTextStyle=originalText.getAttribute('style');
    window.originalEdge=document.querySelector('[data-edge=edge-100]');window.originalEdgePath=originalEdge.querySelector('path').getAttribute('d');
+   window.originalZoomText=document.getElementById('zoomValue').firstChild;
    window.drawCount=0;window.measureCount=0;window.moveTimes=[];const d=drawNodes;drawNodes=function(...args){drawCount++;return d(...args)};
    const growth=growContentFields;growContentFields=function(...args){measureCount++;return growth(...args)};
    const move=canvas.onpointermove;canvas.onpointermove=function(e){const start=performance.now();move(e);if(gesture?.type==='move')moveTimes.push(performance.now()-start)};
@@ -36,6 +37,7 @@ const {chromium}=require('playwright');
   await p.keyboard.down('Control');await moveMouse(400,70);await p.mouse.down();await p.evaluate(()=>{drawCount=measureCount=0;moveTimes=[]});await moveMouse(470,110,{steps:24});
   const during=await p.evaluate(()=>({drawCount,measureCount,times:moveTimes.slice(),samePlayer:originalPlayer===document.querySelector('[data-id=sound] audio'),sameCell:originalCell===document.querySelector('[data-id=table] audio'),sameText:originalText===document.querySelector('[data-id=auto-400] [data-preview-id=body]')&&originalTextStyle===originalText.getAttribute('style'),sameEdge:originalEdge===document.querySelector('[data-edge=edge-100]')&&originalEdgePath===originalEdge.querySelector('path').getAttribute('d')}));
   await p.mouse.up();await p.keyboard.up('Control');
+  assert(await p.evaluate(()=>document.getElementById('zoomValue').firstChild===originalZoomText),'Moving content retains unchanged zoom text instead of invalidating canvas descendant styles');
   const after=await positions();for(const [i,n]of after.entries()){const inside=['frame','sound','note','table'].includes(n.id);assert.equal(n.x,before[i].x+(inside?70:0));assert.equal(n.y,before[i].y+(inside?40:0))}
   assert(during.samePlayer&&during.sameCell&&during.sameText&&during.sameEdge,'Dragging keeps text, media and unrelated SVG elements mounted');
   if(!process.env.WHITEBOARD_BENCHMARK_ONLY){assert.equal(during.drawCount,0,'Moving positions does not redraw all content');assert(during.measureCount<=2,'No per-move remeasurement of the board')}
@@ -43,6 +45,7 @@ const {chromium}=require('playwright');
   const times=during.times.sort((a,b)=>a-b);console.log('805 块内容、201 条连线，分组连续拖动：中位数 '+times[Math.floor(times.length/2)].toFixed(1)+' ms，最大 '+Math.max(...times).toFixed(1)+' ms，完整绘制 '+during.drawCount+' 次，文字测量 '+during.measureCount+' 次');
   assert(times[Math.floor(times.length/2)]<100,'Movement remains responsive');
   if(process.env.WHITEBOARD_BENCHMARK_ONLY)return;
+  const graphBeforeZoom=await p.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges)}));await p.locator('#plus').click();assert(await p.evaluate(()=>view().z>1&&$('zoomValue').textContent===Math.round(view().z*100)+'%'),'Real zoom updates the label');await p.locator('#minus').click();assert.equal(await p.evaluate(()=>view().z),1);assert.equal(await p.locator('#zoomValue').innerText(),'100%');assert.deepEqual(await p.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges)})),graphBeforeZoom,'Zoom does not change authored content');
   await p.evaluate(()=>undo());assert.deepEqual(await positions(),before,'One undo restores the entire group');await p.evaluate(()=>redo());assert.deepEqual(await positions(),after);
   await p.evaluate(()=>{undo();selected=new Set(['note']);refreshSelectionUI();canvas.focus()});const cancelled=await p.evaluate(()=>({history:history.length,future:future.length,board:clone(board),revision:contentRevision}));
   await p.keyboard.down('Control');await moveMouse(520,150);await p.mouse.down();await moveMouse(580,185,{steps:5});await p.keyboard.press('z');

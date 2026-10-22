@@ -58,7 +58,7 @@
  }
  function inList(e,panel){return e.target.closest('#'+panels[panel])||e.target===$(panel)}
  function currentRow(panel,e){return e.target.closest(selector)||rows(panel).find(row=>chosen(row,panel))}
- function location(panel){const identity=assetFolder?assetIndex.folderIds?.[assetFolder]:null;return JSON.stringify(panel==='assetPane'?[identity?'folder-id:'+identity:assetFolder?'folder-path:'+assetFolder:'root',$('assetSearch').value]:[folderSelected,$('boardSearch').value])}
+ function location(panel){const identity=assetFolder?assetIndex.folderIds?.[assetFolder]:null;return JSON.stringify(panel==='assetPane'?[identity?'folder-id:'+identity:assetFolder?'folder-path:'+assetFolder:'root',$('assetSearch').value,typeof wfLibrarySearchScope==='function'?wfLibrarySearchScope():'all']:[folderSelected,$('boardSearch').value])}
  function rememberScroll(panel){
   const values=[];
   for(let el=list(panel);el&&el!==$(panel).parentElement;el=el.parentElement)values.push({el,top:el.scrollTop,left:el.scrollLeft});

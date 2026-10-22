@@ -66,7 +66,8 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node.table .edit-table th:not(.row-number),.node.table .read-layout .edit-table th:not(.row-number){padding:4px 0}
 .node.table .edit-table th input{padding:10px 23px}
 .node.table .edit-table th>.table-grip{top:50%;transform:translateY(-50%);left:3px}
-.node.table .edit-table th>.col-remove{top:50%;transform:translateY(-50%);right:3px}
+.node.table .edit-table th>.col-remove{top:50%;transform:translateY(-50%);right:calc(12px * var(--canvas-control-scale,1) + 3px)}
+.node.table:not(.document-paper) .edit-table>thead>tr>th>:is(textarea,input)[data-column]{padding-right:calc(26px + 12px * var(--canvas-control-scale,1))}
 .node.table .row-number .table-grip{position:static;display:block;padding:11px 0;font-size:11px;white-space:nowrap}
 .node.table .read-layout .row-number .table-grip{visibility:visible;cursor:default}
 .node.table .read-layout .grip-icon{display:none}
@@ -119,11 +120,12 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 .node .wf-origin{display:block;width:100%;text-align:left;margin:10px 0;padding:8px 10px;font-size:12px;overflow-wrap:anywhere}
 .node:not(.active):not(.connector-target) .port,.node.resizable-note:not(.active) .resize{opacity:0;pointer-events:none}
 .node.active .port,.node.connector-target .port,.node.resizable-note.active .resize{opacity:1;pointer-events:auto}
-/* Contextual copy actions stay in the table toolbar, clear of paper text. */
-.node .inline-toolbar .cell-tools{display:flex;align-items:center;gap:2px;margin-left:auto}
-.node .inline-toolbar .cell-tools[hidden]{display:none}
-.node .inline-toolbar .cell-tools button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:4px;font-size:17px}
-.node .inline-toolbar:has(.cell-tools:not([hidden])) #inlineDone{margin-left:6px}
+/* Less frequent copy actions stay in the original table More menu. */
+.node .table-options .cell-tools{display:grid;gap:4px;margin-top:4px;padding-top:6px;border-top:1px solid var(--ui-line)}
+.node .table-options .cell-tools[hidden]{display:none}
+.node .table-options .cell-tools button{width:auto;height:auto;padding:6px 9px;font-size:12px;justify-content:start}
+.node .table-options .cell-tools small{display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 9px;color:var(--ui-muted)}
+.node.table .table-options[open]>div{left:auto;right:0;min-width:180px;max-width:min(260px,calc(100vw - 32px))}
 .node .live-layout .cell-content.cell-target{outline:1px solid var(--ui-accent);outline-offset:1px}
 #fileContext{max-width:min(330px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;border-radius:6px;padding:4px;min-width:min(210px,calc(100vw - 16px))}
 #fileContext button{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:8px 10px;min-height:32px;border-radius:3px;line-height:1.4}
@@ -236,12 +238,27 @@ body #selection{background:color-mix(in srgb,var(--ui-canvas-focus,var(--ui-acce
 body #shellMore>div,body #tabContext,body #fileContext{border-radius:11px;padding:6px;box-shadow:0 8px 30px #0004}
 body #shellMore button,body #tabContext button,body #fileContext button{border-radius:6px;font-size:13px}
 body #boardPicker{border-radius:16px;padding:24px}
+body #boardPicker[open]{display:flex;flex-direction:column;max-height:calc(100dvh - 24px);overflow:auto;scroll-padding-top:64px}
+body #boardPicker>form,body #boardPicker>#boardQuery,body #boardPicker>.new-board,body #boardPicker>#pickerHint{flex-shrink:0}
+body #boardPicker>form{position:sticky;top:0;z-index:2;background:var(--ui-panel)}
+body #boardChoices{flex:0 1 auto;min-height:min(96px,20dvh)}
+@media(max-height:500px){
+ body #boardPicker{padding:16px}
+ body #boardPicker h2{font-size:18px;margin-bottom:8px}
+ body #boardPicker #boardQuery{margin-bottom:6px}
+ body #boardPicker .new-board{margin-top:8px;padding-top:10px}
+ body #boardPicker #pickerHint{margin-top:8px;line-height:1.5}
+}
+@media(max-height:280px){
+ body #boardPicker[open]{display:block;scroll-padding-top:56px}
+ body #boardPicker #boardChoices{max-height:28dvh;min-height:48px}
+}
 body #boardQuery,body #newBoardName{border-radius:9px}
 body #boardChoices button{border-radius:8px;border-bottom:0;margin:3px 0;padding:12px}
 body #boardPicker .new-board button,body .empty-pane .choose-board{background:var(--ui-selected);border-color:var(--ui-line);border-radius:9px;color:var(--ui-text)}
 body .empty-pane h2{font-weight:600;font-size:22px;color:var(--ui-canvas-text,var(--ui-text))}
 body .empty-pane p{font-size:13px;line-height:1.8;margin:12px 0 20px}
-body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002}
+body #shellToast,body #toast{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line);border-radius:10px;font-size:13px;box-shadow:0 5px 20px #0002;width:max-content;max-width:min(650px,calc(100% - 24px));padding:10px 14px;overflow-wrap:anywhere;pointer-events:none}
 @media(max-width:900px){body #shellHeader{gap:7px;padding:0 10px}#shellHeader .studio-brand{padding-right:9px;font-size:13px;gap:7px}}
 @media(max-width:600px){#shellHeader .studio-brand span,body #shellHeader .shell-ai span{display:none}#shellHeader .studio-brand{padding-right:7px;border:0}body #shellHeader{gap:5px;padding:0 8px}body #shellHeader .shell-ai{width:32px;height:32px;padding:0;justify-content:center;border:0}body #shellStatus{width:88px;min-width:88px;max-width:88px;font-size:11px}body #canvas #creationDock{padding:5px;gap:2px}body #canvas #creationDock button{padding-left:8px;padding-right:8px}}
 @media(max-width:360px){body #shellStatus{width:68px;min-width:68px;max-width:68px}body #shellHeader{gap:3px}}
@@ -265,3 +282,27 @@ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summa
 }
 /* Leave room for the existing save/failure status at the largest interface size. */
 @media(max-width:360px){body #shellHeader .studio-brand{display:none}}
+
+/* Keep every sidebar destination and existing option available in narrow panes. */
+@media(max-width:240px){
+ body #workspaceSidebar .workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ body #workspaceSidebar .workspace-tabs button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+ body #workspaceSidebar .workspace-tabs #sidebarClose{width:32px;min-width:32px;justify-self:end}
+ body #workspaceSidebar .library-bottom-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+ body #workspaceSidebar .library-bottom-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+}
+
+/* A table owns its paper and its authored rectangle; controls remain outside. */
+#nodes>.node.table.active{outline-offset:-1px}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table{padding:0;gap:0;scrollbar-gutter:auto}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table>:is(#title,[data-preview-id=title]){font-size:16px;line-height:1.5;padding:7px 10px;margin:0;min-height:38px}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table>.visible-annotation{padding:0 10px}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table :is(#inlineTable,[data-preview-id=inlineTable])>.table-scroll{scrollbar-gutter:auto;border-radius:0}
+#nodes>.node.table:not(.document-paper)>.inner>.content-table .table-scroll>.edit-table{height:100%}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table{background:transparent;color:var(--paper-ink,#242529)}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th,.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>.row-number{background:var(--paper-header,rgba(36,37,41,.06));color:var(--paper-caption,#555)}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(textarea,input),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>td>textarea{color:var(--paper-ink,#242529);background:transparent}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table,.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th,.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>td{border-color:var(--paper-edge,rgba(36,37,41,.3))}
+.node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(.table-grip,.col-remove),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>.row-number>:is(.table-grip,.col-remove){color:var(--paper-caption,#555)}
+
+.note-reference-choices{display:grid;gap:6px;max-height:min(380px,55dvh);overflow:auto}.note-reference-choice{display:grid;text-align:left;gap:3px;width:100%;padding:10px 12px}.note-reference-choice small{color:var(--ui-muted,#666)}.note-reference-choice strong,.note-reference-choice span{overflow-wrap:anywhere}.note-reference-choice span{font-size:12px;max-height:3em;overflow:hidden}

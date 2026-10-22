@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {ReferenceIndex,installReferences} from '../core/portal_assets/note-references.js';
+const require=createRequire(import.meta.url),markdown=require('../../vendor/markdown-it.min.js');
+const parser=markdown({html:false,linkify:false});installReferences(parser);
+const source={id:'a',type:'note',title:'来源',textFormat:'markdown',body:'[[目标|原标签]] [[@board/b|固定引用]]\n`[[目标]]`\n\n```\n[[目标]]\n```',userText:'[[目标]]',annotation:'\\[[目标]]',untouched:{raw:17}};
+const target={id:'b',type:'note',title:'目标',body:'目标原文'},table={id:'table',type:'table',title:'表格',rows:[['原值']]};
+const board={nodes:[source,target,table,{id:'f',type:'frame',title:'分组'},{id:'plain',type:'note',body:'[[目标]]',textFormat:'plain'}],extra:{authored:['保留']}};
+const before=JSON.stringify(board),index=new ReferenceIndex('board',parser);index.update(board);
+const cases=[];function check(name,fn){fn();cases.push(name);console.log('PASS '+name);}
+check('Only actual Markdown mentions count; inline/fenced code, escapes and plain text stay literal',()=>assert.equal(index.incoming(target)[0].count,3));
+check('Title/ID mentions of the same target aggregate without rewriting original fields',()=>{assert.equal(index.outgoing(source).length,1);assert.equal(index.outgoing(source)[0].count,3);assert.equal(JSON.stringify(board),before);});
+check('Existing title, identifier and explicit same-board UUID-compatible targets resolve',()=>{for(const target of ['目标','b','@board/b'])assert.equal(index.resolve(target).node.id,'b');});
+check('External/missing/frame destinations are not adopted or created',()=>{assert.equal(index.resolve('@elsewhere/b').status,'external');assert.equal(index.resolve('missing').status,'missing');assert.equal(index.resolve('f').status,'missing');});
+check('Duplicate names require an explicit choice; stable IDs survive a rename',()=>{board.nodes.push({id:'c',type:'note',title:'目标'});index.update(board);assert.equal(index.resolve('目标').status,'ambiguous');target.title='改名';index.update(board);assert.equal(index.resolve('@board/b').node,target);assert.equal(index.resolve('目标').node.id,'c');});
+check('Deleted stable target is unresolved and old authored links remain untouched',()=>{board.nodes=board.nodes.filter(n=>n.id!=='b');index.update(board);assert.equal(index.resolve('@board/b').status,'missing');assert.equal(source.body,JSON.parse(before).nodes[0].body);});
+check('Title and alias markup cannot create executable elements or nested anchors',()=>{board.nodes.push(target);target.title='目标';index.update(board);const rendered=parser.render('[[目标|<img src=x onerror=alert(1)>]]',{references:index});assert.ok(!rendered.includes('<img'));assert.ok(rendered.includes('&lt;img'));assert.ok(!parser.render('[label [[目标]]](https://example.test)',{references:index}).includes('<button'));});
+check('Explicit insertion preserves selected aliases verbatim and rejects unrepresentable selections',()=>{assert.equal(index.link(target,'自己的 | 标签'),'[[@board/b|自己的 | 标签]]');for(const label of ['原文\n另一行','含 ]] 原文','x'.repeat(800)])assert.throws(()=>index.link(target,label));assert.throws(()=>index.link({id:'invalid]id'},'标签'));});
+check('Repeated stable target mentions have exact counts and invalidate after editing',()=>{source.body='[[@board/b]] '.repeat(1000);source.userText='';index.update(board);assert.equal(index.incoming(target)[0].count,1000);assert.equal(index.rows.get('a').length,1);source.body='没有引用';index.update(board);assert.equal(index.incoming(target).length,0);});
+check('Table references are read targets without changing table or unknown payloads',()=>{assert.equal(index.resolve('table').node,table);assert.deepEqual(table.rows,[['原值']]);assert.deepEqual(board.extra,{authored:['保留']});});
+check('Backlink excerpts contain the actual referencing paragraph, bounded around the mention',()=>{source.body='开头文字'.repeat(200)+'\n\n'+ '正文'.repeat(100)+'这里明确引用 [[@board/b]]，后文仍由作者保留。';index.update(board);const excerpt=index.incoming(target)[0].excerpt;assert.ok(excerpt.includes('这里明确引用 [[@board/b]]'));assert.ok(!excerpt.includes('开头文字'));assert.ok(excerpt.length<=182);assert.ok(source.body.startsWith('开头文字'));});
+console.log(JSON.stringify({checks:cases.length}));

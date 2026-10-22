@@ -1,0 +1,6 @@
+# This is an operator template, not a credential or a deployment authorization.
+HOSTED_DOMAIN=whiteboard.example.invalid
+HOSTED_PORT=18880
+HOSTED_DATA_DIR=/absolute/path/to/new-hosted-data
+HOSTED_BACKUP_DIR=/absolute/path/to/hosted-backups
+HOSTED_SECRET_PATH=/absolute/path/to/private-config/hosted.key

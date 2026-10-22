@@ -289,7 +289,7 @@ const {chromium} = require('playwright');
   releaseRemoved(); await page.evaluate(() => removedImport); await page.unroute('**/api/assets/upload');
   assert(await page.evaluate(() => assetIndex.assets.some(asset => asset.title === '目标移除后的声音.wav')));
   assert(!await page.evaluate(() => board.nodes.some(node => node.title === '目标移除后的声音.wav')));
-  assert((await page.locator('#toast').innerText()).includes('文件已保留在内容库'));
+  assert((await page.locator('#importFeedback').innerText()).includes('原位置已移走，文件留在内容库'));
   // Decoding an image in the shared library cannot change its originally chosen board.
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=', 'base64');
   const uploaded = await fetch(base + '/api/assets/upload', {method:'POST',

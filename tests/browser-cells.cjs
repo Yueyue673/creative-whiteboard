@@ -7,7 +7,7 @@ await p.evaluate(()=>{board.nodes=[{id:'n',type:'note',color:'#cde8fb',fontSize:
 await p.keyboard.press('Control+c');await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="0"][data-col="0"]').click();await p.keyboard.press('Control+v');await p.waitForFunction(()=>board.nodes.find(n=>n.id==='t').cellItems?.[0]?.[0]?.length===1);assert.equal(await p.locator('[data-cell="0,0"] [data-cell-note-field="body"]').inputValue(),'留意开头的短促声。');assert.equal(await p.locator('[data-cell="0,0"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Pasted notes keep their authored paper colour');await checkCopyFonts(p,'[data-cell="0,0"] .cell-content',24,17);await p.locator('[data-cell="0,0"] [data-cell-note-field="body"]').fill('这里改的是单元格里的副本。');assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='n').body),'留意开头的短促声。');
 // Upload a tiny valid PCM WAV and drag it from the same library payload used by the UI.
 const wav=Buffer.alloc(44+1600);wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(1600,40);const response=await fetch(base+'/api/assets/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':'tap.wav'},body:wav});assert(response.ok);const audio=await response.json();await p.evaluate(()=>loadAssets());const dt=await p.evaluateHandle(id=>{const d=new DataTransfer();d.setData('application/x-creative-assets',JSON.stringify([id]));return d},audio.id);await p.locator('[data-cell="0,1"]').dispatchEvent('drop',{dataTransfer:dt});await p.waitForFunction(()=>!!document.querySelector('[data-cell="0,1"] audio'));await p.locator('[data-cell="0,1"] audio').evaluate(async el=>{await el.play();el.pause()});
-await p.evaluate(()=>{const n=board.nodes.find(n=>n.id==='t');moveTable(n,'row',0,1);moveTable(n,'column',0,1)});assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1][0].body),'这里改的是单元格里的副本。');assert.equal(await p.locator('[data-cell="1,0"] audio').count(),1);await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.equal(await p.locator('.read-layout [data-cell="1,0"] audio').count(),1);assert.equal(await p.locator('[data-cell="1,1"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Paper colour survives row/column movement and reload');await checkCopyFonts(p,'[data-cell="1,1"] .cell-content',24,17);await p.waitForTimeout(150);assert(await p.locator('.read-layout [data-cell="1,0"] > textarea').isHidden());assert(await p.locator('.read-layout [data-cell="1,0"] [data-cell-note-field="body"]').isHidden());const mediaHeight=await p.locator('.read-layout [data-cell="1,0"] .cell-content').evaluate(e=>e.getBoundingClientRect().height);assert(mediaHeight<145,'Audio should not reserve empty body space: '+mediaHeight);await p.evaluate(()=>showWorkspaceTab('manager'));if(process.env.CELLS_SCREENSHOT)await p.screenshot({path:process.env.CELLS_SCREENSHOT});await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.cell-tools [data-cell-extract]').click();assert.equal(await p.evaluate(()=>board.nodes.length),3);assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id!=='n'&&n.id!=='t').color),'#cde8fb','Taking out a copy retains its authored colour');assert.deepEqual(await p.evaluate(()=>{const n=board.nodes.find(n=>n.id!=='n'&&n.id!=='t');return [n.titleFontSize,n.fontSize]}),[24,17],'Taking out a copy retains both authored font sizes');await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.cell-tools [data-cell-remove]').click();assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),0);await p.evaluate(()=>undo());assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),1);
+await p.evaluate(()=>{const n=board.nodes.find(n=>n.id==='t');moveTable(n,'row',0,1);moveTable(n,'column',0,1)});assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1][0].body),'这里改的是单元格里的副本。');assert.equal(await p.locator('[data-cell="1,0"] audio').count(),1);await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading);assert.equal(await p.locator('.read-layout [data-cell="1,0"] audio').count(),1);assert.equal(await p.locator('[data-cell="1,1"] .cell-content').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(205, 232, 251)','Paper colour survives row/column movement and reload');await checkCopyFonts(p,'[data-cell="1,1"] .cell-content',24,17);await p.waitForTimeout(150);assert(await p.locator('.read-layout [data-cell="1,0"] > textarea').isHidden());assert(await p.locator('.read-layout [data-cell="1,0"] [data-cell-note-field="body"]').isHidden());const mediaHeight=await p.locator('.read-layout [data-cell="1,0"] .cell-content').evaluate(e=>e.getBoundingClientRect().height);assert(mediaHeight<145,'Audio should not reserve empty body space: '+mediaHeight);await p.evaluate(()=>showWorkspaceTab('manager'));if(process.env.CELLS_SCREENSHOT)await p.screenshot({path:process.env.CELLS_SCREENSHOT});await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.live-layout .table-options>summary').click();await p.locator('.cell-tools [data-cell-extract]').click();assert.equal(await p.evaluate(()=>board.nodes.length),3);assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id!=='n'&&n.id!=='t').color),'#cde8fb','Taking out a copy retains its authored colour');assert.deepEqual(await p.evaluate(()=>{const n=board.nodes.find(n=>n.id!=='n'&&n.id!=='t');return [n.titleFontSize,n.fontSize]}),[24,17],'Taking out a copy retains both authored font sizes');await p.evaluate(()=>openEditor('t'));await p.locator('[data-cell="1,1"] [data-cell-note-field=body]').click();await p.locator('.live-layout .table-options>summary').click();await p.locator('.cell-tools [data-cell-remove]').click();assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),0);await p.evaluate(()=>undo());assert.equal(await p.evaluate(()=>board.nodes.find(n=>n.id==='t').cellItems[1][1].length),1);
 console.log('单元格：便签复制粘贴、独立编辑、音频拖入播放、行列移动、保存重载、取出和撤销通过');
 await p.evaluate(()=>{selected=new Set(['n']);openEditor('n')});await p.locator('#body').click();await p.keyboard.press('Control+End');for(let i=0;i<35;i++){await p.keyboard.insertText('这一行继续记录拍摄时观察到的细节。');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .edit-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);assert(await p.locator('.live-layout .edit-scroll').evaluate(e=>e.scrollTop)<130);
 await p.evaluate(()=>openEditor('t'));await p.locator('[data-row="1"][data-col="1"]').click();for(let i=0;i<40;i++){await p.keyboard.insertText('继续写分镜说明');await p.keyboard.press('Enter')}await p.waitForTimeout(100);assert(await p.locator('.live-layout .table-scroll').evaluate(e=>e.scrollTop)>400);await p.keyboard.press('Control+Home');await p.waitForTimeout(100);console.log('长文编辑：便签与表格跟随输入光标、返回开头通过');await verifyCopyTypography(p);await verifyPaperSurfaces(p,audio.id);await verifyCopyControls(p);await verifyCellTextPreviews(p,base);assert.deepEqual(errors,[]);
@@ -58,7 +58,7 @@ async function verifyPaperSurfaces(page,audioId){
    const cells=document.querySelectorAll('[data-id="papers"] .cell-content');
    return {nested:getComputedStyle(cells[7]).backgroundColor,panel:getComputedStyle(document.documentElement).getPropertyValue('--ui-panel').trim(),invalid:getComputedStyle(cells[8]).backgroundColor,unexpected:cells[8].style.getPropertyValue('--unexpected')};
   });
-  assert.equal(extras.nested,'rgb('+extras.panel.slice(1).match(/../g).map(x=>parseInt(x,16)).join(', ')+')','Nested table uses the neutral interface surface');
+  assert.equal(extras.nested,'rgb(205, 232, 251)','Nested table retains its authored paper in every interface theme');
   assert.equal(extras.invalid,'rgb(255, 240, 170)','Invalid stored colour falls back to default paper');
   assert.equal(extras.unexpected,'','Stored colour cannot introduce arbitrary style properties');
   assert.equal(await page.evaluate(()=>JSON.stringify(board)),content,'Appearance never changes authored content, copies or layout');
@@ -169,8 +169,10 @@ async function verifyCopyControls(page){
  for(const z of [.65,1,1.35]){
   await page.evaluate(z=>{view().z=z;moveView();openEditor('control-table')},z);
   assert.deepEqual(await titleLayout(),reading,'Entering editing does not narrow or reflow copied titles at zoom '+z);
-  assert(await page.locator(root+' .cell-tools').isHidden(),'Copy actions start hidden until a copy is chosen');
+  assert(await page.locator(root+' .cell-tools').evaluate(el=>el.hidden),'Copy actions start hidden until a copy is chosen');
   await page.locator(first+' [data-cell-note-field=title]').click();
+  assert(await page.locator(root+' .cell-tools').evaluate(el=>!el.hidden));
+  await page.locator(root+' .table-options>summary').click();
   assert(await page.locator(root+' .cell-tools').isVisible());
   assert.equal(await page.locator(root+' .cell-target').count(),1);
   assert.equal(await page.locator(first).evaluate(el=>el.classList.contains('cell-target')),true);
@@ -186,9 +188,11 @@ async function verifyCopyControls(page){
  await page.locator(first+' [data-cell-note-field=title]').click();
  await page.locator(second).hover();
  for(let i=0;i<16;i++){
-  if(await page.evaluate(()=>document.activeElement?.hasAttribute('data-cell-extract')))break;
+  if(await page.evaluate(()=>document.activeElement?.hasAttribute('data-cell-move')))break;
   await page.keyboard.press('Shift+Tab');
  }
+ assert(await page.evaluate(()=>document.activeElement?.hasAttribute('data-cell-move')),'The original item handle is reached without crossing another copy');
+ await page.keyboard.press('Shift+F10');
  assert(await page.evaluate(()=>document.activeElement?.hasAttribute('data-cell-extract')),'The copy action is reachable with real keyboard navigation');
  assert((await page.locator(root+' [data-cell-extract]').getAttribute('aria-label')).includes('第一段画面的完整现场记录'));
  await page.keyboard.press('Enter');
@@ -198,10 +202,10 @@ async function verifyCopyControls(page){
  await page.evaluate(()=>openEditor('control-table'));
  await page.locator(second+' [data-cell-note-field=body]').click();
  await page.locator(root+' [data-row="1"][data-col="1"]').click();
- assert(await page.locator(root+' .cell-tools').isHidden(),'Clicking a plain cell clears the old copy target');
+ assert(await page.locator(root+' .cell-tools').evaluate(el=>el.hidden),'Clicking a plain cell clears the old copy target');
  assert.equal(await page.locator(root+' .cell-target').count(),0);
  await page.locator(second+' [data-cell-note-field=title]').click();
- await page.locator(root+' .cell-tools [data-cell-remove]').click();
+ await page.locator(root+' .table-options>summary').click();await page.locator(root+' .cell-tools [data-cell-remove]').click();
  assert.deepEqual(await page.evaluate(()=>board.nodes.find(n=>n.id==='control-table').cellItems[0][0].map(n=>n.id)),['first'],'Removal affects only the chosen copy');
  await page.evaluate(()=>{canvas.focus();undo()});
  assert.equal(await page.evaluate(()=>JSON.stringify(board.nodes.find(n=>n.id==='control-table').cellItems)),originals);
@@ -209,7 +213,7 @@ async function verifyCopyControls(page){
  assert.deepEqual(await titleLayout('#immersiveSurface'),reading,'Immersive editing retains copied title wrapping');
  await page.locator('#immersiveSurface [data-cell="0,1"] [data-cell-note-field=title]').click();
  assert((await page.locator('#immersiveSurface .cell-tools [data-cell-remove]').getAttribute('aria-label')).includes('Camera and sound'));
- await page.locator('#immersiveSurface .cell-tools [data-cell-remove]').click();
+ await page.locator('#immersiveSurface .table-options>summary').click();await page.locator('#immersiveSurface .cell-tools [data-cell-remove]').click();
  assert.equal(await page.evaluate(()=>board.nodes.find(n=>n.id==='control-table').cellItems[0][1].length),0);
  await page.evaluate(()=>undo());
  await page.keyboard.press('Escape');
