@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [默认分支 main](https://github.com/Yueyue673/creative-whiteboard/tree/main) | 原工作台：便签、媒体、表格、内容库、标签与分栏 | 本机使用入口，按仓库首页启动 |
 | [开发分支](https://github.com/Yueyue673/creative-whiteboard/tree/codex/hosted-linux-checks) | 在同一套原工作台上集成账号、工作区、成员权限和托管服务，并继续改善创作流程 | [草稿 PR #1](https://github.com/Yueyue673/creative-whiteboard/pull/1)，尚未合并到 main |
+| 绘图选中改进（待发布） | 画完标记后，直接点击下面可见的笔记继续写；点击标记线条或文字仍可选择它 | [1500313](https://github.com/Yueyue673/creative-whiteboard/commit/150031321bdbcac16f31af548d7b0ecca59cec56) 源码检查已通过，服务器核验与发布尚未完成 |
 | 资料对照（开发版） | 从正在写的记录直接看关联资料，再返回接着写；需要编辑来源时可打开原白板 | [8c50c51](https://github.com/Yueyue673/creative-whiteboard/commit/8c50c51ee8d47f4c0e134fe8d91ea1845a8eb0c9) 已发布，尚未并入 main |
 | 暂时打不开的资料（开发版） | 保留你写的资料名称，恢复可用后点原项继续查看 | [194efd7](https://github.com/Yueyue673/creative-whiteboard/commit/194efd70228e266ca644d4e5dd2416cdf4e101fe) 已发布，尚未并入 main |
 | 整组保存为资源（开发版） | 多选后在内容旁保存到库，带着内部连线复用；每块内容仍可直接编辑 | [e9e1738](https://github.com/Yueyue673/creative-whiteboard/commit/e9e1738637098f5e3a8b85f20df68c9e84c7ebf0) 已发布，尚未并入 main |
@@ -15,6 +16,12 @@
 开发分支中的账号与数据服务接入原 `shell.html` / `index.html` 工作台。早期简化编辑器属于旧入口，不能代表现在的默认界面或原工作台的能力。
 
 查看托管方式，请阅读 [开发分支的托管说明](https://github.com/Yueyue673/creative-whiteboard/blob/codex/hosted-linux-checks/hosted/README.md)。运行检查通过、源码推送、程序部署和实体设备体验是不同的验收，不能互相代替。
+
+## 待发布：画完标记，直接接着写
+
+透明方框、圆圈、箭头和画笔的空白区域可以让出下面可见的笔记与关联。点击线条或文字仍可选择标记；已选标记仍能从空白处移动、双击或右键编辑。缩小时沿用原标题入口，调整边缘与连线端口保留。
+
+[1500313](https://github.com/Yueyue673/creative-whiteboard/commit/150031321bdbcac16f31af548d7b0ecca59cec56) 已通过准确提交的 [Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/39544705564) 与 [Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/39544705593) 检查。宽窄独立合成任务已经核对；独立服务器核验、网站发布和本机兼容安装尚未完成，已发布的网站程序仍为 e2317e9。实体触摸、画笔输入与长期手感尚未验收。
 
 ## 绘图工具打不开时，先接着写
 
