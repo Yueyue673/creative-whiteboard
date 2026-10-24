@@ -1,3 +1,5 @@
+import copy
+import time
 from unittest.mock import patch
 
 from django.db import connection
@@ -9,7 +11,7 @@ from .models import ConflictDraft, DocumentRevision, WorkspaceDocument
 from .scope import WorkspaceScope
 from .services import change_member
 from . import test_documents as document_fixtures
-from .workspace_search import excerpt
+from .workspace_search import ScanLimit, authored_parts, excerpt
 
 sample_board = document_fixtures.sample_board
 
@@ -164,3 +166,45 @@ class WorkspaceSearchTests(TestCase):
         self.assertEqual(self.search("unknown-secret").json()["items"], [])
         self.assertEqual(len(self.search("known nested").json()["items"]), 1)
         self.assertEqual(self.api("boards/safe").json(), malformed)
+
+
+    def test_applied_image_text_and_nested_images_keep_exact_text_and_context(self):
+        text = "给定图注 Straße <原文> & **文字**"
+        value = sample_board("ordinary")
+        image = value["nodes"][0]
+        image["canvasObject"] = {"kind": "image", "marks": [
+            {"kind": "text", "text": text, "points": [[12, 38]], "fontSize": 9},
+            {"kind": "rect", "text": "shape-metadata-only", "points": [[10, 10], [30, 30]]}]}
+        image["futureData"] = {"text": "unknown-only"}
+        self.create("image", value)
+        nested = sample_board("ordinary")
+        nested["nodes"] = [{"id": "table", "type": "table", "x": 0, "y": 0, "w": 400, "h": 300,
+                            "columns": ["资料"], "rows": [[""]], "cellItems": [[[copy.deepcopy(image)]]]}]
+        self.create("nested", nested)
+        before = list(WorkspaceDocument.objects.values())
+        versions = list(DocumentRevision.objects.values())
+        result = self.search("STRASSE").json()
+        self.assertEqual({row["id"] for row in result["items"]}, {"image", "nested"})
+        by_id = {row["id"]: row for row in result["items"]}
+        self.assertEqual(by_id["image"]["context"], "第1项 · 图片标注1")
+        self.assertEqual(by_id["nested"]["context"], "第1项 · 第1行第1列 · 嵌入第1项 · 图片标注1")
+        self.assertTrue(all(row["excerpt"] == text for row in result["items"]))
+        for query in ["shape-metadata-only", "unknown-only"]:
+            self.assertEqual(self.search(query).json()["items"], [])
+        self.assertEqual(list(WorkspaceDocument.objects.values()), before)
+        self.assertEqual(list(DocumentRevision.objects.values()), versions)
+
+    def test_image_mark_budget_counts_nonmatching_and_malformed_marks(self):
+        image = {"canvasObject": {"kind": "image", "marks": [None, {}, {"kind": "text", "text": 42},
+                 {"kind": "text", "text": "kept"}]}}
+        value = {"nodes": [image]}
+        budget = {"parts": 0, "deadline": time.monotonic() + 10}
+        self.assertEqual(list(authored_parts(value, budget)), [("第1项 · 图片标注4", "kept")])
+        # Existing retained imports can contain malformed extension values.
+        # Count every mark so a nonmatching array cannot evade the scan budget.
+        image["canvasObject"]["marks"] = [{}] * 500
+        with patch("core.workspace_search.MAX_PARTS", 20), self.assertRaises(ScanLimit):
+            list(authored_parts(value, {"parts": 0, "deadline": time.monotonic() + 10}))
+        for bad in [None, [], {"kind": "image", "marks": {}}, {"kind": "rect", "marks": [{"kind": "text", "text": "hidden"}]}]:
+            self.assertEqual(list(authored_parts({"nodes": [{"canvasObject": bad}]},
+                             {"parts": 0, "deadline": time.monotonic() + 10})), [])
