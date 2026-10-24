@@ -68,6 +68,12 @@ def authored_parts(value, budget):
                 raw = item.get(key)
                 if isinstance(raw, str):
                     yield (where + " · " + label)[:180], raw
+            image = item.get("canvasObject")
+            if isinstance(image, dict) and image.get("kind") == "image" and isinstance(image.get("marks"), list):
+                for index, mark in enumerate(image["marks"][:500], 1):
+                    tick(budget)
+                    if isinstance(mark, dict) and mark.get("kind") == "text" and isinstance(mark.get("text"), str):
+                        yield (where + f" · 图片标注{index}")[:180], mark["text"]
             if item.get("type") == "table":
                 columns = item.get("columns")
                 if isinstance(columns, list):

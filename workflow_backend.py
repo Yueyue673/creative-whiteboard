@@ -84,6 +84,9 @@ def file_excerpt(path,stamp,size):
 def node_text(n):
  text=' '.join(str(v) for v in [*(n.get(k,'') for k in ['title','body','userText','annotation','url']),*n.get('tags',[]),*n.get('columns',[]),*(c for row in n.get('rows',[]) for c in row)] if v)
  text+=' '+ ' '.join(m.get('title','')+' '+m.get('note','') for t in n.get('mediaTimeline',{}).values() for m in t.get('markers',[]))
+ image=n.get('canvasObject')
+ if isinstance(image,dict) and image.get('kind')=='image' and isinstance(image.get('marks'),list):
+  text+=' '+ ' '.join(mark['text'] for mark in image['marks'][:500] if isinstance(mark,dict) and mark.get('kind')=='text' and isinstance(mark.get('text'),str))
  text+=' '+ ' '.join(node_text(item) for row in n.get('cellItems',[]) for cell in row for item in cell)
  return text
 def snippet(text,q):
@@ -102,13 +105,13 @@ def search(q):
   if a.get('archived'):continue
   text=' '.join(str(a.get(k,'')) for k in ['title','notes','folder','path'])+' '+json.dumps(a.get('tags',[]),ensure_ascii=False)
   text+=' '+ ' '.join(node_text(n) for n in a.get('bundle',{}).get('nodes',[]))
-  field='标题、正文与备注'
+  field='标题、正文、图片标注与备注'
   if q.lower() not in text.lower() and a.get('path'):
    try:
     p=Path(a['path']);st=p.stat();text=file_excerpt(str(p),st.st_mtime_ns,st.st_size);field='文件正文（最多读取前256KB）'
    except OSError:continue
   if q.lower() in text.lower():rows.append({'kind':'library','id':a['id'],'title':a['title'],'location':a.get('folder') or '内容库根目录','snippet':snippet(text,q),'matchedIn':field})
- return {'results':rows[:150],'total':len(rows),'note':'搜索白板、组合正文、备注与文件名；文本文件读取前256KB，音视频和PDF不做全文识别。'}
+ return {'results':rows[:150],'total':len(rows),'note':'搜索白板、组合正文、图片标注、备注与文件名；文本文件读取前256KB，音视频和PDF不做全文识别。'}
 
 def workflow_get(handler,p):
  if p=='/api/ai/references':

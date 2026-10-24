@@ -205,3 +205,34 @@ class OriginalWorkbenchTests(TestCase):
         self.assertIn("script-src 'sha256-"+SCRIPT_HASH+"'",response['Content-Security-Policy'])
         self.assertIn('sandbox allow-scripts',response['Content-Security-Policy'])
         self.assertNotIn(b'http-equiv="Content-Security-Policy"',response.content)
+
+
+    def test_original_search_finds_image_labels_in_boards_and_library_without_writes(self):
+        label = "给定图注 <原文> & 资料"
+        image = {"id": "image", "type": "note", "x": 0, "y": 0, "w": 320, "h": 200,
+                 "canvasObject": {"kind": "image", "marks": [{"kind": "text", "text": label, "points": [[12, 38]]}]}}
+        board = {"format": "creative-board", "version": 1, "name": "Given board", "nodes": [image], "edges": []}
+        _, tag = put_document(self.scope, self.owner, "board", "given-image", board, "new")
+        current = self.read()
+        catalog = current.json()
+        catalog["assets"].append({"id": str(uuid.uuid4()), "title": "Given library original", "path": "", "folder": "",
+                                 "mime": "application/x-creative-bundle", "size": 0, "notes": "", "tags": [],
+                                 "bundle": {"nodes": [copy.deepcopy(image)], "edges": []}})
+        saved = self.call(self.base + "native/assets", "PUT", catalog, current["ETag"])
+        self.assertEqual(saved.status_code, 200, saved.content)
+        before = list(WorkspaceDocument.objects.values())
+        from urllib.parse import urlencode
+        endpoint = self.base + "native/search?" + urlencode({"q": label})
+        response = self.call(endpoint)
+        self.assertEqual(response.status_code, 200)
+        rows = response.json()["results"]
+        self.assertEqual({row["kind"] for row in rows}, {"board", "asset"})
+        self.assertTrue(all(row["snippet"] == label and "图片标注1" in row["matchedIn"] for row in rows))
+        self.assertEqual(list(WorkspaceDocument.objects.values()), before)
+        self.assertEqual(self.call(self.base + "boards/given-image")["ETag"], tag)
+        self.assertEqual(self.call(endpoint, identity=self.other.pk).status_code, 409)
+        Membership.objects.create(workspace=self.space, account=self.other, role="viewer")
+        self.client.force_login(self.other)
+        self.assertEqual(len(self.call(endpoint, identity=self.other.pk).json()["results"]), 2)
+        Membership.objects.filter(workspace=self.space, account=self.other).delete()
+        self.assertEqual(self.call(endpoint, identity=self.other.pk).status_code, 404)
