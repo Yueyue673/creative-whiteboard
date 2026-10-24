@@ -33,3 +33,10 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 #assetPane .asset-row .wf-result-location{font-size:11px;line-height:1.5;color:var(--ui-muted);margin-top:3px;overflow-wrap:anywhere}
 
 @media(max-width:700px){#assetPane .wf-library-search-context button{min-height:44px}}
+
+/* A review reuses the canvas image renderer, without editor gestures. */
+.wf-image-diff{display:grid;place-items:center;min-height:120px;padding:8px;background:var(--ui-bg,#f6f7f9);border:1px solid var(--ui-border,#dfe4ea);border-radius:5px}
+.wf-image-diff-frame{position:relative;width:min(100%,calc(220px * var(--wf-image-ratio)));aspect-ratio:var(--wf-image-ratio);overflow:hidden}
+.wf-image-diff-frame .object-art{pointer-events:none;touch-action:auto}
+
+.wf-image-diff-text{width:100%;text-align:left;overflow-wrap:anywhere;font-size:12px;margin-top:6px}.wf-image-diff-text p{white-space:pre-wrap;line-height:1.6;margin:6px 0}
