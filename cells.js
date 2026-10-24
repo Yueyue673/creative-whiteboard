@@ -13,6 +13,17 @@ function tableAxisIds(n){
  return n;
 }
 function cellItemGrid(n){tableAxisIds(n);n.cellItems??=[];while(n.cellItems.length<n.rows.length)n.cellItems.push([]);n.cellItems.length=n.rows.length;for(const row of n.cellItems){while(row.length<n.columns.length)row.push([]);row.length=n.columns.length}return n.cellItems}
+// A detached copy keeps an existing origin, or inherits the enclosing resource
+// and its stable root. The current card ID is not used as a guessed origin.
+function cellItemOrigin(item,parent){
+ if(item.libraryOrigin)return item.libraryOrigin;
+ const origin=parent?.libraryOrigin;if(!origin?.id||!origin.nodeId||typeof item.id!=='string')return null;
+ const candidate={...clone(origin),nodeId:item.id,rootNodeId:origin.rootNodeId||origin.nodeId};
+ // Being inside a reused table does not prove that a newly written card
+ // existed in the resource. Preserve a pointer only to an ID actually there.
+ return typeof wfOriginNode==='function'&&wfOriginNode({libraryOrigin:candidate},assetById(origin.id),true)?candidate:null;
+}
+function cellItemCopy(item,parent){const copy=clone(item),origin=cellItemOrigin(item,parent);if(origin)copy.libraryOrigin=clone(origin);return copy}
 function cellContentMarkup(n,r,c){return '<div class="cell-contents">'+(n.cellItems?.[r]?.[c]||[]).map((item,i)=>{const a=assetById(item.mediaId||item.assetId),media=a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></audio>':a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></video>':'';const preview=isTextAsset(a)&&!documentKind(a)?'<div class="file-text-preview" data-text-preview="'+esc(a.id)+'"><small>正在读取原文件…</small></div>':'';const field=(key,label)=>'<textarea data-cell-note-field="'+key+'" aria-label="'+label+'">'+esc(item[key]||'')+'</textarea>';const paper=/^#[\da-f]{6}$/i.test(item.color||'')?item.color:colors[0],surface=typeof contentSurfaceClass==='function'?contentSurfaceClass(item):'';return '<section class="cell-content inline-ui'+(a?' cell-file':'')+(surface?' '+surface:'')+'" style="'+(typeof contentSurfaceStyle==='function'?contentSurfaceStyle(item):'')+'--cell-paper:'+paper+'" data-cell-item="'+i+'" data-cell-r="'+r+'" data-cell-c="'+c+'"><button type="button" data-cell-move class="cell-move-handle inline-ui" aria-label="移动内容" title="移动内容">⋮⋮</button>'+field('title','单元格内容标题')+media+preview+imageGallery(item.images||[])+(item.image?imageGallery([{data:item.image}]):'')+(item.type==='table'?'<p>内含表格 · '+(item.rows?.length||0)+' 行；取出到白板后编辑</p>':field('body','单元格内容正文'))+(item.userText?field('userText','单元格内容补充'):'')+(item.annotation?field('annotation','单元格内容备注'):'')+(a&&!media&&!a.mime?.startsWith('image/')?'<a class="inline-ui" href="'+mediaURL(a.id)+'" target="_blank" rel="noopener">打开文件</a>':'')+'</section>'}).join('')+'</div>'}
 (()=>{
 function tableAt(target){const n=board?.nodes.find(n=>n.id===target.nodeId);return n?.type==='table'&&Number.isInteger(target.r)&&Number.isInteger(target.c)&&n.rows[target.r]?.[target.c]!==undefined?n:null}
@@ -31,7 +42,7 @@ function captureCell(target){
  const section=target.closest('[data-cell-item]')||context.live.querySelector('.cell-target');
  if(!section||!context.live.contains(section))return null;
  const r=+section.dataset.cellR,c=+section.dataset.cellC,index=+section.dataset.cellItem,items=context.n.cellItems?.[r]?.[c],item=items?.[index];if(!item)return null;
- return {bundle:{nodes:[clone(item)],edges:[]},valid:()=>context.valid()&&context.n.cellItems?.[r]?.[c]===items&&items[index]===item,remove(){if(!this.valid())return false;undoPoint();items.splice(index,1);openEditor(context.n.id);change();return true},duplicate(){if(!this.valid())return false;undoPoint();items.splice(index+1,0,{...clone(item),id:uid()});openEditor(context.n.id);change();return true}};
+ return {bundle:{nodes:[cellItemCopy(item,context.n)],edges:[]},valid:()=>context.valid()&&context.n.cellItems?.[r]?.[c]===items&&items[index]===item,remove(){if(!this.valid())return false;undoPoint();items.splice(index,1);openEditor(context.n.id);change();return true},duplicate(){if(!this.valid())return false;undoPoint();items.splice(index+1,0,{...cellItemCopy(item,context.n),id:uid()});openEditor(context.n.id);change();return true}};
 }
 function pasteCell(target){
  const context=clipboardCell(target),cell=target?.closest?.('td[data-cell]');if(!context||!cell||!context.live.contains(cell))return null;
@@ -40,7 +51,7 @@ function pasteCell(target){
 }
 window.whiteboardCellClipboard={capture:captureCell,pasteTarget:pasteCell};
 window.addEventListener('keydown',event=>{if(event.isComposing||!event.target.closest?.('[data-cell-move]'))return;const cell=captureCell(event.target);if(!cell)return;const duplicate=(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='d',remove=!event.ctrlKey&&!event.metaKey&&!event.altKey&&['Delete','Backspace'].includes(event.key);if(!duplicate&&!remove)return;event.preventDefault();event.stopImmediatePropagation();if(duplicate)cell.duplicate();else cell.remove()},true);
-const priorAssets=attachAssets;attachAssets=function(ids,target){if(!tableAt(target))return priorAssets(ids,target);const nodes=[];for(const a of ids.map(assetById).filter(Boolean)){if(a.bundle?.nodes)nodes.push(...a.bundle.nodes);else nodes.push({id:uid(),type:'note',title:a.title,body:a.notes||'',assetId:a.id,mediaId:/^(audio|video)\//.test(a.mime)?a.id:undefined,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],tags:a.tags||[],url:a.path,x:0,y:0,w:340,h:240})}appendItems(nodes,target)};
+const priorAssets=attachAssets;attachAssets=function(ids,target){if(!tableAt(target))return priorAssets(ids,target);const nodes=[];for(const a of ids.map(assetById).filter(Boolean)){if(a.bundle?.nodes)nodes.push(...a.bundle.nodes.map(n=>({...clone(n),libraryOrigin:{id:a.id,nodeId:n.id,name:a.title,source:clone(a.source||{})}})));else nodes.push({id:uid(),type:'note',title:a.title,body:a.notes||'',assetId:a.id,mediaId:/^(audio|video)\//.test(a.mime)?a.id:undefined,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],tags:a.tags||[],url:a.path,x:0,y:0,w:340,h:240})}appendItems(nodes,target)};
 const priorFiles=attachFiles;attachFiles=async function(files,target){if(!tableAt(target))return priorFiles(files,target);try{const added=await uploadFiles([...files]);attachAssets(added.map(a=>a.id),target)}catch(e){toast(e.message)}};
 const priorChoose=chooseImages;chooseImages=function(target){$('imageFiles').accept=tableAt(target)?'':'image/png,image/jpeg,image/webp,image/gif';priorChoose(target)};
 const priorDrop=attachDrop;attachDrop=async function(e,target){if(!tableAt(target))return priorDrop(e,target);const raw=e.dataTransfer.getData('text/plain');try{const value=JSON.parse(raw);if(value.format==='creative-board-fragment'&&Array.isArray(value.nodes))return appendItems(value.nodes,target)}catch{}if(raw&&!e.dataTransfer.files.length&&!e.dataTransfer.getData('application/x-creative-assets')){const n=tableAt(target);undoPoint();n.rows[target.r][target.c]+=(n.rows[target.r][target.c]?'\n':'')+raw;openEditor(n.id);change();return}return priorDrop(e,target)};
@@ -75,7 +86,7 @@ mountTableEditor=function(n){
   if(!item)return;
   options.open=false;
   if(button.hasAttribute('data-cell-remove')){undoPoint();items.splice(index,1);openEditor(n.id);change()}
-  else{insertBundle({nodes:[clone(item)],edges:[]},{x:n.x+n.w+40,y:n.y});toast('已将副本放到表格右侧')}
+  else{insertBundle({nodes:[cellItemCopy(item,n)],edges:[]},{x:n.x+n.w+40,y:n.y});toast('已将副本放到表格右侧')}
  }});
  root.querySelectorAll('[data-cell]').forEach(td=>{td.addEventListener('paste',e=>{
   if(e.target.closest('[data-cell-item]'))return;let data;
@@ -110,7 +121,7 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
   if(!valid(source)||!board.nodes.includes(target.table)||target.table.rows?.[target.r]?.[target.c]===undefined)return false;
   const from=source.table.cellItems[source.r][source.c],same=source.table===target.table&&source.r===target.r&&source.c===target.c,to=target.table.cellItems?.[target.r]?.[target.c]||[],index=Math.max(0,Math.min(target.index,to.length))-(same&&source.index<target.index?1:0);if(same&&index===source.index)return false;
   const sections=new Map();if(source.table===target.table)for(const root of document.querySelectorAll('#nodes>.node[data-id],#immersiveSurface[data-id]'))if(root.dataset.id===source.table.id)for(const section of root.querySelectorAll('[data-cell-item]')){const item=source.table.cellItems?.[+section.dataset.cellR]?.[+section.dataset.cellC]?.[+section.dataset.cellItem];if(item)sections.set(item.id,section)}
-  undoPoint();from.splice(source.index,1);cellItemGrid(target.table)[target.r][target.c].splice(index,0,source.item);closeMenu();
+  undoPoint();if(source.table!==target.table&&!source.item.libraryOrigin){const origin=cellItemOrigin(source.item,source.table);if(origin)source.item.libraryOrigin=clone(origin)}from.splice(source.index,1);cellItemGrid(target.table)[target.r][target.c].splice(index,0,source.item);closeMenu();
   if(source.table===target.table&&sections.size){
    for(const root of document.querySelectorAll('#nodes>.node[data-id],#immersiveSurface[data-id]'))if(root.dataset.id===source.table.id){for(const cell of root.querySelectorAll('td[data-cell]')){const [r,c]=cell.dataset.cell.split(',').map(Number),contents=cell.querySelector(':scope>.cell-contents');if(!contents)continue;const children=(source.table.cellItems[r]?.[c]||[]).map((item,i)=>{const el=sections.get(item.id);if(el){el.dataset.cellR=r;el.dataset.cellC=c;el.dataset.cellItem=i}return el});if(children.every(Boolean))contents.replaceChildren(...children)}if(root.parentElement===$('nodes')){const n=source.table,a=assetById(n.assetId);root.dataset.documentSignature=JSON.stringify({...n,x:0,y:0,w:0,h:0,documentZoom:0,editing:editorId===n.id&&selected.has(n.id),file:a?.path,fileUpdated:a?.updated})}}
   }
