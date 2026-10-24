@@ -378,8 +378,10 @@
    const label=aside.querySelector('header label');label.firstChild.textContent=item.kind==='library'?'库中原件':'资料';let name=label.querySelector('.source-peek-name');if(!name){name=document.createElement('span');name.className='source-peek-name';label.append(name)}name.textContent=item.name;const single=item.kind==='library'&&session.rows.length===1;name.hidden=!single;select.hidden=single;layoutSourcePeek();path.hidden=!session.trail.length&&(item.kind==='library'||item.board===session.board);back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.kind==='library'||item.board===session.board;open.title='打开白板：'+item.name;message('');
   };
   const recordsFor=async id=>{if(id===session.board)return noteRecords(board,id);const value=await(await api('/api/boards/'+encodeURIComponent(id))).json();return noteRecords(value,id)};
+  const libraryReadFailure=error=>Object.assign(error instanceof Error?error:new Error(String(error)),{libraryOriginalUnavailable:true});
   const rowsFor=async item=>{
    if(item.kind!=='library')return recordsFor(item.board);
+   try{
    // A fresh read never replaces the live editor or its shared library index.
    const catalog=await(await api('/api/assets')).json(),asset=catalog.assets?.find(a=>a.id===item.assetId);
    if(!asset||asset.archived)throw Error('库中原件已移出内容库');
@@ -390,6 +392,7 @@
    }
    if(!item.originNodeId||!asset.bundle?.nodes.some(n=>n.id===item.originNodeId))throw Error('找不到对应原件，请从内容库查看');
    return asset.bundle.nodes.filter(n=>n.type!=='frame').map(node=>({kind:'library',assetId:asset.id,originNodeId:node.id,board:null,name:asset.title,node}));
+   }catch(error){throw libraryReadFailure(error)}
   };
   const visit=async(item,epoch,trail)=>{
    if(item.kind==='board'){if(!live(epoch))return;const place=captureReferencePlace(session.author.id);closeSourcePeek(false);await jumpReference(item,place,++referenceEpoch,undefined,false);return}
@@ -397,11 +400,11 @@
    if(!current){message('这份资料已移走或删除。');select.value=session.row?key(session.row):'';return}
    if(current.board===session.board&&current.node===session.author){closeSourcePeek();return}
    if(!canCompare(current)){message('这份内容暂时不能在这里查看。');select.value=session.row?key(session.row):'';return}
-   const ids=sourceAssetIds(current.node);if(ids.some(id=>!assetById(id))){if(current.kind==='library')throw Error('原件的文件尚未载入，请从内容库查看');await loadAssets();if(!live(epoch))return}
+   const ids=sourceAssetIds(current.node);if(ids.some(id=>!assetById(id))){if(current.kind==='library')throw libraryReadFailure(Error('原件的文件尚未载入，请从内容库查看'));await loadAssets();if(!live(epoch))return}
    session.trail=trail;session.render(current);
   };
   const begin=()=>{const epoch=++session.epoch;message('正在打开资料…');open.disabled=true;aside.setAttribute('aria-busy','true');return epoch};
-  const failed=(error,epoch)=>{if(live(epoch)){message('暂时无法打开资料：'+error.message);select.value=session.row?key(session.row):'';if(session.originAssetId){session.failedOriginal=true;for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}libraryButton.hidden=false}}};
+  const failed=(error,epoch)=>{if(live(epoch)){message('暂时无法打开资料：'+error.message);select.value=session.row?key(session.row):'';if(session.originAssetId&&(!session.row||error.libraryOriginalUnavailable)){session.failedOriginal=true;for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}libraryButton.hidden=false}}};
   select.onchange=()=>{const item=session.rows.find(r=>key(r)===select.value);if(item){const epoch=begin();visit(item,epoch,[]).catch(error=>failed(error,epoch))}};
   back.onclick=()=>{const item=session.trail.at(-1);if(item){const epoch=begin();visit(item,epoch,session.trail.slice(0,-1)).catch(error=>failed(error,epoch))}};
   open.onclick=()=>{if(!ownsSourcePeek(session)||!session.row||session.row.kind==='library'||aside.hasAttribute('aria-busy'))return;const row=session.row,place=captureReferencePlace(session.author.id);closeSourcePeek();jumpReference(row,place,++referenceEpoch,undefined,false).catch(error=>toast('暂时无法打开白板：'+error.message))};
