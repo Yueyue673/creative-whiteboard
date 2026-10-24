@@ -214,12 +214,12 @@
   function paint(){
    const c=draft.crop,m=draft.marks[selectedMark],held=busy();Object.assign(cropBox.style,{left:c.x+'%',top:c.y+'%',width:c.w+'%',height:c.h+'%'});
    svg.innerHTML=draft.marks.slice(0,500).map((mark,i)=>'<g data-image-mark="'+i+'">'+marksSVG([mark])+'</g>').join('');
-   const box=tool==='select'&&m?markBounds(selectedMark):null;selectionBox.hidden=!box;selectionBox.querySelectorAll('[data-image-mark-resize]').forEach(handle=>handle.hidden=m?.kind==='text');if(box)Object.assign(selectionBox.style,{left:box.x+'%',top:box.y+'%',width:box.w+'%',height:box.h+'%'});
+   const box=tool==='select'&&m?markBounds(selectedMark):null;selectionBox.hidden=!box;if(box)Object.assign(selectionBox.style,{left:box.x+'%',top:box.y+'%',width:box.w+'%',height:box.h+'%'});
    $('imageEditUndo').disabled=held||!edits.length;$('imageEditRedo').disabled=held||!redo.length;$('imageEditApply').disabled=held;$('imageEditRestore').disabled=held;$('imageMarkDelete').disabled=held||tool!=='select'||!m;
    textField.disabled=held||!(tool==='text'||tool==='select'&&m?.kind==='text');colourField.disabled=held||tool==='crop'||tool==='pan'||tool==='select'&&!m;
    textField.style.visibility=tool==='text'||tool==='select'&&m?.kind==='text'?'visible':'hidden';colourField.style.visibility=tool==='crop'||tool==='pan'||tool==='select'&&!m?'hidden':'visible';$('imageMarkDelete').style.visibility=tool==='select'&&m?'visible':'hidden';
    document.querySelectorAll('[data-image-tool]').forEach(b=>{const active=b.dataset.imageTool===tool;b.disabled=held;b.classList.toggle('chosen',active);b.setAttribute('aria-pressed',String(active))});paper.dataset.tool=tool;paper.classList.toggle('moving-mark',!!moving?.changed);$('imageEditStage').dataset.pan=String(tool==='pan');
-   $('imageEditStatus').textContent=tool==='pan'?'拖动图片，滚轮或双指缩放。':tool==='select'?(m?.kind==='text'?'拖动位置，或修改上方文字。':m?'拖动位置，拖角改大小。':'点选标注，再直接调整。'):tool==='crop'?'拖出保留范围。原图始终保留。':tool==='text'?'先输入文字，再点图片放置。':'在图片上拖动画出标注。';
+   $('imageEditStatus').textContent=tool==='pan'?'拖动图片，滚轮或双指缩放。':tool==='select'?(m?.kind==='text'?'拖动位置，拖角改字号，或修改上方文字。':m?'拖动位置，拖角改大小。':'点选标注，再直接调整。'):tool==='crop'?'拖出保留范围。原图始终保留。':tool==='text'?'先输入文字，再点图片放置。':'在图片上拖动画出标注。';
   }
   function syncFields(){const m=tool==='select'?draft.marks[selectedMark]:null;textField.value=m?.kind==='text'?m.text||'':newText;colourField.value=m?colour(m.stroke):newColour}
   const local=e=>{const r=paper.getBoundingClientRect();return [Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)),Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100))]};
@@ -238,8 +238,31 @@
    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));dx=clamp(dx,-(box?.w<=100?box.x:Math.min(...xs)),100-(box?.w<=100?box.x+box.w:Math.max(...xs)));dy=clamp(dy,-(box?.h<=100?box.y:Math.min(...ys)),100-(box?.h<=100?box.y+box.h:Math.max(...ys)));
    return {...mark,points:points.map(p=>[Math.max(0,Math.min(100,p[0]+dx)),Math.max(0,Math.min(100,p[1]+dy))])};
   }
+  function resizedText(mark,box,dir,p){
+   const element=svg.querySelector('[data-image-mark="'+selectedMark+'"] text');if(!element)return mark;
+   const r=paper.getBoundingClientRect(),west=dir.includes('w'),north=dir.includes('n'),ax=west?box.x+box.w:box.x,ay=north?box.y+box.h:box.y;
+   const vx=(west?-box.w:box.w)*r.width,vy=(north?-box.h:box.h)*r.height,tx=(p[0]-ax)*r.width,ty=(p[1]-ay)*r.height;
+   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),oldSize=clamp(mark.fontSize||7,2,30);
+   let size=clamp(oldSize*(tx*vx+ty*vy)/(vx*vx+vy*vy||1),2,30),bounds;
+   // Font hinting makes glyph bounds nonlinear at small sizes. Measure the
+   // candidate in the same SVG, then anchor its actual opposite corner.
+   // Keep the existing text renderer and saved fields; never stretch glyphs.
+   for(let pass=0;pass<3;pass++){
+    const probe=element.cloneNode(true);probe.setAttribute('x','0');probe.setAttribute('y','0');probe.setAttribute('font-size',size);probe.setAttribute('visibility','hidden');svg.append(probe);
+    try{bounds=probe.getBBox()}finally{probe.remove()}
+    if(!bounds.width||!bounds.height)return mark;
+    const fit=Math.min(1,(west?ax:100-ax)/bounds.width,(north?ay:100-ay)/bounds.height);
+    if(fit>=1)break;
+    const next=clamp(size*fit,2,30);if(Math.abs(next-size)<1e-9)return mark;size=next;bounds=null;
+   }
+   if(!bounds)return mark;
+   const x=ax-(west?bounds.width:0)-bounds.x,y=ay-(north?bounds.height:0)-bounds.y;
+   if(![x,y].every(v=>Number.isFinite(v)&&v>=-1e-7&&v<=100+1e-7))return mark;
+   return {...mark,fontSize:size,points:mark.points.map((point,i)=>i?point:[clamp(x,0,100),clamp(y,0,100)])};
+  }
   function resized(mark,box,dir,p){
-   if(!box||!mark.points?.length||mark.kind==='text')return mark;
+   if(!box||!mark.points?.length)return mark;
+   if(mark.kind==='text')return resizedText(mark,box,dir,p);
    const r=paper.getBoundingClientRect(),west=dir.includes('w'),north=dir.includes('n'),ax=west?box.x+box.w:box.x,ay=north?box.y+box.h:box.y,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),bw=Math.max(.001,box.w),bh=Math.max(.001,box.h),minX=3/r.width*100,minY=3/r.height*100;
    let width=Math.max(minX,west?ax-p[0]:p[0]-ax),height=Math.max(minY,north?ay-p[1]:p[1]-ay);
    width=Math.min(width,Math.max(minX,west?ax:100-ax));height=Math.min(height,Math.max(minY,north?ay:100-ay));
@@ -288,7 +311,7 @@
   paper.onpointerdown=e=>{
    if(busy()){if(e.pointerId!==(moving||cropStart||drawing).pointer)cancelPreview();return}if(e.button!==0||e.isPrimary===false||!same(session))return;stop(e);finishField();const p=local(e);paper.focus({preventScroll:true});
    // A visible grip wins; its larger touch margin must not hide another mark.
-   if(tool==='select'){const handle=e.target.closest?.('[data-image-mark-resize]'),hit=handle?hitMark(p,false):-1,r=handle?.getBoundingClientRect(),onGrip=r&&Math.abs(e.clientX-r.left-r.width/2)<=5&&Math.abs(e.clientY-r.top-r.height/2)<=5;const corner=handle&&(onGrip||hit<0||hit===selectedMark)?handle.dataset.imageMarkResize:null;if(!corner)selectedMark=hitMark(p);syncFields();paint();if(selectedMark<0)return;moving={pointer:e.pointerId,start:p,mark:clone(draft.marks[selectedMark]),box:markBounds(selectedMark),resize:corner||null,before:snapshot(),redo:[...redo],changed:false};paper.setPointerCapture(e.pointerId);return}
+   if(tool==='select'){let handle=e.target.closest?.('[data-image-mark-resize]');if(handle&&draft.marks[selectedMark]?.kind==='text'){handle=[...selectionBox.querySelectorAll('[data-image-mark-resize]')].filter(h=>{const r=h.getBoundingClientRect();return !h.hidden&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom}).sort((a,b)=>{const distance=h=>{const r=h.getBoundingClientRect();return Math.hypot(e.clientX-r.left-r.width/2,e.clientY-r.top-r.height/2)};return distance(a)-distance(b)})[0]||handle}const hit=handle?hitMark(p,false):-1,r=handle?.getBoundingClientRect(),onGrip=r&&Math.abs(e.clientX-r.left-r.width/2)<=5&&Math.abs(e.clientY-r.top-r.height/2)<=5;const corner=handle&&(onGrip||hit<0||hit===selectedMark&&draft.marks[selectedMark]?.kind!=='text')?handle.dataset.imageMarkResize:null;if(!corner)selectedMark=hitMark(p);syncFields();paint();if(selectedMark<0)return;moving={pointer:e.pointerId,start:p,mark:clone(draft.marks[selectedMark]),box:markBounds(selectedMark),resize:corner||null,before:snapshot(),redo:[...redo],changed:false};paper.setPointerCapture(e.pointerId);return}
    const corner=tool==='crop'&&e.target.closest?.('[data-crop-handle]');if(corner){selectedMark=-1;redoBefore=[...redo];save();cropStart={pointer:e.pointerId,point:p,handle:corner.dataset.cropHandle,original:{...draft.crop}};paper.setPointerCapture(e.pointerId);paint();return}
    if(tool==='text'&&!textField.value.trim()){textField.focus();return}if(tool!=='crop'&&(draft.marks.length>=500||draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)>=20000))return toast('这张图的标注已满，可以撤销或清除部分标注后继续。');
    selectedMark=-1;redoBefore=[...redo];save();if(tool==='crop')cropStart={pointer:e.pointerId,point:p};else{drawing={pointer:e.pointerId,limit:Math.min(5000,20000-draft.marks.reduce((sum,m)=>sum+(m.points?.length||0),0)),mark:{kind:tool,points:[p],stroke:colourField.value,fill:'none',weight:.8,...(tool==='text'?{text:textField.value,fontSize:7}:{})}};draft.marks.push(drawing.mark)}paper.setPointerCapture(e.pointerId);paint();
