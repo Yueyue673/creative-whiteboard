@@ -374,6 +374,6 @@
   const target=drawingTarget(event);if(target===event.target||contextDown&&Math.hypot(event.clientX-contextDown.x,event.clientY-contextDown.y)>5)return;
   stop(event);fileMenu(eventWithTarget(event,target),[]);
  },true);
- window.whiteboardCanvasObjects={add,edit:editObject,isObject:n=>!!object(n),scaleOf,marksSVG,showTools,menuItems,captureDraft,restoreDraft,focusDraft};
+ window.whiteboardCanvasObjects={add,edit:editObject,isObject:n=>!!object(n),scaleOf,marksSVG,previewImage:n=>object(n)?.kind==='image'&&source(n)?artwork(n):'',showTools,menuItems,captureDraft,restoreDraft,focusDraft};
  if(board)mount();
 })();
