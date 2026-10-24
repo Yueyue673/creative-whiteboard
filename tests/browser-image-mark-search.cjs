@@ -24,7 +24,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cryp
     await p.evaluate(id=>{const n=board.nodes.find(n=>n.id===id);Object.assign(n,{x:25,y:140,w:300,h:187.5,title:'给定参照图'});board.view={x:0,y:0,z:.8};drawNodes();change()},id);
     const card=()=>p.locator('#nodes>.node[data-id="'+id+'"]'),node=()=>p.evaluate(id=>clone(board.nodes.find(n=>n.id===id)),id),snap=()=>p.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)}));
     async function edit(){await card().dblclick({position:{x:35,y:30}});await p.locator('#imageEditOriginal').evaluate(im=>im.complete?true:new Promise(r=>im.onload=r));await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))}
-    const oldText='给定青杏标签 <词>',newText='给定银杏清单 <词>',cancelled='给定取消草稿',nested='给定嵌套海盐';
+    const oldText='给定青杏标签 '+('LongLabel'.repeat(8))+' <词>',newText='给定银杏清单 <词>',cancelled='给定取消草稿',nested='给定嵌套海盐';
     await edit();await p.locator('[data-image-tool=text]').click();await p.locator('#imageMarkText').fill(oldText);
     let frame=await p.locator('#imageEditPaper').boundingBox();await p.locator('#imageEditPaper').click({position:{x:frame.width*.2,y:frame.height*.55}});
     await p.locator('#imageEditApply').click();await p.evaluate(()=>persist());
@@ -38,6 +38,10 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cryp
     assert.equal(await hit.count(),1,'Applied image text appears in current-work results');
     assert.equal(await hit.locator('mark').textContent(),oldText,'Result preserves literal authored characters and escapes markup');
     assert(api.results.some(r=>r.kind==='board'&&r.id===id));assert(api.results.some(r=>r.kind==='library'));
+    const layout=await p.locator('#wfSearchResults').evaluate(box=>({list:{client:box.clientWidth,scroll:box.scrollWidth},rows:[...box.querySelectorAll('.wf-result')].map(el=>({client:el.clientWidth,scroll:el.scrollWidth,parts:[...el.querySelectorAll('strong,small,p')].map(p=>({client:p.clientWidth,scroll:p.scrollWidth})),marks:[...el.querySelectorAll('mark')].flatMap(m=>[...m.getClientRects()].map(r=>({left:r.left,right:r.right,rowLeft:el.getBoundingClientRect().left,rowRight:el.getBoundingClientRect().right})))}))}));
+    row.layout=layout;record();
+    assert(layout.list.scroll<=layout.list.client+1,'Search results fit without horizontal scrolling');
+    for(const item of layout.rows){assert(item.scroll<=item.client+1,'Result card wraps long original filenames and labels');for(const part of item.parts)assert(part.scroll<=part.client+1,'Every result text field fits its width');for(const mark of item.marks)assert(mark.left>=mark.rowLeft-1&&mark.right<=mark.rowRight+1,'Every highlighted fragment stays readable inside its own result')}
     await p.screenshot({path:path.join(out,width+'-applied-label-search.png')});await hit.click();
     assert.deepEqual(await p.evaluate(()=>[...selected]),[id]);assert.deepEqual(await snap(),before,'Search/select does not write content or edit history');assert.equal(await p.locator('#imageEditPaper').count(),0);
     // Cancel a real editor draft; it never enters current or saved search.
