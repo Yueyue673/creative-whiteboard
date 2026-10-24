@@ -48,9 +48,31 @@ $('assetMove').onclick=()=>{const ids=[...assetSelected];if(!ids.length)return t
 async function wfBatchTags(){const ids=[...assetSelected];if(!ids.length)return toast('先选择内容');showDialog('<h2>给选中内容添加标签</h2><p>为 '+ids.length+' 项内容添加标签，保留各自已有的标签。</p><input id="wfTags" placeholder="用逗号分开">',[['取消',()=>$('dialog').close()],['添加',()=>wfSafe(async()=>{const tags=$('wfTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);if(!tags.length)return;const next=clone(assetIndex);next.assets.filter(a=>ids.includes(a.id)).forEach(a=>a.tags=[...new Set([...(a.tags||[]),...tags])]);if(await saveAssets(next))$('dialog').close()})]])}
 
 // Provenance includes each atom's original ID, even when imported as part of a group.
-function wfOriginNode(n,a){if(!a?.bundle)return null;if(n.libraryOrigin?.nodeId)return a.bundle.nodes.find(x=>x.id===n.libraryOrigin.nodeId)||null;const exact=a.bundle.nodes.filter(x=>x.type===n.type&&x.title===n.title);return exact.length===1?exact[0]:a.bundle.nodes.length===1?a.bundle.nodes[0]:null}
+function wfOriginNode(n,a,presenceOnly=false){
+ if(!Array.isArray(a?.bundle?.nodes))return null;
+ const origin=n.libraryOrigin;
+ if(origin?.rootNodeId!==undefined){
+  if(typeof origin.rootNodeId!=='string'||!origin.rootNodeId||typeof origin.nodeId!=='string'||!origin.nodeId)return null;
+  const roots=a.bundle.nodes.filter(node=>node.id===origin.rootNodeId);if(roots.length!==1)return null;
+  const stack=[roots[0]];let found=null,steps=0;
+  // Presence is used only to carry an existing pointer, never to read/update.
+  // A partial scan must not be mistaken for a unique match. Count containers
+  // as well as cards, including empty wide grids retained by older imports.
+  while(stack.length){
+   if(++steps>100000)return null;const node=stack.pop();if(!node||typeof node!=='object')continue;
+   if(node.id===origin.nodeId){if(presenceOnly)return node;if(found)return null;found=node}
+   if(node.type==='table'&&Array.isArray(node.cellItems))for(const row of node.cellItems){
+    if(++steps>100000)return null;if(!Array.isArray(row))continue;
+    for(const cell of row){if(++steps>100000)return null;if(!Array.isArray(cell))continue;for(const item of cell){if(++steps>100000)return null;stack.push(item)}}
+   }
+  }
+  return found;
+ }
+ if(origin?.nodeId)return a.bundle.nodes.find(x=>x.id===origin.nodeId)||null;
+ const exact=a.bundle.nodes.filter(x=>x.type===n.type&&x.title===n.title);return exact.length===1?exact[0]:a.bundle.nodes.length===1?a.bundle.nodes[0]:null;
+}
 async function wfLocateOriginal(n){const a=assetById(n.libraryOrigin?.id||n.assetId);if(!a)return toast('库中的原件已不存在');return revealLibraryItem(a.id)}
-function wfOriginReview(nodeId){const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);if(!n||!a)return toast('找不到库中的原件');const original=wfOriginNode(n,a);showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">来自内容库 / '+esc(a.folder||'根目录')+'。白板上是独立副本；更新前会展示差异。</p><p>'+esc(original?'可以比较并选择更新方向。':'这项内容是原文件引用，或旧组合尚未能精确匹配到单块。可以定位原件或另存当前内容。')+'</p>',[['关闭',()=>$('dialog').close()],['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])])}
+function wfOriginReview(nodeId){const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);if(!n||!a)return toast('找不到库中的原件');const original=wfOriginNode(n,a);showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">来自内容库 / '+esc(a.folder||'根目录')+'。白板上是独立副本；更新前会展示差异。</p><p>'+esc(original?'可以比较并选择更新方向。':n.libraryOrigin?.rootNodeId?'暂时不能唯一对应到库中原件；可以定位组合或另存当前内容。':'这项内容是原文件引用，或旧组合尚未能精确匹配到单块。可以定位原件或另存当前内容。')+'</p>',[['关闭',()=>$('dialog').close()],['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])])}
 function wfCompareOrigin(n,a,original,direction){const from=direction==='pull'?original:n,to=direction==='pull'?n:original;const changes=wfContentFields.filter(k=>!wfEqual(from[k],to[k])).map(field=>{
  const change={field,before:clone(to[field]??null),after:clone(from[field]??null)};
  if(field==='canvasObject'&&to.canvasObject?.kind==='image'&&from.canvasObject?.kind==='image'){
@@ -60,7 +82,7 @@ function wfCompareOrigin(n,a,original,direction){const from=direction==='pull'?o
   change.imagePreview={before:{...target,canvasObject:change.before},after:{...target,canvasObject:change.after},beforeLabel:direction==='pull'?'白板副本（当前）':'库中原件（当前）',afterLabel:'本项应用后'};
  }
  return change;
- });const baseline=JSON.stringify(direction==='pull'?n:a),currentBoard=boardId;wfReview(direction==='pull'?'把库中更新用于这块内容':'更新库中原件',direction==='pull'?'只修改当前这块内容，保持它的位置、大小和连线。':'只更新库中的对应内容。其他白板的副本不会跟着改变。',changes,async picked=>{if(boardId!==currentBoard||JSON.stringify(direction==='pull'?board.nodes.find(x=>x.id===n.id):assetById(a.id))!==baseline)return toast('内容已变化，请重新比较'),false;if(direction==='pull'){undoPoint();for(const c of picked){if(c.after===null)delete n[c.field];else n[c.field]=clone(c.after)}render();change();toast('已应用库中更新 · Ctrl+Z 撤销')}else{const next=clone(assetIndex),target=next.assets.find(x=>x.id===a.id).bundle.nodes.find(x=>x.id===original.id);for(const c of picked){if(c.after===null)delete target[c.field];else target[c.field]=clone(c.after)}next.assets.find(x=>x.id===a.id).updated=Date.now();if(!await saveAssets(next))return false;toast('已更新库中原件 · 在内容库按 Ctrl+Z 可撤销')}})}
+ });const baseline=JSON.stringify(direction==='pull'?n:a),currentBoard=boardId;wfReview(direction==='pull'?'把库中更新用于这块内容':'更新库中原件',direction==='pull'?'只修改当前这块内容，保持它的位置、大小和连线。':'只更新库中的对应内容。其他白板的副本不会跟着改变。',changes,async picked=>{if(boardId!==currentBoard||JSON.stringify(direction==='pull'?board.nodes.find(x=>x.id===n.id):assetById(a.id))!==baseline)return toast('内容已变化，请重新比较'),false;if(direction==='pull'){undoPoint();for(const c of picked){if(c.after===null)delete n[c.field];else n[c.field]=clone(c.after)}render();change();toast('已应用库中更新 · Ctrl+Z 撤销')}else{const next=clone(assetIndex),target=wfOriginNode(n,next.assets.find(x=>x.id===a.id));if(!target)return toast('原件已变化，请重新比较'),false;for(const c of picked){if(c.after===null)delete target[c.field];else target[c.field]=clone(c.after)}next.assets.find(x=>x.id===a.id).updated=Date.now();if(!await saveAssets(next))return false;toast('已更新库中原件 · 在内容库按 Ctrl+Z 可撤销')}})}
 refreshLibrarySource=async function(id){const a=assetById(id);if(!a?.source)return toast('这项内容没有原白板来源');if(!await persist())return;try{const source=await(await api('/api/boards/'+a.source.boardId)).json(),ids=new Set(a.source.nodeIds),nodes=source.nodes.filter(n=>ids.has(n.id));if(nodes.length!==ids.size)return toast('原白板有内容已删除，请重新收录需要的内容');const baseline=JSON.stringify(a),bundle={nodes,edges:source.edges.filter(e=>ids.has(e.from)&&ids.has(e.to))};wfReview('从来源白板更新组合','将替换库中的这份组合；其他白板上的副本不变。',[{field:'组合',before:a.bundle,after:bundle}],async()=>{if(JSON.stringify(assetById(id))!==baseline)return toast('库中版本已改变，请重新比较'),false;const next=clone(assetIndex),item=next.assets.find(x=>x.id===id);item.bundle=bundle;item.updated=Date.now();return saveAssets(next)})}catch(e){toast(e.message)}};
 function wfMountOrigins(){const lookup=new Map(board.nodes.map(n=>[n.id,n]));for(const el of $('nodes').children){const n=lookup.get(el.dataset.id),id=n?.libraryOrigin?.id||n?.assetId,a=assetById(id),meta=el.querySelector('#inlineMeta,[data-preview-id=inlineMeta]');let b=el.querySelector('.wf-origin');if(!a||!meta){b?.remove();continue}if(!b){b=document.createElement('button');b.className='wf-origin inline-ui';b.onclick=e=>{e.stopPropagation();wfOriginReview(n.id)}}b.textContent=(a.archived?'原件已移出库：':'库中原件：')+a.title;b.title='查看原件与版本';meta.querySelector('.meta-heading').after(b)}}
 const wfDrawNodes=drawNodes;drawNodes=function(){wfDrawNodes();wfMountOrigins()};

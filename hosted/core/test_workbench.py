@@ -236,3 +236,28 @@ class OriginalWorkbenchTests(TestCase):
         self.assertEqual(len(self.call(endpoint, identity=self.other.pk).json()["results"]), 2)
         Membership.objects.filter(workspace=self.space, account=self.other).delete()
         self.assertEqual(self.call(endpoint, identity=self.other.pk).status_code, 404)
+
+
+    def test_nested_resource_origin_roundtrips_in_original_workbench_without_rewriting_library(self):
+        resource_id = str(uuid.uuid4())
+        original = {"id": "nested-note", "type": "note", "title": "Given note", "body": "Exact nested original",
+                    "x": 0, "y": 0, "w": 231, "h": 147, "opaque": {"preserve": [1, True]}}
+        container = {"id": "container", "type": "table", "x": 0, "y": 0, "w": 700, "h": 500,
+                     "columns": ["Given"], "rows": [[""]], "cellItems": [[[original]]]}
+        current = self.read()
+        catalog = current.json()
+        catalog["assets"].append({"id": resource_id, "title": "Given collection", "path": "", "folder": "",
+                                  "mime": "application/x-creative-bundle", "size": 0, "notes": "", "tags": [],
+                                  "bundle": {"nodes": [container], "edges": []}})
+        response = self.call(self.base + "native/assets", "PUT", catalog, current["ETag"])
+        self.assertEqual(response.status_code, 200, response.content)
+        library = self.read()
+        child = {**copy.deepcopy(original), "id": "detached-copy", "x": 40, "y": 80,
+                 "libraryOrigin": {"id": resource_id, "nodeId": "nested-note",
+                                   "rootNodeId": "container", "name": "Given collection", "source": {}}}
+        board = {"format": "creative-board", "version": 1, "name": "Given board", "nodes": [child], "edges": []}
+        response = self.call(self.base + "boards/nested-origin", "PUT", board, "new")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(self.call(self.base + "boards/nested-origin").json(), board)
+        self.assertEqual(self.read().json(), library.json())
+        self.assertEqual(self.read()["ETag"], library["ETag"])
