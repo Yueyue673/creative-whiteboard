@@ -16,21 +16,22 @@ function wfDiffValue(change,side){
  return '<div class="wf-image-diff" role="group" aria-label="'+esc(change.imagePreview[side+'Label']+'预览')+'"><div class="wf-image-diff-frame" style="--wf-image-ratio:'+aspect+'">'+html+'</div>'+words+'</div>';
 }
 function wfDiffHTML(changes){return changes.map((c,i)=>'<section class="wf-diff"><label><input type="checkbox" data-wf-change="'+i+'" checked> '+esc(c.label||wfLabels[c.field]||c.field||'内容')+'</label><div class="wf-diff-pair"><div><small>'+esc(c.imagePreview?.beforeLabel||'当前')+'</small>'+wfDiffValue(c,'before')+'</div><div><small>'+esc(c.imagePreview?.afterLabel||'修改后')+'</small>'+wfDiffValue(c,'after')+'</div></div></section>').join('')}
-function wfSelectedChanges(changes){return [...$('dialogBody').querySelectorAll('[data-wf-change]:checked')].map(el=>changes[Number(el.dataset.wfChange)])}
-function wfReview(title,description,changes,apply){
+function wfSelectedChanges(changes,root=$('dialogBody')){return [...root.querySelectorAll('[data-wf-change]:checked')].map(el=>changes[Number(el.dataset.wfChange)])}
+function wfReview(title,description,changes,apply,presentation){
+ const lookup=presentation?.element||document.getElementById.bind(document),show=presentation?.show||showDialog;
  let owner,applyButton,cancelButton,busy=false;
- const current=()=>owner?.isConnected&&$('dialog').open;
+ const current=()=>owner?.isConnected&&lookup('dialog').open;
  const approve=()=>wfSafe(async()=>{
   if(busy||!current())return;
-  const picked=wfSelectedChanges(changes);if(!picked.length)return toast('先勾选需要的修改');
-  const fields=[...$('dialogBody').querySelectorAll('[data-wf-change]')].map(input=>({input,disabled:input.disabled}));
+  const picked=wfSelectedChanges(changes,lookup('dialogBody'));if(!picked.length)return toast('先勾选需要的修改');
+  const fields=[...lookup('dialogBody').querySelectorAll('[data-wf-change]')].map(input=>({input,disabled:input.disabled}));
   for(const {input} of fields)input.disabled=true;
   busy=true;applyButton.disabled=true;applyButton.setAttribute('aria-busy','true');cancelButton.textContent='关闭';
-  try{if(await apply(picked)!==false&&current())$('dialog').close()}
+  try{if(await apply(picked)!==false&&current())lookup('dialog').close()}
   finally{busy=false;if(current()){for(const {input,disabled} of fields)input.disabled=disabled;applyButton.disabled=false;applyButton.removeAttribute('aria-busy');cancelButton.textContent='取消'}}
  });
- showDialog('<h2>'+esc(title)+'</h2><p class="wf-explain">'+esc(description)+'</p><div class="wf-diffs">'+(changes.length?wfDiffHTML(changes):'<p>没有需要更新的内容。</p>')+'</div>',[['取消',()=>$('dialog').close()],['应用勾选的修改',approve]]);
- owner=$('dialogBody').firstElementChild;[cancelButton,applyButton]=$('dialogActions').querySelectorAll('button');$('dialog').classList.add('wf-dialog');
+ show('<h2>'+esc(title)+'</h2><p class="wf-explain">'+esc(description)+'</p><div class="wf-diffs">'+(changes.length?wfDiffHTML(changes):'<p>没有需要更新的内容。</p>')+'</div>',[['取消',()=>lookup('dialog').close()],['应用勾选的修改',approve]]);
+ owner=lookup('dialogBody').firstElementChild;[cancelButton,applyButton]=lookup('dialogActions').querySelectorAll('button');lookup('dialog').classList.add('wf-dialog');
 }
 function wfAddMenu(label,action){const button=document.createElement('button');button.textContent=label;button.onclick=()=>{$('menu').open=false;wfSafe(action)};$('menu').querySelector('div').append(button);return button}
 

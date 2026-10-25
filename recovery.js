@@ -2,7 +2,36 @@
 (() => {
  'use strict';
  let epoch=0,restoring=false,owner=null;
- const dialog=$('dialog');
+ const primary=document.getElementById('dialog');let dialog=primary;
+ let writingFocus=null;
+ document.addEventListener('focusin',event=>{if(primary.classList.contains('immersive-dialog')&&event.target.closest('#immersiveSurface,.immersive-heading'))writingFocus=event.target});
+ const $=id=>id==='dialog'?dialog:id==='dialogBody'?dialog.querySelector('[data-recovery-body]')||document.getElementById(id):id==='dialogActions'?dialog.querySelector('[data-recovery-actions]')||document.getElementById(id):document.getElementById(id);
+ function layeredHistory(){
+  if(dialog!==primary&&dialog.open)return;
+  dialog=primary;
+  const surface=primary.querySelector('#immersiveSurface');
+  if(!primary.open||!primary.classList.contains('immersive-dialog')||!surface)return;
+  const source=board,key=boardId,node=board.nodes.find(n=>n.id===surface.dataset.id),activeField=document.activeElement,field=primary.contains(writingFocus)?writingFocus:activeField;
+  const place=field?.closest('#immersiveSurface')===surface&&field.matches('textarea,input')?{field,value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,scrolls:[]}:null;
+  if(place)for(let el=field;el&&el!==primary;el=el.parentElement)place.scrolls.push({el,top:el.scrollTop,left:el.scrollLeft});
+  // The expanded controls already contain these edits; keep their empty canvas placeholder current.
+  const placeholder=[...document.getElementById('nodes').children].find(el=>el.dataset.id===node?.id);
+  if(node?.documentMode&&editorId===node.id&&selected.has(node.id)&&placeholder&&!placeholder.querySelector('.inner')){
+   const asset=assetById(node.assetId);placeholder.dataset.documentSignature=JSON.stringify({...node,x:0,y:0,w:0,h:0,documentZoom:0,editing:true,file:asset?.path,fileUpdated:fileViewVersion(asset)});
+  }
+  const layer=document.createElement('dialog');layer.className='wf-dialog wf-recovery-dialog';layer.setAttribute('aria-label','恢复与历史记录');
+  layer.innerHTML='<div data-recovery-body></div><div data-recovery-actions></div>';document.body.append(layer);dialog=layer;
+  const observer=new MutationObserver(()=>{if(!surface.isConnected||!primary.open||board!==source||boardId!==key)layer.close()});
+  observer.observe(primary,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
+  layer.addEventListener('close',()=>{
+   observer.disconnect();layer.remove();if(dialog===layer){dialog=primary;owner=null}
+   if(!place||board!==source||boardId!==key||!board.nodes.includes(node)||!primary.open||!primary.contains(surface)||!place.field.isConnected||place.field.value!==place.value||!document.hasFocus()||document.querySelector('dialog[open]:not(#dialog)'))return;
+   place.field.focus({preventScroll:true});if(Number.isInteger(place.start)&&Number.isInteger(place.end))place.field.setSelectionRange(place.start,place.end,place.direction);
+   for(const scroll of place.scrolls)if(scroll.el.isConnected){scroll.el.scrollTop=scroll.top;scroll.el.scrollLeft=scroll.left}
+  },{once:true});
+ }
+ function closeForBoardChange(){const layered=dialog!==primary;dialog.close();if(layered&&primary.open&&primary.classList.contains('immersive-dialog'))primary.close()}
+
  const batches=catalog=>Array.isArray(catalog.trash)?catalog.trash.filter(t=>t&&typeof t.id==='string'&&Array.isArray(t.assetIds)&&Array.isArray(t.folders)):[];
  const active=token=>token===epoch&&dialog.open&&owner?.isConnected;
  const prefix=(path,folder)=>path===folder||path.startsWith(folder+'/');
@@ -41,7 +70,13 @@
  };
 
  function recoveryDialog(body,actions){
-  showDialog(body,actions);owner=$('dialogBody').firstElementChild;dialog.classList.add('wf-dialog');
+  if(dialog===primary)showDialog(body,actions);
+  else{
+   $('dialogBody').innerHTML=body;$('dialogActions').replaceChildren();
+   for(const [text,action]of actions){const button=document.createElement('button');button.textContent=text;button.onclick=action;$('dialogActions').append(button)}
+   if(!dialog.open)dialog.showModal();
+  }
+  owner=$('dialogBody').firstElementChild;dialog.classList.add('wf-dialog');
  }
  function historyRow(title,detail,attribute,label='恢复'){
   return '<div class="wf-history-row"><div><b>'+esc(title)+'</b><small>'+esc(detail)+'</small></div><button '+attribute+'>'+label+'</button></div>';
@@ -121,6 +156,7 @@
  }
  wfRecovery=async function(tab='board'){
   const token=++epoch;if(!await persist()||token!==epoch)return;
+  layeredHistory();
   recoveryDialog('<h2>恢复与历史记录</h2><div class="wf-toolbar recovery-toolbar"><div role="tablist" aria-label="恢复范围"><button role="tab" data-recovery-tab="board">当前白板</button><button role="tab" data-recovery-tab="library">内容库历史</button><button role="tab" data-recovery-tab="trash">回收站</button></div><button id="wfCheckpoint">保存一个恢复点</button></div><p id="wfRecoveryInfo" class="wf-explain"></p><div id="wfRecoveryList" class="wf-list" role="tabpanel">正在读取…</div>',[['关闭',()=>dialog.close()]]);
   const tabs=[...$('dialogBody').querySelectorAll('[data-recovery-tab]')];
   tabs.forEach((button,i)=>{
@@ -158,7 +194,7 @@
    const next=clone(assetIndex);
    for(const c of chosen){next.assets=next.assets.filter(a=>a.id!==c.field);next.assets.push(clone(c.after));addFolders(next,[c.after.folder])}
    return saveAssets(next);
-  });
+  },dialog===primary?undefined:{show:recoveryDialog,element:$});
   owner=$('dialogBody').firstElementChild;
  }
  function libraryRevision(token,revision){
@@ -183,7 +219,7 @@
    if(boardId!==key)return toast('当前白板已切换，请重新打开历史记录');
    const ids=new Set([...$('dialogBody').querySelectorAll('[data-recover-node]:checked')].map(e=>e.dataset.recoverNode));
    if(!ids.size)return toast('先勾选内容');
-   const bundle=subsetBundle({bundle:{nodes:value.nodes,edges:value.edges}},ids);dialog.close();insertBundle(bundle);toast('已取回所选内容 · Ctrl+Z 撤销');
+   const bundle=subsetBundle({bundle:{nodes:value.nodes,edges:value.edges}},ids);closeForBoardChange();insertBundle(bundle);toast('已取回所选内容 · Ctrl+Z 撤销');
   }],['整份记录另存为白板',()=>{}]]);
   const actions=$('dialogActions').querySelectorAll('button');
   restoreAction(actions[2],async()=>{

@@ -40,3 +40,7 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-image-diff-frame .object-art{pointer-events:none;touch-action:auto}
 
 .wf-image-diff-text{width:100%;text-align:left;overflow-wrap:anywhere;font-size:12px;margin-top:6px}.wf-image-diff-text p{white-space:pre-wrap;line-height:1.6;margin:6px 0}
+
+/* History can sit above an expanded writer without replacing its controls. */
+.wf-recovery-dialog>[data-recovery-body]{overflow:auto;min-height:0}
+.wf-recovery-dialog>[data-recovery-actions]{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;flex:none;margin-top:16px;border-top:1px solid var(--ui-line,#e0e4e8);padding-top:12px}
