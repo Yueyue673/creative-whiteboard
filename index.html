@@ -166,7 +166,7 @@ function drawEdges(){let html='';for(const e of board.edges){const a=board.nodes
 function moveView(){$('world').style.transform='translate('+view().x+'px,'+view().y+'px) scale('+view().z+')'}
 function renderOutline(){
  const q=$('search').value.toLowerCase();
- $('items').innerHTML=ordered().filter(n=>[n.title,n.body,n.userText,n.annotation,...(n.tags||[]),...(n.columns||[]),...(n.rows||[]).flat()].join(' ').toLowerCase().includes(q)).map(n=>{
+ $('items').innerHTML=ordered().filter(n=>(typeof wfNodeText==='function'?wfNodeText(n):[n.title,n.body,n.userText,n.annotation,...(n.tags||[]),...(n.columns||[]),...(n.rows||[]).flat()].join(' ')).toLowerCase().includes(q)).map(n=>{
   const source=[n.body,n.userText,n.annotation].find(text=>typeof text==='string'&&text.trim())||'',lines=source.trim().split(/\r?\n/),title=String(n.title||'').trim(),label=title||lines[0]||'未命名';
   const preview=(title?source:lines.slice(1).join(' ')).replace(/\s+/g,' ').trim(),tags=(n.tags||[]).join(' · ');
   return '<button data-open="'+esc(n.id)+'" class="'+(n.type==='frame'?'group ':'')+(selected.has(n.id)?'active':'')+'"><span class="outline-name" title="'+esc(label)+'">'+esc(label)+'</span>'+(!q.trim()&&preview?'<small class="outline-preview">'+esc(preview.slice(0,190))+'</small>':'')+(tags?'<small class="outline-tags">'+esc(tags)+'</small>':'')+'</button>';
