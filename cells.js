@@ -50,7 +50,21 @@ function pasteCell(target){
  return {apply(text){if(!context.valid()||context.n.rowIds?.[r]!==row||context.n.columnIds?.[c]!==column)return false;let value;try{value=JSON.parse(text)}catch{return false}if(value?.format!=='creative-board-fragment'||!Array.isArray(value.nodes)||!Array.isArray(value.edges))return false;appendItems(value.nodes,{nodeId:context.n.id,r,c});return true}};
 }
 window.whiteboardCellClipboard={capture:captureCell,pasteTarget:pasteCell};
-window.addEventListener('keydown',event=>{if(event.isComposing||!event.target.closest?.('[data-cell-move]'))return;const cell=captureCell(event.target);if(!cell)return;const duplicate=(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='d',remove=!event.ctrlKey&&!event.metaKey&&!event.altKey&&['Delete','Backspace'].includes(event.key);if(!duplicate&&!remove)return;event.preventDefault();event.stopImmediatePropagation();if(duplicate)cell.duplicate();else cell.remove()},true);
+// A shortcut started on one nested card must not escape to its parent when
+// that card's handle is replaced. Releasing the key starts a new action.
+(() => {
+ let shortcutKey=null;
+ const key=event=>event.code||event.key;
+ window.addEventListener('keyup',event=>{if(shortcutKey===key(event))shortcutKey=null},true);
+ window.addEventListener('blur',()=>shortcutKey=null);
+ window.addEventListener('keydown',event=>{
+  if(event.isComposing)return;
+  if(event.repeat&&shortcutKey===key(event)){event.preventDefault();event.stopImmediatePropagation();return}
+  if(!event.target.closest?.('[data-cell-move]'))return;const cell=captureCell(event.target);if(!cell)return;
+  const duplicate=(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='d',remove=!event.ctrlKey&&!event.metaKey&&!event.altKey&&['Delete','Backspace'].includes(event.key);if(!duplicate&&!remove)return;
+  event.preventDefault();event.stopImmediatePropagation();shortcutKey=key(event);if(duplicate)cell.duplicate();else cell.remove();
+ },true);
+})();
 const priorAssets=attachAssets;attachAssets=function(ids,target){if(!tableAt(target))return priorAssets(ids,target);const nodes=[];for(const a of ids.map(assetById).filter(Boolean)){if(a.bundle?.nodes)nodes.push(...a.bundle.nodes.map(n=>({...clone(n),libraryOrigin:{id:a.id,nodeId:n.id,name:a.title,source:clone(a.source||{})}})));else nodes.push({id:uid(),type:'note',title:a.title,body:a.notes||'',assetId:a.id,mediaId:/^(audio|video)\//.test(a.mime)?a.id:undefined,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],tags:a.tags||[],url:a.path,x:0,y:0,w:340,h:240})}appendItems(nodes,target)};
 const priorFiles=attachFiles;attachFiles=async function(files,target){if(!tableAt(target))return priorFiles(files,target);try{const added=await uploadFiles([...files]);attachAssets(added.map(a=>a.id),target)}catch(e){toast(e.message)}};
 const priorChoose=chooseImages;chooseImages=function(target){$('imageFiles').accept=tableAt(target)?'':'image/png,image/jpeg,image/webp,image/gif';priorChoose(target)};
