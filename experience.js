@@ -45,7 +45,7 @@
   const promise=new Promise(resolve=>{
    const img=new Image(),timer=setTimeout(()=>resolve(4/3),3000);
    const finish=value=>{clearTimeout(timer);resolve(value)};
-   img.onload=()=>{const ratio=img.naturalWidth/Math.max(1,img.naturalHeight);imageRatios.set(a.id,Promise.resolve(ratio));finish(ratio)};img.onerror=()=>finish(4/3);img.src=mediaURL(a.id);
+   img.onload=()=>{const ratio=img.naturalWidth/Math.max(1,img.naturalHeight);imageRatios.set(a.id,Promise.resolve(ratio));finish(ratio)};img.onerror=()=>finish(4/3);img.src=imageAssetURL(a.id);
   });imageRatios.set(a.id,promise);return promise;
  }
  // Newly dropped files already exist in this browser. Read a bounded set locally
