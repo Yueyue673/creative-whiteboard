@@ -13,7 +13,7 @@
  function open(el,id=null){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};ui.querySelector('.media-time').click();decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
  function update(el){
   const info=players.get(el);if(!info)return;const t=timeline(el),list=sorted(el),ready=Number.isFinite(el.duration)&&el.duration>0;
-  if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=(contentContext(el)?.board||boardId)+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
+  if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=contentContext(el)?.library?readerKey(el,'media',mediaKey(el)):(contentContext(el)?.board||boardId)+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
   const roots=[el.nextElementSibling];if(active?.el===el&&$('mediaPopover'))roots.push($('mediaPopover').querySelector('.media-controls'));
   for(const root of roots){if(!root?.matches('.media-controls'))continue;let ticks=root.querySelector('.media-marker-ticks');if(!ticks){ticks=document.createElement('div');ticks.className='media-marker-ticks';root.append(ticks)}
    const seek=root.querySelector('.media-seek');if(seek){ticks.style.left=(seek.offsetLeft+7)+'px';ticks.style.right=Math.max(7,root.clientWidth-seek.offsetLeft-seek.offsetWidth+7)+'px';ticks.style.top=(seek.offsetTop+seek.offsetHeight/2+4)+'px'}
