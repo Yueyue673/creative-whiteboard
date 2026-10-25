@@ -9,6 +9,8 @@
 // Escape dismisses the topmost viewer before canvas shortcuts.
 window.addEventListener('keydown',function(e){
  if(e.key!=='Escape')return;
+ var recovery=document.querySelector('.wf-recovery-dialog[open]');
+ if(recovery){recovery.close();e.preventDefault();e.stopImmediatePropagation();return;}
  if(document.getElementById('noteTools')){window.whiteboardNoteEditor?.dismiss();e.preventDefault();e.stopImmediatePropagation();return;}
  if(document.getElementById('mediaPopover')){whiteboardMedia.close();e.preventDefault();e.stopImmediatePropagation();return;}
  if(gesture){cancelCanvasGesture();e.preventDefault();e.stopImmediatePropagation();return;}
