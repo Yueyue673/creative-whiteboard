@@ -675,7 +675,30 @@ function showCollectedResource(id){
  const existing=parent!==window?parent.whiteboardWorkspace?.explorer?.():null;
  existing?.refresh?.().catch(()=>{if(owns())message.textContent='已保存到库，列表待刷新'});
 }
-askCollectSelection=function(){const bundle=selectionBundle();if(!bundle.nodes.length)return toast('先选择白板上的内容');const name=bundle.nodes.length===1?bundle.nodes[0].title||'未命名内容':'内容组合';showDialog('<h2>把选中内容收进库</h2><p>收录 '+bundle.nodes.length+' 块内容。原白板上的内容会保留。</p><label>内容名称<input id="collectName" value="'+esc(name)+'"></label><label>存放位置<select id="collectDestination">'+libraryFolderOptions(assetFolder)+'</select></label>',[['取消',()=>$('dialog').close()],['收进内容库',async()=>{const name=$('collectName').value.trim(),folder=$('collectDestination').value;if(!name)return toast('请填写内容名称');if(!await persist())return;const next=clone(assetIndex),id=uid();next.assets.push({id,title:name,path:'',folder,mime:bundleMime,size:0,notes:bundle.nodes.length+' 块内容',tags:[],bundle,source:{boardId,nodeIds:bundle.nodes.map(n=>n.id)},updated:Date.now()});if(await saveAssets(next)){$('dialog').close();showCollectedResource(id)}}]])};
+askCollectSelection=function(){
+ const bundle=selectionBundle();if(!bundle.nodes.length)return toast('先选择白板上的内容');
+ const source=board,sourceId=boardId,name=bundle.nodes.length===1?bundle.nodes[0].title||'未命名内容':'内容组合';
+ let nameField,destination,saveButton,target,busy=false;
+ const active=()=>board===source&&boardId===sourceId&&!loading&&!blocked&&$('dialog').open&&nameField?.isConnected&&$('dialogBody').contains(nameField);
+ showDialog('<h2>把选中内容收进库</h2><p>收录 '+bundle.nodes.length+' 块内容。原白板上的内容会保留。</p><label>内容名称<input id="collectName" value="'+esc(name)+'"></label><label>存放位置<select id="collectDestination">'+libraryFolderOptions(assetFolder)+'</select></label>',[['取消',()=>$('dialog').close()],['收进内容库',async()=>{
+  if(busy||!active())return;if(!nameField.value.trim())return toast('请填写内容名称');
+  busy=true;saveButton.disabled=true;let frozen=[];
+  try{
+   if(!await persist()||!active())return;
+   await loadAssets();if(!active())return;
+   const name=nameField.value.trim();if(!name)return toast('请填写内容名称');
+   const folder=libraryFolderLocation(target),missing=!!(target.id||target.path)&&!folder;
+   if(missing)return toast('原存放文件夹已移除，请重新选择位置。');
+   const next=clone(assetIndex),id=uid();next.assets.push({id,title:name,path:'',folder,mime:bundleMime,size:0,notes:bundle.nodes.length+' 块内容',tags:[],bundle,source:{boardId:sourceId,nodeIds:bundle.nodes.map(n=>n.id)},updated:Date.now()});
+   // The fresh read allows editing or cancelling. The final write is one submission.
+   frozen=[...$('dialog').querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);for(const el of frozen)el.disabled=true;
+   if(await saveAssets(next)&&active()){$('dialog').close();showCollectedResource(id)}
+  }catch(error){if(active())toast(error.message)}
+  finally{busy=false;for(const el of frozen)if(el.isConnected)el.disabled=false;if(saveButton.isConnected)saveButton.disabled=false}
+ }]]);
+ nameField=$('collectName');destination=$('collectDestination');saveButton=$('dialogActions').lastElementChild;target=libraryFolderTarget(destination.value);
+ destination.addEventListener('change',()=>{target=libraryFolderTarget(destination.value)});
+};
 const collectDock=document.createElement('button');collectDock.id='collectToLibrary';collectDock.textContent='收进库';collectDock.title='收录选中的内容 · Ctrl+Shift+L';collectDock.onclick=askCollectSelection;$('creationDock').append(collectDock);
 function syncCollectButton(){collectDock.hidden=!selected.size}const beforeCollectSelectionUI=refreshSelectionUI;refreshSelectionUI=function(){beforeCollectSelectionUI();syncCollectButton()};const beforeCollectDraw=drawNodes;drawNodes=function(){beforeCollectDraw();syncCollectButton()};syncCollectButton();
 const previewBeforeLibraryEdit=previewAsset;previewAsset=async function(id){await previewBeforeLibraryEdit(id);if(assetById(id)?.mime===bundleMime&&$('dialog').open){const button=document.createElement('button');button.textContent='编辑库中内容';button.onclick=()=>writeLibraryContent(id);const menu=$('dialogBody').querySelector('.reuse-source-actions');if(menu){const preview=$('pieceList'),open=button.onclick;button.textContent='编辑原件';button.onclick=()=>{if($('dialog').open&&preview.isConnected&&$('pieceList')===preview)open()};menu.append(button)}else $('dialogActions').prepend(button)}};
