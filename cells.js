@@ -134,10 +134,16 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
  function move(source,target){
   if(!valid(source)||!board.nodes.includes(target.table)||target.table.rows?.[target.r]?.[target.c]===undefined)return false;
   const from=source.table.cellItems[source.r][source.c],same=source.table===target.table&&source.r===target.r&&source.c===target.c,to=target.table.cellItems?.[target.r]?.[target.c]||[],index=Math.max(0,Math.min(target.index,to.length))-(same&&source.index<target.index?1:0);if(same&&index===source.index)return false;
-  const sections=new Map();if(source.table===target.table)for(const root of document.querySelectorAll('#nodes>.node[data-id],#immersiveSurface[data-id]'))if(root.dataset.id===source.table.id)for(const section of root.querySelectorAll('[data-cell-item]')){const item=source.table.cellItems?.[+section.dataset.cellR]?.[+section.dataset.cellC]?.[+section.dataset.cellItem];if(item)sections.set(item.id,section)}
+  const surfaces=[];if(source.table===target.table)for(const root of document.querySelectorAll('#nodes>.node[data-id],#immersiveSurface[data-id]'))if(root.dataset.id===source.table.id){const sections=new Map();for(const section of root.querySelectorAll('[data-cell-item]')){const item=source.table.cellItems?.[+section.dataset.cellR]?.[+section.dataset.cellC]?.[+section.dataset.cellItem];if(item)sections.set(item.id,section)}surfaces.push({root,sections})}
   undoPoint();if(source.table!==target.table&&!source.item.libraryOrigin){const origin=cellItemOrigin(source.item,source.table);if(origin)source.item.libraryOrigin=clone(origin)}from.splice(source.index,1);cellItemGrid(target.table)[target.r][target.c].splice(index,0,source.item);closeMenu();
-  if(source.table===target.table&&sections.size){
-   for(const root of document.querySelectorAll('#nodes>.node[data-id],#immersiveSurface[data-id]'))if(root.dataset.id===source.table.id){for(const cell of root.querySelectorAll('td[data-cell]')){const [r,c]=cell.dataset.cell.split(',').map(Number),contents=cell.querySelector(':scope>.cell-contents');if(!contents)continue;const children=(source.table.cellItems[r]?.[c]||[]).map((item,i)=>{const el=sections.get(item.id);if(el){el.dataset.cellR=r;el.dataset.cellC=c;el.dataset.cellItem=i}return el});if(children.every(Boolean))contents.replaceChildren(...children)}if(root.parentElement===$('nodes')){const n=source.table,a=assetById(n.assetId);root.dataset.documentSignature=JSON.stringify({...n,x:0,y:0,w:0,h:0,documentZoom:0,editing:editorId===n.id&&selected.has(n.id),file:a?.path,fileUpdated:fileViewVersion(a)})}}
+  if(source.table===target.table){
+   for(const {root,sections} of surfaces){
+    const section=sections.get(source.item.id),contents=root.querySelector('td[data-cell="'+target.r+','+target.c+'"]>.cell-contents'),next=target.table.cellItems[target.r][target.c][index+1],before=next?sections.get(next.id):null;
+    // Move this copy only. Detaching its neighbours clears their native input history.
+    if(section&&contents&&(!next||before?.parentElement===contents))contents.insertBefore(section,before);
+    for(const cell of root.querySelectorAll('td[data-cell]')){const [r,c]=cell.dataset.cell.split(',').map(Number);for(const [i,item]of(source.table.cellItems[r]?.[c]||[]).entries()){const el=sections.get(item.id);if(el){el.dataset.cellR=r;el.dataset.cellC=c;el.dataset.cellItem=i}}}
+    if(root.parentElement===$('nodes')){const n=source.table,a=assetById(n.assetId);root.dataset.documentSignature=JSON.stringify({...n,x:0,y:0,w:0,h:0,documentZoom:0,editing:editorId===n.id&&selected.has(n.id),file:a?.path,fileUpdated:fileViewVersion(a)})}
+   }
   }
   drawNodes();renderOutline();change();
   const root=[...document.querySelectorAll('#immersiveSurface[data-id],#nodes>.node[data-id]')].find(el=>el.dataset.id===target.table.id&&el.querySelector('[data-cell-item]'));
