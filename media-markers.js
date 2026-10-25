@@ -5,7 +5,7 @@
  const stamp=s=>{const units=Math.round(Math.max(0,Number(s)||0)*100),fraction=String(units%100).padStart(2,'0').replace(/0+$/,'');return Math.floor(units/6000)+':'+String(Math.floor(units%6000/100)).padStart(2,'0')+(fraction?'.'+fraction:'')};
  function parseTime(raw){const parts=raw.trim().split(':');return parts.length<=3&&parts.every((p,i)=>(i===parts.length-1?/^\d+(?:\.\d+)?$/:/^\d+$/).test(p)&&(i===0||Number(p)<60))?parts.reduce((sum,p)=>sum*60+Number(p),0):NaN}
  function owner(el){const n=contentContext(el)?.node,cell=el.closest('[data-cell-item]');return cell?n?.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem]:n}
- const mediaKey=el=>el.getAttribute('src')||el.querySelector('source')?.getAttribute('src')||'media';
+ const mediaKey=el=>el.dataset.mediaReadingSource||el.getAttribute('src')||el.querySelector('source')?.getAttribute('src')||'media';
  function timeline(el,create=false){const n=owner(el);if(!n)return null;if(create){n.mediaTimeline??={};n.mediaTimeline[mediaKey(el)]??={markers:[],startMarkerId:null}}return n.mediaTimeline?.[mediaKey(el)]||null}
  const sorted=el=>(timeline(el)?.markers||[]).slice().sort((a,b)=>a.time-b.time);
  function jump(el,time,play=false){if(!Number.isFinite(el.duration)||el.duration<=0)return;el.currentTime=Math.max(0,Math.min(time,el.duration));el._captureReading?.();if(play)el.play().catch(()=>toast('无法播放，请检查原文件'))}

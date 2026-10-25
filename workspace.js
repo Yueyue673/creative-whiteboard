@@ -24,6 +24,24 @@ function refreshImageSources(){
  for(const img of document.images){let src=img.getAttribute('src'),next=src;while(imageSourceUpdates.has(next))next=imageSourceUpdates.get(next);if(next!==src)img.src=next}
  imageSourceUpdates.clear();
 }
+// Playback sources change with the referenced file, while reading keys stay stable.
+const playbackFileSources=new Map();
+function playbackAssetURL(id,a=assetById(id)){
+ const base=mediaURL(id);if(!a)return base;
+ const identity=JSON.stringify([a.path,a.mime,a.size]),previous=playbackFileSources.get(id);
+ if(!previous){playbackFileSources.set(id,{identity,url:base});return base}
+ if(previous.identity===identity)return previous.url;
+ const url=base+(base.includes('?')?'&':'?')+'playback='+encodeURIComponent(crypto.randomUUID());
+ playbackFileSources.set(id,{identity,url});return url;
+}
+function playbackSource(a){return ' data-media-asset="'+esc(a.id)+'" data-media-reading-source="'+esc(mediaURL(a.id))+'" src="'+esc(playbackAssetURL(a.id,a))+'"'}
+function refreshPlaybackSources(){
+ for(const el of document.querySelectorAll('audio[data-media-asset],video[data-media-asset]')){
+  const a=assetById(el.dataset.mediaAsset);if(!a)continue;const url=playbackAssetURL(a.id,a);
+  if(el.getAttribute('src')===url)continue;
+  el._captureReading?.();el.pause();el._prepareReadingReload?.();el.src=url;el.load();
+ }
+}
 function imageURL(im){if(im.assetId)return imageAssetURL(im.assetId);if(/^data:image\/(png|jpeg|gif|webp);base64,/.test(im.data||''))return im.data;return ''}
 function imageGallery(images,editable=false,r,c){if(!images.length)return '';return '<div class="cell-images">'+images.map((im,i)=>'<figure><img draggable="false" src="'+esc(imageURL(im))+'" alt="'+esc(im.name||'图片')+'" loading="lazy">'+(editable?'<button type="button" data-remove-image="'+i+'" '+(r!==undefined?'data-r="'+r+'" data-c="'+c+'"':'')+' aria-label="移除图片">×</button>':'')+'</figure>').join('')+'</div>'}
 function imageGrid(n){if(!n.cellImages)n.cellImages=[];while(n.cellImages.length<n.rows.length)n.cellImages.push([]);n.cellImages=n.cellImages.slice(0,n.rows.length);for(const row of n.cellImages)while(row.length<n.columns.length)row.push([]);return n.cellImages}
@@ -114,7 +132,7 @@ function renderAssets(){if(!$('assetList'))return;const select=$('assetFolder');
 function previewAsset(id){
  const a=assetById(id);if(!a)return;
  const url=mediaURL(a.id),media=a.mime?.startsWith('video/')||a.mime?.startsWith('audio/'),
- content=a.mime?.startsWith('image/')?'<img class="asset-full" src="'+imageAssetURL(a.id)+'">':a.mime?.startsWith('video/')?'<video class="asset-full" controls src="'+url+'"></video>':a.mime?.startsWith('audio/')?'<audio controls src="'+url+'"></audio>':'<p>此格式可打开原文件查看。</p>',
+ content=a.mime?.startsWith('image/')?'<img class="asset-full" src="'+imageAssetURL(a.id)+'">':a.mime?.startsWith('video/')?'<video class="asset-full" controls'+playbackSource(a)+'></video>':a.mime?.startsWith('audio/')?'<audio controls'+playbackSource(a)+'></audio>':'<p>此格式可打开原文件查看。</p>',
  body='<h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2>'+content+'<p class="source-path">'+esc(a.path)+'</p><a href="'+url+'" target="_blank" rel="noopener">打开 / 下载文件</a>';
  showDialog(media?'<div class="media-preview">'+body+'</div>':body,[['修改说明',()=>{$('dialog').close();editAsset(id)}],['关闭',()=>$('dialog').close()]]);
  if(media){
@@ -200,7 +218,7 @@ window.addEventListener('wheel',handleWorkspaceWheel,{capture:true,passive:false
 window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','=','-','0','Add','Subtract'].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();if(e.key==='0'){const r=canvas.getBoundingClientRect();zoom(1/view().z,r.left+r.width/2,r.top+r.height/2)}else zoom(e.key==='-'||e.key==='Subtract'?1/1.1:1.1)}},{capture:true});
 for(const name of ['gesturestart','gesturechange','gestureend'])window.addEventListener(name,e=>e.preventDefault(),{passive:false});
 
-function mediaMarkup(n){const a=n.mediaId?assetById(n.mediaId):null;return a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></video>':a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata" src="'+mediaURL(a.id)+'"></audio>':''}
+function mediaMarkup(n){const a=n.mediaId?assetById(n.mediaId):null;return a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata"'+playbackSource(a)+'></video>':a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata"'+playbackSource(a)+'></audio>':''}
 function growContentFields(root=document){
  const fields=[];
  root.querySelectorAll('.node textarea').forEach(el=>{const empty=!el.value.trim();if(el.classList.contains('empty-field')!==empty)el.classList.toggle('empty-field',empty);const s=getComputedStyle(el),key=JSON.stringify([el.value,el.offsetWidth,s.fontSize,s.fontFamily,s.lineHeight,s.minHeight,s.paddingTop,s.paddingBottom,s.paddingLeft,s.paddingRight]);if(el._growthKey===key)return;el._growthKey=key;fields.push(el)});
@@ -412,9 +430,9 @@ function bindMediaState(el){
  if(!el.dataset.stateBound){el.dataset.stateBound='true';el.addEventListener('loadstart',()=>updateMediaState(el,'正在读取媒体信息…'));el.addEventListener('loadedmetadata',ready);el.addEventListener('waiting',()=>updateMediaState(el,'正在缓冲…'));el.addEventListener('playing',()=>updateMediaState(el,'正在播放'));el.addEventListener('pause',ready);el.addEventListener('stalled',()=>updateMediaState(el,'读取较慢，可以稍候或打开原文件'));el.addEventListener('error',()=>updateMediaState(el,'无法播放，可打开原文件查看。'))}
  if(el.error||el.readyState>=1)ready();else updateMediaState(el,'正在读取媒体信息…')
 }
-function canvasMediaKey(el){const node=el.closest('.node'),cell=el.closest('[data-cell-item]'),peers=[...(cell||node).querySelectorAll('video,audio')];const context=contentContext(el);return JSON.stringify([context?.board,context?.node.id,cell?.dataset.cellR,cell?.dataset.cellC,cell?.dataset.cellItem,peers.indexOf(el),el.getAttribute('src')])}
+function canvasMediaKey(el){const node=el.closest('.node'),cell=el.closest('[data-cell-item]'),peers=[...(cell||node).querySelectorAll('video,audio')];const context=contentContext(el);return JSON.stringify([context?.board,context?.node.id,cell?.dataset.cellR,cell?.dataset.cellC,cell?.dataset.cellItem,peers.indexOf(el),el.tagName,el.getAttribute('src')])}
 const beforePreviewDraw=drawNodes;drawNodes=function(){const media=new Map();document.querySelectorAll('.node video,.node audio').forEach(el=>media.set(canvasMediaKey(el),el));beforePreviewDraw();document.querySelectorAll('.node video,.node audio').forEach(el=>{const old=media.get(canvasMediaKey(el));if(old&&old!==el){el.replaceWith(old);el=old}bindMediaState(el);if(!el.error&&el.readyState>=1)updateMediaState(el,el.paused?'已就绪 · 点击播放':'正在播放')});fillTextPreviews()};
-const loadAssetsBeforePreview=loadAssets;loadAssets=async function(){const applied=await loadAssetsBeforePreview();if(applied){filePreviews.clear();refreshImageSources();if(board&&!loading)drawNodes()}return applied};
+const loadAssetsBeforePreview=loadAssets;loadAssets=async function(){const applied=await loadAssetsBeforePreview();if(applied){filePreviews.clear();refreshImageSources();refreshPlaybackSources();if(board&&!loading)drawNodes()}return applied};
 
 const renderLibraryWithNotes=renderAssets;renderAssets=function(){renderLibraryWithNotes();$('assetList').querySelectorAll('[data-asset]').forEach(row=>{const a=assetById(row.dataset.asset);if(!a?.notes)return;const note=document.createElement('p');note.className='library-note';note.textContent=a.notes;note.title=a.notes;row.querySelector('div')?.append(note)})};
 // A batch is prepared completely, remapped once per item, and committed once.
