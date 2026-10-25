@@ -24,12 +24,46 @@
   if(active?.el===el&&active.add){active.add.disabled=!ready;active.replay.disabled=!ready}
  }
  function growTitle(s){const field=s.title;if(!field?.isConnected||s.editor.hidden)return;const css=getComputedStyle(field);field.style.height='auto';field.style.height=(field.scrollHeight+parseFloat(css.borderTopWidth)+parseFloat(css.borderBottomWidth))+'px'}
+ function markerEditor(s,m){
+  let fields=s.editors.get(m);
+  if(!fields){
+   const editor=s.editorTemplate.cloneNode(true);
+   fields={editor,marker:m,title:editor.querySelector('.media-marker-title'),note:editor.querySelector('.media-marker-note'),time:editor.querySelector('.media-marker-time'),error:editor.querySelector('.media-marker-error'),start:editor.querySelector('.media-marker-start'),lastTime:m.time};
+   fields.classes=[editor,...editor.querySelectorAll('[class]')].map(el=>[el,el.getAttribute('class')]);fields.time.value=String(Math.round(m.time*100)/100);s.editors.set(m,fields);
+   const el=s.el,owns=()=>active===s&&s.marker===m&&s.editor===editor&&editor.isConnected&&timeline(el)?.markers.includes(m);
+   for(const [field,key]of [[fields.title,'title'],[fields.note,'note']]){
+    bindContentInput(field,()=>m[key]||'',value=>{if(!owns()||contentContext(el)?.readOnly)return;m[key]=value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'){if(row)row.children[1].textContent=row.children[1].title=m.title||'未命名标记';growTitle(s);whiteboardMedia.fit()}});
+    const input=field.oninput;field.oninput=()=>{if(owns()&&!blocked&&!contentContext(el)?.readOnly)input()};
+   }
+   fields.time.oninput=()=>{if(!owns())return;fields.time.setCustomValidity('');fields.time.setAttribute('aria-invalid','false');fields.error.hidden=true};
+   fields.time.onchange=()=>{
+    if(!owns())return;const value=parseTime(fields.time.value),ready=Number.isFinite(el.duration)&&el.duration>0;let message='';
+    if(!ready)message=el.error?'未能读取媒体时长，这次时间修改未保存。请检查原文件后重试。':'还没读取到媒体时长，这次时间修改未保存。请等加载完成后重新调整。';
+    else if(!Number.isFinite(value)||value<0||value>el.duration)message='请输入媒体时长以内的时间，例如 12.5 或 0:12.5。';
+    if(message){fields.time.setCustomValidity(message);fields.time.setAttribute('aria-invalid','true');fields.error.textContent=message;fields.error.hidden=false;return}
+    write(el,()=>m.time=value);
+   };
+   fields.start.onchange=()=>{if(owns())write(el,t=>t.startMarkerId=fields.start.checked?m.id:null)};
+   editor.querySelector('.media-remove-marker').onclick=()=>{if(owns())write(el,t=>{t.markers=t.markers.filter(item=>item!==m);if(t.startMarkerId===m.id)t.startMarkerId=null;s.selected=t.markers[0]?.id||null})};
+   if(contentContext(el)?.readOnly){fields.title.readOnly=fields.note.readOnly=fields.time.readOnly=true;fields.start.disabled=true;editor.querySelector('.media-marker-actions').hidden=true;}
+  }
+  if(s.editor!==fields.editor){
+   if(!fields.editor.isConnected)s.editor.before(fields.editor);
+   const prior=s.marker&&s.editors.get(s.marker);
+   if(prior){prior.editor.hidden=true;for(const [el]of prior.classes)el.removeAttribute('class');prior.error.removeAttribute('id');}
+   else s.editor.remove();
+   for(const [el,name]of fields.classes)el.setAttribute('class',name);fields.error.id='mediaMarkerError';
+  }
+  Object.assign(s,fields);
+  // A marker owns its original text controls; switching never replays its text.
+  if(fields.lastTime!==m.time){fields.lastTime=m.time;s.lastTime=m.time;fields.time.value=String(Math.round(m.time*100)/100);fields.time.setCustomValidity('');fields.time.setAttribute('aria-invalid','false');fields.error.hidden=true;fields.error.textContent='';}
+ }
  function renderPanel(s){
   if(!s.list?.isConnected)return;const focus=document.activeElement,keepFocus=s.list.contains(focus),all=sorted(s.el),t=timeline(s.el);s.list.replaceChildren();
   if(!all.length){const empty=document.createElement('p');empty.className='media-marker-empty';empty.textContent='在需要回看的位置添加标记，再写下它的用途或你的想法。';s.list.append(empty)}
   for(const m of all){const row=document.createElement('button');row.type='button';row.className='media-marker-row';row.dataset.markerId=m.id;row.setAttribute('role','option');row.setAttribute('aria-selected',String(m.id===s.selected));row.tabIndex=m.id===s.selected?0:-1;const time=document.createElement('span'),title=document.createElement('span'),flag=document.createElement('small');time.textContent=stamp(m.time);title.textContent=title.title=m.title||'未命名标记';flag.textContent=m.id===t?.startMarkerId?'重播起点':'';row.append(time,title,flag);row.onclick=()=>{s.selected=m.id;jump(s.el,m.time);renderPanel(s)};s.list.append(row)}
-  const m=all.find(m=>m.id===s.selected);s.editor.hidden=!m;s.summary.textContent=t?.startMarkerId?'再次打开从选定标记开始。':'再次打开接着上次的位置。';s.resume.hidden=!!contentContext(s.el)?.readOnly||!t?.startMarkerId;
-  if(m){s.title.value=m.title||'';s.note.value=m.note||'';s.time.value=String(Math.round(m.time*100)/100);s.start.checked=m.id===t?.startMarkerId;s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true;s.error.textContent='';growTitle(s)}
+  const m=all.find(m=>m.id===s.selected);if(m)markerEditor(s,m);else s.marker=null;s.editor.hidden=!m;s.summary.textContent=t?.startMarkerId?'再次打开从选定标记开始。':'再次打开接着上次的位置。';s.resume.hidden=!!contentContext(s.el)?.readOnly||!t?.startMarkerId;
+  if(m){s.start.checked=m.id===t?.startMarkerId;growTitle(s)}
   const row=[...s.list.children].find(row=>row.dataset.markerId===s.selected);if(row){if(keepFocus)row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'})}
   if(focus===s.resume&&s.resume.hidden)(m?s.start:s.add).focus({preventScroll:true});else if(s.editor.hidden&&s.editor.contains(focus))s.add.focus({preventScroll:true});
   whiteboardMedia.fit();
@@ -37,23 +71,12 @@
  function decorate(){
   const popup=$('mediaPopover'),el=active?.el;if(!popup||!el||popup.querySelector('.media-markers'))return;
   const section=document.createElement('section');section.className='media-markers';section.innerHTML='<div class="media-marker-heading"><strong>时间标记</strong><button class="media-add-marker">＋ 添加当前时间</button><button class="media-replay">重播</button></div><div class="media-marker-list" role="listbox" aria-label="时间标记：方向键选择，Home / End 到首尾"></div><div class="media-marker-editor" hidden><label>名称<textarea class="media-marker-title" rows="1" maxlength="200" placeholder="例如：这里接转场"></textarea></label><label>时间（秒或分:秒）<input class="media-marker-time" inputmode="decimal" aria-describedby="mediaMarkerError"></label><p class="media-marker-error" id="mediaMarkerError" role="alert" hidden></p><label class="media-marker-description">备注<textarea class="media-marker-note" rows="3" placeholder="这段用来做什么，或有哪些想法。" maxlength="20000"></textarea></label><div class="media-marker-actions"><label><input type="checkbox" class="media-marker-start">下次从这里开始</label><button class="media-remove-marker">删除标记</button></div></div><div class="media-replay-policy"><small></small><button class="media-resume">改为接着上次播放</button></div>';
-  popup.append(section);const s=Object.assign(active,{list:section.querySelector('.media-marker-list'),editor:section.querySelector('.media-marker-editor'),title:section.querySelector('.media-marker-title'),note:section.querySelector('.media-marker-note'),time:section.querySelector('.media-marker-time'),error:section.querySelector('.media-marker-error'),start:section.querySelector('.media-marker-start'),summary:section.querySelector('.media-replay-policy small'),resume:section.querySelector('.media-resume'),add:section.querySelector('.media-add-marker'),replay:section.querySelector('.media-replay')});s.selected??=sorted(el)[0]?.id||null;
+  popup.append(section);const s=Object.assign(active,{list:section.querySelector('.media-marker-list'),editor:section.querySelector('.media-marker-editor'),title:section.querySelector('.media-marker-title'),note:section.querySelector('.media-marker-note'),time:section.querySelector('.media-marker-time'),error:section.querySelector('.media-marker-error'),start:section.querySelector('.media-marker-start'),summary:section.querySelector('.media-replay-policy small'),resume:section.querySelector('.media-resume'),add:section.querySelector('.media-add-marker'),replay:section.querySelector('.media-replay')});s.editors=new WeakMap();s.editorTemplate=s.editor.cloneNode(true);s.selected??=sorted(el)[0]?.id||null;
   s.list.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;const all=sorted(el);if(!all.length)return;e.preventDefault();e.stopPropagation();const index=all.findIndex(m=>m.id===s.selected),next=e.key==='Home'?0:e.key==='End'?all.length-1:Math.max(0,Math.min(all.length-1,index+(e.key==='ArrowDown'?1:-1)));s.selected=all[next].id;jump(el,all[next].time);renderPanel(s)});
   s.add.onclick=()=>{const id=uid();s.selected=id;write(el,t=>t.markers.push({id,time:Math.round(el.currentTime*100)/100,title:'',note:''}));s.title.focus()};
   s.replay.onclick=()=>{const t=timeline(el),m=t?.markers.find(m=>m.id===t.startMarkerId);jump(el,m?.time||0,true)};
-  const current=()=>timeline(el)?.markers.find(m=>m.id===s.selected);
-  for(const [field,key]of [[s.title,'title'],[s.note,'note']]){bindContentInput(field,()=>current()?.[key]||'',value=>{if(contentContext(el)?.readOnly)return;const m=current();if(m){m[key]=value;change();update(el);const row=[...s.list.children].find(r=>r.dataset.markerId===m.id);if(key==='title'){if(row)row.children[1].textContent=row.children[1].title=m.title||'未命名标记';growTitle(s);whiteboardMedia.fit()}}});const input=field.oninput;field.oninput=()=>{if(!blocked&&!contentContext(el)?.readOnly&&current())input()}}
-  s.time.oninput=()=>{s.time.setCustomValidity('');s.time.setAttribute('aria-invalid','false');s.error.hidden=true};
-  s.time.onchange=()=>{
-   const value=parseTime(s.time.value),ready=Number.isFinite(el.duration)&&el.duration>0;let message='';
-   if(!ready)message=el.error?'未能读取媒体时长，这次时间修改未保存。请检查原文件后重试。':'还没读取到媒体时长，这次时间修改未保存。请等加载完成后重新调整。';
-   else if(!Number.isFinite(value)||value<0||value>el.duration)message='请输入媒体时长以内的时间，例如 12.5 或 0:12.5。';
-   if(message){s.time.setCustomValidity(message);s.time.setAttribute('aria-invalid','true');s.error.textContent=message;s.error.hidden=false;return}
-   write(el,t=>{const m=t.markers.find(m=>m.id===s.selected);if(m)m.time=value});
-  };
-  s.start.onchange=()=>write(el,t=>t.startMarkerId=s.start.checked?s.selected:null);s.resume.onclick=()=>write(el,t=>t.startMarkerId=null);
-  section.querySelector('.media-remove-marker').onclick=()=>write(el,t=>{t.markers=t.markers.filter(m=>m.id!==s.selected);if(t.startMarkerId===s.selected)t.startMarkerId=null;s.selected=t.markers[0]?.id||null});
-  if(contentContext(el)?.readOnly){s.add.hidden=true;s.resume.hidden=true;s.title.readOnly=s.note.readOnly=s.time.readOnly=true;s.start.disabled=true;section.querySelector('.media-marker-actions').hidden=true;}
+  s.resume.onclick=()=>write(el,t=>t.startMarkerId=null);
+  if(contentContext(el)?.readOnly){s.add.hidden=true;s.resume.hidden=true;}
   renderPanel(s);if(contentContext(el)?.readOnly)s.resume.hidden=true;update(el);
  }
  function mount(){
