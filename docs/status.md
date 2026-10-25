@@ -370,6 +370,15 @@
 
 原生撤销仍遵循浏览器最近输入顺序，不承诺跨字段任意独立回退，也不合成文字回放。关闭播放面板后重新打开的原生输入历史不在本项保留范围。
 
-运行实现 [a38f2ab](https://github.com/Yueyue673/creative-whiteboard/commit/a38f2aba8f8c763b4a900b49f0ac6869d79bc833) 已通过 [Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40164410203)，但该提交两条Checks中的新增浏览器脚本在合成服务启动前失败：CI未设置PYTHON变量，脚本遗漏了项目已有的默认python命令。本次仅补脚本启动默认值；未设置该变量、由PATH提供Python时，1360px与320px完整任务重新通过，产品运行文件保持原字节。修正后的准确提交Checks待核对，不重复触发未受影响的Hosted。
+运行实现 [a38f2ab](https://github.com/Yueyue673/creative-whiteboard/commit/a38f2aba8f8c763b4a900b49f0ac6869d79bc833) 已通过 [Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40164410203)，但该提交两条Checks中的新增浏览器脚本在合成服务启动前失败：CI未设置PYTHON变量，脚本遗漏了项目已有的默认python命令。本次仅补脚本启动默认值；未设置该变量、由PATH提供Python时，1360px与320px完整任务重新通过，产品运行文件保持原字节。修正后的 [a57708e](https://github.com/Yueyue673/creative-whiteboard/commit/a57708eca1428dce131704491deae52b669ddb39) 已通过 [PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40165535024) 与 [push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40165531633)。这些是修正后的准确头检查；原实现的Hosted范围单独保留，没有重派。
 
 仍为[草稿 PR #16](https://github.com/Yueyue673/creative-whiteboard/pull/16)，服务器核验、部署、离线安装及私人程序运行未做。实体键盘、手机/平板、输入法、真人理解和长期体验另验。冻结1500313及原草稿保留。
+
+
+## 独立候选：目录更新后在原表单继续移动资源
+
+移动资源时，先读取最新内容库，再按所选文件夹的身份确定位置。另一窗口给原文件夹改名后仍移到它；原文件夹已移除或被同名新文件夹替代时，需要重新选择位置。另一窗口新增或修改的内容保持，仍由原版本条件保护最终写入。
+
+1360px与320px完整合成任务核对两窗口原生修改和目录改名、库中撤销重做、读取期间取消与后来表单、受控读取失败和真实409后的原位重试、读取时更改目标、同名目录替换及已移除资源拒绝。移动后仍能从当前副本只读查看正确原件，再返回原字段、反向选区和原生撤销重做；等待保存的输入和新工作台读回保持，组合原文、手动尺寸和内部连线按身份精确核对。受控等待与503用于验证交互边界，不说明实际网络故障原因。
+
+原拖动移动保持现有调用；存放位置控件同步外部更新后的当前路径。内容库导入位置、目录键盘导航和既有收录表单并发任务按受影响路径回归通过。本项源码CI尚未运行；服务器核验、部署、离线安装和私人程序运行未做。实体键盘、手机/平板、输入法、真人理解和长期体验未验。冻结1500313及原草稿保留。
