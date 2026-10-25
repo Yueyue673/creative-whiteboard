@@ -43,8 +43,30 @@ async function wfApplyLibraryHistory(redo=false){const stack=redo?wfLibraryRedo:
 async function wfUndoLibrary(){return wfLibraryHistory()}
 async function wfRedoLibrary(){return wfLibraryHistory(true)}
 const wfUndoExplorer=undoExplorer;undoExplorer=async function(){if(workspaceTab==='assetPane'&&wfLibraryUndo.length)return wfUndoLibrary();return wfUndoExplorer()};
-function wfPickDestination(title,description,callback){showDialog('<h2>'+esc(title)+'</h2><p>'+esc(description)+'</p><label>存放位置<select id="wfDestination">'+libraryFolderOptions(assetFolder)+'</select></label>',[['取消',()=>$('dialog').close()],['移动到这个位置',()=>wfSafe(async()=>{const folder=$('wfDestination').value;if(await callback(folder)!==false)$('dialog').close()})]]);mountLibraryDestination('wfDestination');$('dialogBody').querySelector('.destination-toggle').click()}
-$('assetMove').onclick=()=>{const ids=[...assetSelected];if(!ids.length)return toast('先选择要移动的内容');wfPickDestination('移动选中的内容','将移动 '+ids.length+' 项分类位置；原文件不搬动。',folder=>moveAssetItems(ids,folder))};
+function wfPickDestination(title,description,callback){
+ let destination,moveButton,target,busy=false;
+ const active=()=>destination?.isConnected&&$('dialog').open&&$('dialogBody').contains(destination);
+ showDialog('<h2>'+esc(title)+'</h2><p>'+esc(description)+'</p><label>存放位置<select id="wfDestination">'+libraryFolderOptions(assetFolder)+'</select></label>',[['取消',()=>$('dialog').close()],['移动到这个位置',()=>wfSafe(async()=>{
+  if(busy||!active())return;busy=true;moveButton.disabled=true;let frozen=[];
+  try{
+   await loadAssets();if(!active())return;
+   const folder=libraryFolderLocation(target);
+   if((target.id||target.path)&&!folder)return toast('原存放文件夹已移除，请重新选择位置。');
+   if(![...destination.options].some(option=>option.value===folder))destination.add(new Option(folder||'内容库根目录',folder));
+   destination.value=folder;destination.dispatchEvent(new Event('change',{bubbles:true}));
+   // Reading can be cancelled; the final write is one submission.
+   frozen=[...$('dialog').querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);for(const el of frozen)el.disabled=true;
+   if(await callback(folder)!==false&&active())$('dialog').close();
+  }catch(error){if(active())toast(error.message)}
+  finally{busy=false;for(const el of frozen)if(el.isConnected)el.disabled=false;if(moveButton.isConnected)moveButton.disabled=false}
+ })]]);
+ destination=$('wfDestination');moveButton=$('dialogActions').lastElementChild;target=libraryFolderTarget(destination.value);
+ destination.addEventListener('change',()=>{target=libraryFolderTarget(destination.value)});
+ mountLibraryDestination('wfDestination');
+ $('dialogBody').querySelector('.destination-done').addEventListener('click',()=>{target=libraryFolderTarget(destination.value)});
+ $('dialogBody').querySelector('.destination-toggle').click();
+}
+$('assetMove').onclick=()=>{const ids=[...assetSelected];if(!ids.length)return toast('先选择要移动的内容');wfPickDestination('移动选中的内容','将移动 '+ids.length+' 项分类位置；原文件不搬动。',folder=>{if(ids.some(id=>!assetById(id)||assetById(id).archived)){toast('选中的内容已移除，请重新选择。');return false}return moveAssetItems(ids,folder)})};
 async function wfBatchTags(){const ids=[...assetSelected];if(!ids.length)return toast('先选择内容');showDialog('<h2>给选中内容添加标签</h2><p>为 '+ids.length+' 项内容添加标签，保留各自已有的标签。</p><input id="wfTags" placeholder="用逗号分开">',[['取消',()=>$('dialog').close()],['添加',()=>wfSafe(async()=>{const tags=$('wfTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);if(!tags.length)return;const next=clone(assetIndex);next.assets.filter(a=>ids.includes(a.id)).forEach(a=>a.tags=[...new Set([...(a.tags||[]),...tags])]);if(await saveAssets(next))$('dialog').close()})]])}
 
 // Provenance includes each atom's original ID, even when imported as part of a group.
