@@ -208,3 +208,6 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .canvas-view-return.docked{position:static;align-self:stretch;max-width:none;border:0;border-right:1px solid var(--ui-line);border-radius:0;box-shadow:none;background:transparent}#canvasTools .canvas-view-return.docked button{min-width:0;min-height:0;padding:4px 6px;white-space:nowrap}#canvas.compact-tools #canvasTools:has(.canvas-view-return.docked:not([hidden]))>#plus,#canvas.compact-tools #canvasTools:has(.canvas-view-return.docked:not([hidden]))>#minus{display:none}
 
 #canvas.tight-tools #canvasTools>.canvas-view-return.docked{display:none!important}
+
+.note-selection-entry{width:100%;margin:10px 0 4px;min-height:38px;border:1px solid var(--ui-line)}
+.note-selection-resource label{display:grid;gap:6px;margin:12px 0}.note-selection-resource input,.note-selection-resource select{width:100%;min-width:0;box-sizing:border-box}.note-selection-preview{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:180px;margin:12px 0;padding:10px;border:1px solid var(--ui-line);border-radius:5px;color:var(--ui-text);font:inherit}.note-selection-actions{display:flex;flex-wrap:wrap;gap:8px}.note-selection-actions button{min-height:38px}.note-selection-status{overflow-wrap:anywhere;color:var(--ui-muted)}
