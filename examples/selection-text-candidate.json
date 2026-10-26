@@ -1,0 +1,31 @@
+{
+  "format": "creative-board",
+  "version": 1,
+  "name": "文字片段复用｜候选示例",
+  "folder": "",
+  "nodes": [
+    {
+      "id": "reading-note",
+      "type": "note",
+      "title": "一次阅读的记录",
+      "body": "先写下完整记录。\n\n这是一段希望以后继续取用的文字。\n可以单独存成资源，再放进新作品。\n\n回到这里，继续记录下一条想法。",
+      "annotation": "示例文字，用于演示软件操作。",
+      "tags": [
+        "演示"
+      ],
+      "x": 40,
+      "y": 40,
+      "w": 620,
+      "h": 590,
+      "color": "#fffefa",
+      "sizeMode": "manual",
+      "fontSize": 18
+    }
+  ],
+  "edges": [],
+  "view": {
+    "x": 100,
+    "y": 80,
+    "z": 1
+  }
+}
