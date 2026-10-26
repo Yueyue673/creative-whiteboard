@@ -7,7 +7,43 @@ const wfEqual=(a,b)=>JSON.stringify(wfCanonical(a))===JSON.stringify(wfCanonical
 const wfText=v=>wfReadableValue(v);
 function wfReadableValue(v){if(v===undefined||v===null)return '（未设置）';if(typeof v!=='object')return String(v);if(Array.isArray(v)){if(!v.length)return '（空）';return v.map(x=>Array.isArray(x)?x.map(wfReadableValue).join(' | '):wfReadableValue(x)).join('\n')}const names={nodes:'内容',edges:'连线',id:'编号',type:'类型',from:'起点',to:'终点',label:'连线说明',path:'文件路径',bundle:'组合',source:'来源',libraryOrigin:'库中原件',nodeId:'原件编号',boardId:'白板编号',nodeIds:'内容编号',mime:'文件类型',size:'文件大小',updated:'更新时间',name:'名称'};return Object.entries(v).map(([k,x])=>(wfLabels[k]||names[k]||k)+'：'+wfReadableValue(x)).join('\n')}
 const wfSafe=action=>Promise.resolve().then(action).catch(e=>toast(e.message));
+// This is a review summary only. The original whole-field values still apply.
+function wfDocumentContentChanges(before,after){
+ const singleCell=value=>Array.isArray(value)&&value.length===1&&Array.isArray(value[0])&&value[0].length===1&&Array.isArray(value[0][0]);
+ if(!singleCell(before)||!singleCell(after))return null;
+ const changes=[],stack=[{before:before[0][0],after:after[0][0],path:[],kind:'items'}];let visits=0;
+ while(stack.length){
+  if(++visits>20000||changes.length>64)return null;
+  const current=stack.pop(),a=current.before,b=current.after,path=current.path;
+  if(Object.is(a,b))continue;
+  if(path.length>80)return null;
+  if(Array.isArray(a)&&Array.isArray(b)){
+   if(a.length!==b.length){changes.push({path,before:a,after:b});continue}
+   for(let i=a.length-1;i>=0;i--){
+    let label='第 '+(i+1)+' 项',kind=null;
+    if(current.kind==='grid-rows'||current.kind==='rows'){label='第 '+(i+1)+' 行';kind=current.kind==='grid-rows'?'grid-columns':'values'}
+    else if(current.kind==='grid-columns'){label='第 '+(i+1)+' 列';kind='items'}
+    else if(current.kind==='values'||current.kind==='columns')label='第 '+(i+1)+' 列';
+    else if(current.kind==='items'){const item=a[i]||b[i];label+=' · '+(item?.title||(item?.documentParagraph?'正文段落':item?.type==='table'?'表格':'内容'))}
+    stack.push({before:a[i],after:b[i],path:[...path,label],kind});
+   }
+   continue;
+  }
+  if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)){
+   if(a.id!==b.id||a.type!==b.type)return null;
+   const keys=[...new Set([...Object.keys(a),...Object.keys(b)])];
+   for(let i=keys.length-1;i>=0;i--){const key=keys[i],kind=key==='cellItems'?'grid-rows':key==='rows'?'rows':key==='columns'?'columns':null;stack.push({before:Object.hasOwn(a,key)?a[key]:undefined,after:Object.hasOwn(b,key)?b[key]:undefined,path:[...path,wfLabels[key]||key],kind})}
+   continue;
+  }
+  changes.push({path,before:a,after:b});
+ }
+ return changes.length&&changes.length<=64?changes:null;
+}
 function wfDiffValue(change,side){
+ if(change.contentPreview){
+  const preview=change.contentPreview,label=preview[side+'Label'];
+  return '<div class="wf-content-diff">'+preview.changes.map(item=>{const path=item.path.join(' / ')||'单元格内容';return '<section><p class="wf-content-diff-path">'+esc(path)+'</p><pre tabindex="0" aria-label="'+esc(label+'：'+path)+'">'+esc(wfText(item[side]))+'</pre></section>'}).join('')+'</div><details class="wf-content-diff-data"><summary>查看完整内容</summary><pre tabindex="0" aria-label="'+esc(label+'完整内容')+'">'+esc(wfText(change[side]))+'</pre></details>';
+ }
  const node=change.imagePreview?.[side],html=node&&window.whiteboardCanvasObjects?.previewImage?.(node);
  if(!html)return '<pre>'+esc(wfText(change[side]))+'</pre>';
  const ratio=Number(node.w)/Number(node.h),aspect=Number.isFinite(ratio)&&ratio>0?ratio:1;
@@ -15,7 +51,7 @@ function wfDiffValue(change,side){
  const words=marks.length?'<details class="wf-image-diff-text"><summary>标注文字</summary>'+marks.map(mark=>'<p>'+esc(mark.text)+'</p>').join('')+'</details>':'';
  return '<div class="wf-image-diff" role="group" aria-label="'+esc(change.imagePreview[side+'Label']+'预览')+'"><div class="wf-image-diff-frame" style="--wf-image-ratio:'+aspect+'">'+html+'</div>'+words+'</div>';
 }
-function wfDiffHTML(changes){return changes.map((c,i)=>'<section class="wf-diff"><label><input type="checkbox" data-wf-change="'+i+'" checked> '+esc(c.label||wfLabels[c.field]||c.field||'内容')+'</label><div class="wf-diff-pair"><div><small>'+esc(c.imagePreview?.beforeLabel||'当前')+'</small>'+wfDiffValue(c,'before')+'</div><div><small>'+esc(c.imagePreview?.afterLabel||'修改后')+'</small>'+wfDiffValue(c,'after')+'</div></div></section>').join('')}
+function wfDiffHTML(changes){return changes.map((c,i)=>'<section class="wf-diff"><label><input type="checkbox" data-wf-change="'+i+'" checked> '+esc(c.label||wfLabels[c.field]||c.field||'内容')+'</label>'+(c.contentPreview?'<p class="wf-content-diff-scope">以下列出变更项，勾选会更新整项单元格内容。</p>':'')+'<div class="wf-diff-pair"><div><small>'+esc(c.contentPreview?.beforeLabel||c.imagePreview?.beforeLabel||'当前')+'</small>'+wfDiffValue(c,'before')+'</div><div><small>'+esc(c.contentPreview?.afterLabel||c.imagePreview?.afterLabel||'修改后')+'</small>'+wfDiffValue(c,'after')+'</div></div></section>').join('')}
 function wfSelectedChanges(changes,root=$('dialogBody')){return [...root.querySelectorAll('[data-wf-change]:checked')].map(el=>changes[Number(el.dataset.wfChange)])}
 function wfReview(title,description,changes,apply,presentation){
  const lookup=presentation?.element||document.getElementById.bind(document),show=presentation?.show||showDialog;
@@ -98,6 +134,10 @@ async function wfLocateOriginal(n){const a=assetById(n.libraryOrigin?.id||n.asse
 function wfOriginReview(nodeId){const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);if(!n||!a)return toast('找不到库中的原件');const original=wfOriginNode(n,a);showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">来自内容库 / '+esc(a.folder||'根目录')+'。白板上是独立副本；更新前会展示差异。</p><p>'+esc(original?'可以比较并选择更新方向。':n.libraryOrigin?.rootNodeId?'暂时不能唯一对应到库中原件；可以定位组合或另存当前内容。':'这项内容是原文件引用，或旧组合尚未能精确匹配到单块。可以定位原件或另存当前内容。')+'</p>',[['关闭',()=>$('dialog').close()],['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])])}
 function wfCompareOrigin(n,a,original,direction){const from=direction==='pull'?original:n,to=direction==='pull'?n:original;const changes=wfContentFields.filter(k=>!wfEqual(from[k],to[k])).map(field=>{
  const change={field,before:clone(to[field]??null),after:clone(from[field]??null)};
+ if(field==='cellItems'&&from.documentMode===true&&to.documentMode===true){
+  const differences=wfDocumentContentChanges(change.before,change.after);
+  if(differences)change.contentPreview={changes:differences,beforeLabel:direction==='pull'?'白板副本（当前）':'库中原件（当前）',afterLabel:'本项应用后'};
+ }
  if(field==='canvasObject'&&to.canvasObject?.kind==='image'&&from.canvasObject?.kind==='image'){
   // Preview this checked field on the target: its image reference and manual
   // frame are retained by the existing update, independently of the source.

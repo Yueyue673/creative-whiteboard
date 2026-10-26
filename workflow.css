@@ -44,3 +44,4 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 /* History can sit above an expanded writer without replacing its controls. */
 .wf-recovery-dialog>[data-recovery-body]{overflow:auto;min-height:0}
 .wf-recovery-dialog>[data-recovery-actions]{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;flex:none;margin-top:16px;border-top:1px solid var(--ui-line,#e0e4e8);padding-top:12px}
+.wf-content-diff-scope{font-size:12px;line-height:1.7;margin:8px 0}.wf-content-diff-path{font-size:12px;line-height:1.7;margin:8px 0 3px;overflow-wrap:anywhere}.wf-content-diff-data{margin-top:8px}.wf-content-diff-data summary{font-size:12px}.wf-content-diff pre:focus-visible,.wf-content-diff-data pre:focus-visible{outline:2px solid var(--ui-accent,#888);outline-offset:2px}
