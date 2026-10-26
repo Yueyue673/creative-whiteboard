@@ -3,7 +3,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
  const root=process.env.OVERVIEW_RETURN_SOURCE||path.resolve(__dirname,'..'),out=process.env.OVERVIEW_RETURN_PROOF;
  if(out){assert(!fs.existsSync(out));fs.mkdirSync(out,{recursive:true})}
  const proof={syntheticOnly:true,prototypeOnly:false,sourceHead:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),runtimeFiles:{},cases:[],errors:[],complete:false};
- for(const file of ['note-editor.js','navigation.js'])proof.runtimeFiles[file]=createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex');
+ for(const file of ['note-editor.js','note-editor.css','navigation.js'])proof.runtimeFiles[file]=createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex');
  const save=()=>{if(out)fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(proof,null,2))},photo=async(name)=>{if(out)await p.screenshot({path:path.join(out,name+'.png')})};
  const data=fs.mkdtempSync(path.join(os.tmpdir(),'creative-overview-writing-')),port=await require(path.join(root,'tests/browser-port.cjs'))(),base='http://127.0.0.1:'+port;
  let browser,server,p,releaseSave;proof.dataDir=data;

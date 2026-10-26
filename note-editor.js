@@ -670,7 +670,7 @@
   back.disabled=!!returning.returned;back.textContent=returning.returned?(compact?'已返回':'已返回原视角'):(compact?'返回视角':'返回之前视角');back.setAttribute('aria-label',returning.returned?'已返回原视角':'返回之前视角');
   bar.style.left='';bar.style.right='12px';
   const size=bar.getBoundingClientRect(),height=size.height,dock=$('creationDock')?.getBoundingClientRect(),candidate={left:bounds.left+16,right:bounds.left+16+size.width,top:tools.top,bottom:tools.top+height},clear=b=>!b||candidate.right<=b.left||candidate.left>=b.right||candidate.bottom<=b.top||candidate.top>=b.bottom;
-  if(compact&&tools.left-bounds.left-24>=size.width&&candidate.bottom<=bounds.bottom-8&&clear(dock)&&clear(r)){bar.style.left='16px';bar.style.right='auto';bar.style.top=tools.top-bounds.top+'px';return;}
+  if(compact&&returning.kind!=='overview'&&tools.left-bounds.left-24>=size.width&&candidate.bottom<=bounds.bottom-8&&clear(dock)&&clear(r)){bar.style.left='16px';bar.style.right='auto';bar.style.top=tools.top-bounds.top+'px';return;}
   let top=tools.bottom-bounds.top+8;
   if(top+height>bounds.height-8)top=tools.top-bounds.top-height-8;
   if(r&&top<r.bottom-bounds.top+8&&top+height>r.top-bounds.top)top=r.bottom-bounds.top+8;
@@ -681,7 +681,7 @@
   if(!board?.nodes.length||loading)return;
   const prior=camera();fit();
   if(['cx','cy','z'].every(key=>Math.abs(camera()[key]-prior[key])<1e-6))return;
-  if(!returning||returning.returned)returning={source:board,id:boardId,value:prior};
+  if(!returning||returning.returned)returning={source:board,id:boardId,value:prior,kind:'overview'};
   positionReturn();
  }
  $('fit').onclick=overview;
