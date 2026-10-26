@@ -31,14 +31,21 @@
   }
   return clone(state.draft);
  }
+
+ function documentChanges(state,original,node,add){
+  if(original.type!=='table'||original.documentMode!==true||node.type!=='table'||node.documentMode!==true)return;
+  add('node:'+node.id+':cellItems',(node.title||'未命名长文')+' · 正文与文中材料',original.cellItems,node.cellItems,a=>a.bundle?.nodes.find(n=>n.id===node.id)?.cellItems,(a,v)=>a.bundle.nodes.find(n=>n.id===node.id).cellItems=clone(v),node.id,true);
+ }
+
  function fields(state,draft){
   const values=[];
-  const add=(key,label,base,mine,get,set,nodeId=null)=>{if(!equal(base,mine))values.push({key,label,base,mine,get,set,nodeId})};
+  const add=(key,label,base,mine,get,set,nodeId=null,documentContent=false)=>{if(!equal(base,mine))values.push({key,label,base,mine,get,set,nodeId,documentContent})};
   for(const key of state.mode==='file'?['title','notes','tags']:['title'])add(key,({title:'内容名称',notes:'备注',tags:'标签'})[key],state.base[key],draft[key],a=>a[key],(a,v)=>a[key]=clone(v));
   if(state.mode==='content'){
    for(const n of draft.bundle.nodes){
     const original=state.base.bundle.nodes.find(node=>node.id===n.id);if(!original)continue;
     for(const key of ['title','body','userText','annotation'])add('node:'+n.id+':'+key,(n.title||'未命名内容')+' · '+({title:'标题',body:'正文',userText:'自己的补充',annotation:'备注'})[key],original[key]||'',n[key]||'',a=>a.bundle?.nodes.find(node=>node.id===n.id)?.[key]||'',(a,v)=>a.bundle.nodes.find(node=>node.id===n.id)[key]=clone(v),n.id);
+    documentChanges(state,original,n,add);
    }
   }
   const folder=destination(state.destination),before=destination(state.initialDestination);
@@ -59,14 +66,15 @@
   for(const change of changes){
    const group=element('fieldset','library-edit-conflict'),legend=element('legend','',change.label),pair=element('div','library-edit-pair');
    group.append(legend,pair);
+   let contentChange=null;if(change.documentContent){contentChange={before:change.get(current),after:change.mine};const differences=wfDocumentContentChanges(contentChange.before,contentChange.after);if(differences)contentChange.contentPreview={changes:differences,beforeLabel:'库中版本',afterLabel:'我的编辑'};group.insertBefore(element('p','library-edit-explain','选择会保留这一版的整项正文与文中材料。'),pair)}
    for(const [value,label,content] of [['current','库中版本',change.get(current)],['mine','我的编辑',change.mine]]){
     const option=element('label','library-edit-option'),heading=element('span','library-edit-choice');
     const radio=document.createElement('input');radio.type='radio';radio.name='library-choice-'+change.key;radio.value=value;radio.dataset.libraryChoice=change.key;
     radio.checked=choice(state,change,current)===value;
     radio.addEventListener('change',()=>state.choices.set(change.key,{value,current:copy(change.get(current)),mine:copy(change.mine)}));
-    heading.append(radio,document.createTextNode(label));option.append(heading,element('pre','',text(content)));pair.append(option);
+    heading.append(radio,document.createTextNode(label));option.append(heading);if(contentChange){const display=element('div','library-document-conflict-value');display.innerHTML=wfDiffValue(contentChange,value==='current'?'before':'after');option.append(display);for(const pre of display.querySelectorAll('pre'))pre.tabIndex=0}else option.append(element('pre','',text(content)));pair.append(option);
    }
-   const baseline=element('details','library-edit-baseline');baseline.append(element('summary','','编辑前的版本'),element('pre','',text(change.base)));group.append(baseline);state.conflict.append(group);
+   const baseline=element('details','library-edit-baseline');baseline.append(element('summary','','编辑前的版本'),element('pre','',change.documentContent?wfText(change.base):text(change.base)));group.append(baseline);state.conflict.append(group);
   }
   state.conflict.append(state.copyButton);state.conflict.querySelector('input:not(:checked)')?.focus({preventScroll:true});
   state.conflict.scrollIntoView({block:'nearest'});
@@ -77,6 +85,7 @@
    if(current.mime!==bundleMime||!current.bundle)return '原件的内容类型已改变。可以把你的编辑另存，原件保持现状。';
    const changed=fields(state,draft).filter(change=>change.nodeId!==null);
    if(changed.some(change=>!current.bundle.nodes.some(node=>node.id===change.nodeId)))return '你正在修改的内容块已从原件移除。可以另存你的编辑，原件保持现状。';
+   if(changed.some(change=>change.documentContent&&current.bundle.nodes.some(node=>node.id===change.nodeId&&(node.type!=='table'||node.documentMode!==true))))return '原件的长文结构已改变。可以另存你的编辑，原件保持现状。';
   }
   return '';
  }
@@ -156,19 +165,44 @@
   const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'}],edges:[]}},busy:false};let index=0;
   const supplement=original?'<div id="librarySupplement"></div>':'<details class="library-note-details"><summary><span class="library-note-caret" aria-hidden="true">›</span>补充和备注</summary><div id="librarySupplement"></div></details>';
   showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
-  const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value};
+  const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value;for(const {field,path,initial,initialValue}of state.documentFields||[]){let target=state.draft.bundle.nodes[index].cellItems[0][0];for(const key of path.slice(0,-1))target=target[key];const key=path.at(-1);if(field.value!==initial)target[key]=field.value;else if(initialValue===undefined)delete target[key];else target[key]=copy(initialValue)}};
   const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'"></textarea></label>';
+
+  function documentFields(node){
+   const controls=[],field=(path,label,value,rows=3)=>{
+    const index=controls.length;controls.push({path,value});return '<label>'+esc(label)+'<textarea data-library-document-field="'+index+'" rows="'+rows+'"></textarea></label>';
+   };
+   const sections=(node.cellItems?.[0]?.[0]||[]).map((item,index)=>{
+    if(!item||typeof item!=='object')return '<p>这类内容可放到白板编辑，原件保持。</p>';
+    let html='';
+    if(item.type==='note'){
+     if(!item.documentParagraph)html+=field([index,'title'],'文中便签标题',item.title,1);
+     html+=field([index,'body'],item.documentParagraph?'正文段落 '+(index+1):'文中便签正文',item.body,item.documentParagraph?7:4);
+    }else if(item.type==='table'){
+     html+=field([index,'title'],'文中表格标题',item.title,1);
+     const columns=Array.isArray(item.columns)?item.columns:[],rows=Array.isArray(item.rows)?item.rows:[];
+     html+='<div class="library-document-edit-table" tabindex="0" role="region" aria-label="'+esc(item.title||'文中表格')+'"><table><thead><tr>'+columns.map((value,c)=>'<th>'+field([index,'columns',c],'列 '+(c+1),value,1)+'</th>').join('')+'</tr></thead><tbody>'+rows.map((row,r)=>'<tr>'+columns.map((_,c)=>'<td>'+(Object.hasOwn(row,c)?field([index,'rows',r,c],'第 '+(r+1)+' 行，第 '+(c+1)+' 列',row[c],3):'')+((item.cellItems?.[r]?.[c]?.length||item.cellImages?.[r]?.[c]?.length)?'<small>格内资料原样保留</small>':'')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+    }else return '<section><p>'+esc(item.title||'文中内容')+'</p><small>这类内容可放到白板编辑，原件保持。</small></section>';
+    for(const [key,label]of[['userText','补充'],['annotation','备注']])if(item[key])html+=field([index,key],label,item[key]);
+    if(item.images?.length||item.mediaId||item.assetId)html+='<small>附带文件原样保留</small>';
+    return '<section>'+html+'</section>';
+   }).join('');
+   return {html:'<div class="library-document-fields">'+sections+'</div>',controls};
+  }
+
   const draw=()=>{
    if(!active(state))return;
-   state.form.querySelector('#libraryFields').innerHTML=field('title',original?'标题':'标题（可不填）',1)+field('body','正文',7);
-   state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(state.draft.bundle.nodes[index].type==='table'?'<p class="library-edit-explain">表格单元格与附件会保留。调整表格结构时，可放到白板编辑后再收录。</p>':'');
+   const node=state.draft.bundle.nodes[index],documentContent=node.type==='table'&&node.documentMode===true?documentFields(node):null;state.documentFields=[];
+   state.form.querySelector('#libraryFields').innerHTML=field('title',original?'标题':'标题（可不填）',1)+(documentContent?documentContent.html+'<details class="library-document-description" '+(node.body?'open':'')+'><summary>说明</summary>'+field('body','说明',2)+'</details>':field('body','正文',7));
+   if(documentContent)state.documentFields=documentContent.controls.map((control,i)=>{const field=state.form.querySelector('[data-library-document-field="'+i+'"]');fillTextarea(field,String(control.value??''));return {field,path:control.path,initial:field.value,initialValue:copy(control.value)}});
+   state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(node.type==='table'?'<p class="library-edit-explain">'+(node.documentMode===true?'内容结构与附件保持。增删或移动文中内容时，可放到白板编辑后再收录。':'表格单元格与附件会保留。调整表格结构时，可放到白板编辑后再收录。')+'</p>':'');
    for(const key of ['title','body','userText','annotation'])fillTextarea(state.form.querySelector('#library-'+key),state.draft.bundle.nodes[index][key]);
   };
   state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newNoteName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);
   const piece=state.form.querySelector('#libraryPiece');
   if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();index=Number(piece.value);draw()};
-  draw();$(original?'libraryName':'library-body').focus();
+  draw();const documentField=state.form.querySelector('[data-library-document-field]');if(documentField)documentField.focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
  }
  window.whiteboardLibraryEditing={editFile,editContent};
 })();
