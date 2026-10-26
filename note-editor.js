@@ -278,11 +278,65 @@
   if(prefixes[kind]){const left=start?text.lastIndexOf('\n',start-1)+1:0,last=end>start&&text[end-1]==='\n'?end-1:end,right=text.indexOf('\n',last),stop=right<0?text.length:right,prefix=prefixes[kind],lines=text.slice(left,stop).split('\n');const remove=lines.every(line=>line.startsWith(prefix)),changed=lines.map(line=>remove?line.slice(prefix.length):prefix+line).join('\n');return setText(n,text.slice(0,left)+changed+text.slice(stop),left,left+changed.length)}
   if(kind==='fence'){const selectedText=text.slice(start,end),begin=(start&&text[start-1]!=='\n'?'\n':'')+'```\n',after='\n```'+(end<text.length&&text[end]!=='\n'?'\n':'');return setText(n,text.slice(0,start)+begin+selectedText+after+text.slice(end),start+begin.length,end+begin.length)}
  }
+ function dismissPanel(){if(panel?._canDismiss&&!panel._canDismiss())return;const restore=panel?._returnToWriting,trigger=owner;closePanel();if(restore)restore();else trigger?.focus({preventScroll:true})}
+ function openSelectionResource(box,trigger,n){
+  if(!ownsField(n)||field.readOnly||field.disabled)return;
+  const original=field,place={value:field.value,start:field.selectionStart,end:field.selectionEnd,direction:field.selectionDirection,top:field.scrollTop,left:field.scrollLeft};
+  if(place.start===place.end)return;
+  const shown=original.value.slice(place.start,place.end),raw=referenceSlice(original,place.start,place.end);
+  if(!raw.trim())return;
+  if(raw.length>200000){let notice=box.querySelector('.note-selection-notice');if(!notice){notice=document.createElement('p');notice.className='note-selection-notice';notice.setAttribute('role','status');box.append(notice)}notice.textContent='所选文字较长，请分段保存。';positionPanel(trigger);return}
+  const source=board,id=boardId,state={assetId:uid(),nodeId:uid(),target:libraryFolderTarget(assetFolder),reading:false,busy:false,writing:false,submitted:null,saved:false};
+  const active=()=>panel===box&&box.isConnected&&board===source&&boardId===id&&editorId===n.id&&board.nodes.includes(n)&&original.isConnected&&!loading&&!blocked;
+  const restore=()=>{if(board!==source||boardId!==id||editorId!==n.id||!original.isConnected||original.value!==place.value)return;whiteboardNavigation.focusPreservingView(original);original.setSelectionRange(place.start,place.end,place.direction);original.scrollTop=place.top;original.scrollLeft=place.left;remember(original)};
+  box.replaceChildren();box.classList.add('note-selection-resource');box.setAttribute('aria-label','所选文字存到库');box._resourceDraft=true;box._returnToWriting=restore;box._canDismiss=()=>!state.writing;box._keepDuringDraw=active;
+  const make=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el};
+  const header=make('header'),heading=make('b','','所选文字存到库'),exit=make('button','','×');exit.type='button';exit.setAttribute('aria-label','返回原记录');exit.onclick=dismissPanel;header.append(heading,exit);
+  const explain=make('p','','保存一份独立便签，原记录保留。'),nameLabel=make('label','','名称（可不填）'),name=make('input');name.type='text';name.maxLength=1000;name.setAttribute('aria-label','资源名称');nameLabel.append(name);
+  const preview=make('pre','note-selection-preview',shown);preview.tabIndex=0;preview.setAttribute('aria-label','所选原文');
+  const folderLabel=make('label','','存放位置'),folder=make('select');folder.setAttribute('aria-label','存放位置');folder.disabled=true;folderLabel.append(folder);
+  const status=make('p','note-selection-status');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+  const actions=make('div','note-selection-actions'),cancel=make('button','','取消'),save=make('button','','保存到内容库'),retry=make('button','','重试读取');
+  for(const el of [cancel,save,retry])el.type='button';save.disabled=true;retry.hidden=true;cancel.onclick=dismissPanel;
+  actions.append(cancel,save,retry);box.append(header,explain,nameLabel,preview,folderLabel,status,actions);
+  const message=text=>{if(active()){status.textContent=text;status.hidden=!text;positionPanel(trigger)}};
+  folder.onchange=()=>{state.target=libraryFolderTarget(folder.value);message('')};
+  const locate=()=>{if(!state.target.path&&!state.target.id)return '';const path=libraryFolderLocation(state.target);return path||null};
+  const label=()=>{const line=name.value.trim()||shown.split(/\r?\n/).find(value=>value.trim())?.trim()||'未命名内容';return Array.from(line).slice(0,1000).join('')};
+  const finish=()=>{if(!active())return;state.saved=true;name.disabled=folder.disabled=true;save.hidden=retry.hidden=true;cancel.disabled=exit.disabled=false;cancel.textContent='继续写作';message('已保存到内容库。原记录保留。');cancel.focus({preventScroll:true})};
+  async function prepare(){
+   if(!active()||state.reading||state.busy)return;state.reading=true;save.disabled=true;retry.hidden=true;message('正在读取存放位置…');
+   try{await loadAssets({redraw:false});if(!active())return;const path=locate();folder.innerHTML=libraryFolderOptions(path||'');
+    if(path===null){const missing=make('option','','原存放位置已移除，请重新选择');missing.value='';missing.disabled=true;missing.selected=true;folder.prepend(missing);message('原存放位置已移除，请重新选择。')}else{folder.value=path;state.target=libraryFolderTarget(path);message('')}
+    folder.disabled=false;save.disabled=false;
+   }catch(error){if(active()){message(error.message||'暂时未能读取，原文仍保留。');retry.hidden=false}}
+   finally{state.reading=false}
+  }
+  retry.onclick=prepare;
+  save.onclick=async()=>{
+   if(!active()||state.busy||state.saved||state.reading)return;state.busy=true;save.disabled=true;message('正在核对库中版本…');
+   try{
+    await loadAssets({redraw:false});if(!active())return;const path=locate();if(path===null){message('原存放位置已移除，请重新选择。');return}
+    const existing=assetById(state.assetId);
+    if(existing){
+     if(state.submitted&&wfEqual(existing,state.submitted)&&name.value===state.submittedName&&path===state.submitted.folder){finish();return}
+     message('这份资源已在库中变化，你的名称仍保留。请先核对库中内容。');return;
+    }
+    const node={id:state.nodeId,type:'note',title:name.value,body:raw,userText:'',annotation:'',tags:[],color:n.color||'#fff0aa',textFormat:n.textFormat||'plain',x:0,y:0,w:340,h:120,sizeMode:'auto'};
+    const item={id:state.assetId,title:label(),path:'',mime:bundleMime,size:0,tags:[],notes:'',folder:path,bundle:{nodes:[node],edges:[]},updated:Date.now()},next=clone(assetIndex);
+    next.assets.push(item);state.submitted=clone(item);state.submittedName=name.value;
+    state.writing=true;for(const el of [name,folder,cancel,exit])el.disabled=true;
+    if(await saveAssets(next)){if(active())finish()}else message('没有保存成功，所选原文和名称仍保留。可再点保存重试。');
+   }catch(error){message(error.message||'暂时不能保存，所选原文仍保留。')}
+   finally{state.busy=state.writing=false;if(active()&&!state.saved){for(const el of [name,folder,cancel,exit,save])el.disabled=false}}
+  };
+  name.focus({preventScroll:true});positionPanel(trigger);prepare();
+ }
  function openFormat(trigger,n){const box=popup(trigger,n,'format');if(!box)return;
   const source=board,sourceId=boardId,active=()=>panel===box&&board===source&&boardId===sourceId&&ownsField(n);
   if(!field?.isConnected){field=document.getElementById('body');remember(field)}
   box.innerHTML='<header><b>文字格式</b><button type="button" aria-label="关闭文字格式">×</button></header><div class="note-format-grid">'+[['bold','粗体','B'],['italic','斜体','I'],['strike','删除线','S'],['highlight','高亮','标记'],['code','行内代码','代码'],['heading','标题','H1'],['quote','引用','引用'],['bullet','无序列表','• 列表'],['number','有序列表','1. 列表'],['task','任务列表','☐ 任务'],['fence','代码块','代码块']].map(([id,label,text])=>'<button type="button" data-format="'+id+'" aria-label="'+label+'" title="'+label+'">'+text+'</button>').join('')+'</div><label class="note-external-link">外部链接<input type="url" aria-label="外部链接网址" placeholder="https://"><button type="button" data-insert-link>插入链接</button></label><label class="note-mode"><input type="checkbox" '+(n.textFormat==='markdown'?'checked':'')+'>按 Markdown 显示</label><p>选中文字后应用；Ctrl+B 粗体，Ctrl+I 斜体。原文保存在便签里。</p>';
-  box.querySelector('header button').onclick=()=>{if(active())closePanel()};box.querySelectorAll('[data-format]').forEach(b=>{b.onpointerdown=e=>e.preventDefault();b.onclick=()=>{if(active()&&format(n,b.dataset.format))box.querySelector('input[type=checkbox]').checked=true}});
+  const collect=document.createElement('button');collect.type='button';collect.className='note-selection-entry';collect.textContent='所选文字存到库';collect.disabled=!ownsField(n)||field.readOnly||field.disabled||field.selectionStart===field.selectionEnd;collect.onpointerdown=event=>event.preventDefault();collect.onclick=()=>{if(active())openSelectionResource(box,trigger,n)};box.querySelector('.note-format-grid').after(collect);box.querySelector('header button').onclick=()=>{if(active())closePanel()};box.querySelectorAll('[data-format]').forEach(b=>{b.onpointerdown=e=>e.preventDefault();b.onclick=()=>{if(active()&&format(n,b.dataset.format))box.querySelector('input[type=checkbox]').checked=true}});
   box.querySelector('[data-insert-link]').onclick=()=>{if(!active()||!ownsField(n))return;const input=box.querySelector('input[type=url]'),url=input.value.trim();if(!/^(https?:\/\/|mailto:)/i.test(url)||!parser.validateLink(url)){input.setCustomValidity('请填写 http、https 或 mailto 链接');input.reportValidity();return}input.setCustomValidity('');const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||url,link='['+label.replace(/[\\[\]]/g,'\\$&')+'](<'+url.replace(/[<>\s]/g,c=>encodeURIComponent(c))+'>)';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))box.querySelector('input[type=checkbox]').checked=true};
   box.querySelector('input[type=url]').oninput=e=>e.target.setCustomValidity('');box.querySelector('input[type=checkbox]').onchange=e=>{if(!active())return;checkpoint();n.textFormat=e.target.checked?'markdown':'plain';change()};show(trigger);
  }
@@ -547,12 +601,12 @@
   // Input and focus loss also cover text entry without a keyboard keyup.
   root.querySelectorAll('textarea').forEach(el=>{for(const name of ['focus','select','keyup','pointerup','input','blur'])el.addEventListener(name,()=>remember(el));el.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.isComposing&&['b','i'].includes(e.key.toLowerCase())&&['body','userText','annotation'].includes(el.id)){e.preventDefault();e.stopPropagation();remember(el);format(n,e.key.toLowerCase()==='b'?'bold':'italic')}})});
  };
- document.addEventListener('pointerdown',e=>{if(panel&&!panel.contains(e.target)&&!owner?.contains(e.target))closePanel()},true);
- window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}},true);
- document.getElementById('dialog').addEventListener('cancel',e=>{if(!panel)return;e.preventDefault();const trigger=owner;closePanel();trigger?.focus({preventScroll:true})});
- window.addEventListener('resize',closePanel);
+ document.addEventListener('pointerdown',e=>{if(panel&&!panel.contains(e.target)&&!owner?.contains(e.target)&&(!panel._canDismiss||panel._canDismiss()))closePanel()},true);
+ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel){e.preventDefault();e.stopImmediatePropagation();dismissPanel()}},true);
+ document.getElementById('dialog').addEventListener('cancel',e=>{if(!panel)return;e.preventDefault();dismissPanel()});
+ window.addEventListener('resize',()=>{if(panel?._resourceDraft&&owner?.isConnected)positionPanel(owner);else closePanel()});
  document.addEventListener('click',async e=>{const link=e.target.closest('[data-note-link]');if(!link)return;e.preventDefault();e.stopPropagation();const requestedBoard=boardId,value=link.dataset.noteLink,place=captureReferencePlace(link.closest('.node')?.dataset.id),epoch=++referenceEpoch;try{const {records,incomplete}=await allNotes();if(epoch!==referenceEpoch||boardId!==requestedBoard||!link.isConnected)return;const row=resolveReference(value,records),explicit=/^@/.test(value),local=row?.board===requestedBoard;if(row&&(!incomplete||explicit||local))await jumpReference(row,place,epoch,records);else showReferenceChoices(link,value,records,requestedBoard,async target=>{if(epoch!==referenceEpoch||boardId!==requestedBoard)return;try{await jumpReference(target,place,epoch,records)}catch(error){toast('暂时无法打开关联：'+error.message)}},incomplete)}catch(error){toast('暂时无法打开关联：'+error.message)}});
- const originalDraw=drawNodes;drawNodes=function(){closePanel();originalDraw();syncReferenceReturn();syncRelations();layoutSourcePeek()};
+ const originalDraw=drawNodes;drawNodes=function(){const draft=panel?._keepDuringDraw?.()?panel:null;if(!draft)closePanel();originalDraw();if(draft){if(!draft._keepDuringDraw()||!owner?.isConnected)closePanel();else positionPanel(owner)}syncReferenceReturn();syncRelations();layoutSourcePeek()};
  const originalSelection=refreshSelectionUI;refreshSelectionUI=function(){originalSelection();syncRelations()};
  window.addEventListener('creative-board-loading',()=>{if(referenceBar)referenceBar.hidden=true;});
  new MutationObserver(syncReferenceReturn).observe(document.getElementById('dialog'),{attributes:true,attributeFilter:['open','class']});
@@ -579,7 +633,7 @@
   }catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message}
  }
  boardLinksButton=wfAddMenu('白板关联',openBoardLinks);
- window.whiteboardNoteEditor={openBoardLinks,sourceContext,fieldSelector,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{const trigger=owner;closePanel();trigger?.focus({preventScroll:true})}};
+ window.whiteboardNoteEditor={openBoardLinks,sourceContext,fieldSelector,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.
