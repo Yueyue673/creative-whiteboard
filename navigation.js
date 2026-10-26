@@ -161,7 +161,7 @@
  $('zoomValue').onclick=e=>{
   const r=e.currentTarget.getBoundingClientRect(),items=[];
   if(canvas.classList.contains('tight-tools'))items.push(['放大  Ctrl++',()=>$('plus').click()],['缩小  Ctrl+−',()=>$('minus').click()]);
-  items.push(['缩放到选中内容  Shift+2',fitSelection],['查看全部  Shift+1',fit],['100%',()=>zoom(1/view().z)],['设置缩放比例…',()=>{showDialog('<h2>白板缩放</h2><label>比例（%）<input id="boardZoomInput" type="number" min="15" max="3200" value="'+Math.round(view().z*100)+'"></label>',[['取消',()=>$('dialog').close()],['应用',()=>{const z=Number($('boardZoomInput').value);if(z>=15&&z<=3200){zoom(z/100/view().z);$('dialog').close()}}]])}],['操作设置…',()=>whiteboardAppearance.open()]);
+  items.push(['缩放到选中内容  Shift+2',fitSelection],['查看全部  Shift+1',()=>$('fit').click()],['100%',()=>zoom(1/view().z)],['设置缩放比例…',()=>{showDialog('<h2>白板缩放</h2><label>比例（%）<input id="boardZoomInput" type="number" min="15" max="3200" value="'+Math.round(view().z*100)+'"></label>',[['取消',()=>$('dialog').close()],['应用',()=>{const z=Number($('boardZoomInput').value);if(z>=15&&z<=3200){zoom(z/100/view().z);$('dialog').close()}}]])}],['操作设置…',()=>whiteboardAppearance.open()]);
   fileMenu({target:e.currentTarget,clientX:r.left,clientY:r.bottom,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},items);
  };
  // Shared appearance settings own operation preferences in both the workspace and standalone pages.
