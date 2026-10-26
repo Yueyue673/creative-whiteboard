@@ -461,8 +461,36 @@ function arrangeLibraryPreview(preview){
  const actions=$('dialogActions'),place=actions.lastElementChild,back=actions.firstElementChild,originals=$('dialogBody').querySelector('.reuse-source-actions');place.dataset.libraryPlace='';place.classList.add('reuse-place');back.textContent='返回';back.classList.add('reuse-return');back.setAttribute('aria-label','返回内容库');back.onclick=()=>{if($('dialog').open&&preview.isConnected&&$('pieceList')===preview)$('dialog').close()};$('dialogBody').querySelector('[data-reuse-return]').append(back);for(const button of [...actions.querySelectorAll('button')])if(button!==place){button.textContent='从原白板更新';originals.append(button)}
  preview.focus({preventScroll:true});return place;
 }
+
+// A single saved long document can be read before placing an independent copy.
+function libraryDocumentMarkup(n){
+ let blocks=0,characters=0;
+ const limit={};
+ const literal=value=>{const text=String(value??'');characters+=text.length;if(characters>200000)throw limit;return esc(text)};
+ const paragraph=(label,value)=>value?'<div class="library-document-text">'+(label?'<strong>'+literal(label)+'</strong>':'')+'<p>'+literal(value)+'</p></div>':'';
+ const item=(node,depth=0)=>{
+  if(++blocks>2000||depth>16)throw limit;
+  let html=(node.title?'<h3>'+literal(node.title)+'</h3>':'')+paragraph('',node.body);
+  if(node.type==='table'){
+   const columns=Array.isArray(node.columns)?node.columns:[],rows=Array.isArray(node.rows)?node.rows:[];
+   html+='<div class="library-document-table" tabindex="0" role="region" aria-label="'+literal(node.title||'文中表格')+'"><table><thead><tr>'+columns.map(c=>'<th scope="col">'+literal(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map((row,r)=>'<tr>'+columns.map((_,c)=>{if(++blocks>2000)throw limit;return '<td>'+literal(row[c])+(node.cellItems?.[r]?.[c]||[]).map(child=>item(child,depth+1)).join('')+images(node.cellImages?.[r]?.[c])+'</td>'}).join('')+'</tr>').join('')+'</tbody></table></div>';
+  }
+  html+=paragraph('补充',node.userText)+paragraph('备注',node.annotation)+images(node.images);
+  const file=assetById(node.mediaId||node.assetId);
+  if(file)html+='<p class="library-document-file">'+literal(file.title||file.path||'附带文件')+'</p>';
+  return '<section>'+html+'</section>';
+ };
+ const images=list=>Array.isArray(list)&&list.length?'<div class="library-document-images">'+list.map(image=>{if(++blocks>2000)throw limit;return '<span>'+literal(image.name||'附带图片')+'</span>'}).join('')+'</div>':'';
+ try{return paragraph('',n.body)+(n.cellItems?.[0]?.[0]||[]).map(node=>item(node)).join('')+paragraph('补充',n.userText)+paragraph('备注',n.annotation)}catch(error){if(error===limit)return null;throw error}
+}
+
 const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetById(id);if(a?.mime!==bundleMime)return previewBeforePieces(id);let picked=new Set(),previewElement;const append=async selectedOnly=>{if(!$('dialog').open||!previewElement?.isConnected||$('pieceList')!==previewElement)return;try{const result=await(selectedOnly?commitLibraryBatch([{asset:a,bundle:subsetBundle(a,picked)}]):placeAssets([id]));if(Array.isArray(result)&&result.length&&$('dialog').open&&previewElement.isConnected){$('dialog').close();window.whiteboardExplorer?.revealInserted(result)}}catch(e){toast(e.message)}};
  const sourceActions=a.source?.boardId&&Array.isArray(a.source.nodeIds)&&a.source.nodeIds.length?[['更新库中版本',async()=>{if(!$('dialog').open||!previewElement?.isConnected||$('pieceList')!==previewElement)return;$('dialog').close();await refreshLibrarySource(id)}]]:[];
+ const singleDocument=a.bundle.nodes.length===1&&a.bundle.nodes[0].type==='table'&&a.bundle.nodes[0].documentMode===true?a.bundle.nodes[0]:null;
+ const documentMarkup=singleDocument?libraryDocumentMarkup(singleDocument):null;
+ if(documentMarkup!==null){
+  showDialog(libraryReuseHeading(a)+'<div class="bundle-preview library-document-preview" id="pieceList" tabindex="0" aria-label="长文原件预览"><article data-piece="'+esc(singleDocument.id)+'">'+(singleDocument.title&&singleDocument.title!==a.title?'<h3>'+esc(singleDocument.title)+'</h3>':'')+documentMarkup+'</article></div>',[['关闭',()=>$('dialog').close()],...sourceActions,['放到白板',()=>append(false)]]);previewElement=$('pieceList');arrangeLibraryPreview(previewElement);return;
+ }
  const single=singleTextLibraryNote(a);
  if(single){
   const n=a.bundle.nodes[0],text=(label,value)=>label||value?'<section>'+(label?'<b>'+esc(label)+'</b>':'')+(value?'<p>'+esc(value)+'</p>':'')+'</section>':'';
