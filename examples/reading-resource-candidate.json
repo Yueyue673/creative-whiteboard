@@ -1,0 +1,147 @@
+{
+  "format": "creative-board",
+  "version": 1,
+  "name": "阅读记录资源｜候选示例",
+  "folder": "",
+  "nodes": [
+    {
+      "id": "reading-document",
+      "type": "table",
+      "documentMode": true,
+      "title": "阅读记录模板",
+      "body": "",
+      "tags": [
+        "演示"
+      ],
+      "x": 40,
+      "y": 40,
+      "w": 650,
+      "h": 620,
+      "color": "#fffefa",
+      "sizeMode": "manual",
+      "columns": [
+        "正文"
+      ],
+      "rows": [
+        [
+          ""
+        ]
+      ],
+      "rowIds": [
+        "reading-flow"
+      ],
+      "columnIds": [
+        "reading-text"
+      ],
+      "cellImages": [
+        [
+          []
+        ]
+      ],
+      "cellItems": [
+        [
+          [
+            {
+              "id": "reading-paragraph",
+              "type": "note",
+              "documentParagraph": true,
+              "title": "",
+              "body": "这是一份公开演示模板，不是真实作品。\n\n在这里写下自己的想法。表格用来保留要点和出处，不规定最终顺序。",
+              "tags": [],
+              "x": 0,
+              "y": 0,
+              "w": 320,
+              "h": 160
+            },
+            {
+              "id": "reading-table",
+              "type": "table",
+              "title": "要点与出处",
+              "body": "",
+              "tags": [],
+              "x": 0,
+              "y": 0,
+              "w": 600,
+              "h": 260,
+              "sizeMode": "manual",
+              "columns": [
+                "想保留的要点",
+                "原话或出处"
+              ],
+              "rows": [
+                [
+                  "请填写自己的要点",
+                  "请填写真实来源与位置"
+                ],
+                [
+                  "暂时没想清的事",
+                  "先保留为待确认"
+                ]
+              ],
+              "rowIds": [
+                "reading-first",
+                "reading-second"
+              ],
+              "columnIds": [
+                "reading-point",
+                "reading-source"
+              ],
+              "columnWidths": [
+                300,
+                300
+              ],
+              "cellImages": [
+                [
+                  [],
+                  []
+                ],
+                [
+                  [],
+                  []
+                ]
+              ],
+              "cellItems": [
+                [
+                  [],
+                  []
+                ],
+                [
+                  [],
+                  []
+                ]
+              ]
+            }
+          ]
+        ]
+      ]
+    },
+    {
+      "id": "reading-help",
+      "type": "note",
+      "title": "关于这个模板",
+      "body": "这是演示占位内容，不含真实引用。\n\n可以只把旁边的长文收进库，说明便签留在这张白板上。",
+      "x": 780,
+      "y": 70,
+      "w": 330,
+      "h": 260,
+      "color": "#fff0aa",
+      "sizeMode": "manual",
+      "tags": [
+        "演示"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "reading-example-edge",
+      "from": "reading-document",
+      "to": "reading-help",
+      "label": "示例说明"
+    }
+  ],
+  "view": {
+    "x": 60,
+    "y": 40,
+    "z": 1
+  }
+}
