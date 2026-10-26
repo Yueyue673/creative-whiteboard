@@ -63,7 +63,7 @@
  };
  const openBeforePosition=openEditor;
  openEditor=function(id){cancelWidth();activePosition();openBeforePosition(id);const n=board?.nodes.find(n=>n.id===id);if(n?.type==='frame'){const field=canvasBlock(id)?.querySelector('[data-group-name]');field?.focus({preventScroll:true});field?.select()}else if(n)restorePosition(positions.get(n))};
- function restoreEditor(){if(!immersion||!ownsPosition(immersion))return;const inner=immersion.surface.querySelector('.inner'),block=canvasBlock(immersion.id);if(inner&&block){block.prepend(inner);window.whiteboardNoteEditor?.mountRelations?.(immersion.node,block)}}
+ function restoreEditor(){if(!immersion||!ownsPosition(immersion))return;const inner=immersion.surface.querySelector('.inner'),block=canvasBlock(immersion.id);if(inner&&block){block.prepend(inner);inner.querySelectorAll('.json-reader').forEach(box=>box._restoreReading?.());window.whiteboardNoteEditor?.mountRelations?.(immersion.node,block)}}
  function bindImmersiveDetails(){
   const session=immersion,details=session?.surface.querySelector('#inlineMeta'),trigger=$('immersiveDetails');if(!details||!trigger)return;
   trigger.setAttribute('aria-expanded',String(details.open));
