@@ -159,9 +159,9 @@
  const menu=fileMenu;fileMenu=function(e,items){if(selected.size>1&&e.target.closest?.('.node'))items=[...items,['对齐与间距…',arrangement]];return menu(e,items)};
  $('zoomValue').title='缩放与视图';$('zoomValue').setAttribute('aria-label','缩放与视图');$('zoomValue').setAttribute('aria-haspopup','menu');$('zoomValue').setAttribute('aria-controls','fileContext');$('zoomValue').setAttribute('aria-expanded','false');
  $('zoomValue').onclick=e=>{
-  const r=e.currentTarget.getBoundingClientRect(),items=[];
-  if(canvas.classList.contains('tight-tools'))items.push(['放大  Ctrl++',()=>$('plus').click()],['缩小  Ctrl+−',()=>$('minus').click()]);
-  items.push(['缩放到选中内容  Shift+2',fitSelection],['查看全部  Shift+1',fit],['100%',()=>zoom(1/view().z)],['设置缩放比例…',()=>{showDialog('<h2>白板缩放</h2><label>比例（%）<input id="boardZoomInput" type="number" min="15" max="3200" value="'+Math.round(view().z*100)+'"></label>',[['取消',()=>$('dialog').close()],['应用',()=>{const z=Number($('boardZoomInput').value);if(z>=15&&z<=3200){zoom(z/100/view().z);$('dialog').close()}}]])}],['操作设置…',()=>whiteboardAppearance.open()]);
+  const r=e.currentTarget.getBoundingClientRect(),items=[],source=board,id=boardId,returnButton=$('canvasTools').querySelector('.canvas-view-return.docked:not([hidden]) button');if(returnButton&&!returnButton.disabled)items.push(['返回之前视角',()=>{if(board===source&&boardId===id)returnButton.click()}]);
+  if(canvas.classList.contains('tight-tools')||canvas.classList.contains('compact-tools')&&$('canvasTools').querySelector('.canvas-view-return.docked:not([hidden])'))items.push(['放大  Ctrl++',()=>$('plus').click()],['缩小  Ctrl+−',()=>$('minus').click()]);
+  items.push(['缩放到选中内容  Shift+2',fitSelection],['查看全部  Shift+1',()=>$('fit').click()],['100%',()=>zoom(1/view().z)],['设置缩放比例…',()=>{showDialog('<h2>白板缩放</h2><label>比例（%）<input id="boardZoomInput" type="number" min="15" max="3200" value="'+Math.round(view().z*100)+'"></label>',[['取消',()=>$('dialog').close()],['应用',()=>{const z=Number($('boardZoomInput').value);if(z>=15&&z<=3200){zoom(z/100/view().z);$('dialog').close()}}]])}],['操作设置…',()=>whiteboardAppearance.open()]);
   fileMenu({target:e.currentTarget,clientX:r.left,clientY:r.bottom,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},items);
  };
  // Shared appearance settings own operation preferences in both the workspace and standalone pages.

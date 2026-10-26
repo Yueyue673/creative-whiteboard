@@ -665,7 +665,7 @@
  function positionReturn(){
   if(returning&&(returning.source!==board||returning.id!==boardId||loading))returning=null;
   if(returning?.returned&&['cx','cy','z'].some(key=>Math.abs(camera()[key]-returning.value[key])>1e-6))returning=null;
-  bar.hidden=!returning;if(bar.hidden)return;
+  const docked=returning?.kind==='overview',host=docked?$('canvasTools'):canvas;bar.classList.toggle('docked',docked);if(bar.parentElement!==host){if(docked)host.prepend(bar);else host.append(bar)}bar.hidden=!returning;if(bar.hidden)return;if(docked){bar.style.left=bar.style.right=bar.style.top='';back.disabled=!!returning.returned;back.textContent=returning.returned?'已返回':'返回';back.setAttribute('aria-label',returning.returned?'已返回原视角':'返回之前视角');return}
   const bounds=canvas.getBoundingClientRect(),tools=$('canvasTools').getBoundingClientRect(),reference=document.querySelector('.note-reference-return:not([hidden])'),r=reference?.getBoundingClientRect(),compact=bounds.height<240;
   back.disabled=!!returning.returned;back.textContent=returning.returned?(compact?'已返回':'已返回原视角'):(compact?'返回视角':'返回之前视角');back.setAttribute('aria-label',returning.returned?'已返回原视角':'返回之前视角');
   bar.style.left='';bar.style.right='12px';
@@ -676,6 +676,15 @@
   if(r&&top<r.bottom-bounds.top+8&&top+height>r.top-bounds.top)top=r.bottom-bounds.top+8;
   bar.style.top=Math.max(8,Math.min(top,bounds.height-height-8))+'px';
  }
+ // Keep explicit overview actions in the existing return chain; fit() itself stays view-only.
+ function overview(){
+  if(!board?.nodes.length||loading)return;
+  const prior=camera();fit();
+  if(['cx','cy','z'].every(key=>Math.abs(camera()[key]-prior[key])<1e-6))return;
+  if(!returning||returning.returned)returning={source:board,id:boardId,value:prior,kind:'overview'};else returning.kind='overview';
+  positionReturn();
+ }
+ $('fit').onclick=overview;
  function applyCamera(value){const r=canvas.getBoundingClientRect();board.view={...board.view,x:r.width/2-value.cx*value.z,y:r.height/2-value.cy*value.z,z:value.z};moveView();change(true)}
  function navigate(value){const current=camera();if(['cx','cy','z'].every(key=>Math.abs(current[key]-value[key])<1e-6)){canvas.focus({preventScroll:true});return}if(!returning||returning.returned)returning={source:board,id:boardId,value:current};applyCamera(value);positionReturn();canvas.focus({preventScroll:true})}
  back.onclick=()=>{if(!returning||returning.returned||returning.source!==board||returning.id!==boardId||loading||blocked||gesture)return;const prior=returning.value;returning.returned=true;applyCamera(prior);positionReturn();canvas.focus({preventScroll:true})};
@@ -720,7 +729,7 @@
   for(const button of form.querySelectorAll('[data-view]'))button.onclick=()=>{
    if(!active())return;const value=button.dataset.view;
    if(value==='selection'&&!selection)return;
-   $('dialog').close();if(value==='all'){if(!returning||returning.returned)returning={source:board,id:boardId,value:camera()};fit();positionReturn();canvas.focus({preventScroll:true})}else navigate(value==='selection'?selection:{...savedCamera,z:1});
+   $('dialog').close();if(value==='all'){overview();canvas.focus({preventScroll:true})}else navigate(value==='selection'?selection:{...savedCamera,z:1});
   };
   form.querySelector('form').onsubmit=event=>{
    event.preventDefault();if(!active())return;const name=input.value.trim();if(!name){message('请给这个位置起一个名称。');input.focus();return}
