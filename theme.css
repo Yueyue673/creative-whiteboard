@@ -18,7 +18,7 @@ header,#shellHeader{background:var(--ui-bg);border-color:var(--ui-border);color:
 /* Generated search highlights follow the workspace tone; authored content stays untouched. */
 .wf-search-snippet mark,.wf-result mark,#items small mark{background:var(--ui-selected);color:var(--ui-text);border-radius:2px;box-shadow:inset 0 -1px var(--ui-focus,var(--ui-accent))}
 /* Secondary labels retain readable contrast on the dark panels. */
-#workspaceSidebar .location-heading strong{color:var(--ui-text)}.wf-explain,.wf-diff small,.wf-result small,.wf-empty,.wf-origin-status,.wf-search-snippet,.wf-history-row small,.destination-browser small,.destination-footer small,.destination-toggle small{color:var(--ui-muted)}.wf-result p{color:var(--ui-text)}.wf-history-row{border-color:var(--ui-line)}.node .inline-toolbar button,.node.table .table-actions button{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line)}
+#workspaceSidebar .location-heading strong{color:var(--ui-text)}.wf-explain,.wf-diff small,.wf-result small,.wf-empty,.wf-origin-status,.wf-search-snippet,.wf-history-row small,.destination-browser small,.destination-footer small,.destination-toggle small{color:var(--ui-muted)}.wf-result p{color:var(--ui-text)}.wf-history-row{border-color:var(--ui-line)}.node .inline-toolbar button,.node.table .table-actions button,.node .document-table-actions button{background:var(--ui-raised);color:var(--ui-text);border-color:var(--ui-line)}
 
 .piece-row:has(>input:checked){background:var(--ui-selected);box-shadow:inset 2px 0 var(--ui-focus,var(--ui-accent))}
 .piece-row small,#pieceCount{color:var(--ui-muted);font-size:12px}
