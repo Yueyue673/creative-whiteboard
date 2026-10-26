@@ -288,7 +288,7 @@
   if(raw.length>200000){let notice=box.querySelector('.note-selection-notice');if(!notice){notice=document.createElement('p');notice.className='note-selection-notice';notice.setAttribute('role','status');box.append(notice)}notice.textContent='所选文字较长，请分段保存。';positionPanel(trigger);return}
   const source=board,id=boardId,state={assetId:uid(),nodeId:uid(),target:libraryFolderTarget(assetFolder),reading:false,busy:false,writing:false,submitted:null,saved:false};
   const active=()=>panel===box&&box.isConnected&&board===source&&boardId===id&&editorId===n.id&&board.nodes.includes(n)&&original.isConnected&&!loading&&!blocked;
-  const restore=()=>{if(board!==source||boardId!==id||editorId!==n.id||!original.isConnected||original.value!==place.value)return;whiteboardNavigation.focusPreservingView(original);original.setSelectionRange(place.start,place.end,place.direction);original.scrollTop=place.top;original.scrollLeft=place.left;remember(original)};
+  const restore=()=>{if(!document.hasFocus()||board!==source||boardId!==id||editorId!==n.id||!original.isConnected||original.value!==place.value)return;whiteboardNavigation.focusPreservingView(original);original.setSelectionRange(place.start,place.end,place.direction);original.scrollTop=place.top;original.scrollLeft=place.left;remember(original)};
   box.replaceChildren();box.classList.add('note-selection-resource');box.setAttribute('aria-label','所选文字存到库');box._resourceDraft=true;box._returnToWriting=restore;box._canDismiss=()=>!state.writing;box._keepDuringDraw=active;
   const make=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el};
   const header=make('header'),heading=make('b','','所选文字存到库'),exit=make('button','','×');exit.type='button';exit.setAttribute('aria-label','返回原记录');exit.onclick=dismissPanel;header.append(heading,exit);
@@ -303,7 +303,7 @@
   folder.onchange=()=>{state.target=libraryFolderTarget(folder.value);message('')};
   const locate=()=>{if(!state.target.path&&!state.target.id)return '';const path=libraryFolderLocation(state.target);return path||null};
   const label=()=>{const line=name.value.trim()||shown.split(/\r?\n/).find(value=>value.trim())?.trim()||'未命名内容';return Array.from(line).slice(0,1000).join('')};
-  const finish=()=>{if(!active())return;state.saved=true;name.disabled=folder.disabled=true;save.hidden=retry.hidden=true;cancel.disabled=exit.disabled=false;cancel.textContent='继续写作';message('已保存到内容库。原记录保留。');cancel.focus({preventScroll:true})};
+  const finish=()=>{if(!active())return;state.saved=true;name.disabled=folder.disabled=true;save.hidden=retry.hidden=true;cancel.disabled=exit.disabled=false;cancel.textContent='继续写作';message('已保存到内容库。原记录保留。');if(document.hasFocus())cancel.focus({preventScroll:true})};
   async function prepare(){
    if(!active()||state.reading||state.busy)return;state.reading=true;save.disabled=true;retry.hidden=true;message('正在读取存放位置…');
    try{await loadAssets({redraw:false});if(!active())return;const path=locate();folder.innerHTML=libraryFolderOptions(path||'');

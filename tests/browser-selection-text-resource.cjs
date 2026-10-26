@@ -4,7 +4,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
  if(out){assert(!fs.existsSync(out));fs.mkdirSync(out,{recursive:true})}
  const proof={syntheticOnly:true,sourceHead:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),runtimeFiles:{},cases:[],errors:[],complete:false};
  for(const file of ['note-editor.js','note-editor.css','workspace.js'])proof.runtimeFiles[file]=createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex');
- const save=()=>{if(out)fs.writeFileSync(out+'/result.json',JSON.stringify(proof,null,2))};let server,browser,p,releaseAuthor,releaseRead;
+ const save=()=>{if(out)fs.writeFileSync(out+'/result.json',JSON.stringify(proof,null,2))};let server,browser,p,releaseAuthor,releaseRead,releaseReceipt;
  const photo=async name=>{if(out)await p.screenshot({path:out+'/'+name+'.png'})},fieldState=e=>({value:e.value,start:e.selectionStart,end:e.selectionEnd,direction:e.selectionDirection,top:e.scrollTop,left:e.scrollLeft});
  try{
  const data=fs.mkdtempSync(path.join(os.tmpdir(),'creative-selection-text-')),port=await require(root+'/tests/browser-port.cjs')(),base='http://127.0.0.1:'+port;
@@ -22,7 +22,9 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
   const context=await browser.newContext({viewport:{width,height:920}});context.setDefaultTimeout(12000);await context.addInitScript(()=>localStorage.setItem('creative-sidebar-state',JSON.stringify({open:false})));await context.route('**/*',r=>new URL(r.request().url()).origin===base?r.continue():r.abort());
   p=await context.newPage();p.on('pageerror',e=>proof.errors.push(e.message));await p.goto(base+'/?board='+key);
   const ready=async(page,id)=>{await page.waitForFunction(k=>current()?.boardId===k&&pane(current())?.state()?.boardId===k&&!pane(current())?.state()?.loading,id);return(await(await page.evaluateHandle(()=>frames.get(current().id))).asElement().contentFrame())};
-  const f=await ready(p,key),row={width,mode,phase:'initial-writing'};proof.cases.push(row);save();
+  let f=await ready(p,key),otherFrame;
+  if(width===1360&&!expanded){await p.locator('.add-tab[data-side=left]').click();await p.locator('[data-board-choice="'+target+'"]').click();otherFrame=await ready(p,target);await p.locator('#splitToggle').click();await p.getByRole('tab',{name:'给定写作',exact:true}).click();f=await ready(p,key)}
+  const row={width,mode,phase:'initial-writing'};proof.cases.push(row);save();
   await f.locator('#nodes>[data-id=writer]').click({button:'right',position:{x:3,y:3}});await f.locator('#fileContext').getByRole('menuitem',{name:expanded?'展开编辑':'编辑',exact:true}).click();if(expanded)await f.locator('#immersiveSurface').waitFor();
   const body=f.locator('#body'),field=await body.elementHandle();await body.focus();const originalShown=await body.inputValue();assert.equal(originalShown,prefix+shown+suffix);assert(await f.evaluate(()=>whiteboardPane.flush()));await f.waitForFunction(()=>!dirty&&!savePromise);
   let authorHeld=false,heldOnce=false;const authorGate=new Promise(resolve=>releaseAuthor=resolve);
@@ -47,7 +49,8 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
    assert.equal(await draft.count(),0);assert(await f.locator('.note-format-grid').isVisible());assert.equal(assetPuts,0);await context.unroute('**/api/assets',hold);await f.getByRole('button',{name:'关闭文字格式',exact:true}).click();
    await open();await f.getByRole('textbox',{name:'资源名称',exact:true}).fill('给定所选原文 '+width+' '+mode);await f.getByRole('combobox',{name:'存放位置',exact:true}).selectOption('给定资料');row.cancelledLateReadDidNotWriteOrReplaceNewPanel=true;
   }
-  let failureOnce=false;const controlled=async route=>{
+  let failureOnce=false,receiptHeld=false;const receiptGate=new Promise(resolve=>releaseReceipt=resolve);const controlled=async route=>{
+   if(route.request().method()==='PUT'&&failureOnce&&width===1360&&!expanded){const response=await route.fetch();assert(response.ok());receiptHeld=true;await receiptGate;await route.fulfill({response});return}
    if(route.request().method()==='PUT'&&!failureOnce&&!expanded){
     failureOnce=true;if(width===320){const response=await route.fetch();assert(response.ok());await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'给定回执暂未读到'})})}
     else await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'给定保存暂不可用'})});return;
@@ -63,6 +66,17 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
   if(!expanded){
    await f.waitForFunction(()=>document.querySelector('.note-selection-status')?.textContent.includes('没有保存成功'));assert.equal(await f.getByRole('textbox',{name:'资源名称',exact:true}).inputValue(),'给定所选原文 '+width+' '+mode);assert(await field.evaluate(e=>e.isConnected));
    const during=await get('/api/assets');assert.equal(during.assets.length,catalogBefore.assets.length+(width===320?1:0));await f.getByRole('button',{name:'保存到内容库',exact:true}).click();row.controlledFailure={kind:width===320?'server-committed-response-failed':'before-server-commit',retryKeepsDraft:true};
+  }
+  if(width===1360&&!expanded){
+   for(let i=0;i<100&&!receiptHeld;i++)await new Promise(r=>setTimeout(r,20));assert(receiptHeld);
+   await otherFrame.locator('#nodes>[data-id=given-target]').click({button:'right',position:{x:3,y:3}});await otherFrame.locator('#fileContext').getByRole('menuitem',{name:'编辑',exact:true}).click();
+   const otherBody=otherFrame.locator('#body');await otherBody.focus();await p.keyboard.press('Control+End');await p.keyboard.insertText(' 给定另一栏续写');await p.keyboard.down('Shift');for(let i=0;i<4;i++)await p.keyboard.press('ArrowLeft');await p.keyboard.up('Shift');
+   await p.waitForFunction(k=>current()?.boardId===k&&document.activeElement===frames.get(current().id),target);
+   const otherBefore={field:await otherBody.evaluate(fieldState),data:await otherFrame.evaluate(()=>({nodes:clone(board.nodes),history:clone(history),future:clone(future)}))};
+   releaseReceipt();releaseReceipt=null;await f.getByRole('button',{name:'继续写作',exact:true}).waitFor();await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+   row.backgroundReceiptState=await p.evaluate(()=>({board:current()?.boardId,focus:document.activeElement===frames.get(current().id)}));save();assert.deepEqual(row.backgroundReceiptState,{board:target,focus:true});
+   assert.deepEqual(await otherBody.evaluate(fieldState),otherBefore.field);assert.deepEqual(await otherFrame.evaluate(()=>({nodes:clone(board.nodes),history:clone(history),future:clone(future)})),otherBefore.data);assert(await otherFrame.evaluate(()=>whiteboardPane.flush()));
+   row.backgroundReceiptKeepsOtherPane=true;await p.getByRole('tab',{name:'给定写作',exact:true}).click();
   }
   await f.getByRole('button',{name:'继续写作',exact:true}).waitFor();assert(await p.evaluate(()=>!!whiteboardClipboardCoordinator.pending));assert.equal(assetPuts,expanded?1:width===320?1:2);await photo(width+'-'+mode+'-saved');
   await f.getByRole('button',{name:'继续写作',exact:true}).click();await exactAuthor();
@@ -84,5 +98,5 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
  }
  assert.deepEqual(proof.errors,[]);proof.complete=true;
  }catch(error){proof.failure=error.stack;if(p)await photo('failure').catch(()=>{});throw error}
- finally{releaseAuthor?.();releaseRead?.();if(browser)await browser.close();if(server){server.kill();if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve))}proof.ownedServicesStopped=true;save();console.log(JSON.stringify(proof))}
+ finally{releaseAuthor?.();releaseRead?.();releaseReceipt?.();if(browser)await browser.close();if(server){server.kill();if(server.exitCode===null)await new Promise(resolve=>server.once('exit',resolve))}proof.ownedServicesStopped=true;save();console.log(JSON.stringify(proof))}
 })().catch(error=>{console.error(error);process.exitCode=1});
