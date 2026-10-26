@@ -561,3 +561,27 @@ if(board){applyTypography();syncTextTools();announce()}
  });
  renderAssets();
 })();
+
+// A short quotation helps distinguish ordinary notes before opening a preview.
+(() => {
+ 'use strict';
+ const excerpt=asset=>{
+  const note=asset?.mime===bundleMime&&asset.bundle?.nodes?.length===1?asset.bundle.nodes[0]:null;
+  if(note?.type!=='note'||typeof note.body!=='string')return '';
+  const raw=note.body.slice(0,4096).trimStart().split(/\r?\n\s*\r?\n/,1)[0];
+  if(!raw)return '';
+  const readable=window.whiteboardNoteEditor?.readableReference;
+  if(!readable&&raw.includes('[[@'))return '';
+  const text=(readable?readable(raw):raw).replace(/\s+/g,' ').trim(),letters=Array.from(text);
+  return letters.slice(0,180).join('')+(letters.length>180?'…':'');
+ };
+ const originalRender=renderAssets;
+ renderAssets=function(){
+  originalRender();if($('assetSearch').value.trim())return;
+  $('assetList').querySelectorAll('[data-asset]').forEach(row=>{
+   const text=excerpt(assetById(row.dataset.asset));if(!text)return;
+   const sample=document.createElement('p');sample.className='library-note-excerpt';sample.textContent='原文：'+text;sample.title=text;
+   row.querySelector('div')?.append(sample);
+  });
+ };
+})();
