@@ -48,7 +48,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
    assert.equal(await f.locator('.canvas-view-return:not([hidden])').count(),1,'the common overview offers the original return bar');
    assert(await field.evaluate(e=>e.isConnected));assert.deepEqual(await body.evaluate(fieldState),beforeField);assert.deepEqual(await authored(),before);
    const bounds=await back.boundingBox();assert(bounds.x>=0&&bounds.x+bounds.width<=width+1&&bounds.y>=0&&bounds.y+bounds.height<=920);
-   await photo(width+'-common-overview-return');
+   assert.equal(await f.locator('.canvas-view-return').evaluate(el=>el.parentElement.id),'canvasTools');await photo(width+'-common-overview-return');if(width===320){assert.equal(await f.locator('#plus').isVisible(),false);await f.locator('#zoomValue').click();assert(await f.locator('#fileContext').getByRole('menuitem',{name:/^放大/}).isVisible());await f.locator('#fileContext').getByRole('menuitem',{name:/^缩小/}).click();row.narrowZoomActionsStayAvailable=true;}
    await f.locator('#fit').click();await back.click();near(await camera(),prior);
    assert(await field.evaluate(e=>e.isConnected));assert.deepEqual(await body.evaluate(fieldState),beforeField);assert.deepEqual(await authored(),before);
    assert(await f.getByRole('button',{name:'已返回原视角',exact:true}).isDisabled());
@@ -72,7 +72,12 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
    assert.deepEqual(await ff.evaluate(()=>clone(board.nodes)),final.nodes);assert.deepEqual(await ff.evaluate(()=>clone(board.edges)),final.edges);
    near(await ff.evaluate(()=>clone(view())),final.view);assert.equal(await ff.locator('.canvas-view-return:not([hidden])').count(),0,'return state is not saved into authored content');
    await ff.evaluate(()=>fit());assert.equal(await ff.locator('.canvas-view-return:not([hidden])').count(),0,'programmatic fit does not create navigation state');
-   row.newWorkspaceReadbackExact=true;row.programmaticFitUnchanged=true;row.phase='complete';save();await ctx.close();
+   row.newWorkspaceReadbackExact=true;row.programmaticFitUnchanged=true;
+   if(width===320){
+    await p.setViewportSize({width:230,height:220});await f.waitForFunction(()=>canvas.classList.contains('tight-tools'));assert(await f.evaluate(()=>whiteboardPane.canvasReady()));const shortPrior=await camera(),shortAuthor=await authored();
+    await f.locator('#zoomValue').click();await f.locator('#fileContext').getByRole('menuitem',{name:/^查看全部/}).click();assert.equal(await f.locator('.canvas-view-return').isVisible(),false);
+    await f.locator('#zoomValue').click();await f.locator('#fileContext').getByRole('menuitem',{name:'返回之前视角',exact:true}).click();near(await camera(),shortPrior);assert.deepEqual(await authored(),shortAuthor);row.tightViewportNativeMenuReturn=true;
+   }row.phase='complete';save();await ctx.close();
   }
   assert.deepEqual(proof.errors,[]);proof.complete=true;
  }catch(error){proof.failure=error.stack;if(p)await photo('failure').catch(()=>{});throw error}
