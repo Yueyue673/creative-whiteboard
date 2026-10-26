@@ -417,4 +417,4 @@
 
 1360px与320px完整合成任务核对深灰/纸白工作台中的黄色/深色文中材料，读取实际可用状态、文字与背景颜色，并走过悬停、键盘可见焦点、Enter与触摸协议/鼠标增加行列、实际填写、最近输入的原生撤销重做、原段落续写和保存新工作台读回。旁注、连线、库中内容与作者纸面原值精确，原长文与外观预设回归通过。按钮对比按浏览器计算颜色核对，参考[文字对比度说明](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)，只对应本次给定配色和控件，不作整产品可访问性合规声明。
 
-当前本机验收完成，准确源码CI另行核对，未上传服务器、部署或安装私人程序。其他预设和任意自选工作台颜色未作全量验收；实体键盘、手机/平板、输入法、真人理解与长期体验未验。冻结1500313及原草稿保留。
+运行实现 [07b72ea](https://github.com/Yueyue673/creative-whiteboard/commit/07b72eaf41c322caae8ec8539da17f0095fabf15) 的 [Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40276187005) 与 [push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40276036440) 自然成功；原 [PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40276152254) 在既有移动资源验收的保存读回处失败，原失败保留。受控回执复现了同一旧快照断言：最新保存仍在进行时读取服务器，回执结束后原文正确。本次仅为该验收补入有超时的保存完成等待，所有严格原文断言与产品运行文件保持；1360px/320px受影响完整任务与独立受控回执核对通过，新头Checks需另读自然结果，不重派未改运行实现的Hosted。仍为[草稿 PR #21](https://github.com/Yueyue673/creative-whiteboard/pull/21)，未上传服务器、部署或安装私人程序。其他预设和任意自选工作台颜色未作全量验收；实体键盘、手机/平板、输入法、真人理解与长期体验未验。冻结1500313及原草稿保留。
