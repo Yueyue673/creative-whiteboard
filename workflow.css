@@ -47,3 +47,8 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-content-diff-scope{font-size:12px;line-height:1.7;margin:8px 0}.wf-content-diff-path{font-size:12px;line-height:1.7;margin:8px 0 3px;overflow-wrap:anywhere}.wf-content-diff-data{margin-top:8px}.wf-content-diff-data summary{font-size:12px}.wf-content-diff pre:focus-visible,.wf-content-diff-data pre:focus-visible{outline:2px solid var(--ui-accent,#888);outline-offset:2px}
 
 .library-note-excerpt{margin:4px 0 0;font-size:13px;line-height:1.6;color:var(--ui-muted,#72796a);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+
+.wf-search-result-row{display:flex;flex-direction:column;min-width:0;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-raised)}
+.wf-search-result-row>.wf-result{display:block;width:100%;margin:0;border:0;box-shadow:none}
+.wf-search-result-row>.wf-result:focus-visible{outline-offset:-3px}
+.wf-search-result-row>.wf-search-compare{align-self:flex-end;margin:0 12px 12px;min-height:40px;padding:6px 12px;font-size:13px}

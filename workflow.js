@@ -209,15 +209,51 @@ libraryMatches=function(){
  return assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
 };
 const wfOutline=renderOutline;renderOutline=function(){wfOutline();const q=$('search').value.trim();if(!q)return;$('items').querySelectorAll('[data-open]').forEach(row=>{const n=board.nodes.find(n=>n.id===row.dataset.open),p=document.createElement('small');p.innerHTML=wfMark(wfExcerpt(wfNodeText(n),q),q);row.append(p)})};
-let wfSearchSeq=0,wfSearchTimer;
+let wfSearchSeq=0,wfSearchTimer,wfSearchWritingContext=null;
 function wfOpenSearchResult(n,query){
  selectNode(n.id,false);focusNode(n);if(!n.documentMode||!window.whiteboardReading?.open)return;
  const source=board;whiteboardReading.open(n.id);const surface=$('immersiveSurface');if(board!==source||!surface||surface.dataset.id!==n.id)return;
  const q=query.toLowerCase(),field=[...surface.querySelectorAll('#title,#body,#userText,#annotation,[data-cell-note-field],[data-doc-column],[data-doc-row]')].find(el=>(el.tagName==='TEXTAREA'||el.tagName==='INPUT'&&['text','search','url','tel'].includes(el.type))&&el.value.toLowerCase().includes(q));
  if(field){const at=field.value.toLowerCase().indexOf(q);let offset=0,folded=0,start=null,end=0;for(const ch of field.value){const next=folded+ch.toLowerCase().length;if(start===null&&next>at)start=offset;offset+=ch.length;folded=next;if(folded>=at+q.length){end=offset;break}}field.scrollIntoView({block:'center',inline:'nearest'});field.focus({preventScroll:true});field.setSelectionRange(start??0,end)}
 }
-function wfOpenSearch(){showDialog('<h2>搜索全部内容</h2><input id="wfSearchQuery" placeholder="标题、正文、图片标注或文件名" aria-label="搜索全部内容"><p class="wf-explain" id="wfSearchStatus">同时查找白板和内容库；结果会显示匹配的原文。</p><div id="wfSearchResults" class="wf-list"></div>',[['关闭 Esc',()=>$('dialog').close()]]);$('dialog').classList.add('wf-dialog');onDialogDismiss(()=>{wfSearchSeq++;clearTimeout(wfSearchTimer)});$('wfSearchQuery').oninput=()=>{clearTimeout(wfSearchTimer);wfSearchTimer=setTimeout(wfRunSearch,220)};$('wfSearchQuery').focus()}
-async function wfRunSearch(){const input=$('wfSearchQuery');if(!input)return;const q=input.value.trim(),seq=++wfSearchSeq,status=$('wfSearchStatus'),box=$('wfSearchResults'),current=()=>seq===wfSearchSeq&&$('dialog').open&&input.isConnected;if(!q){box.replaceChildren();return}status.textContent='正在查找…';try{const data=await(await api('/api/search?q='+encodeURIComponent(q))).json();if(!current())return;const live=(board?.nodes||[]).filter(n=>wfNodeText(n).toLowerCase().includes(q.toLowerCase())).map(n=>({kind:'board',boardId,id:n.id,title:n.title||'未命名内容',location:board.name+' · 当前工作内容',snippet:wfExcerpt(wfNodeText(n),q)}));const results=[...live,...data.results.filter(r=>!(r.kind==='board'&&r.boardId===boardId))];status.textContent='显示 '+results.length+' 条结果。'+(data.total>150?'结果较多，请增加关键词。':'')+' 音视频与 PDF 按名称和说明查找。';box.innerHTML=results.map((r,i)=>'<button class="wf-result" data-result="'+i+'"><strong>'+esc(r.title)+'</strong><small>'+esc((r.kind==='board'?'白板 · ':'内容库 · ')+r.location)+'</small><p>'+wfMark(r.snippet,q)+'</p>'+(r.matchedIn?'<small>'+esc(r.matchedIn)+'</small>':'')+'</button>').join('')||'<p class="wf-empty">没有找到。可以缩短关键词，或检查是否已保存到内容库。</p>';box.querySelectorAll('[data-result]').forEach(button=>button.onclick=()=>wfSafe(async()=>{const r=results[Number(button.dataset.result)];$('dialog').close();if(r.kind==='board'){if(r.boardId!==boardId)await switchBoard(r.boardId);if(boardId!==r.boardId)return;const n=board.nodes.find(n=>n.id===r.id);if(n)wfOpenSearchResult(n,q)}else{await loadAssets();const a=assetById(r.id);if(!a)return toast('内容已移动或删除');await showWorkspaceTab('assetPane');enterAssetFolder(a.folder);assetSelected=new Set([a.id]);renderAssets();$('assetList').querySelector('[data-asset="'+a.id+'"]')?.scrollIntoView({block:'center'});previewAsset(a.id)}}))}catch(e){if(current())status.textContent='查找失败：'+e.message}}
+function wfOpenSearch(){
+ const writing=window.whiteboardNoteEditor?.captureSearchContext?.()||null;
+ showDialog('<h2>搜索全部内容</h2><input id="wfSearchQuery" placeholder="标题、正文、图片标注或文件名" aria-label="搜索全部内容"><p class="wf-explain" id="wfSearchStatus">'+(writing?'查找白板和内容库；可对照原文，再回到当前记录。':'同时查找白板和内容库；结果会显示匹配的原文。')+'</p><div id="wfSearchResults" class="wf-list"></div>',[['关闭 Esc',()=>$('dialog').close()]]);
+ wfSearchWritingContext=writing;$('dialog').classList.add('wf-dialog');
+ onDialogDismiss(()=>{wfSearchSeq++;clearTimeout(wfSearchTimer);if(wfSearchWritingContext===writing)wfSearchWritingContext=null});
+ $('wfSearchQuery').oninput=()=>{clearTimeout(wfSearchTimer);wfSearchTimer=setTimeout(wfRunSearch,220)};$('wfSearchQuery').focus();
+}
+async function wfRunSearch(){
+ const input=$('wfSearchQuery');if(!input)return;
+ const q=input.value.trim(),seq=++wfSearchSeq,status=$('wfSearchStatus'),box=$('wfSearchResults'),writing=wfSearchWritingContext,current=()=>seq===wfSearchSeq&&$('dialog').open&&input.isConnected;
+ if(!q){box.replaceChildren();return}status.textContent='正在查找…';
+ try{
+  const data=await(await api('/api/search?q='+encodeURIComponent(q))).json();if(!current())return;
+  const live=(board?.nodes||[]).filter(n=>wfNodeText(n).toLowerCase().includes(q.toLowerCase())).map(n=>({kind:'board',boardId,id:n.id,title:n.title||'未命名内容',location:board.name+' · 当前工作内容',snippet:wfExcerpt(wfNodeText(n),q)}));
+  const results=[...live,...data.results.filter(r=>!(r.kind==='board'&&r.boardId===boardId))];
+  status.textContent='显示 '+results.length+' 条结果。'+(data.total>150?'结果较多，请增加关键词。':'')+' 音视频与 PDF 按名称和说明查找。';
+  box.innerHTML=results.map((r,i)=>{
+   const result='<button class="wf-result" data-result="'+i+'"><strong>'+esc(r.title)+'</strong><small>'+esc((r.kind==='board'?'白板 · ':'内容库 · ')+r.location)+'</small><p>'+wfMark(r.snippet,q)+'</p>'+(r.matchedIn?'<small>'+esc(r.matchedIn)+'</small>':'')+'</button>';
+   const compare=writing&&r.kind==='board'&&!(r.boardId===writing.boardId&&r.id===writing.id);
+   return compare?'<article class="wf-search-result-row">'+result+'<button type="button" class="wf-search-compare" data-compare-result="'+i+'" aria-label="'+esc('对照原文：'+r.title+' · '+r.location)+'">对照原文</button></article>':result;
+  }).join('')||'<p class="wf-empty">没有找到。可以缩短关键词，或检查是否已保存到内容库。</p>';
+  box.querySelectorAll('[data-result]').forEach(button=>button.onclick=()=>wfSafe(async()=>{
+   const r=results[Number(button.dataset.result)];$('dialog').close();
+   if(r.kind==='board'){if(r.boardId!==boardId)await switchBoard(r.boardId);if(boardId!==r.boardId)return;const n=board.nodes.find(n=>n.id===r.id);if(n)wfOpenSearchResult(n,q)}
+   else{await loadAssets();const a=assetById(r.id);if(!a)return toast('内容已移动或删除');await showWorkspaceTab('assetPane');enterAssetFolder(a.folder);assetSelected=new Set([a.id]);renderAssets();$('assetList').querySelector('[data-asset="'+a.id+'"]')?.scrollIntoView({block:'center'});previewAsset(a.id)}
+  }));
+  let comparing=false;
+  box.querySelectorAll('[data-compare-result]').forEach(button=>button.onclick=async()=>{
+   if(comparing||!current()||input.value.trim()!==q)return;comparing=true;
+   const controls=[...box.querySelectorAll('[data-compare-result]')];controls.forEach(control=>control.disabled=true);status.textContent='正在打开原文…';
+   try{
+    const r=results[Number(button.dataset.compareResult)],opened=await whiteboardNoteEditor.compareSearchResult(writing,{boardId:r.boardId,id:r.id},()=>current()&&input.value.trim()===q,()=>$('dialog').close());
+    if(!opened&&current())status.textContent='原记录状态已变化，请重新查找。';
+   }catch(error){if(current())status.textContent=error.message}
+   finally{comparing=false;if(current())controls.forEach(control=>{if(control.isConnected)control.disabled=false})}
+  });
+ }catch(error){if(current())status.textContent='查找失败：'+error.message}
+}
 const wfSearchButton=document.createElement('button');wfSearchButton.className='wf-global-search';wfSearchButton.textContent='搜索';wfSearchButton.title='搜索全部内容 · Ctrl+K';wfSearchButton.onclick=wfOpenSearch;$('boards').after(wfSearchButton);
 wfAddMenu('搜索全部内容  Ctrl+K',wfOpenSearch);
 

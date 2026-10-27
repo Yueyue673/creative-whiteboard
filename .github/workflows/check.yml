@@ -73,6 +73,8 @@ jobs:
           DOCUMENT_LIBRARY_PIECES_PROOF: .ci-proofs/document-library-pieces
           DOCUMENT_LIBRARY_PIECES_GUARD_PROOF: .ci-proofs/document-library-pieces-guards
           LIBRARY_SPATIAL_PROOF: .ci-proofs/library-spatial-preview
+          SEARCH_RETURN_PROOF: .ci-proofs/search-writing-return
+          SEARCH_RETURN_GUARDS_PROOF: .ci-proofs/search-writing-return-guards
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -161,5 +163,25 @@ jobs:
           path: |
             .ci-proofs/library-spatial-preview/result.json
             .ci-proofs/library-spatial-preview/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated search-writing-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: search-writing-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/search-writing-return/result.json
+            .ci-proofs/search-writing-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated search-writing-return-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: search-writing-return-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/search-writing-return-guards/result.json
+            .ci-proofs/search-writing-return-guards/*.png
           if-no-files-found: ignore
           retention-days: 3
