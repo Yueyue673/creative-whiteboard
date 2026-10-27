@@ -65,6 +65,7 @@ jobs:
         env:
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
+          VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -83,5 +84,15 @@ jobs:
           path: |
             .ci-proofs/document-paragraph-text-resource/result.json
             .ci-proofs/document-paragraph-text-resource/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated video-writing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-writing-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/video-writing-reference/result.json
+            .ci-proofs/video-writing-reference/*.png
           if-no-files-found: ignore
           retention-days: 3

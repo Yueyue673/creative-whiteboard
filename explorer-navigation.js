@@ -142,7 +142,10 @@
  };
  function restoreModalFocus(){
   if($('dialog').open)return;
-  const previous=modalReturn;modalReturn=null;if(!previous||$(previous.panel).hidden)return;
+  const previous=modalReturn;modalReturn=null;
+  // A completed reference may already have returned focus to its writing pane.
+  const elsewhere=frameElement&&frameElement.ownerDocument.activeElement!==frameElement;
+  if(!previous||$(previous.panel).hidden||elsewhere)return;
   const items=rows(previous.panel),row=items.find(el=>key(el)===previous.key)||items.find(el=>chosen(el,previous.panel));
   const sameLocation=previous.location===location(previous.panel);
   if(row)focus(row,!sameLocation||!previous.key);else list(previous.panel).focus({preventScroll:true});
