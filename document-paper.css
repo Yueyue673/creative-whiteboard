@@ -1,4 +1,4 @@
-.document-paper{background:#fffefa!important;border:0!important;border-radius:2px!important;box-shadow:0 2px 10px #0001!important}
+.document-paper{--document-ink:var(--object-ink,var(--paper-ink,var(--ui-text,#292929)));border:0!important;border-radius:2px!important;box-shadow:0 2px 10px #0001!important}
 .edit-table[data-document-paper]{table-layout:fixed;width:100%!important;min-width:0!important;border:0!important;background:transparent!important}
 .edit-table[data-document-paper]>colgroup,.edit-table[data-document-paper]>thead,.edit-table[data-document-paper]>tbody>tr>.row-number,.edit-table[data-document-paper]>tbody>tr>td>[data-row],.edit-table[data-document-paper]>tbody>tr>td>.add-cell-image{display:none!important}
 .edit-table[data-document-paper]>tbody>tr>td{width:100%;border:0!important;padding:0!important;background:transparent!important}
@@ -7,7 +7,7 @@
 .edit-table[data-document-paper] .document-paragraph{background:transparent!important;padding:0 0 0 24px!important}
 .edit-table[data-document-paper] .document-paragraph>[data-cell-note-field=title]{display:none}
 .edit-table[data-document-paper] .document-paragraph>[data-cell-note-field=body]{line-height:1.9;min-height:48px;font-size:var(--body-size,17px)}
-.edit-table[data-document-paper] .document-paragraph :is(textarea,.note-markdown){color:var(--object-ink,var(--ui-text,#292929))!important;font-size:var(--body-size,17px)!important;line-height:1.9!important;background:transparent!important;outline:none!important;border:0!important;box-shadow:none!important;overflow:hidden;max-height:none}
+.edit-table[data-document-paper] .document-paragraph :is(textarea,.note-markdown){color:var(--document-ink)!important;font-size:var(--body-size,17px)!important;line-height:1.9!important;background:transparent!important;outline:none!important;border:0!important;box-shadow:none!important;overflow:hidden;max-height:none}
 .edit-table[data-document-paper] .document-paragraph:focus-within{box-shadow:-2px 0 0 var(--ui-accent,#a99bc4)!important}
 #dialog #immersiveSurface [data-document-paper] .document-paragraph,#nodes [data-document-paper] .document-paragraph{outline:none!important;border:0!important}
 #dialog #immersiveSurface [data-document-paper] .document-paragraph textarea{outline:none!important;border:0!important;box-shadow:none!important}
@@ -24,3 +24,7 @@
 .node.canvas-object .block-actions>.block-read:not(.object-edit),.node.canvas-object .block-actions>.block-write-record{display:none}
 .node.canvas-object .block-actions{gap:4px}.node.canvas-object .object-edit{white-space:nowrap}
 @media(max-width:600px){.node.canvas-object .block-actions>.block-transfer{display:none}.edit-table[data-document-paper] .cell-content{margin-left:10px;padding:10px}.document-paragraph>.cell-move-handle{opacity:.5;left:-20px}.document-insert button{font-size:12px}.immersive-surface:has([data-document-paper]) .inline-toolbar{flex-wrap:wrap}.document-table-actions button{min-height:36px}}
+
+/* Document prose uses its enclosing paper; inserted materials retain their own paper ink. */
+.node.document-paper :is(#title,[data-preview-id=title],.visible-annotation){color:var(--document-ink)!important}
+.node.document-paper .document-format input{color:var(--ui-text,#292929)!important}

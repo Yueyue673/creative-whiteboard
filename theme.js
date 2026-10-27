@@ -5,7 +5,7 @@ const paperSurface=(()=>{
  const contrast=(a,b)=>(Math.max(luminance(a),luminance(b))+.05)/(Math.min(luminance(a),luminance(b))+.05);
  const css=value=>'#'+value.map(c=>c.toString(16).padStart(2,'0')).join('');
  return n=>{
-  if(n.type==='frame'||n.type==='table'&&n.documentMode||n.type!=='table'&&(n.assetId||n.mediaId)||(n.color||'').toLowerCase()==='#ffffff')return null;
+  if(n.type==='frame'||n.type!=='table'&&(n.assetId||n.mediaId)||(n.color||'').toLowerCase()==='#ffffff')return null;
   const color=(/^#[\da-f]{6}$/i.test(n.color||'')?n.color:colors[0]).toLowerCase();
   if(cache.has(color))return cache.get(color);
   const background=rgb(color),dark=rgb('#242529'),light=rgb('#eeeef0');
@@ -21,7 +21,7 @@ const paperSurface=(()=>{
  };
 })();
 function contentSurfaceClass(n){
- if(n.type==='table'&&n.documentMode||n.type!=='table'&&(n.assetId||n.mediaId)||(n.color||'').toLowerCase()==='#ffffff')return 'theme-surface';
+ if(n.type!=='table'&&(n.assetId||n.mediaId)||(n.color||'').toLowerCase()==='#ffffff')return 'theme-surface';
  return paperSurface(n)?.dark?'theme-dark':'';
 }
 function contentSurfaceStyle(n){const paper=paperSurface(n);return paper?'--paper-ink:'+paper.ink+';--paper-caption:'+paper.caption+';--paper-edge:'+paper.edge+';--paper-header:'+paper.header+';':''}
