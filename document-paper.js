@@ -22,10 +22,12 @@
   return html;
  };
  const markup=noteMarkup;noteMarkup=function(n,readOnly=false){let html=markup(n,readOnly);if(isDocument(n))html=html.replace('class="node ','class="node document-paper ');return html};
- function append(n,kind){
-  if(!live(n))return;undoPoint();const item={id:uid(),type:kind==='table'?'table':'note',sizeMode:'auto',x:0,y:0,w:320,h:160,title:'',body:'',tags:[],...(kind==='paragraph'?{documentParagraph:true}:{}),...(kind==='note'?{color:'#fff0b4'}:{}),...(kind==='table'?{columns:['',''],rows:[['',''],['','']]}:{})};
-  cellItemGrid(n)[0][0].push(item);drawNodes();change();
-  requestAnimationFrame(()=>{const root=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');const field=root?.querySelector('[data-cell-item="'+(n.cellItems[0][0].length-1)+'"] '+(kind==='table'?'[data-doc-column]':kind==='paragraph'?'[data-cell-note-field="body"]':'[data-cell-note-field="title"]'));field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'})});
+ function append(n,kind,afterId){
+  if(!live(n))return;const items=cellItemGrid(n)[0][0],index=afterId===undefined?items.length:items.findIndex(item=>item.id===afterId)+1;if(afterId!==undefined&&index===0)return;
+  const owner=board,ownerId=boardId;undoPoint();const item={id:uid(),type:kind==='table'?'table':'note',sizeMode:'auto',x:0,y:0,w:320,h:160,title:'',body:'',tags:[],...(kind==='paragraph'?{documentParagraph:true}:{}),...(kind==='note'?{color:'#fff0b4'}:{}),...(kind==='table'?{columns:['',''],rows:[['',''],['','']]}:{})};
+  items.splice(index,0,item);drawNodes();change();
+  const focusOwner=document.activeElement;
+  requestAnimationFrame(()=>{if(board!==owner||boardId!==ownerId||!live(n)||editorId!==n.id||document.activeElement!==focusOwner)return;const index=n.cellItems[0][0].findIndex(value=>value.id===item.id);if(index<0)return;const root=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');const field=root?.querySelector('[data-cell-item="'+index+'"] '+(kind==='table'?'[data-doc-column]':kind==='paragraph'?'[data-cell-note-field="body"]':'[data-cell-note-field="title"]'));field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'})});
  }
  function mount(){
   const lookup=new Map(board?.nodes.map(n=>[n.id,n])||[]);
@@ -41,6 +43,25 @@
    if(toolbar&&!toolbar.querySelector('.document-insert')){
     const tools=document.createElement('div');tools.className='document-insert';tools.setAttribute('role','group');tools.setAttribute('aria-label','插入文中');
     for(const [kind,label]of[['paragraph','正文'],['note','便签'],['table','表格']]){const b=document.createElement('button');b.type='button';b.textContent='＋ '+label;b.onclick=e=>{e.stopPropagation();if(live(n)&&editorId===n.id)append(n,kind)};tools.append(b)}toolbar.prepend(tools);
+   }
+   if(toolbar&&!toolbar.querySelector('.document-after')){
+    const after=document.createElement('details');after.className='document-after inline-ui';
+    const summary=document.createElement('summary'),panel=document.createElement('div'),caption=document.createElement('p');summary.textContent='在此处后添加';caption.className='document-after-context';panel.append(caption);after.append(summary,panel);toolbar.insertBefore(after,toolbar.querySelector('.document-insert').nextSibling);
+    const owner=board,ownerId=boardId;let anchor=null;
+    const valid=()=>board===owner&&boardId===ownerId&&live(n)&&editorId===n.id&&after.isConnected;
+    const ready=()=>valid()&&anchor!==null&&n.cellItems?.[0]?.[0]?.some(item=>item.id===anchor);
+    const sync=()=>{const enabled=!!ready();summary.setAttribute('aria-disabled',String(!enabled));summary.tabIndex=enabled?0:-1;summary.title=enabled?'在选中的原文块后添加':'先选择长文里的一段或材料';for(const button of panel.querySelectorAll('button'))button.disabled=!enabled;if(!enabled)after.open=false};
+    summary.addEventListener('click',e=>{if(!ready()){e.preventDefault();e.stopPropagation()}});
+    summary.addEventListener('keydown',e=>{if(!ready()&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.stopImmediatePropagation()}});
+    const update=e=>{const section=e.target.closest?.('[data-cell-item]');if(section&&editing.contains(section)){
+     const item=n.cellItems?.[+section.dataset.cellR]?.[+section.dataset.cellC]?.[+section.dataset.cellItem];if(!item||+section.dataset.cellR!==0||+section.dataset.cellC!==0)return;
+     anchor=item.id;sync();
+     caption.textContent='第 '+(+section.dataset.cellItem+1)+' 块 · '+String(item.title||item.body||(item.type==='table'?'表格':'正文')).split('\n')[0].slice(0,70);
+    }else if(e.target.matches?.('#title')){anchor=null;sync()}};
+    editing.addEventListener('pointerdown',update);editing.addEventListener('focusin',update);editing.addEventListener('input',update);
+    for(const [kind,label]of[['paragraph','正文'],['note','便签'],['table','表格']]){const button=document.createElement('button');button.type='button';button.dataset.documentAfter=kind;button.textContent=label;button.onclick=e=>{e.preventDefault();e.stopPropagation();if(!ready())return;after.open=false;append(n,kind,anchor)};panel.append(button)}
+    after.addEventListener('keydown',e=>{if(e.key==='Escape'&&after.open){e.preventDefault();e.stopImmediatePropagation();after.open=false;summary.focus({preventScroll:true})}});
+    sync();update({target:document.activeElement});
    }
    if(toolbar&&!toolbar.querySelector('.document-format')){
     const format=document.createElement('details');format.className='document-format inline-ui';format.innerHTML='<summary>字体 / 颜色</summary><div><label>字体名称<input data-document-font maxlength="100" placeholder="设备上已安装的字体" value="'+esc(n.fontFamily||'')+'"></label><label>文字颜色<input data-document-ink type="color" value="'+colour(n.inkColor)+'"></label><button type="button" data-document-default>恢复默认</button></div>';toolbar.append(format);
@@ -65,7 +86,7 @@
   }
  }
  const draw=drawNodes;drawNodes=function(){draw();mount()};const refresh=refreshSelectionUI;refreshSelectionUI=function(){refresh();mount()};const bind=bindInline;bindInline=function(...args){const result=bind(...args);mount();return result};
- document.addEventListener('pointerdown',e=>{for(const format of document.querySelectorAll('.document-format[open]'))if(!format.contains(e.target))format.open=false},true);
+ document.addEventListener('pointerdown',e=>{for(const format of document.querySelectorAll('.document-format[open],.document-after[open]'))if(!format.contains(e.target))format.open=false},true);
  document.addEventListener('input',e=>{const table=e.target.closest('[data-document-paper]');if(table)growContentFields(table)});
  const documentButton=document.createElement('button');documentButton.id='addDocument';documentButton.type='button';documentButton.textContent='长文';documentButton.title='写长文，插入便签与表格';($('creationDock')||canvas).append(documentButton);
  documentButton.onclick=()=>{
@@ -79,6 +100,6 @@
   showDialog('<h2>字体与文字颜色</h2><label>字体名称<input id="contentFontFamily" maxlength="100" placeholder="设备上已安装的字体；留空用默认字体" value="'+esc(n.fontFamily||'')+'"></label><label>文字颜色<input id="contentInk" type="color" value="'+colour(n.inkColor)+'"></label><label><input id="contentDefaultInk" type="checkbox" '+(!n.inkColor?'checked':'')+'>自动适应纸面颜色</label>',[['取消',()=>$('dialog').close()],['应用',()=>{if(board!==session.board||boardId!==session.boardId||!live(n))return $('dialog').close();const family=font($('contentFontFamily').value),ink=$('contentDefaultInk').checked?'':$('contentInk').value;if(family!==(n.fontFamily||'')||ink!==(n.inkColor||'')){undoPoint();if(family)n.fontFamily=family;else delete n.fontFamily;if(ink)n.inkColor=ink;else delete n.inkColor;change();drawNodes()}$('dialog').close()}]]);
  };($('textSizeTools')?.querySelector('.text-size-popup')||$('drawingTools')?.querySelector('div')||$('creationDock')).append(typeButton);
  for(const key of ['documentMode','documentParagraph','fontFamily','inkColor'])if(!wfContentFields.includes(key))wfContentFields.push(key);Object.assign(wfLabels,{documentMode:'长文排版',documentParagraph:'正文段落',fontFamily:'字体',inkColor:'文字颜色'});
- const dismissFormat=()=>{const format=document.querySelector('.document-format[open]');if(!format)return false;format.open=false;format.querySelector('summary').focus({preventScroll:true});return true};
+ const dismissFormat=()=>{const format=document.querySelector('.document-format[open],.document-after[open]');if(!format)return false;format.open=false;format.querySelector('summary').focus({preventScroll:true});return true};
  window.whiteboardDocumentPaper={isDocument,append,dismissFormat};let scheduled=false;new MutationObserver(()=>{if(!scheduled){scheduled=true;requestAnimationFrame(()=>{scheduled=false;mount()})}}).observe($('dialog'),{childList:true,subtree:true});if(board)mount();
 })();
