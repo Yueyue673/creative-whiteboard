@@ -20,6 +20,8 @@
     "library-clipboard.js",
     "library-editing.js",
     "library-folders.js",
+    "library-spatial.css",
+    "library-spatial.js",
     "library-transfer.js",
     "media-controls.js",
     "media-markers.js",

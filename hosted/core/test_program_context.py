@@ -23,6 +23,7 @@ class ProgramContextTests(SimpleTestCase):
             if parts and parts[0] == 'COPY' and parts[-1] == '/opt/creative/':
                 copied.update(parts[1:-1])
         self.assertEqual(native - copied, set(), 'Every original-workbench module must reach the image')
+        self.assertFalse(copied - set(program_files(root)), 'Every exact root COPY input must be in the reviewed build context')
 
     def test_runtime_contract_covers_current_assets_migrations_modules_and_templates(self):
         root = settings.BASE_DIR.parent; files = set(program_files(root))
