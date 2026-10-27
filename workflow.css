@@ -57,3 +57,13 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-library-order select{min-width:0;max-width:75%;margin:0;color:var(--ui-text)}
 
 .help-reuse-dialog[open]{width:min(700px,94vw);max-height:88dvh;display:flex;flex-direction:column;overflow:hidden}.help-reuse-dialog #dialogBody{overflow:auto;min-height:0}.help-reuse-dialog #dialogActions{flex:none;border-top:1px solid var(--ui-line);padding-top:12px}.help-reuse-dialog #dialogActions button{min-height:44px}.help-reuse-journey{color:var(--ui-text)}.help-reuse-journey h2{font-size:21px;line-height:1.4;margin:0 0 8px}.help-reuse-journey .help-intro{font-size:13px;color:var(--ui-muted);line-height:1.8;margin:0 0 18px}.help-reuse-journey ol{padding-left:24px;margin:0}.help-reuse-journey li{padding-left:4px;margin:0 0 16px}.help-reuse-journey li::marker{font-weight:600;color:var(--ui-accent)}.help-reuse-journey h3{font-size:14px;line-height:1.6;margin:0 0 4px}.help-reuse-journey p{font-size:13px;line-height:1.8;margin:0}.help-origin-choice{padding:12px;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-field);margin:4px 0 14px}.help-reuse-details{border-top:1px solid var(--ui-line);padding:9px 0}.help-reuse-details>summary{font-size:13px;line-height:1.8;cursor:pointer}.help-reuse-details>.experience-help{margin:8px 0 0}
+
+/* Optional review of the frozen multi-block collection snapshot. */
+.collect-content-review{margin:12px 0;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-field)}
+.collect-content-review>summary{padding:12px;cursor:pointer;min-height:44px;box-sizing:border-box;color:var(--ui-text);font-size:13px}
+.collect-content-review ol{max-height:min(260px,40dvh);overflow:auto;overscroll-behavior:contain;margin:0;padding:0 14px 0 34px}
+.collect-content-review li{padding:10px 2px;border-top:1px solid var(--ui-line);color:var(--ui-text);overflow-wrap:anywhere}
+.collect-content-review strong{font-size:13px;display:block}
+.collect-content-review small{font-size:11px;color:var(--ui-muted)}
+.collect-content-review li p{font-size:12px;white-space:pre-wrap;line-height:1.5;margin:5px 0;color:var(--ui-muted)}
+.collect-content-review .collect-review-limit{font-size:11px;color:var(--ui-muted);padding:0 12px 10px;margin:8px 0 0}

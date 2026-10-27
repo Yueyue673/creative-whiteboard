@@ -807,6 +807,26 @@ function showCollectedResource(id){
  const existing=parent!==window?parent.whiteboardWorkspace?.explorer?.():null;
  existing?.refresh?.().catch(()=>{if(owns())message.textContent='已保存到库，列表待刷新'});
 }
+// Inspect the same frozen selection used by collection; unopened review does no rendering.
+function mountCollectContentsReview(bundle){
+ if(bundle.nodes.length<2)return;
+ const body=$('dialogBody'),details=document.createElement('details'),summary=document.createElement('summary');
+ details.className='collect-content-review';summary.textContent='查看这次收录的内容 · '+bundle.nodes.length+' 块 · '+bundle.edges.length+' 条内部连线';details.append(summary);
+ let built=false;
+ details.addEventListener('toggle',()=>{
+  if(!details.isConnected||!details.open||built)return;built=true;
+  const list=document.createElement('ol'),array=value=>Array.isArray(value)?value:[],short=value=>Array.from(String(value??'')).slice(0,160).join('');
+  for(const node of bundle.nodes){
+   const row=document.createElement('li'),heading=document.createElement('strong'),kind=document.createElement('small'),text=document.createElement('p');
+   heading.textContent=node.title||'未命名内容';kind.textContent=node.type==='table'?(node.documentMode?'长文':'表格'):node.type==='note'?'便签':'内容';text.textContent=short(node.body);row.append(kind,heading);if(text.textContent)row.append(text);
+   if(node.type==='table'){const table=document.createElement('p');table.textContent=short(array(node.columns).slice(0,4).join(' · ')+' / '+array(node.rows).slice(0,2).map(r=>array(r).slice(0,4).join(' · ')).join(' / '));row.append(table)}
+   const images=array(node.images);if(images.length){const labels=document.createElement('p');labels.textContent='图片：'+images.slice(0,4).map(i=>short(i?.name||'附带图片')).join('、')+(images.length>4?' 等 '+images.length+' 张':'');row.append(labels)}
+   list.append(row);
+  }
+  const limit=document.createElement('p');limit.className='collect-review-limit';limit.textContent='这里只显示标题和部分摘要，完整内容照常收录。';details.append(list,limit);
+ });
+ body.querySelector('p').after(details);
+}
 askCollectSelection=function(){
  const bundle=selectionBundle();if(!bundle.nodes.length)return toast('先选择白板上的内容');
  const source=board,sourceId=boardId,name=bundle.nodes.length===1?bundle.nodes[0].title||'未命名内容':'内容组合';
@@ -828,6 +848,7 @@ askCollectSelection=function(){
   }catch(error){if(active())toast(error.message)}
   finally{busy=false;for(const el of frozen)if(el.isConnected)el.disabled=false;if(saveButton.isConnected)saveButton.disabled=false}
  }]]);
+ mountCollectContentsReview(bundle);
  nameField=$('collectName');destination=$('collectDestination');saveButton=$('dialogActions').lastElementChild;target=libraryFolderTarget(destination.value);
  destination.addEventListener('change',()=>{target=libraryFolderTarget(destination.value)});
 };

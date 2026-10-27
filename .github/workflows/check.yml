@@ -81,6 +81,7 @@ jobs:
           DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
+          COLLECT_REVIEW_PROOF: .ci-proofs/collect-content-review
           HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
       - name: Keep isolated subset-resource evidence
         if: always()
@@ -266,5 +267,17 @@ jobs:
           path: |
             .ci-proofs/help-reuse-journey/result.json
             .ci-proofs/help-reuse-journey/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+
+      - name: Keep isolated collect-content-review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collect-content-review-${{ github.run_id }}
+          path: |
+            .ci-proofs/collect-content-review/result.json
+            .ci-proofs/collect-content-review/*.png
           if-no-files-found: ignore
           retention-days: 3
