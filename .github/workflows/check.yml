@@ -31,6 +31,7 @@ jobs:
       - run: node --check experience.js
       - run: node --check clipboard-coordinator.js
       - run: node --check library-editing.js
+      - run: node --check library-spatial.js
       - run: node --check library-folders.js
       - run: node --check import-session.js
       - run: node --check document-loading.js
@@ -71,6 +72,7 @@ jobs:
           DOCUMENT_LIBRARY_GUARD_PROOF: .ci-proofs/document-library-insert-guards
           DOCUMENT_LIBRARY_PIECES_PROOF: .ci-proofs/document-library-pieces
           DOCUMENT_LIBRARY_PIECES_GUARD_PROOF: .ci-proofs/document-library-pieces-guards
+          LIBRARY_SPATIAL_PROOF: .ci-proofs/library-spatial-preview
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -149,5 +151,15 @@ jobs:
           path: |
             .ci-proofs/document-library-pieces-guards/result.json
             .ci-proofs/document-library-pieces-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-spatial-preview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-spatial-preview-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-spatial-preview/result.json
+            .ci-proofs/library-spatial-preview/*.png
           if-no-files-found: ignore
           retention-days: 3

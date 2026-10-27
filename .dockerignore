@@ -146,6 +146,8 @@
 !library-clipboard.js
 !library-editing.js
 !library-folders.js
+!library-spatial.css
+!library-spatial.js
 !library-transfer.js
 !library_folders.py
 !media-controls.js
