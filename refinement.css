@@ -189,6 +189,7 @@ button,summary,select{transition:none}
 /* Keep a short writing area scrollable instead of shrinking the document body to zero. */
 .canvas-pane.listening-writing .immersive-surface.document-paper .content-table{overflow:auto}
 .canvas-pane.listening-writing .immersive-surface.document-paper #inlineTable{flex:none}
+.canvas-pane.listening-writing .immersive-surface.document-paper #inlineTable>.table-scroll{overscroll-behavior-y:auto}
 html.listening-preview #dialog[open]:has(.media-preview){position:fixed;inset:0;margin:0;padding:10px 14px;width:100%;max-width:100%;height:100%;max-height:100%;min-height:0;border:0;border-radius:0;box-sizing:border-box;box-shadow:none;overflow:hidden}
 html.listening-preview #dialog::backdrop{background:transparent}
 html.listening-preview #dialogBody{flex:1;min-height:0;overflow:hidden;padding:0}

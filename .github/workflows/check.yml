@@ -66,6 +66,7 @@ jobs:
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
           VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
+          DOCUMENT_TOOL_PROOF: .ci-proofs/document-tool-panels
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,5 +95,15 @@ jobs:
           path: |
             .ci-proofs/video-writing-reference/result.json
             .ci-proofs/video-writing-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated document-tool-panel evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-tool-panels-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-tool-panels/result.json
+            .ci-proofs/document-tool-panels/*.png
           if-no-files-found: ignore
           retention-days: 3
