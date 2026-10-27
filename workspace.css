@@ -187,3 +187,7 @@ body #toast .collection-result{min-width:64px;min-height:44px;padding:7px 12px;b
 .library-piece-reading>summary:focus-visible{outline:2px solid var(--ui-accent,#888);outline-offset:-2px}
 .library-piece-document{min-width:0;max-width:100%;padding:12px}
 .library-piece-document:focus-visible{outline:2px solid var(--ui-accent,#888);outline-offset:-2px}
+
+.library-subset-actions{position:relative;flex:none}.library-subset-actions>summary[aria-disabled=true]{opacity:.5;cursor:default}.library-subset-actions>div{position:absolute;z-index:5;right:0;top:100%;padding:8px;min-width:144px;background:var(--ui-panel,#292d26);border:1px solid var(--ui-line,#626c58);border-radius:8px;box-shadow:0 6px 22px #0005}.library-subset-actions>div>button{width:100%;white-space:nowrap}.library-subset-buttons{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:18px}.library-subset-form [data-subset-status]{color:var(--ui-muted);white-space:pre-wrap}
+
+.library-subset-form{padding:16px 20px;min-width:0}.library-subset-form h2{margin:0 0 12px}.library-subset-form p{margin:0 0 14px;line-height:1.7}.library-subset-form label{display:block;margin:12px 0 4px;font-size:13px}.library-subset-form input{display:block;width:100%}

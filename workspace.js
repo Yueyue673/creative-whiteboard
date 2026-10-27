@@ -441,6 +441,38 @@ function folderContentIds(path,recursive=false){return assetIndex.assets.filter(
 function itemBundle(a){if(a.mime===bundleMime)return clone(a.bundle);return {nodes:[{id:uid(),type:'note',x:0,y:0,w:340,h:300,title:a.title,body:a.notes||'',userText:'',annotation:'',tags:a.tags||[],url:a.path,assetId:a.id,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],mediaId:/^(audio|video)\//.test(a.mime||'')?a.id:undefined,color:'#ffffff'}],edges:[]}}
 function librarySubsetIds(a,chosen){const ids=new Set(chosen),nodes=a.bundle.nodes,valid=new Set(nodes.map(n=>n.id));for(const id of ids)if(!valid.has(id))ids.delete(id);for(const f of nodes.filter(n=>ids.has(n.id)&&n.type==='frame'))for(const n of nodes)if(n.x>=f.x&&n.y>=f.y&&n.x+n.w<=f.x+f.w&&n.y+n.h<=f.y+f.h)ids.add(n.id);return ids}
 function subsetBundle(a,chosen){const ids=librarySubsetIds(a,chosen);return {nodes:clone(a.bundle.nodes.filter(n=>ids.has(n.id))),edges:clone(a.bundle.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)))}}
+
+function saveLibrarySubset(a,chosen,returnTo){
+ const bundle=subsetBundle(a,chosen);if(!bundle.nodes.length)return toast('先选择要保留的内容');
+ const ids=new Set(bundle.nodes.map(n=>n.id)),source=a.source;
+ if(source&&(!source.boardId||!Array.isArray(source.nodeIds)||bundle.nodes.some(n=>!source.nodeIds.includes(n.id))))return toast('这份组合的来源暂时不能精确对应，可放到白板后再收录。');
+ const draft=clone(a);draft.id=uid();draft.bundle=bundle;delete draft.archived;delete draft.archiveBatch;
+ if(source)draft.source={...clone(source),nodeIds:source.nodeIds.filter(id=>ids.has(id))};
+ const body=$('dialogBody'),actions=$('dialogActions'),previous=[...body.children,actions].map(el=>({el,hidden:el.hidden,display:el.style.getPropertyValue('display'),priority:el.style.getPropertyPriority('display')})),returnFocus=returnTo||document.activeElement?.closest('.library-subset-actions')?.querySelector('summary')||document.activeElement;
+ for(const item of previous){item.el.hidden=true;item.el.style.setProperty('display','none','important')}
+ const form=document.createElement('section');form.className='library-subset-form';form.innerHTML='<h2>把所选另存为新内容</h2><p>保留 '+bundle.nodes.length+' 块内容和其中的 '+bundle.edges.length+' 条连线。原组合与白板保持原样，之后可分别修改。</p><label>内容名称<input data-subset-name maxlength="1000" value="'+esc(a.title+'（所选）')+'"></label><label>存放位置<select id="subsetDestination">'+libraryFolderOptions(a.folder)+'</select></label><p data-subset-status role="status" hidden></p><div class="library-subset-buttons"><button type="button" data-subset-cancel>返回选择</button><button type="button" data-subset-save>保存到内容库</button></div>';body.append(form);
+ const name=form.querySelector('[data-subset-name]'),destination=$('subsetDestination'),status=form.querySelector('[data-subset-status]'),save=form.querySelector('[data-subset-save]');let target=libraryFolderTarget(destination.value),busy=false;
+ const active=()=>$('dialog').open&&form.isConnected&&body.contains(form)&&(!frameElement||!!frameElement.getClientRects().length);
+ const message=text=>{status.hidden=!text;status.textContent=text};
+ destination.addEventListener('change',()=>{target=libraryFolderTarget(destination.value)});
+ form.querySelector('[data-subset-cancel]').onclick=()=>{if(!active()||form.dataset.writing)return;form.remove();for(const item of previous)if(item.el.isConnected){item.el.hidden=item.hidden;if(item.display)item.el.style.setProperty('display',item.display,item.priority);else item.el.style.removeProperty('display')}if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true})};
+ save.onclick=async()=>{
+  if(busy||!active())return;if(!name.value.trim()){message('请填写内容名称。');name.focus();return}
+  busy=true;save.disabled=true;let frozen=[];
+  try{
+   await loadAssets();if(!active())return;
+   const title=name.value.trim();if(!title){message('请填写内容名称。');name.focus();return}
+   const folder=libraryFolderLocation(target);if((target.id||target.path)&&!folder){message('原存放文件夹已移除，请重新选择位置。输入和所选内容仍保留。');return}
+   const item={...clone(draft),title,folder,updated:Date.now()},next=clone(assetIndex),existing=next.assets.find(a=>a.id===item.id);if(existing){const before={...clone(existing)},after={...clone(item)};delete before.updated;delete after.updated;if(JSON.stringify(before)!==JSON.stringify(after)){message('这份新内容已有不同编辑，保留现状。可以返回后重新另存。');return}}else next.assets.push(item);
+   form.dataset.writing='true';frozen=[...form.querySelectorAll('input,select,button')].filter(el=>!el.disabled);for(const el of frozen)el.disabled=true;
+   if(!existing&&!await saveAssets(next)){if(active())message('没有保存成功，输入仍在这里。再点保存会核对最新内容库。');return}
+   if(!active())return;enterAssetFolder(folder);assetSelected=new Set([item.id]);renderAssets();$('dialog').close();toast('已另存所选，原组合保留');
+  }catch(error){if(active())message(error.message||'暂时不能保存，输入仍保留。')}
+  finally{busy=false;delete form.dataset.writing;for(const el of frozen)if(el.isConnected)el.disabled=false;if(save.isConnected)save.disabled=false}
+ };
+ mountLibraryDestination('subsetDestination');name.focus();name.select();
+}
+
 function commitLibraryBatch(items,p){if(!items.length)return toast('没有可添加的内容');if(blocked)return toast('请先处理当前白板的保存冲突');const built=[],edges=[],columns=Math.min(4,Math.ceil(Math.sqrt(items.length)));let x=0,y=0,rowH=0;
  for(let i=0;i<items.length;i++){const {asset:a,bundle}=items[i];if(!bundle.nodes?.length)continue;const minX=Math.min(...bundle.nodes.map(n=>n.x)),minY=Math.min(...bundle.nodes.map(n=>n.y)),w=Math.max(...bundle.nodes.map(n=>n.x+n.w))-minX,h=Math.max(...bundle.nodes.map(n=>n.y+n.h))-minY,ids=new Map(bundle.nodes.map(n=>[n.id,uid()]));
  for(const n of bundle.nodes)built.push({...clone(n),id:ids.get(n.id),x:n.x-minX+x,y:n.y-minY+y,libraryOrigin:{id:a.id,nodeId:n.id,name:a.title,source:clone(a.source||{})}});
@@ -497,9 +529,13 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
   showDialog(libraryReuseHeading(a)+'<div class="bundle-preview library-note-preview" id="pieceList" tabindex="-1">'+text(n.title&&n.title!==a.title?n.title:'',n.body||'')+text('补充',n.userText)+text('备注',n.annotation)+'</div>',[['关闭',()=>$('dialog').close()],...sourceActions,['放到白板',()=>append(false)]]);previewElement=$('pieceList');arrangeLibraryPreview(previewElement);return;
  }
  showDialog(libraryReuseHeading(a)+'<div class="piece-tools"><input id="pieceSearch" placeholder="查找这组内容" aria-label="查找这组内容"><label><input type="checkbox" id="pieceAll">全选结果</label><small id="pieceCount"></small></div><div class="bundle-preview" id="pieceList" tabindex="-1"></div>',[['关闭',()=>$('dialog').close()],...sourceActions,['放入整组 · '+a.bundle.nodes.length+' 块',()=>append(picked.size>0)]]);previewElement=$('pieceList');
- const place=arrangeLibraryPreview(previewElement);
+ const place=arrangeLibraryPreview(previewElement),subsetActions=document.createElement('details');subsetActions.className='library-subset-actions';subsetActions.innerHTML='<summary aria-disabled="true" tabindex="-1">所选内容</summary><div><button type="button">另存所选</button></div>';$('dialogBody').querySelector('.piece-tools').append(subsetActions);
+ const subsetSummary=subsetActions.querySelector('summary'),subsetButton=subsetActions.querySelector('button');
+ subsetSummary.onclick=e=>{if(!picked.size)e.preventDefault()};
+ subsetActions.onkeydown=e=>{if(e.key==='Escape'&&subsetActions.open){e.preventDefault();e.stopImmediatePropagation();subsetActions.open=false;subsetSummary.focus({preventScroll:true})}};
+ subsetButton.onclick=()=>{if(!$('dialog').open||!previewElement.isConnected||$('pieceList')!==previewElement||!picked.size)return;subsetActions.open=false;saveLibrarySubset(a,picked,subsetSummary)};
  const matched=()=>{const q=$('pieceSearch').value.toLowerCase();return a.bundle.nodes.filter(n=>[n.title,n.body,n.userText,n.annotation].join(' ').toLowerCase().includes(q))};
- const update=()=>{const count=picked.size?librarySubsetIds(a,picked).size:a.bundle.nodes.length;place.textContent=(picked.size?'放入所选':'放入整组')+' · '+count+' 块';$('pieceCount').textContent=picked.size?'已选 '+picked.size+' 块':a.bundle.nodes.length+' 块内容';const list=matched();$('pieceAll').checked=!!list.length&&list.every(n=>picked.has(n.id));$('pieceAll').indeterminate=list.some(n=>picked.has(n.id))&&!$('pieceAll').checked};
+ const update=()=>{const enabled=!!picked.size;subsetSummary.setAttribute('aria-disabled',String(!enabled));subsetSummary.tabIndex=enabled?0:-1;subsetSummary.title=enabled?'将勾选的内容另存为独立资源':'先勾选要保留的内容';subsetButton.disabled=!enabled;if(!enabled)subsetActions.open=false;const count=picked.size?librarySubsetIds(a,picked).size:a.bundle.nodes.length;place.textContent=(picked.size?'放入所选':'放入整组')+' · '+count+' 块';$('pieceCount').textContent=picked.size?'已选 '+picked.size+' 块':a.bundle.nodes.length+' 块内容';const list=matched();$('pieceAll').checked=!!list.length&&list.every(n=>picked.has(n.id));$('pieceAll').indeterminate=list.some(n=>picked.has(n.id))&&!$('pieceAll').checked};
  const openReadings=new Set(),piecePositions=new Map(a.bundle.nodes.map((n,i)=>[n.id,i+1]));
  const draw=()=>{
   // Native toggle is queued; preserve the live state before replacing a filtered list.

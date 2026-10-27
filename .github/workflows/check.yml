@@ -62,3 +62,15 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+        env:
+          SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
+      - name: Keep isolated subset-resource evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subset-resource-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-subset-resource/result.json
+            .ci-proofs/library-subset-resource/*.png
+          if-no-files-found: ignore
+          retention-days: 3
