@@ -1,0 +1,10 @@
+.library-spatial{align-self:start;min-width:0;border:1px solid var(--ui-line);border-radius:7px;background:var(--ui-panel)}
+.library-spatial>summary{min-height:40px;padding:9px 12px;cursor:pointer;color:var(--ui-text);font-size:13px}
+.library-spatial>summary:focus-visible{outline:2px solid var(--ui-focus,var(--ui-accent));outline-offset:-2px}
+.library-spatial-map{position:relative;isolation:isolate;width:calc(100% - 16px);margin:8px auto}
+.library-spatial-map>svg{position:absolute;inset:0;width:100%;height:100%;z-index:-1;stroke:var(--ui-muted);stroke-width:3}
+.library-spatial-map>button{position:absolute;min-height:0;min-width:0;padding:3px;border:1px solid var(--ui-muted);border-radius:3px;font:11px/1.3 system-ui;color:var(--ui-text);background:var(--ui-raised);overflow:hidden;white-space:normal;text-align:left;box-shadow:none}
+.library-spatial-map>button[aria-pressed=true]{outline:3px solid var(--ui-focus,var(--ui-accent));outline-offset:1px}
+.library-spatial-map>button:focus-visible{outline:3px solid var(--ui-focus,var(--ui-accent));outline-offset:1px}
+.library-spatial-map>button:disabled{opacity:.45}
+.library-spatial>p{margin:8px 12px;font-size:11px;line-height:1.5;color:var(--ui-muted)}
