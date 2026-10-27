@@ -211,3 +211,7 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 
 .note-selection-entry{width:100%;margin:10px 0 4px;min-height:38px;border:1px solid var(--ui-line)}
 .note-selection-resource label{display:grid;gap:6px;margin:12px 0}.note-selection-resource input,.note-selection-resource select{width:100%;min-width:0;box-sizing:border-box}.note-selection-preview{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:180px;margin:12px 0;padding:10px;border:1px solid var(--ui-line);border-radius:5px;color:var(--ui-text);font:inherit}.note-selection-actions{display:flex;flex-wrap:wrap;gap:8px}.note-selection-actions button{min-height:38px}.note-selection-status{overflow-wrap:anywhere;color:var(--ui-muted)}
+
+/* The editor is bound before its mounted fields move into the expanded surface. */
+#documentSelectionResource{display:none}
+#immersiveSurface #documentSelectionResource{display:inline-flex}
