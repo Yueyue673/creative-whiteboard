@@ -81,6 +81,7 @@ jobs:
           DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
+          PAPER_CONTEXT_PROOF: .ci-proofs/paper-edit-context
           PAPER_FIND_PROOF: .ci-proofs/paper-local-find
           PAPER_FIND_GUARDS_PROOF: .ci-proofs/paper-local-find-guards
           COLLECT_REVIEW_PROOF: .ci-proofs/collect-content-review
@@ -303,5 +304,16 @@ jobs:
           path: |
             .ci-proofs/paper-local-find-guards/result.json
             .ci-proofs/paper-local-find-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-edit-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-edit-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-edit-context/result.json
+            .ci-proofs/paper-edit-context/*.png
           if-no-files-found: ignore
           retention-days: 3

@@ -71,7 +71,23 @@
  }
  function finishImmersion(session=immersion){if(!session||immersion!==session)return;activePosition();restoreEditor();immersion=null;$('dialog').classList.remove('reading-dialog','immersive-dialog');if(!ownsPosition(session))return;editorId=null;drawNodes();renderOutline();const area=canvasBlock(session.id)?.querySelector('.edit-scroll');if(area)area.scrollTop=session.originalScroll;canvas.focus({preventScroll:true})}
  const previousDialog=showDialog;showDialog=function(...args){if(immersion){finishImmersion();$('dialog').close()}return previousDialog(...args)};
- function expandEditor(){if(!immersion||!ownsPosition(immersion))return;const el=canvasBlock(immersion.id),inner=el?.querySelector('.inner');if(!inner)return;immersion.surface.className=el.className.replace(/\bactive\b/g,'')+' reading-sheet immersive-surface';immersion.surface.style.background=el.style.background;for(const key of ['--paper-ink','--paper-caption','--paper-edge','--paper-header'])immersion.surface.style.setProperty(key,el.style.getPropertyValue(key));immersion.surface.style.setProperty('--body-size',(board.nodes.find(n=>n.id===immersion.id)?.fontSize||16)+'px');immersion.surface.style.setProperty('--title-size',(board.nodes.find(n=>n.id===immersion.id)?.titleFontSize||24)+'px');const toolbar=inner.querySelector(':scope>.inline-toolbar');if(toolbar){for(const key of ['transform','right','bottom','top','transform-origin'])toolbar.style.removeProperty(key);delete toolbar.dataset.position}const details=inner.querySelector(':scope>#inlineMeta');if(details)for(const key of ['left','top','width','max-height'])details.style.removeProperty(key);immersion.surface.replaceChildren(inner);if($('inlineDone'))$('inlineDone').onclick=()=>$('dialog').close();growContentFields(immersion.surface);bindImmersiveDetails();window.whiteboardNoteEditor?.mountRelations?.(immersion.node,immersion.surface)}
+ // This caption identifies the current editing object; it never renames stored content.
+ function paintPaperContext(){
+  const session=immersion,heading=$('dialog').querySelector('.immersive-heading>span'),n=session?.node;
+  if(!heading)return;
+  const editing=ownsPosition(session)&&session.surface.isConnected&&$('dialog').open&&editorId===n.id&&n.type==='table'&&n.documentMode&&!$('dialog').querySelector('.note-source-peek');
+  heading.classList.toggle('paper-edit-context',!!editing);
+  if(!editing){heading.removeAttribute('title');return}
+  // Origin names are captured provenance, not a fresh catalogue lookup.
+  const label=n.libraryOrigin?.id?'编辑副本 · 来源记录：'+(n.libraryOrigin.name||'内容库'):'编辑长文 · '+(n.title||'未命名长文');
+  if(heading.textContent!==label)heading.textContent=label;
+  heading.title=label;
+ }
+ let paperContextQueued=false;
+ function schedulePaperContext(){if(paperContextQueued)return;paperContextQueued=true;requestAnimationFrame(()=>{paperContextQueued=false;paintPaperContext()})}
+ new MutationObserver(schedulePaperContext).observe($('dialog'),{childList:true,subtree:true});
+ $('dialog').addEventListener('input',event=>{if(event.target.id==='title')schedulePaperContext()});
+ function expandEditor(){if(!immersion||!ownsPosition(immersion))return;const el=canvasBlock(immersion.id),inner=el?.querySelector('.inner');if(!inner)return;immersion.surface.className=el.className.replace(/\bactive\b/g,'')+' reading-sheet immersive-surface';immersion.surface.style.background=el.style.background;for(const key of ['--paper-ink','--paper-caption','--paper-edge','--paper-header'])immersion.surface.style.setProperty(key,el.style.getPropertyValue(key));immersion.surface.style.setProperty('--body-size',(board.nodes.find(n=>n.id===immersion.id)?.fontSize||16)+'px');immersion.surface.style.setProperty('--title-size',(board.nodes.find(n=>n.id===immersion.id)?.titleFontSize||24)+'px');const toolbar=inner.querySelector(':scope>.inline-toolbar');if(toolbar){for(const key of ['transform','right','bottom','top','transform-origin'])toolbar.style.removeProperty(key);delete toolbar.dataset.position}const details=inner.querySelector(':scope>#inlineMeta');if(details)for(const key of ['left','top','width','max-height'])details.style.removeProperty(key);immersion.surface.replaceChildren(inner);if($('inlineDone'))$('inlineDone').onclick=()=>$('dialog').close();growContentFields(immersion.surface);bindImmersiveDetails();window.whiteboardNoteEditor?.mountRelations?.(immersion.node,immersion.surface);paintPaperContext()}
  function readNote(id){
   const n=board?.nodes.find(n=>n.id===id);if(!n)return;if(window.whiteboardDocumentResources?.unavailable(n))return whiteboardDocumentResources.explain();if(blocked)return toast('请先处理保存冲突');if(n.type==='frame')return openEditor(id);if(immersion){finishImmersion();$('dialog').close()}
   const originalScroll=canvasBlock(id)?.querySelector('.edit-scroll')?.scrollTop||0;
