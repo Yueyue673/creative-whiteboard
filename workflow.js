@@ -174,7 +174,7 @@ function wfNodeText(n){
 function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]),...(a.bundle?.nodes||[]).map(wfNodeText)].filter(Boolean).join(' ')}
 function wfExcerpt(text,query,before=40){const clean=String(text||'').replace(/\s+/g,' '),at=Math.max(0,clean.toLowerCase().indexOf(query.toLowerCase())-before);return (at?'…':'')+clean.slice(at,at+190)+(clean.length>at+190?'…':'')}
 function wfMark(text,q){if(!q)return esc(text);const at=text.toLowerCase().indexOf(q.toLowerCase());return at<0?esc(text):esc(text.slice(0,at))+'<mark>'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length))}
-let wfLibraryOrder='original';
+let wfLibraryOrder='original',wfLibraryKind='all';
 function wfRenderLibraryOrder(){
  let row=$('assetPane').querySelector('.wf-library-order');
  if(!row){
@@ -187,10 +187,25 @@ function wfRenderLibraryOrder(){
  row.querySelector('select').value=wfLibraryOrder;
 }
 
+
+function wfRenderLibraryKind(){
+ let row=$('assetPane').querySelector('.wf-library-type');
+ if(!row){
+  row=document.createElement('label');row.className='wf-library-type';
+  const text=document.createElement('span'),select=document.createElement('select');text.textContent='内容';select.setAttribute('aria-label','内容类型');
+  select.innerHTML='<option value="all">全部类型</option>'+['便签','长文','表格','组合','图片','音频','视频','网页','PDF','JSON','文件'].map(kind=>'<option>'+kind+'</option>').join('');
+  select.onchange=()=>{wfLibraryKind=select.value;assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==$('assetPane');el=el.parentElement)el.scrollTop=0};
+  row.append(text,select);$('assetSearch').after(row);
+ }
+ row.querySelector('select').value=wfLibraryKind;
+ const empty=$('assetList').querySelector('.explorer-empty');
+ if(empty&&wfLibraryKind!=='all'&&!$('assetList').querySelector('[data-asset],[data-asub]'))empty.textContent=$('assetSearch').value.trim()?'没有找到匹配的'+wfLibraryKind:'这里没有'+wfLibraryKind;
+}
+
 const wfRenderAssets=renderAssets;
 renderAssets=function(){
  wfRenderAssets();$('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累 · F2 编辑 · 拖到白板使用副本 · Ctrl+Z 撤销库中操作';
- const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);wfRenderLibraryOrder();
+ const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);wfRenderLibraryOrder();wfRenderLibraryKind();
  if(q)$('assetList').querySelectorAll('[data-asset]').forEach(row=>{
   const a=assetById(row.dataset.asset);if(!a)return;
   const location=row.querySelector('small');if(location){location.classList.add('wf-result-location');location.textContent=a.folder?a.folder.split('/').join(' › '):'内容库';location.title=a.folder||''}
@@ -219,7 +234,7 @@ function wfRenderLibrarySearch(q){
 }
 libraryMatches=function(){
  const q=$('assetSearch').value.trim().toLowerCase(),all=wfLibrarySearchScope()==='all';
- const list=assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
+ const list=assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q))&&(wfLibraryKind==='all'||libraryAssetKind(a)===wfLibraryKind));
  if(wfLibraryOrder!=='recent')return list;
  const savedAt=a=>Number.isFinite(Number(a.updated))&&Number(a.updated)>0?Number(a.updated):0;
  return list.map((item,index)=>({item,index})).sort((a,b)=>savedAt(b.item)-savedAt(a.item)||a.index-b.index).map(row=>row.item);

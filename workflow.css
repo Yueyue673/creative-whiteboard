@@ -67,3 +67,6 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .collect-content-review small{font-size:11px;color:var(--ui-muted)}
 .collect-content-review li p{font-size:12px;white-space:pre-wrap;line-height:1.5;margin:5px 0;color:var(--ui-muted)}
 .collect-content-review .collect-review-limit{font-size:11px;color:var(--ui-muted);padding:0 12px 10px;margin:8px 0 0}
+
+.wf-library-type{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px;color:var(--ui-muted)}
+.wf-library-type select{flex:1;min-width:0;min-height:36px;margin:0;color:var(--ui-text)}
