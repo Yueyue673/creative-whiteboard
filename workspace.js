@@ -141,12 +141,13 @@ function previewAsset(id){
   // Keep this player in its original document. The workbench can make the
   // existing preview visible beside writing without restarting its source.
   let host;try{if(parent!==window)host=parent.whiteboardWorkspace}catch{}
-  if(player?.tagName==='AUDIO'&&host?.canListen?.(window)){
+  if(player&&host?.canListen?.(window)){
+   const watching=player.tagName==='VIDEO';
    const dialog=$('dialog'),description=$('dialogActions').firstElementChild,close=$('dialogActions').lastElementChild;
    let ended=false;
-   const session={current:()=>!ended&&dialog.open&&player.isConnected&&$('dialogBody').contains(player),pause:()=>{player.pause();player._captureReading?.()},expand:()=>mode(false),close:()=>{if(session.current())dialog.close()},setWritingTarget:target=>{resume.textContent=target.text;resume.disabled=target.disabled}};
-   function mode(compact){if(!session.current()||!host.setListening(window,session,compact))return;document.documentElement.classList.toggle('listening-preview',compact);description.hidden=compact;start.hidden=compact;resume.hidden=expand.hidden=!compact;close.textContent=compact?'结束试听':'关闭'}
-   const start=document.createElement('button');start.id='listenWhileWriting';start.textContent='边听边写';start.onclick=()=>mode(true);
+   const session={kind:watching?'video':'audio',current:()=>!ended&&dialog.open&&player.isConnected&&$('dialogBody').contains(player),pause:()=>{player.pause();player._captureReading?.()},expand:()=>mode(false),close:()=>{if(session.current())dialog.close()},setWritingTarget:target=>{resume.textContent=target.text;resume.disabled=target.disabled}};
+   function mode(compact){if(!session.current()||!host.setListening(window,session,compact))return;document.documentElement.classList.toggle('listening-preview',compact);description.hidden=compact;start.hidden=compact;resume.hidden=expand.hidden=!compact;close.textContent=compact?(watching?'结束观看':'结束试听'):'关闭'}
+   const start=document.createElement('button');start.id='listenWhileWriting';start.textContent=watching?'边看边写':'边听边写';start.onclick=()=>mode(true);
    const resume=document.createElement('button');resume.id='listeningResume';resume.textContent='继续写';resume.hidden=true;resume.onclick=()=>{if(session.current())host.resumeWriting(window,session)};
    const expand=document.createElement('button');expand.id='listeningExpand';expand.textContent='展开资料';expand.hidden=true;expand.onclick=session.expand;
    $('dialogActions').append(start,resume,expand);

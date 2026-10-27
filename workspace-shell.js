@@ -6,8 +6,9 @@
  let listening=null,explorerModal=false;
  // An expanded paper belongs to its pane. Full-window focus remains an explicit choice.
  function readingLayout(){
+  const referenceHeight=listening?.compact?host.getBoundingClientRect().height:152;
   for(const frame of frames.values()){
-   frame.contentWindow.whiteboardPane?.setListening?.(!!listening?.compact);
+   frame.contentWindow.whiteboardPane?.setListening?.(!!listening?.compact,referenceHeight);
    const mode=readingModes.get(frame),fullWindow=!!mode?.open&&(!model.split||mode.fullWindow);
    frame.classList.toggle('pane-modal',fullWindow);
    if(!mode?.open)continue;
@@ -72,10 +73,10 @@
   const next=innerWidth<=680&&model.narrowView!=='split';if(next!==compact){if(next)compactLibrary=open&&document.activeElement===explorerFrame;compact=next}
   let p;try{p=JSON.parse(localStorage.getItem('creative-interface')||'{}')}catch{p={}}
   const visible=shown(),covering=compact&&visible,width=Math.min(innerWidth*.45,Math.max(260,Math.min(520,dragWidth??p.width??340)));
-  work.style.setProperty('--explorer-width',visible?width+'px':'0px');work.style.setProperty('--split-number',model.ratio/100);work.classList.toggle('explorer-overlay',covering);work.classList.toggle('listening-active',!!listening?.compact);host.classList.toggle('listening-session',!!listening);host.setAttribute('aria-label',listening?'试听资料':'内容与白板');$('shellHeader').style.zoom=p.scale||1;work.style.height=(innerHeight-$('shellHeader').getBoundingClientRect().height)+'px';host.hidden=!visible&&!listening&&!explorerModal;
+  work.style.setProperty('--explorer-width',visible?width+'px':'0px');work.style.setProperty('--split-number',model.ratio/100);work.classList.toggle('explorer-overlay',covering);work.classList.toggle('listening-active',!!listening?.compact);work.classList.toggle('listening-video',!!listening?.compact&&listening.session.kind==='video');host.classList.toggle('listening-session',!!listening);host.setAttribute('aria-label',listening?(listening.session.kind==='video'?'观看资料':'试听资料'):'内容与白板');$('shellHeader').style.zoom=p.scale||1;work.style.height=(innerHeight-$('shellHeader').getBoundingClientRect().height)+'px';host.hidden=!visible&&!listening&&!explorerModal;
   readingLayout();writingTarget();$('frameDeck').inert=covering&&!document.querySelector('.board-frame.pane-modal:not([hidden])');$('tabHeaders').inert=covering;
   const button=$('openBoards');button.setAttribute('aria-expanded',String(visible));button.setAttribute('aria-label',covering?'返回白板':'展开或收起内容与白板');button.title=covering?'返回白板':'内容与白板 · Ctrl+\\';
-  if(listening?.compact){button.setAttribute('aria-label','展开试听资料');button.title='展开试听资料'}
+  if(listening?.compact){const label=listening.session.kind==='video'?'展开观看资料':'展开试听资料';button.setAttribute('aria-label',label);button.title=label}
   if(button.dataset.returning!==String(covering)){button.dataset.returning=String(covering);button.innerHTML=covering?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12"/></svg>':sidebarIcon}
   layoutPaneFrames();
  }

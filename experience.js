@@ -185,7 +185,7 @@
   if(e.key==='F2'||e.key==='Enter'&&!editorId){e.preventDefault();e.stopImmediatePropagation();e.key==='F2'?openEditor(id):openBlock(id)}
  },true);
  $('dialog').addEventListener('close',()=>{
-  if($('dialog').open||editorId)return;
+  if($('dialog').open||editorId||frameElement&&frameElement.ownerDocument.activeElement!==frameElement)return;
   const active=document.activeElement;
   // A later close event must not take focus from a list row or a new field.
   if(!active||active===document.body||active===$('dialog')||$('dialog').contains(active))canvas.focus({preventScroll:true});

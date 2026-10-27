@@ -184,14 +184,18 @@ button,summary,select{transition:none}
 .media-preview video{max-height:min(480px,55dvh)}
 .media-preview .source-path{line-height:1.6;margin:16px 0 8px}
 /* Listening reserves display space in the expanded paper, never canvas geometry. */
-.canvas-pane.listening-writing #dialog.immersive-dialog[open]{height:calc(100dvh - 178px);max-height:calc(100dvh - 178px);margin-top:12px;margin-bottom:166px}
-.canvas-pane.listening-writing #creationDock{bottom:166px}
+.canvas-pane.listening-writing #dialog.immersive-dialog[open]{height:calc(100dvh - var(--writing-reference-height,152px) - 26px);max-height:calc(100dvh - var(--writing-reference-height,152px) - 26px);margin-top:12px;margin-bottom:calc(var(--writing-reference-height,152px) + 14px)}
+.canvas-pane.listening-writing #creationDock{bottom:calc(var(--writing-reference-height,152px) + 14px)}
+/* Keep a short writing area scrollable instead of shrinking the document body to zero. */
+.canvas-pane.listening-writing .immersive-surface.document-paper .content-table{overflow:auto}
+.canvas-pane.listening-writing .immersive-surface.document-paper #inlineTable{flex:none}
 html.listening-preview #dialog[open]:has(.media-preview){position:fixed;inset:0;margin:0;padding:10px 14px;width:100%;max-width:100%;height:100%;max-height:100%;min-height:0;border:0;border-radius:0;box-sizing:border-box;box-shadow:none;overflow:hidden}
 html.listening-preview #dialog::backdrop{background:transparent}
 html.listening-preview #dialogBody{flex:1;min-height:0;overflow:hidden;padding:0}
 html.listening-preview .media-preview{padding:0;display:flex;flex-direction:column;gap:4px;height:100%}
 html.listening-preview .media-preview h2{display:block;flex:none;min-height:20px;font-size:13px;line-height:20px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html.listening-preview .media-preview audio{height:44px;flex-shrink:0}
+html.listening-preview .media-preview video{width:100%;min-height:0;flex:1;max-height:none;object-fit:contain;background:#111}
 html.listening-preview .media-preview .source-path,html.listening-preview .media-preview a{display:none}
 html.listening-preview #dialogActions{margin:4px 0 0;padding:0;gap:8px;flex-shrink:0}
 html.listening-preview #dialogActions button{padding:2px 8px;font-size:13px;min-height:44px}
