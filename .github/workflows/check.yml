@@ -77,6 +77,8 @@ jobs:
           SEARCH_RETURN_GUARDS_PROOF: .ci-proofs/search-writing-return-guards
           LOCAL_START_PROOF: .ci-proofs/local-start-entry
           CANVAS_OUTLINE_PROOF: .ci-proofs/canvas-outline-work
+          DOCUMENT_LIBRARY_MULTIPLE_PROOF: .ci-proofs/document-library-multiple
+          DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -206,5 +208,27 @@ jobs:
           path: |
             .ci-proofs/canvas-outline-work/result.json
             .ci-proofs/canvas-outline-work/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated document-library-multiple evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-multiple-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-multiple/result.json
+            .ci-proofs/document-library-multiple/source/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated document-library-multiple-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-multiple-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-multiple-guards/result.json
+            .ci-proofs/document-library-multiple-guards/*.png
           if-no-files-found: ignore
           retention-days: 3

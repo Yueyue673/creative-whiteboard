@@ -62,7 +62,7 @@
  },true);
  window.addEventListener('resize',scheduleToolPanels);new ResizeObserver(scheduleToolPanels).observe($('dialog'));$('dialog').addEventListener('close',scheduleToolPanels);
 
- // A contextual library read retains the original paragraph and inserts one independent copy.
+ // A contextual library read retains the original paragraph and inserts independent copies.
  const libraryPlaces=new WeakMap();let libraryPicker=null;
  const canTakeLibrary=n=>live(n)&&!saveError&&!window.whiteboardHosted?.paused&&window.whiteboardHosted?.role!=='viewer';
  function rememberLibraryPlace(){
@@ -118,28 +118,42 @@
   session.resize=new ResizeObserver(session.position);session.resize.observe($('dialog'));window.addEventListener('resize',session.position);session.position();
   panel.querySelector('[data-document-library-destination]').textContent='放在第 '+(index+1)+' 块后 · '+String(items[index].title||items[index].body||'表格').split('\n')[0].slice(0,70);
   panel.querySelector('[data-document-library-return]').onclick=()=>closeLibraryPicker();
-  let entries=[];
-  const busy=value=>{session.pending=value;if(value&&panel.contains(document.activeElement))panel.focus({preventScroll:true});search.disabled=value;retry.disabled=value;for(const button of results.querySelectorAll('button'))button.disabled=value};
+  let entries=[];const chosen=new Map(),tray=document.createElement('section');tray.className='document-library-chosen';tray.setAttribute('aria-label','本次取用');tray.innerHTML='<b>本次取用</b><p>按选择顺序接到原段后，各取一份副本。</p><div data-document-library-chosen></div><button type="button" data-document-library-commit disabled>请先选择内容</button>';panel.append(tray);
+  const modeLabel=document.createElement('label'),multiple=document.createElement('input');modeLabel.className='document-library-mode';multiple.type='checkbox';multiple.dataset.documentLibraryMultiple='';modeLabel.append(multiple,document.createTextNode('一次取多块'));search.closest('label').after(modeLabel);tray.hidden=true;
+  const commit=tray.querySelector('[data-document-library-commit]');
+  function showChosen(){
+   tray.hidden=!multiple.checked;
+   const list=tray.querySelector('[data-document-library-chosen]');list.replaceChildren();let index=0;
+   for(const [key,item]of chosen){const row=document.createElement('div'),label=document.createElement('span'),remove=document.createElement('button');label.textContent=(++index)+'. '+item.title+' · '+(item.folder||'内容库根目录')+' · '+(item.piece.title||'未命名内容');remove.type='button';remove.textContent='移除';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;remove.onclick=()=>{chosen.delete(key);paint();showChosen()};row.append(label,remove);list.append(row)}
+   commit.disabled=session.pending||!chosen.size;commit.textContent=chosen.size?'将选中的 '+chosen.size+' 块接在原段后':'请先选择内容';
+  }
+  const busy=value=>{session.pending=value;if(value&&panel.contains(document.activeElement))panel.focus({preventScroll:true});search.disabled=value;retry.disabled=value;multiple.disabled=value;for(const button of results.querySelectorAll('button'))button.disabled=value;showChosen()};
+  const applyChosen=async(selection)=>{
+   if(!validLibraryPicker(session)||session.pending||!selection.size)return;busy(true);status.textContent='正在核对所选原件…';
+   try{
+    const applied=await loadAssets({redraw:false});if(!validLibraryPicker(session))return;
+    if(!applied){retry.hidden=false;status.textContent='内容库正在刷新，请重试；本次还没有放入。';return}
+    const valid=[],changed=[];
+    for(const [key,shown]of selection){const current=assetById(shown.id),item=libraryPieces(current).find(piece=>piece.id===shown.piece.id);
+     if(!item||JSON.stringify(libraryChoiceSnapshot(current,item))!==JSON.stringify(shown))changed.push(key);else valid.push({current,item});
+    }
+    if(changed.length){for(const key of changed)chosen.delete(key);entries=libraryChoices();paint();showChosen();status.textContent='库中内容已变化，请核对后重新选择；本次还没有放入。';return}
+    const at=n.cellItems?.[0]?.[0]?.findIndex(value=>value.id===anchor);if(!(at>=0)||n.cellItems[0][0].filter(value=>value.id===anchor).length!==1){status.textContent='原段落已改变，请返回原文重新选择。';return}
+    const copies=valid.map(({current,item})=>({...clone(item),id:uid(),libraryOrigin:{id:current.id,nodeId:item.id,name:current.title,source:clone(current.source||{})}}));
+    const place=libraryPlaces.get(root);undoPoint();n.cellItems[0][0].splice(at+1,0,...copies);closeLibraryPicker(false);drawNodes();change();
+    const focusOwner=document.activeElement;requestAnimationFrame(()=>{if(document.activeElement===focusOwner)restoreLibraryPlace(session,place)});
+   }catch(error){if(validLibraryPicker(session)){status.textContent='未能读取库中原件：'+error.message;retry.hidden=false}}
+   finally{if(validLibraryPicker(session))busy(false)}
+  };
+  commit.onclick=()=>applyChosen(chosen);multiple.onchange=()=>{chosen.clear();paint();showChosen()};
   const paint=()=>{
    results.replaceChildren();const query=search.value.trim().toLowerCase(),matches=entries.filter(entry=>entry.commonText.includes(query)||entry.pieceText.includes(query));
    for(const {asset:a,piece} of matches.slice(0,40)){
     const shown=libraryChoiceSnapshot(a,piece),section=document.createElement('section'),heading=document.createElement('b'),location=document.createElement('small'),preview=document.createElement('p'),button=document.createElement('button'),group=a.bundle.nodes.length>1;
     section.dataset.documentLibraryAsset=a.id;section.dataset.documentLibraryPiece=piece.id;heading.textContent=(group?piece.title:a.title)||piece.title||'未命名内容';location.textContent=(group?(a.title||'未命名组合')+' · ':'')+(a.folder||'内容库根目录')+' · '+(piece.type==='table'?(piece.documentMode?'长文':'表格 · '+(piece.rows?.length||0)+' 行'):'便签')+(group?' · 取用 1 块':'');
     const previewText=String(piece.body||piece.userText||piece.annotation||(piece.type==='table'?[(piece.columns||[]).join(' · '),...(piece.rows||[]).slice(0,3).map(row=>row.join(' · '))].join('\n'):piece.title)||'');preview.textContent=previewText.slice(0,500)+(previewText.length>500?'…':'');
-    button.type='button';button.textContent='将副本接在原段后';button.dataset.documentLibraryPlace='';section.append(heading,location,preview,button);results.append(section);
-    button.onclick=async()=>{
-     if(!validLibraryPicker(session)||session.pending)return;busy(true);status.textContent='正在核对库中原件…';
-     try{
-      const applied=await loadAssets({redraw:false});if(!validLibraryPicker(session))return;
-      const current=assetById(shown.id),item=libraryPieces(current).find(piece=>piece.id===shown.piece.id);
-      if(!applied||!item||JSON.stringify(libraryChoiceSnapshot(current,item))!==JSON.stringify(shown)){entries=libraryChoices();paint();status.textContent='库中内容已变化，请重新选择。';return}
-      const at=n.cellItems?.[0]?.[0]?.findIndex(value=>value.id===anchor);if(!(at>=0)||n.cellItems[0][0].filter(value=>value.id===anchor).length!==1){status.textContent='原段落已改变，请返回原文重新选择。';return}
-      const place=libraryPlaces.get(root),copy={...clone(item),id:uid(),libraryOrigin:{id:current.id,nodeId:item.id,name:current.title,source:clone(current.source||{})}};
-      undoPoint();n.cellItems[0][0].splice(at+1,0,copy);closeLibraryPicker(false);drawNodes();change();
-      const focusOwner=document.activeElement;requestAnimationFrame(()=>{if(document.activeElement===focusOwner)restoreLibraryPlace(session,place)});
-     }catch(error){if(validLibraryPicker(session)){status.textContent='未能读取库中原件：'+error.message;retry.hidden=false}}
-     finally{if(validLibraryPicker(session))busy(false)}
-    };
+    const choiceKey=JSON.stringify([shown.id,shown.piece.id]);button.type='button';button.textContent=multiple.checked?(chosen.has(choiceKey)?'已选，点此移除':'选这一块'):'将副本接在原段后';if(multiple.checked)button.setAttribute('aria-pressed',String(chosen.has(choiceKey)));button.dataset.documentLibraryPlace='';section.append(heading,location,preview,button);results.append(section);
+    button.onclick=()=>{if(!validLibraryPicker(session)||session.pending)return;if(!multiple.checked)return applyChosen(new Map([[choiceKey,shown]]));if(chosen.has(choiceKey))chosen.delete(choiceKey);else chosen.set(choiceKey,shown);paint();showChosen()};
    }
    status.textContent=matches.length?'找到 '+matches.length+' 块内容'+(matches.length>40?'，请继续输入以缩小范围。':''):(query?'没有匹配的便签或表格。':'还没有可取用的便签或表格资源。');
   };
