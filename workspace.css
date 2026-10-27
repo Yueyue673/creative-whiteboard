@@ -180,3 +180,10 @@ body.canvas-gesture,body.canvas-gesture *{user-select:none!important;-webkit-use
 /* A receipt offers an explicit visit while leaving creation in place. */
 body #toast:has(.collection-result):not([hidden]){display:flex;align-items:center;gap:14px;bottom:76px;padding:6px 8px 6px 14px;pointer-events:auto}
 body #toast .collection-result{min-width:64px;min-height:44px;padding:7px 12px;background:var(--ui-hover,#50535a);color:inherit;border:1px solid var(--ui-line,#606269);border-radius:6px}
+
+/* Read a document in its original group without changing the picked set. */
+.library-piece-reading{min-width:0;margin:0 4px 12px 26px;border:1px solid var(--ui-line,#d4d6da);border-radius:6px}
+.library-piece-reading>summary{position:sticky;top:0;z-index:1;min-height:40px;padding:8px 10px;border:0;border-radius:5px;background:var(--ui-raised,#f5f5f5);color:var(--ui-text,#292929);font-size:12px;line-height:1.7;white-space:normal;overflow-wrap:anywhere}
+.library-piece-reading>summary:focus-visible{outline:2px solid var(--ui-accent,#888);outline-offset:-2px}
+.library-piece-document{min-width:0;max-width:100%;padding:12px}
+.library-piece-document:focus-visible{outline:2px solid var(--ui-accent,#888);outline-offset:-2px}

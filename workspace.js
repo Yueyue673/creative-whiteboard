@@ -500,7 +500,40 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
  const place=arrangeLibraryPreview(previewElement);
  const matched=()=>{const q=$('pieceSearch').value.toLowerCase();return a.bundle.nodes.filter(n=>[n.title,n.body,n.userText,n.annotation].join(' ').toLowerCase().includes(q))};
  const update=()=>{const count=picked.size?librarySubsetIds(a,picked).size:a.bundle.nodes.length;place.textContent=(picked.size?'放入所选':'放入整组')+' · '+count+' 块';$('pieceCount').textContent=picked.size?'已选 '+picked.size+' 块':a.bundle.nodes.length+' 块内容';const list=matched();$('pieceAll').checked=!!list.length&&list.every(n=>picked.has(n.id));$('pieceAll').indeterminate=list.some(n=>picked.has(n.id))&&!$('pieceAll').checked};
- const draw=()=>{$('pieceList').innerHTML=matched().map(n=>'<label class="piece-row"><input type="checkbox" data-piece="'+esc(n.id)+'" '+(picked.has(n.id)?'checked':'')+'><div><b>'+esc(n.title||'未命名')+'</b><p>'+esc((n.body||n.userText||'').slice(0,260))+'</p><small>'+esc(n.type==='frame'?'分组及其内容':n.type==='table'?'可编辑表格':n.images?.length?'含图片':'内容')+'</small></div></label>').join('');$('pieceList').querySelectorAll('[data-piece]').forEach(el=>el.onchange=()=>{el.checked?picked.add(el.dataset.piece):picked.delete(el.dataset.piece);update()});update()};$('pieceSearch').oninput=draw;$('pieceAll').onchange=e=>{matched().forEach(n=>e.target.checked?picked.add(n.id):picked.delete(n.id));draw()};draw()
+ const openReadings=new Set(),piecePositions=new Map(a.bundle.nodes.map((n,i)=>[n.id,i+1]));
+ const draw=()=>{
+  // Native toggle is queued; preserve the live state before replacing a filtered list.
+  $('pieceList').querySelectorAll('[data-library-piece-reading]').forEach(details=>{
+   const id=details.dataset.libraryPieceReading;
+   details.open?openReadings.add(id):openReadings.delete(id);
+  });
+  $('pieceList').innerHTML=matched().map(n=>{
+   const longDocument=n.type==='table'&&n.documentMode===true,heading='第'+piecePositions.get(n.id)+'块：'+(n.title||'未命名长文');
+   const reading=longDocument?'<details class="library-piece-reading" data-library-piece-reading="'+esc(n.id)+'" '+(openReadings.has(n.id)?'open':'')+'><summary>'+esc((openReadings.has(n.id)?'收起原文':'阅读原文')+' · '+heading)+'</summary><article class="library-document-preview library-piece-document" tabindex="0" aria-label="'+esc(heading+'原文')+'"></article></details>':'';
+   return '<label class="piece-row"><input type="checkbox" data-piece="'+esc(n.id)+'" '+(picked.has(n.id)?'checked':'')+'><div><b>'+esc(n.title||'未命名')+'</b><p>'+esc((n.body||n.userText||'').slice(0,260))+'</p><small>'+esc(n.type==='frame'?'分组及其内容':longDocument?'长文':n.type==='table'?'可编辑表格':n.images?.length?'含图片':'内容')+'</small></div></label>'+reading;
+  }).join('');
+  $('pieceList').querySelectorAll('[data-piece]').forEach(el=>el.onchange=()=>{el.checked?picked.add(el.dataset.piece):picked.delete(el.dataset.piece);update()});
+  $('pieceList').querySelectorAll('[data-library-piece-reading]').forEach(details=>{
+   details.ontoggle=()=>{
+    if(!$('dialog').open||!details.isConnected||$('pieceList')!==previewElement)return;
+    const id=details.dataset.libraryPieceReading,wasOpen=openReadings.has(id),node=a.bundle.nodes.find(n=>n.id===id);
+    details.querySelector('summary').textContent=(details.open?'收起原文':'阅读原文')+' · 第'+piecePositions.get(id)+'块：'+(node?.title||'未命名长文');
+    if(details.open){
+     openReadings.add(id);
+     const reader=details.querySelector('article');if(reader.dataset.loaded)return;
+     const markup=node?libraryDocumentMarkup(node):null;
+     if(markup===null)reader.textContent='这份内容超出这里的预览范围。原文完整保留，可先选中，再放到白板查看。';
+     else reader.innerHTML=markup;
+     reader.dataset.loaded='true';
+    }else{
+     openReadings.delete(id);
+     if(wasOpen&&document.hasFocus())details.previousElementSibling?.scrollIntoView({block:'nearest'});
+    }
+   };
+  });
+  update();
+ };
+ $('pieceSearch').oninput=draw;$('pieceAll').onchange=e=>{matched().forEach(n=>e.target.checked?picked.add(n.id):picked.delete(n.id));draw()};draw()
 };
 let libraryRangeAnchor=null;
 const renderBeforeRange=renderAssets;renderAssets=function(){renderBeforeRange();$('assetList').querySelectorAll('[data-asset]').forEach(el=>{const old=el.onclick;el.onclick=e=>{if(e.target.closest('button'))return;const id=el.dataset.asset;if(e.shiftKey&&libraryRangeAnchor){const list=libraryMatches().map(a=>a.id),a=list.indexOf(libraryRangeAnchor),b=list.indexOf(id);if(a>=0&&b>=0){if(!e.ctrlKey&&!e.metaKey)assetSelected.clear();list.slice(Math.min(a,b),Math.max(a,b)+1).forEach(x=>assetSelected.add(x));updateAssetSelection();return}}old(e);libraryRangeAnchor=id};el.title=assetById(el.dataset.asset)?.title||''})};
