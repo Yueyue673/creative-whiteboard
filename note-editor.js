@@ -597,6 +597,19 @@
   tools.querySelector('#noteFormat')?.addEventListener('click',()=>openFormat(tools.querySelector('#noteFormat'),n));
   tools.querySelector('#noteLinks')?.addEventListener('click',()=>openLinks(tools.querySelector('#noteLinks'),n));
   tools.querySelector('#notePreview')?.addEventListener('click',()=>{closePanel();togglePreview(tools.querySelector('#notePreview'),n,root)});
+  // Keep the entry mounted: selecting text must not move existing table tools.
+  if(n.type==='table'&&n.documentMode===true){
+   const collect=document.createElement('button');collect.type='button';collect.id='documentSelectionResource';collect.textContent='所选原文存到库';collect.disabled=true;bar.append(collect);
+   let paragraphField=null;
+   const isParagraph=el=>root.closest('#immersiveSurface')&&el?.matches?.('textarea[data-cell-note-field="body"]')&&root.contains(el)&&el.closest('[data-cell-item]')?.classList.contains('document-paragraph');
+   const canCollect=()=>isParagraph(paragraphField)&&ownsField(n)&&field===paragraphField&&!paragraphField.readOnly&&!paragraphField.disabled&&paragraphField.selectionStart!==paragraphField.selectionEnd&&Boolean(paragraphField.value.slice(paragraphField.selectionStart,paragraphField.selectionEnd).trim());
+   const sync=()=>{collect.disabled=!canCollect();collect.title=collect.disabled?'先选中长文正文中的原文':'把当前所选原文保存为独立便签'};
+   root.addEventListener('focusin',event=>{if(event.target.matches('input,textarea')){paragraphField=isParagraph(event.target)?event.target:null;sync()}});
+   for(const el of root.querySelectorAll('textarea'))for(const event of ['select','keyup','pointerup','input','blur'])el.addEventListener(event,()=>{remember(el);sync()});
+   collect.onpointerdown=event=>event.preventDefault();
+   collect.onclick=()=>{if(!canCollect())return;const box=popup(collect,n,'format');if(!box)return;openSelectionResource(box,collect,n);show(collect);box.querySelector('input[aria-label="资源名称"]')?.focus({preventScroll:true})};
+   sync();
+  }
   root.querySelectorAll('textarea').forEach(el=>{const refresh=()=>{let links=el.nextElementSibling;if(!links?.classList.contains('field-reference-links')){links=document.createElement('div');links.className='field-reference-links inline-ui';el.after(links)}const tokens=wikiMatches(serializeField(el,el.value));links.replaceChildren();for(const token of tokens){const template=document.createElement('template');template.innerHTML=linkMarkup(token.content);links.append(template.content)}links.hidden=!tokens.length};if(n.type==='table'){refresh();el.addEventListener('input',refresh)}});
   // Input and focus loss also cover text entry without a keyboard keyup.
   root.querySelectorAll('textarea').forEach(el=>{for(const name of ['focus','select','keyup','pointerup','input','blur'])el.addEventListener(name,()=>remember(el));el.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.isComposing&&['b','i'].includes(e.key.toLowerCase())&&['body','userText','annotation'].includes(el.id)){e.preventDefault();e.stopPropagation();remember(el);format(n,e.key.toLowerCase()==='b'?'bold':'italic')}})});
