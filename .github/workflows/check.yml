@@ -76,6 +76,7 @@ jobs:
           SEARCH_RETURN_PROOF: .ci-proofs/search-writing-return
           SEARCH_RETURN_GUARDS_PROOF: .ci-proofs/search-writing-return-guards
           LOCAL_START_PROOF: .ci-proofs/local-start-entry
+          CANVAS_OUTLINE_PROOF: .ci-proofs/canvas-outline-work
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -194,5 +195,16 @@ jobs:
           path: |
             .ci-proofs/local-start-entry/result.json
             .ci-proofs/local-start-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated canvas-outline-work evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canvas-outline-work-${{ github.run_id }}
+          path: |
+            .ci-proofs/canvas-outline-work/result.json
+            .ci-proofs/canvas-outline-work/*.png
           if-no-files-found: ignore
           retention-days: 3

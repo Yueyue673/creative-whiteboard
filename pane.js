@@ -7,6 +7,8 @@
  document.documentElement.classList.add('embedded-pane',explorer?'explorer-pane':'canvas-pane');
  const style=document.createElement('style');style.textContent='.embedded-pane body>header{display:none!important}.embedded-pane main{height:100dvh!important}.embedded-pane #workspaceSidebar{top:0!important}.canvas-pane #workspaceSidebar{display:none!important}.embedded-pane #windowWorkspace,.embedded-pane #hint{display:none!important}.explorer-pane #canvas,.explorer-pane #editor{display:none!important}.explorer-pane #workspaceSidebar{position:absolute!important;inset:0 auto auto 0!important;width:100%!important;height:calc(100dvh / var(--interface-scale,1))!important;min-width:0!important;max-width:none!important;border:0!important;resize:none!important;transform:none!important;zoom:var(--interface-scale,1)!important}.explorer-pane .workspace-tabs{margin-top:6px!important}.explorer-pane .sidebar-top{display:none!important}';document.head.append(style);
  $('workspaceSidebar').hidden=!explorer;
+ // Canvas panes never display this sidebar; their shared explorer renders its own live outline.
+ if(!explorer)renderOutline=()=>{};
  const send=(type,extra={})=>parent.postMessage({type,...extra},location.origin);
  const parentHasDialog=()=>{try{return !!parent.document.querySelector('dialog[open]')}catch{return false}};
  function syncDialogClosing(sync){
