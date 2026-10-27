@@ -82,11 +82,22 @@ const {chromium} = require('playwright');
    if (++lateWrites === 1) {await firstSaveGate; await route.continue();}
    else await route.fulfill({status:503, contentType:'application/json', body:JSON.stringify({error:'模拟最后一次保存失败'})});
   });
+  const firstSaveRequest = page.waitForRequest(request => request.method() === 'PUT' && new URL(request.url()).pathname === '/api/boards/a');
   await page.evaluate(() => {
    board.nodes[0].body = '需要保留的当前修改。'; change();
    window.firstSave = persist(); window.failedSwitch = switchBoard('b');
   });
-  await page.waitForFunction(() => !!savePromise && !dirty);
+  // Observe the held PUT itself: a later view edit can legitimately mark dirty again.
+  const firstRequest = await firstSaveRequest;
+  assert.equal(firstRequest.postDataJSON().nodes[0].body, '需要保留的当前修改。');
+  assert(await page.evaluate(() => !!savePromise), 'The first request remains held before the later import');
+  const priorView = await page.evaluate(() => structuredClone(board.view)), canvasRect = await page.locator('#canvas').boundingBox();
+  await page.mouse.move(canvasRect.x + canvasRect.width - 120, canvasRect.y + canvasRect.height - 120);
+  await page.mouse.down({button:'right'});
+  await page.mouse.move(canvasRect.x + canvasRect.width - 170, canvasRect.y + canvasRect.height - 160, {steps:6});
+  await page.mouse.up({button:'right'});
+  assert.notDeepEqual(await page.evaluate(() => structuredClone(board.view)), priorView);
+  assert(await page.evaluate(() => !!savePromise && dirty), 'A native view edit stays dirty while the older request is held');
   await page.evaluate(() => {
    const file = new File(['保存失败后保留的导入。'], '未丢失的记录.txt', {type:'text/plain'});
    file.text = () => new Promise(resolve => window.finishFailedImport = resolve);
@@ -313,19 +324,33 @@ const {chromium} = require('playwright');
   assert(await target.evaluate(id => board.nodes.some(node => node.assetId === id), uploaded.id));
   assert(!await neighbour.evaluate(id => board.nodes.some(node => node.assetId === id), uploaded.id));
   assert.equal(await windowPage.evaluate(() => current().boardId), 'b');
+  // Keep the original tabs and their real conflict notices; this contract needs a clean workbench.
+  const inputBoard = 'native-file-input';
+  assert((await fetch(base + '/api/boards/' + inputBoard, {method:'PUT',
+   headers:{'Content-Type':'application/json', 'If-Match':'new'},
+   body:JSON.stringify({format:'creative-board', version:1, name:'原生文件选择器', nodes:[], edges:[], view:{x:0,y:0,z:1}})})).ok);
+  const inputContext = await browser.newContext({viewport:{width:1460,height:930}}), uploadPage = await inputContext.newPage();
+  uploadPage.on('pageerror', e => errors.push(e.message));
+  await uploadPage.goto(base + '/?board=' + inputBoard);
+  await uploadPage.waitForFunction(id => current()?.boardId === id && pane(current())?.state().boardId === id && !pane(current()).state().loading, inputBoard);
+  assert.equal(await uploadPage.evaluate(() => model.tabs.length), 1);
+  await uploadPage.locator('#openBoards').click();
+  await uploadPage.waitForFunction(() => whiteboardWorkspace.explorer());
+  const uploadLibrary = uploadPage.frames().find(frame => new URL(frame.url()).searchParams.get('explorer') === '1');
+  await uploadLibrary.evaluate(async () => {await showWorkspaceTab('assetPane'); await loadAssets();});
   // Clearing the native file input immediately must not drop the rest of its FileList.
   let releaseMany;
   const manyGate = new Promise(resolve => releaseMany = resolve);
-  await windowPage.route('**/api/assets/upload', async route => {await manyGate; await route.continue();});
-  await library.locator('#assetFiles').setInputFiles([
+  await uploadPage.route('**/api/assets/upload', async route => {await manyGate; await route.continue();});
+  await uploadLibrary.locator('#assetFiles').setInputFiles([
    {name:'upload-one.png', mimeType:'image/png', buffer:png},
    {name:'upload-two.png', mimeType:'image/png', buffer:png}
   ]);
-  await library.waitForFunction(() => whiteboardImports.pending());
-  assert(await windowPage.evaluate(() => {const event = new Event('beforeunload', {cancelable:true}); window.dispatchEvent(event); return event.defaultPrevented;}));
-  await windowPage.waitForFunction(() => document.getElementById('shellStatus').textContent.includes('正在添加素材'));
-  releaseMany(); await library.waitForFunction(() => !whiteboardImports.pending());
-  await windowPage.unroute('**/api/assets/upload');
+  await uploadLibrary.waitForFunction(() => whiteboardImports.pending());
+  assert(await uploadPage.evaluate(() => {const event = new Event('beforeunload', {cancelable:true}); window.dispatchEvent(event); return event.defaultPrevented;}));
+  await uploadPage.waitForFunction(() => document.getElementById('shellStatus').textContent.includes('正在添加素材'));
+  releaseMany(); await uploadLibrary.waitForFunction(() => !whiteboardImports.pending());
+  await uploadPage.unroute('**/api/assets/upload');
   const catalog = await fetch(base + '/api/assets').then(r => r.json());
   assert(catalog.assets.some(asset => asset.title === 'upload-one.png'));
   assert(catalog.assets.some(asset => asset.title === 'upload-two.png'));
