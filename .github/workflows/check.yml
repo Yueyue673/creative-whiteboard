@@ -79,6 +79,7 @@ jobs:
           CANVAS_OUTLINE_PROOF: .ci-proofs/canvas-outline-work
           DOCUMENT_LIBRARY_MULTIPLE_PROOF: .ci-proofs/document-library-multiple
           DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
+          LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -230,5 +231,16 @@ jobs:
           path: |
             .ci-proofs/document-library-multiple-guards/result.json
             .ci-proofs/document-library-multiple-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-recent-order evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-recent-order-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-recent-order/result.json
+            .ci-proofs/library-recent-order/*.png
           if-no-files-found: ignore
           retention-days: 3

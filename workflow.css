@@ -52,3 +52,6 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-search-result-row>.wf-result{display:block;width:100%;margin:0;border:0;box-shadow:none}
 .wf-search-result-row>.wf-result:focus-visible{outline-offset:-3px}
 .wf-search-result-row>.wf-search-compare{align-self:flex-end;margin:0 12px 12px;min-height:40px;padding:6px 12px;font-size:13px}
+
+.wf-library-order{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;font-size:12px;color:var(--ui-muted)}
+.wf-library-order select{min-width:0;max-width:75%;margin:0;color:var(--ui-text)}

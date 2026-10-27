@@ -174,10 +174,23 @@ function wfNodeText(n){
 function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]),...(a.bundle?.nodes||[]).map(wfNodeText)].filter(Boolean).join(' ')}
 function wfExcerpt(text,query,before=40){const clean=String(text||'').replace(/\s+/g,' '),at=Math.max(0,clean.toLowerCase().indexOf(query.toLowerCase())-before);return (at?'…':'')+clean.slice(at,at+190)+(clean.length>at+190?'…':'')}
 function wfMark(text,q){if(!q)return esc(text);const at=text.toLowerCase().indexOf(q.toLowerCase());return at<0?esc(text):esc(text.slice(0,at))+'<mark>'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length))}
+let wfLibraryOrder='original';
+function wfRenderLibraryOrder(){
+ let row=$('assetPane').querySelector('.wf-library-order');
+ if(!row){
+  row=document.createElement('label');row.className='wf-library-order';
+  const text=document.createElement('span'),select=document.createElement('select');text.textContent='内容顺序';select.setAttribute('aria-label','内容顺序');
+  select.innerHTML='<option value="original">原来顺序</option><option value="recent">最近保存优先</option>';
+  select.onchange=()=>{wfLibraryOrder=select.value;assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==$('assetPane');el=el.parentElement)el.scrollTop=0};
+  row.append(text,select);$('assetSearch').after(row);
+ }
+ row.querySelector('select').value=wfLibraryOrder;
+}
+
 const wfRenderAssets=renderAssets;
 renderAssets=function(){
  wfRenderAssets();$('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累 · F2 编辑 · 拖到白板使用副本 · Ctrl+Z 撤销库中操作';
- const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);
+ const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);wfRenderLibraryOrder();
  if(q)$('assetList').querySelectorAll('[data-asset]').forEach(row=>{
   const a=assetById(row.dataset.asset);if(!a)return;
   const location=row.querySelector('small');if(location){location.classList.add('wf-result-location');location.textContent=a.folder?a.folder.split('/').join(' › '):'内容库';location.title=a.folder||''}
@@ -206,7 +219,10 @@ function wfRenderLibrarySearch(q){
 }
 libraryMatches=function(){
  const q=$('assetSearch').value.trim().toLowerCase(),all=wfLibrarySearchScope()==='all';
- return assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
+ const list=assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
+ if(wfLibraryOrder!=='recent')return list;
+ const savedAt=a=>Number.isFinite(Number(a.updated))&&Number(a.updated)>0?Number(a.updated):0;
+ return list.map((item,index)=>({item,index})).sort((a,b)=>savedAt(b.item)-savedAt(a.item)||a.index-b.index).map(row=>row.item);
 };
 const wfOutline=renderOutline;renderOutline=function(){wfOutline();const q=$('search').value.trim();if(!q)return;$('items').querySelectorAll('[data-open]').forEach(row=>{const n=board.nodes.find(n=>n.id===row.dataset.open),p=document.createElement('small');p.innerHTML=wfMark(wfExcerpt(wfNodeText(n),q),q);row.append(p)})};
 let wfSearchSeq=0,wfSearchTimer,wfSearchWritingContext=null;
