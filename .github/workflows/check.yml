@@ -81,6 +81,8 @@ jobs:
           DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
+          PAPER_FIND_PROOF: .ci-proofs/paper-local-find
+          PAPER_FIND_GUARDS_PROOF: .ci-proofs/paper-local-find-guards
           COLLECT_REVIEW_PROOF: .ci-proofs/collect-content-review
           HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
       - name: Keep isolated subset-resource evidence
@@ -279,5 +281,27 @@ jobs:
           path: |
             .ci-proofs/collect-content-review/result.json
             .ci-proofs/collect-content-review/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-local-find evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-local-find-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-local-find/result.json
+            .ci-proofs/paper-local-find/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-local-find-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-local-find-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-local-find-guards/result.json
+            .ci-proofs/paper-local-find-guards/*.png
           if-no-files-found: ignore
           retention-days: 3

@@ -240,6 +240,46 @@
   showDialog('<h2>字体与文字颜色</h2><label>字体名称<input id="contentFontFamily" maxlength="100" placeholder="设备上已安装的字体；留空用默认字体" value="'+esc(n.fontFamily||'')+'"></label><label>文字颜色<input id="contentInk" type="color" value="'+colour(n.inkColor)+'"></label><label><input id="contentDefaultInk" type="checkbox" '+(!n.inkColor?'checked':'')+'>自动适应纸面颜色</label>',[['取消',()=>$('dialog').close()],['应用',()=>{if(board!==session.board||boardId!==session.boardId||!live(n))return $('dialog').close();const family=font($('contentFontFamily').value),ink=$('contentDefaultInk').checked?'':$('contentInk').value;if(family!==(n.fontFamily||'')||ink!==(n.inkColor||'')){undoPoint();if(family)n.fontFamily=family;else delete n.fontFamily;if(ink)n.inkColor=ink;else delete n.inkColor;change();drawNodes()}$('dialog').close()}]]);
  };($('textSizeTools')?.querySelector('.text-size-popup')||$('drawingTools')?.querySelector('div')||$('creationDock')).append(typeButton);
  for(const key of ['documentMode','documentParagraph','fontFamily','inkColor'])if(!wfContentFields.includes(key))wfContentFields.push(key);Object.assign(wfLabels,{documentMode:'长文排版',documentParagraph:'正文段落',fontFamily:'字体',inkColor:'文字颜色'});
- const dismissFormat=()=>{if(closeLibraryPicker())return true;const format=document.querySelector('.document-format[open],.document-after[open]');if(!format)return false;format.open=false;format.querySelector('summary').focus({preventScroll:true});return true};
+ // Temporary literal search inside the same expanded paper and native fields.
+ const dismissPaperFind=(()=>{
+  let origin=null,panel=null,returnButton=null,lastField=null;
+  const surface=()=>$('immersiveSurface');
+  function owns(){const root=surface(),node=board?.nodes.find(n=>n.id===root?.dataset.id);return !!(root&&$('dialog').open&&node?.documentMode&&editorId===node.id&&!loading&&!blocked)}
+  function ancestors(el){const rows=[];for(let p=el;p&&p!==document.body;p=p.parentElement)rows.push(p);return rows}
+  const fieldState=el=>({el,value:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,scrolls:ancestors(el).map(el=>({el,top:el.scrollTop,left:el.scrollLeft}))});
+  function remember(){const el=document.activeElement;if(owns()&&surface().contains(el)&&el.matches('input,textarea')&&!el.readOnly&&!el.disabled)lastField=el}
+  function valid(){return origin&&board===origin.owner&&boardId===origin.boardId&&surface()===origin.root&&owns()}
+  function closePanel(){panel?.remove();panel=null}
+  function reset(){closePanel();returnButton?.remove();returnButton=null;origin=null}
+  function restore(){if(!valid())return reset();const place=origin.place;reset();if(place?.el.isConnected&&place.el.value===place.value){place.el.focus({preventScroll:true});place.el.setSelectionRange(place.start,place.end,place.direction);for(const s of [...place.scrolls].reverse()){s.el.scrollTop=s.top;s.el.scrollLeft=s.left}}}
+  function showReturn(){if(returnButton?.isConnected)return;const session=origin,button=document.createElement('button');returnButton=button;button.type='button';button.dataset.paperFindReturn='';button.textContent='返回查找前';button.onclick=()=>{if(origin===session&&button.isConnected)restore()};document.querySelector('.immersive-heading>div')?.prepend(button)}
+  function position(){if(!panel)return;if(!valid())return reset();const head=document.querySelector('.immersive-heading');if(!head)return reset();const rect=head.getBoundingClientRect(),top=Math.max(8,Math.min(rect.bottom+6,innerHeight-224));panel.style.top=top+'px';panel.style.maxHeight=Math.max(150,innerHeight-top-12)+'px';panel.style.width=Math.min(520,innerWidth-24)+'px';panel.style.left=Math.max(12,(innerWidth-Math.min(520,innerWidth-24))/2)+'px'}
+  function open(){
+   if(!owns())return;closeLibraryPicker();
+   if(!valid()){reset();origin={owner:board,boardId,root:surface(),place:lastField?.isConnected&&surface().contains(lastField)?fieldState(lastField):null}}
+   closePanel();const session=origin,box=document.createElement('section');panel=box;box.className='paper-local-find';
+   box.innerHTML='<div><b>在本文查找</b><button type="button" data-paper-find-cancel>返回原处</button></div><input type="search" aria-label="查找本文文字" placeholder="输入原句中的文字"><p role="status"></p><div data-paper-find-results></div>';
+   $('dialog').append(box);const current=()=>origin===session&&panel===box&&box.isConnected&&valid(),input=box.querySelector('input'),status=box.querySelector('[role=status]'),results=box.querySelector('[data-paper-find-results]');
+   box.querySelector('[data-paper-find-cancel]').onclick=()=>{if(current())restore()};
+   input.oninput=()=>{
+    if(!current())return;const query=input.value;results.replaceChildren();if(!query){status.textContent='只查当前展开的文字';return}
+    let count=0;for(const field of session.root.querySelectorAll('.live-layout textarea,.live-layout input[type=text]')){
+     if(field.readOnly||field.disabled||!field.getClientRects().length)continue;const value=field.value;
+     for(let from=0;count<80;){const at=value.indexOf(query,from);if(at<0)break;from=at+query.length;count++;const section=field.closest('[data-cell-item]'),label=section?'第 '+(Number(section.dataset.cellItem)+1)+' 块':'文档',button=document.createElement('button');button.type='button';button.textContent=label+' · '+value.slice(Math.max(0,at-18),Math.min(value.length,at+query.length+36));button.dataset.paperFindHit='';
+      button.onclick=()=>{if(!current()||!button.isConnected||!field.isConnected||!session.root.contains(field))return;if(field.value!==value){input.oninput();return}closePanel();field.focus({preventScroll:true});field.setSelectionRange(at,at+query.length,'forward');field.scrollIntoView({block:'center'});showReturn()};results.append(button);
+     }if(count>=80)break;
+    }status.textContent=count?(count>=80?'显示前 80 处':count+' 处匹配'):'本文没有匹配文字';
+   };
+   position();input.oninput();input.focus({preventScroll:true});
+  }
+  function mount(){if(origin&&!valid())reset();const head=document.querySelector('.immersive-heading>div');if(!head)return;if(!owns()){head.querySelector('[data-paper-find-open]')?.remove();return}if(!head.querySelector('[data-paper-find-open]')){const button=document.createElement('button');button.type='button';button.dataset.paperFindOpen='';button.textContent='查找';button.setAttribute('aria-label','在本文查找');button.onpointerdown=remember;button.onclick=open;head.prepend(button)}}
+  for(const type of ['focusin','selectionchange'])document.addEventListener(type,remember,true);
+  document.addEventListener('input',event=>{if(origin?.root.contains(event.target))reset();remember()},true);
+  document.addEventListener('pointerdown',event=>{if(origin&&!panel?.contains(event.target)&&!event.target.closest?.('[data-paper-find-open],[data-paper-find-return]'))reset()},true);
+  window.addEventListener('resize',position);window.visualViewport?.addEventListener('resize',position);$('dialog').addEventListener('close',reset);
+  new MutationObserver(mount).observe($('dialog'),{childList:true,subtree:true});mount();
+  return ()=>{if(!origin)return false;restore();return true};
+ })();
+ const dismissFormat=()=>{if(dismissPaperFind())return true;if(closeLibraryPicker())return true;const format=document.querySelector('.document-format[open],.document-after[open]');if(!format)return false;format.open=false;format.querySelector('summary').focus({preventScroll:true});return true};
  window.whiteboardDocumentPaper={isDocument,append,dismissFormat};let scheduled=false;new MutationObserver(()=>{if(!scheduled){scheduled=true;requestAnimationFrame(()=>{scheduled=false;mount()})}}).observe($('dialog'),{childList:true,subtree:true});if(board)mount();
 })();
