@@ -646,7 +646,35 @@
   }catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message}
  }
  boardLinksButton=wfAddMenu('白板关联',openBoardLinks);
- window.whiteboardNoteEditor={openBoardLinks,sourceContext,fieldSelector,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
+ // A search preview keeps the original live writer mounted; it never inserts a link.
+ function captureSearchContext(){
+  if(sourcePeek||$('dialog').open||loading||blocked)return null;
+  const author=board?.nodes.find(node=>node.id===editorId);
+  if(!author||!selected.has(author.id)||!['note','table'].includes(author.type)||author.canvasObject)return null;
+  const root=[...$('nodes').children].find(node=>node.dataset.id===author.id),place=captureReferencePlace(author.id),input=referenceFieldAt(place,root);
+  if(!root||place?.mode!=='canvas'||!input?.matches('textarea,input')||input.readOnly||input.disabled||!input.getClientRects().length||place.field?.value===null)return null;
+  return {source:board,boardId,id:author.id,author,root,input,value:input.value,place};
+ }
+ function ownsSearchContext(context){
+  return !!context&&board===context.source&&boardId===context.boardId&&editorId===context.id&&selected.has(context.id)&&board.nodes.includes(context.author)&&context.root.isConnected&&context.input.isConnected&&context.root.contains(context.input)&&context.input.value===context.value&&!loading&&!blocked;
+ }
+ async function compareSearchResult(context,target,current,close){
+  if(!ownsSearchContext(context)||!document.hasFocus()||typeof current!=='function'||!current())return false;
+  if(typeof target?.boardId!=='string'||typeof target?.id!=='string')throw Error('资料位置已变化，请重新查找。');
+  const epoch=++referenceEpoch;
+  const data=target.boardId===boardId?board:await(await api('/api/boards/'+encodeURIComponent(target.boardId))).json();
+  if(epoch!==referenceEpoch||!ownsSearchContext(context)||!document.hasFocus()||!current())return false;
+  const records=noteRecords(data,target.boardId),matches=records.filter(row=>row.node.id===target.id);
+  if(matches.length!==1)throw Error('暂时无法唯一对应原文，请用原结果定位。');
+  const row=matches[0];
+  if(!canCompare(row)||row.board===boardId&&row.node===context.author)throw Error('这块内容请用原结果定位。');
+  const dialog=$('dialog');
+  await new Promise(resolve=>{dialog.addEventListener('close',resolve,{once:true});close()});
+  if(epoch!==referenceEpoch||!ownsSearchContext(context)||!document.hasFocus()||dialog.open)return false;
+  return peekReference(row,context.place,records);
+ }
+
+ window.whiteboardNoteEditor={openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.
