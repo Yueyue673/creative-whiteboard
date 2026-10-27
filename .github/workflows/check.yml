@@ -81,6 +81,7 @@ jobs:
           DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
+          HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -254,5 +255,16 @@ jobs:
           path: |
             .ci-proofs/empty-example-entry/result.json
             .ci-proofs/empty-example-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated help-reuse-journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: help-reuse-journey-${{ github.run_id }}
+          path: |
+            .ci-proofs/help-reuse-journey/result.json
+            .ci-proofs/help-reuse-journey/*.png
           if-no-files-found: ignore
           retention-days: 3
