@@ -29,6 +29,39 @@
   const focusOwner=document.activeElement;
   requestAnimationFrame(()=>{if(board!==owner||boardId!==ownerId||!live(n)||editorId!==n.id||document.activeElement!==focusOwner)return;const index=n.cellItems[0][0].findIndex(value=>value.id===item.id);if(index<0)return;const root=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');const field=root?.querySelector('[data-cell-item="'+index+'"] '+(kind==='table'?'[data-doc-column]':kind==='paragraph'?'[data-cell-note-field="body"]':'[data-cell-note-field="title"]'));field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'})});
  }
+ // Keep an expanded paper's own menus inside its visible paper.
+ const toolPanels=new Map();let toolPanelFrame=0;
+ function restoreToolPanel(details){
+  const state=toolPanels.get(details);if(!state)return;
+  if(state.style===null)state.panel.removeAttribute('style');else state.panel.setAttribute('style',state.style);
+  toolPanels.delete(details);
+ }
+ function placeToolPanels(){
+  toolPanelFrame=0;const paper=$('dialog'),paperBox=paper.getBoundingClientRect();
+  for(const [details,state]of toolPanels){
+   const panel=state.panel,summary=details.querySelector('summary');
+   if(!details.isConnected||!details.open||!paper.open||!details.closest('#immersiveSurface')||!summary){restoreToolPanel(details);continue}
+   const scroll={top:panel.scrollTop,left:panel.scrollLeft};
+   if(state.style===null)panel.removeAttribute('style');else panel.setAttribute('style',state.style);
+   const anchor=summary.getBoundingClientRect(),natural=panel.getBoundingClientRect(),gap=8;
+   if(natural.left>=paperBox.left+gap&&natural.right<=paperBox.right-gap&&natural.top>=paperBox.top+gap&&natural.bottom<=paperBox.bottom-gap)continue;
+   const width=Math.min(natural.width,Math.max(1,paperBox.width-gap*2));
+   Object.assign(panel.style,{position:'fixed',boxSizing:'border-box',width:width+'px',maxWidth:width+'px'});
+   const height=panel.getBoundingClientRect().height,below=Math.max(1,paperBox.bottom-gap-anchor.bottom-gap),above=Math.max(1,anchor.top-gap-paperBox.top-gap),up=height>below&&above>below,shown=Math.min(height,up?above:below);
+   Object.assign(panel.style,{left:Math.max(paperBox.left+gap,Math.min(anchor.left,paperBox.right-width-gap))+'px',top:(up?anchor.top-gap-shown:anchor.bottom+gap)+'px',maxHeight:shown+'px',overflow:'auto'});
+   void panel.offsetHeight;panel.scrollTop=scroll.top;panel.scrollLeft=scroll.left;
+   const active=document.activeElement;
+   if(panel.contains(active)){const box=panel.getBoundingClientRect(),item=active.getBoundingClientRect();if(item.bottom>box.bottom-gap)panel.scrollTop+=item.bottom-box.bottom+gap;else if(item.top<box.top+gap)panel.scrollTop-=box.top+gap-item.top}
+  }
+ }
+ function scheduleToolPanels(){if(toolPanels.size&&!toolPanelFrame)toolPanelFrame=requestAnimationFrame(placeToolPanels)}
+ document.addEventListener('toggle',event=>{
+  const details=event.target;if(!details.matches?.('.document-format,.document-after'))return;
+  if(details.open&&details.closest('#immersiveSurface')&&!toolPanels.has(details)){const panel=details.querySelector(':scope>div');if(panel)toolPanels.set(details,{panel,style:panel.getAttribute('style')})}
+  scheduleToolPanels();
+ },true);
+ window.addEventListener('resize',scheduleToolPanels);new ResizeObserver(scheduleToolPanels).observe($('dialog'));$('dialog').addEventListener('close',scheduleToolPanels);
+
  function mount(){
   const lookup=new Map(board?.nodes.map(n=>[n.id,n])||[]);
   for(const root of document.querySelectorAll('#nodes>.node[data-id],#immersiveSurface[data-id]')){
@@ -84,6 +117,7 @@
     if(row)item.rows.push(item.columns.map(()=>''));else{item.columns.push('');item.rows.forEach(r=>r.push(''))}drawNodes();change();
    };
   }
+  scheduleToolPanels();
  }
  const draw=drawNodes;drawNodes=function(){draw();mount()};const refresh=refreshSelectionUI;refreshSelectionUI=function(){refresh();mount()};const bind=bindInline;bindInline=function(...args){const result=bind(...args);mount();return result};
  document.addEventListener('pointerdown',e=>{for(const format of document.querySelectorAll('.document-format[open],.document-after[open]'))if(!format.contains(e.target))format.open=false},true);
