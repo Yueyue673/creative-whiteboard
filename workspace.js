@@ -352,6 +352,16 @@ $('emptyLibrary').onclick=()=>{
  if(parent!==window){try{if(parent.document.querySelector('dialog[open]'))return}catch{return}}
  showWorkspaceTab('assetPane');
 };
+// Existing public example; the full-task check compares with examples/getting-started.json.
+const publicStarterExample={"format":"creative-board","version":1,"name":"从想法到画面","folder":"","view":{"x":60,"y":40,"z":1},"nodes":[{"id":"question","type":"note","title":"先记下一个问题","body":"这段内容想让观众看见什么？\n\n把观察、疑问和暂时没想清的部分写在这里。","x":0,"y":0,"w":335,"h":270,"color":"#fff0aa","tags":[],"sizeMode":"manual","fontSize":18,"titleFontSize":26},{"id":"observation","type":"note","title":"留住具体的观察","body":"光从窗边照进来。\n同一张纸，转过一个角度，表面的折痕就变得清楚。","x":425,"y":0,"w":335,"h":270,"color":"#dfead8","tags":[],"sizeMode":"manual","fontSize":18,"titleFontSize":26},{"id":"shots","type":"table","title":"把观察变成镜头","body":"","columns":["画面","要检查的事"],"rows":[["桌面与窗边的纸","能否交代光从哪里来"],["纸张缓慢转动","折痕有没有显现"],["停下来，回看","给观众看清变化的时间"]],"cellImages":[[[],[]],[[],[]],[[],[]]],"x":0,"y":320,"w":760,"h":350,"color":"#ffffff","tags":[],"sizeMode":"manual","fontSize":18,"titleFontSize":26},{"id":"next","type":"note","title":"下一步，动手试一次","body":"先拍十秒，再决定。\n\n选择这些内容后可以整组复制，也可以收进内容库。","x":850,"y":60,"w":290,"h":310,"color":"#e4e4f1","tags":[],"sizeMode":"manual","fontSize":18,"titleFontSize":26}],"edges":[{"id":"e1","from":"question","to":"observation","label":"从问题出发"},{"id":"e2","from":"observation","to":"next","label":"验证观察"},{"id":"e3","from":"observation","to":"shots","label":"整理成分镜"}]};
+const exampleRow=document.createElement('p'),exampleStart=document.createElement('button');exampleRow.className='empty-example inline-ui';exampleStart.type='button';exampleStart.id='emptyPublicExample';exampleStart.textContent='试用一组公开示例';exampleRow.append(exampleStart);$('empty').append(exampleRow);
+exampleStart.onclick=event=>{
+ event.stopPropagation();if(!board||board.nodes.length||loading||blocked||$('empty').hidden||document.hidden||!document.hasFocus()||frameElement?.hidden||$('dialog').open||window.whiteboardImports?.pendingCanvas())return;
+ if(parent!==window){try{if(parent.document.querySelector('dialog[open]'))return}catch{return}}
+ insertBundle(clone({nodes:publicStarterExample.nodes,edges:publicStarterExample.edges}));fit();toast('已放入公开示例 · Ctrl+Z 可撤销');canvas.focus({preventScroll:true});
+};
+exampleStart.ondblclick=event=>{event.preventDefault();event.stopPropagation()};
+
 // Pending or failed spatial imports take this area; their original tools remain.
 // Existing history controls stay available when an empty board can be restored.
 const syncEmptyStart=()=>{canvas.classList.toggle('empty-start',!$('empty').hidden);canvas.classList.toggle('start-history',!$('undo').disabled||!$('redo').disabled)};

@@ -556,3 +556,6 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 .library-document-description summary{font-size:13px;color:var(--ui-muted);cursor:pointer}
 .library-content-form .library-document-description #library-body{min-height:72px}
 .library-edit-option .wf-content-diff-data{margin:8px 0}
+
+#empty .empty-example{margin:14px 0 0;pointer-events:auto}
+#empty .empty-example button{min-height:44px;padding:8px 12px;color:var(--ui-canvas-text,var(--ui-text));background:transparent;border-color:transparent;font-size:13px}
