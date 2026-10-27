@@ -17,6 +17,18 @@
 
 查看托管方式，请阅读 [开发分支的托管说明](https://github.com/Yueyue673/creative-whiteboard/blob/codex/hosted-linux-checks/hosted/README.md)。运行检查通过、源码推送、程序部署和实体设备体验是不同的验收，不能互相代替。
 
+## 按创作任务查看独立候选
+
+下面几个入口对应尚未合入默认 main、尚未部署网站的独立候选。想先正常使用，请按上方的默认分支入口开始；想了解改进，再按要完成的创作任务查看。
+
+| 想完成什么 | 从这里看起 |
+| --- | --- |
+| 留下一段原话，下次找到合适材料再取用 | [所选原文存到库](#candidate-text-resource) · [在组合里先读长文再挑选](#candidate-group-document) |
+| 在长文里接着写、补材料 | [按原纸色和墨色写长文](#candidate-document-paper) · [把材料接在选定段落后](#candidate-document-after) |
+| 明确修改库中原件 | [在库中维护长文文字](#candidate-document-maintenance) · [先看长文的具体修改](#candidate-document-comparison) |
+
+每项下面保留对应源码、验收范围与尚未验证的限制。选择入口不会改变当前使用的版本，也不会自动更新白板或库中的原件。
+
 ## 独立候选：调整图片文字标注的字号
 
 在原图片编辑器选中文字标注后，四角可以等比改变字号，保持相反角的位置；文字内容、字体与原图保持，拖内部仍是移动。使用实际字形边界处理小字号，窄选框重叠的触摸范围按最近的可见角确定目标。沿用现有字号范围，不增加新的保存字段或工具面板。
@@ -444,7 +456,11 @@
 
 本项导出的是可继续编辑的文字与现有引用，不打包媒体原件，不自动改写为成片顺序。给定深层组合用于核对导出，不宣称所有层级均有直接编辑入口；窄窗保留作者主动视角，不声称实体设备舒适度通过。[a28db3d](https://github.com/Yueyue673/creative-whiteboard/commit/a28db3d6b4de62bf876b4e5862bf879c9ae999e7)的[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40314391628)、[push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40314240935)与[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40314442299)均已自然成功，保持[草稿 PR #24](https://github.com/Yueyue673/creative-whiteboard/pull/24)；未上传服务器、部署或安装私人程序，实体键盘、手机/平板、输入法、真人理解与长期体验未验。冻结1500313与既有草稿保持。
 
+<a id="candidate-document-comparison"></a>
+
 ## 独立候选：比较长文原件时先看具体修改
+
+对应[源码 04ff2bc](https://github.com/Yueyue673/creative-whiteboard/commit/04ff2bccc864ba5d1692570f83c2083dc6b9ad82)，范围与最新检查见 [PR #25](https://github.com/Yueyue673/creative-whiteboard/pull/25)。
 
 长文和库中原件比较“单元格内容”时，先列出已有对象中改动的位置及前后原文，完整内容和数据可展开查看。原勾选范围仍是一整项单元格内容，窗口直接说明这一点；没有加入按单元格独立应用的入口。对象身份不再对应、对象重排或摘要超出范围时保留原完整比较，避免强行配对。其他字段、图片比较与原取消/应用流程保持。
 
@@ -470,7 +486,11 @@
 
 本项为只读文字预览，附带图片和文件只显示名称，不新增媒体播放或打包。较大或较深的内容超出预览预算时沿用原组合呈现；不声称全部形状、全部格式或真人理解已验。当前独立源码候选，本机验证通过，准确源码CI另记于候选PR；未上传服务器、部署、离线安装或运行私人程序。实体设备、输入法和长期体验另验，冻结1500313和原草稿保持。
 
+<a id="candidate-document-maintenance"></a>
+
 ## 独立候选：在库中直接维护长文原件的文字
+
+对应[源码 f070354](https://github.com/Yueyue673/creative-whiteboard/commit/f07035417ac1efeeede2b1cfe33690890ddddb7f)，范围与最新检查见 [PR #28](https://github.com/Yueyue673/creative-whiteboard/pull/28)。
 
 长文资源的“编辑原件”可以直接修改已有段落、文中便签和表格的列名与材料文字，原来的说明单独收起。维护原件不必先取出整份副本再合回；放到白板的副本保持原样。内容结构和附件保留，增删或移动文中内容仍在原白板编辑。
 
@@ -490,7 +510,11 @@
 
 本项只返回画布视角，不自动聚焦输入框；展开编辑、所有混合材料形状和跨设备返回不在本项范围。独立源码候选的准确CI另记于草稿PR；未上传服务器、部署、离线安装或运行私人程序。实体设备、输入法、真人理解与长期体验未验，冻结1500313和原草稿保持。
 
+<a id="candidate-text-resource"></a>
+
 ## 独立候选：把便签中的所选原文存到库
+
+对应[源码 bfaadf2](https://github.com/Yueyue673/creative-whiteboard/commit/bfaadf2c964eece50d88af32177261c97fac507f)，范围与最新检查见 [PR #31](https://github.com/Yueyue673/creative-whiteboard/pull/31)。
 
 在便签中选中文字，打开“文字格式”，用“所选文字存到库”查看片段、填写可选名称并选择存放位置。库中得到独立便签；原记录、展开编辑框、文字选区和文本撤销留在原处。保存不经过剪贴板，正在复制别的内容也可继续；保存后可按“继续写作”或 Esc 返回。
 
@@ -510,7 +534,11 @@
 
 本项为独立源码候选，本机完整任务通过，准确源码CI另记于候选PR。两种可返回的行数方案仅作画面对照，不冒充真人理解或速度测量。较长正文继续从预览阅读；不声称所有资源类型、实体设备、输入法或长期体验已验。未合并、上传服务器、部署或安装私人程序，冻结1500313和原草稿保持。
 
+<a id="candidate-group-document"></a>
+
 ## 独立候选：在组合里先读长文再挑选
+
+对应[源码 e17ca58](https://github.com/Yueyue673/creative-whiteboard/commit/e17ca5810869c7e2a544d67b12b4550097f5a8ac)，范围与最新检查见 [PR #34](https://github.com/Yueyue673/creative-whiteboard/pull/34)。
 
 在内容库预览混合组合时，长文条目可就地“阅读原文”，按需显示已有段落、文中便签和表格。阅读与收起保持原勾选；收起后回到对应条目，再决定取哪些内容。原来的放入目标、整组或所选放入及原件操作保持，阅读本身不写入作者内容。
 
@@ -520,7 +548,11 @@
 
 当前独立源码候选，本机完整任务通过，准确CI另记于草稿PR。临时两种阅读方案不冒充源码、真人理解或速度测量；较长原文仍需滚动，表格可在自身区域横向阅读，不声称任意形状或实体设备舒适。未合并、上传服务器、部署或安装私人程序；实体键盘、手机平板、输入法与长期体验未验，冻结1500313和原草稿保持。
 
+<a id="candidate-document-paper"></a>
+
 ## 独立候选：长文按原纸色继续写
+
+对应[源码 012a119](https://github.com/Yueyue673/creative-whiteboard/commit/012a119fef3712e9f4e595324a5edde6210be760)，范围与最新检查见 [PR #35](https://github.com/Yueyue673/creative-whiteboard/pull/35)。
 
 原生新建长文后，浅色纸面会被工作台表面覆盖；用原“字体 / 颜色”选择深色文字时，正文与灰底接近。现在长文沿用原纸面颜色与对应自动墨色，标题和透明正文使用同一纸面墨色；自选文字颜色与字体保持。嵌入便签、文中表格保留自己的纸面规则，原“工作台灰”选项含义、工具颜色、内容结构和保存格式保持。字体名称控件沿用界面墨色，便于继续操作。
 
@@ -528,7 +560,13 @@
 
 本项是独立源码候选，本机通过与准确CI分别记录；尚未上传服务器、部署或安装私人程序。窄窗任务是标签返回，未称双栏或实体手机验收；实体键盘/输入法、真人理解与长期体验未验，冻结1500313和既有草稿保持。
 
+准确012a的 [Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40431677478)、[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40431675209) 与 [push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40431595526) 已全部自然成功，保持原头草稿，未部署。
+
+<a id="candidate-document-after"></a>
+
 ## 独立候选：把材料接在选定长文段落后
+
+对应[源码 379d7cd](https://github.com/Yueyue673/creative-whiteboard/commit/0b4a5d392e3e07366d4c4247843e72afdb8a2e96)，范围与最新检查见 [PR #36](https://github.com/Yueyue673/creative-whiteboard/pull/36)。
 
 在长文里选中原段落或文中材料后，可以用“在此处后添加”选择正文、便签、表格。菜单显示对应块的位置与最新原文开头；新增内容接在这块后面，并定位到新内容的原编辑字段。原三个“＋”按钮仍追加到末尾，本项不把光标所在位置拆成两个段落，也不改变既有内容顺序。
 
@@ -537,6 +575,8 @@
 本项接续纸面候选，属于独立源码分支，本机、准确CI、服务器QA与部署分别记录；未上传服务器、部署或安装私人程序。原文、手动尺寸、嵌入对象身份、备注与保存格式保持。未宣称所有复杂长文形状、全部窗口尺寸、快速切换时序、真人理解/速度、输入法或长期体验已验，冻结1500313和既有草稿保持。
 
 原01a9260的Hosted运行40432791969在未改动的邮箱测试出现“预期429、实际200”，原失败保留。用测试专用数据库与内存邮件，已稳定复现两次请求跨原固定60秒窗时的同一断言差异，同窗仍为429；原CI未记录每次请求时间，不能独立确认就是该边界。现在只把该测试的同窗时钟固定，并补核下一固定窗允许再次发送，服务端限流/邮件/登录源码保持。此测试夹具修正与原运行源码01a9260的验收范围分开，新准确头的CI结果另记，不把本机通过冒充Linux完成。
+
+eb4653b仅修对应邮箱测试夹具与状态说明，前端运行字节与01a9260原样相等；其 [Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/40434362215) 已自然成功，原01a失败继续保留，自动Checks按原准确头接续。这里更新文档入口，没有再修改运行源码或派发Hosted。
 
 原eb两项Checks在新段后任务的合成服务启动前失败：测试未设置PYTHON时，新增脚本未沿用原默认python。现只补原测试默认值，取消PYTHON变量、保留PATH解释器的本机宽窄完整任务通过。原6080 PR Checks另一次摘录高度断言失败，当前本机准确未改6080的严格任务未复现；没有因此改产品样式或放宽两行上限。对应测试现在在字体与两帧原生布局就绪后量取同一严格上限，保留就绪前/后高度、行高和祖先变换采样，供准确CI继续核定；原失败和未知根因保持。此修正仅测试及说明，运行字节与01a/eb相等，不重复派发运行Hosted。
 
