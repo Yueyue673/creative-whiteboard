@@ -67,6 +67,8 @@ jobs:
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
           VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
           DOCUMENT_TOOL_PROOF: .ci-proofs/document-tool-panels
+          DOCUMENT_LIBRARY_PROOF: .ci-proofs/document-library-insert
+          DOCUMENT_LIBRARY_GUARD_PROOF: .ci-proofs/document-library-insert-guards
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -105,5 +107,25 @@ jobs:
           path: |
             .ci-proofs/document-tool-panels/result.json
             .ci-proofs/document-tool-panels/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated document-library-insert evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-insert-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-insert/result.json
+            .ci-proofs/document-library-insert/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated document-library-insert-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-insert-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-insert-guards/result.json
+            .ci-proofs/document-library-insert-guards/*.png
           if-no-files-found: ignore
           retention-days: 3
