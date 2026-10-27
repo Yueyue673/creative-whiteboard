@@ -69,6 +69,8 @@ jobs:
           DOCUMENT_TOOL_PROOF: .ci-proofs/document-tool-panels
           DOCUMENT_LIBRARY_PROOF: .ci-proofs/document-library-insert
           DOCUMENT_LIBRARY_GUARD_PROOF: .ci-proofs/document-library-insert-guards
+          DOCUMENT_LIBRARY_PIECES_PROOF: .ci-proofs/document-library-pieces
+          DOCUMENT_LIBRARY_PIECES_GUARD_PROOF: .ci-proofs/document-library-pieces-guards
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -127,5 +129,25 @@ jobs:
           path: |
             .ci-proofs/document-library-insert-guards/result.json
             .ci-proofs/document-library-insert-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated document-library-pieces evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-pieces-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-pieces/result.json
+            .ci-proofs/document-library-pieces/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated document-library-pieces-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-pieces-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-pieces-guards/result.json
+            .ci-proofs/document-library-pieces-guards/*.png
           if-no-files-found: ignore
           retention-days: 3
