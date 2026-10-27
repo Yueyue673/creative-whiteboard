@@ -67,13 +67,26 @@ class EmailRegistrationTests(TestCase):
         self.assertFalse(Account.objects.exists())
 
     def test_resend_throttle_and_server_disabled_do_not_send(self):
-        self.send()
-        self.assertEqual(self.post('/api/register/code', {'email': 'new@example.test'}).status_code, 429)
-        self.assertEqual(len(mail.outbox), 1)
-        with override_settings(HOSTED_EMAIL_REGISTRATION=False):
-            self.assertEqual(self.post('/api/register/code', {'email': 'other@example.test'}).status_code, 503)
-            self.assertEqual(self.register('123456').status_code, 503)
-        self.assertEqual(len(mail.outbox), 1)
+        # The two attempts deliberately occupy the same fixed throttle window.
+        with patch("core.services.timezone.now", return_value=timezone.now()):
+            self.send()
+            self.assertEqual(self.post('/api/register/code', {'email': 'new@example.test'}).status_code, 429)
+            self.assertEqual(len(mail.outbox), 1)
+            with override_settings(HOSTED_EMAIL_REGISTRATION=False):
+                self.assertEqual(self.post('/api/register/code', {'email': 'other@example.test'}).status_code, 503)
+                self.assertEqual(self.register('123456').status_code, 503)
+            self.assertEqual(len(mail.outbox), 1)
+
+    def test_resend_cooldown_allows_the_next_fixed_window(self):
+        now = timezone.now()
+        start = now - timedelta(seconds=int(now.timestamp()) % 60, microseconds=now.microsecond)
+        with patch("core.services.timezone.now", return_value=start + timedelta(seconds=59.9)):
+            self.send()
+            self.assertEqual(self.post('/api/register/code', {'email': 'new@example.test'}).status_code, 429)
+        with patch("core.services.timezone.now", return_value=start + timedelta(seconds=60.1)):
+            self.assertEqual(self.post('/api/register/code', {'email': 'new@example.test'}).status_code, 200)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertFalse(Account.objects.exists())
 
     def test_existing_account_is_untouched_and_response_not_enumerating(self):
         account = Account.objects.create_user('existing@example.test', 'Existing-Secret-443!', display_name='已有账号')
