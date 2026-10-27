@@ -1,10 +1,11 @@
 const net = require('node:net');
 
-// Chromium blocks these ports even when a local HTTP server can bind them.
-// Source: https://chromium.googlesource.com/chromium/src/+/main/net/base/port_util.cc
+// Chromium and Node Fetch block ports even when a local HTTP server can bind them.
+// Sources: https://chromium.googlesource.com/chromium/src/+/main/net/base/port_util.cc
+// https://fetch.spec.whatwg.org/#port-blocking
 // This set covers ports above the privileged range; lower ports are rejected too.
-const blocked = new Set([1719, 1720, 1723, 2049, 3659, 4045, 5060, 5061,
-  6000, 6566, 6665, 6666, 6667, 6668, 6669, 6697, 10080]);
+const blocked = new Set([1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061,
+  6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080]);
 
 module.exports = async function browserPort() {
   for (let attempt = 0; attempt < 64; attempt++) {
