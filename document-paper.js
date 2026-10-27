@@ -45,19 +45,23 @@
     for(const [kind,label]of[['paragraph','正文'],['note','便签'],['table','表格']]){const b=document.createElement('button');b.type='button';b.textContent='＋ '+label;b.onclick=e=>{e.stopPropagation();if(live(n)&&editorId===n.id)append(n,kind)};tools.append(b)}toolbar.prepend(tools);
    }
    if(toolbar&&!toolbar.querySelector('.document-after')){
-    const after=document.createElement('details');after.className='document-after inline-ui';after.hidden=true;
-    const summary=document.createElement('summary'),panel=document.createElement('div'),caption=document.createElement('p');caption.className='document-after-context';panel.append(caption);after.append(summary,panel);toolbar.insertBefore(after,toolbar.querySelector('.document-insert').nextSibling);
+    const after=document.createElement('details');after.className='document-after inline-ui';
+    const summary=document.createElement('summary'),panel=document.createElement('div'),caption=document.createElement('p');summary.textContent='在此处后添加';caption.className='document-after-context';panel.append(caption);after.append(summary,panel);toolbar.insertBefore(after,toolbar.querySelector('.document-insert').nextSibling);
     const owner=board,ownerId=boardId;let anchor=null;
     const valid=()=>board===owner&&boardId===ownerId&&live(n)&&editorId===n.id&&after.isConnected;
+    const ready=()=>valid()&&anchor!==null&&n.cellItems?.[0]?.[0]?.some(item=>item.id===anchor);
+    const sync=()=>{const enabled=!!ready();summary.setAttribute('aria-disabled',String(!enabled));summary.tabIndex=enabled?0:-1;summary.title=enabled?'在选中的原文块后添加':'先选择长文里的一段或材料';for(const button of panel.querySelectorAll('button'))button.disabled=!enabled;if(!enabled)after.open=false};
+    summary.addEventListener('click',e=>{if(!ready()){e.preventDefault();e.stopPropagation()}});
+    summary.addEventListener('keydown',e=>{if(!ready()&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.stopImmediatePropagation()}});
     const update=e=>{const section=e.target.closest?.('[data-cell-item]');if(section&&editing.contains(section)){
      const item=n.cellItems?.[+section.dataset.cellR]?.[+section.dataset.cellC]?.[+section.dataset.cellItem];if(!item||+section.dataset.cellR!==0||+section.dataset.cellC!==0)return;
-     anchor=item.id;after.hidden=false;summary.textContent=item.documentParagraph?'在这一段后添加':'在这块内容后添加';
+     anchor=item.id;sync();
      caption.textContent='第 '+(+section.dataset.cellItem+1)+' 块 · '+String(item.title||item.body||(item.type==='table'?'表格':'正文')).split('\n')[0].slice(0,70);
-    }else if(e.target.matches?.('#title')){anchor=null;after.hidden=true;after.open=false}};
+    }else if(e.target.matches?.('#title')){anchor=null;sync()}};
     editing.addEventListener('pointerdown',update);editing.addEventListener('focusin',update);editing.addEventListener('input',update);
-    for(const [kind,label]of[['paragraph','正文'],['note','便签'],['table','表格']]){const button=document.createElement('button');button.type='button';button.dataset.documentAfter=kind;button.textContent=label;button.onclick=e=>{e.preventDefault();e.stopPropagation();if(!valid()||!n.cellItems?.[0]?.[0]?.some(item=>item.id===anchor))return;after.open=false;append(n,kind,anchor)};panel.append(button)}
+    for(const [kind,label]of[['paragraph','正文'],['note','便签'],['table','表格']]){const button=document.createElement('button');button.type='button';button.dataset.documentAfter=kind;button.textContent=label;button.onclick=e=>{e.preventDefault();e.stopPropagation();if(!ready())return;after.open=false;append(n,kind,anchor)};panel.append(button)}
     after.addEventListener('keydown',e=>{if(e.key==='Escape'&&after.open){e.preventDefault();e.stopImmediatePropagation();after.open=false;summary.focus({preventScroll:true})}});
-    update({target:document.activeElement});
+    sync();update({target:document.activeElement});
    }
    if(toolbar&&!toolbar.querySelector('.document-format')){
     const format=document.createElement('details');format.className='document-format inline-ui';format.innerHTML='<summary>字体 / 颜色</summary><div><label>字体名称<input data-document-font maxlength="100" placeholder="设备上已安装的字体" value="'+esc(n.fontFamily||'')+'"></label><label>文字颜色<input data-document-ink type="color" value="'+colour(n.inkColor)+'"></label><button type="button" data-document-default>恢复默认</button></div>';toolbar.append(format);

@@ -30,3 +30,5 @@
 .node.document-paper .document-format input{color:var(--ui-text,#292929)!important}
 
 .document-after-context{margin:0;font-size:12px;line-height:1.6;white-space:normal;overflow-wrap:anywhere;color:var(--ui-muted)}
+
+.document-after>summary[aria-disabled=true]{opacity:.5;cursor:default}
