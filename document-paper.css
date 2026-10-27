@@ -53,3 +53,7 @@
 /* Optional literal find within the current expanded paper. */
 .immersive-heading:has([data-paper-find-open]){flex-wrap:wrap}.immersive-heading:has([data-paper-find-open])>div{flex-wrap:wrap}.immersive-heading [data-paper-find-open],.immersive-heading [data-paper-find-return]{min-height:44px}.paper-local-find{position:fixed;z-index:300;background:var(--ui-panel);color:var(--ui-text);border:1px solid var(--ui-line);border-radius:12px;padding:12px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 36px #0005}.paper-local-find>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:8px}.paper-local-find input{width:100%;min-height:44px;box-sizing:border-box;background:var(--ui-field);color:var(--ui-text);border:1px solid var(--ui-line);border-radius:6px;padding:8px}.paper-local-find p{font-size:12px;color:var(--ui-muted);margin:0}.paper-local-find [data-paper-find-results]{overflow:auto;display:grid;gap:6px;min-height:0}.paper-local-find button{min-height:44px;white-space:pre-wrap;text-align:left;overflow-wrap:anywhere}
 @media(max-height:300px){.paper-local-find{padding:8px;gap:4px}}
+
+#immersiveSurface .inline-toolbar.paper-tools-folded>:not(.paper-tools-toggle){display:none!important}
+#immersiveSurface .inline-toolbar.paper-tools-folded{min-height:36px}
+#immersiveSurface .paper-tools-toggle{margin-left:auto;white-space:nowrap}

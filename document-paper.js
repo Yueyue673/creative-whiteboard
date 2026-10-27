@@ -209,6 +209,18 @@
     format.querySelector('[data-document-font]').onchange=e=>apply(font(e.target.value),n.inkColor||'');format.querySelector('[data-document-ink]').onchange=e=>apply(n.fontFamily||'',e.target.value);format.querySelector('[data-document-default]').onclick=()=>{apply('','');format.querySelector('[data-document-font]').value='';format.querySelector('[data-document-ink]').value='#364152'};
     format.addEventListener('keydown',e=>{if(e.key==='Escape'&&format.open){e.preventDefault();e.stopImmediatePropagation();format.open=false;format.querySelector('summary').focus()}});
    }
+   // Folding is a temporary view choice in this exact expanded paper, never stored content.
+   if(toolbar&&root.id==='immersiveSurface'&&!toolbar.querySelector('.paper-tools-toggle')){
+    const source=board,sourceId=boardId,button=document.createElement('button');
+    button.type='button';button.className='paper-tools-toggle';button.textContent='收起工具';button.setAttribute('aria-expanded','true');
+    button.onclick=()=>{
+     if(board!==source||boardId!==sourceId||!live(n)||editorId!==n.id||!root.isConnected||$('immersiveSurface')!==root||!$('dialog').open||!toolbar.contains(button))return;
+     const folded=toolbar.classList.toggle('paper-tools-folded');
+     for(const menu of toolbar.querySelectorAll('details[open]'))menu.open=false;
+     button.textContent=folded?'展开工具':'收起工具';button.setAttribute('aria-expanded',String(!folded));
+    };
+    toolbar.append(button);
+   }
    for(const table of root.querySelectorAll('[data-doc-table]')){
     const item=n.cellItems?.[0]?.[0]?.[+table.dataset.docTable];if(item?.type!=='table')continue;
     for(const field of table.querySelectorAll('textarea')){
