@@ -75,6 +75,7 @@ jobs:
           LIBRARY_SPATIAL_PROOF: .ci-proofs/library-spatial-preview
           SEARCH_RETURN_PROOF: .ci-proofs/search-writing-return
           SEARCH_RETURN_GUARDS_PROOF: .ci-proofs/search-writing-return-guards
+          LOCAL_START_PROOF: .ci-proofs/local-start-entry
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -183,5 +184,15 @@ jobs:
           path: |
             .ci-proofs/search-writing-return-guards/result.json
             .ci-proofs/search-writing-return-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated local-start-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-start-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/local-start-entry/result.json
+            .ci-proofs/local-start-entry/*.png
           if-no-files-found: ignore
           retention-days: 3
