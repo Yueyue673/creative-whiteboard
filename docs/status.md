@@ -566,6 +566,8 @@
 
 ## 独立候选：把材料接在选定长文段落后
 
+[图文步骤：选定原段落 → 接入材料 → 继续写](document-insert.md)
+
 对应[源码 379d7cd](https://github.com/Yueyue673/creative-whiteboard/commit/0b4a5d392e3e07366d4c4247843e72afdb8a2e96)，范围与最新检查见 [PR #36](https://github.com/Yueyue673/creative-whiteboard/pull/36)。
 
 在长文里选中原段落或文中材料后，可以用“在此处后添加”选择正文、便签、表格。菜单显示对应块的位置与最新原文开头；新增内容接在这块后面，并定位到新内容的原编辑字段。原三个“＋”按钮仍追加到末尾，本项不把光标所在位置拆成两个段落，也不改变既有内容顺序。
