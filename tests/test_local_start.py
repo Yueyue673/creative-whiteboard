@@ -160,7 +160,7 @@ class LocalStartTests(unittest.TestCase):
         program = self.root / "Given app with spaces"
         program.mkdir()
         for name in ["server.py", "app_paths.py", "assets.py", "workflow_backend.py",
-                     "ai_context.py", "library_folders.py", "index.html", "启动白板.cmd"]:
+                     "ai_context.py", "library_folders.py", "library_usage.py", "index.html", "启动白板.cmd"]:
             shutil.copyfile(PROJECT / name, program / name)
         env = fixture_env(self.data, self.port, self.hooks, self.open_log, self.identity, lifetime=12)
         env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")

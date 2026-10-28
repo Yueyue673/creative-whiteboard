@@ -44,6 +44,18 @@ class OriginalWorkbenchTests(TestCase):
         self.assertIn(self.app+'index.html?account='+str(self.owner.pk)+'&pane=1',script)
         self.assertEqual(self.client.get(self.app+'server.py').status_code,404)
 
+    def test_library_copy_locator_module_uses_original_authorized_workbench(self):
+        index=self.client.get(self.app+'index.html?account='+str(self.owner.pk),secure=True)
+        self.assertEqual(index.status_code,200)
+        self.assertIn(self.app+'library-copies.js?account=',index.content.decode())
+        script=self.client.get(self.app+'library-copies.js?account='+str(self.owner.pk),secure=True)
+        self.assertEqual(script.status_code,200)
+        self.assertIn('window.whiteboardLibraryCopies',script.content.decode())
+        self.assertEqual(self.client.get(self.app+'library-copies.js?account='+str(self.other.pk),secure=True).status_code,409)
+        Membership.objects.filter(workspace=self.space,account=self.owner).delete()
+        self.assertEqual(self.client.get(self.app+'library-copies.js',secure=True).status_code,404)
+        self.assertEqual(self.client.get(self.app+'library_usage.py',secure=True).status_code,404)
+
     def test_program_and_html_require_fresh_membership_and_original_account(self):
         self.assertEqual(self.client.get(f'/w/{self.foreign.pk}/app/').status_code,404)
         self.assertEqual(self.client.get(self.app+'shell.js?account='+str(self.other.pk)).status_code,409)

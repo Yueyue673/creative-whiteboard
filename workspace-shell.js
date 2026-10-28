@@ -149,9 +149,45 @@
      if(!original())return false;activate(from.id);pane(from)?.focus();return true;
     }finally{for(const doc of documents)for(const type of events)doc.removeEventListener(type,cancel,true);window.removeEventListener('resize',cancel);document.removeEventListener('visibilitychange',cancel)}
    };
-   return await destination.defaultView.whiteboardNoteEditor.visitReference(target.id,target.returnName,back,active);
+   return await destination.defaultView.whiteboardNoteEditor.visitReference(target.id,target.returnName,back,active,target.rootId);
   }catch(error){if(original()&&to&&current()?.id===to.id)activate(from.id);throw error}
   finally{for(const doc of watched)for(const type of events)doc.removeEventListener(type,cancel,true)}
  }
- window.whiteboardWorkspace={openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
+ function librarySnapshot(source,target=null){
+  if(source!==explorerFrame?.contentWindow)return null;
+  const tab=target?model.tabs.find(t=>t.boardId===target):current(),view=tab&&pane(tab);
+  return view?.state()?.boardId===tab?.boardId&&!view.state().loading?view.snapshot():null;
+ }
+ async function openLibraryCopy(source,target,valid){
+  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid())return false;
+  const from=current(),writer=from&&frames.get(from.id)?.contentWindow,writerDoc=writer?.document,sourceDoc=source.document;
+  let untouched=true;const events=['pointerdown','keydown','input','change','wheel','touchmove'],cancel=()=>untouched=false;
+  const docs=new Set([document,...[...frames.values()].map(frame=>frame.contentDocument).filter(Boolean)]);
+  for(const doc of docs)for(const type of events)doc.addEventListener(type,cancel,{capture:true,passive:true});
+  const original=()=>untouched&&source===explorerFrame?.contentWindow&&source.document===sourceDoc&&current()?.id===from?.id&&(!from||model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc)&&valid();
+  try{
+   if(from&&!await pane(from).flush())throw Error('原稿尚未保存，请先处理保存提示。');
+   if(!original())return false;
+   if(from){
+    if(target.board===from.boardId){
+     sourceDoc.getElementById('dialog').close();showCanvas();
+     return writer.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>model.tabs.includes(from)&&current()?.id===from.id&&frames.get(from.id)?.contentDocument===writerDoc,target.rootId);
+    }
+    sourceDoc.getElementById('dialog').close();showCanvas();
+    return openReference(writer,target,()=>model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc);
+   }
+   boards=await api('/api/boards');if(!original())return false;
+   sourceDoc.getElementById('dialog').close();showCanvas();openBoard(target.board);
+   const to=current(),epoch=++referenceVisitEpoch,started=Date.now();
+   while(epoch===referenceVisitEpoch&&current()?.id===to?.id&&model.tabs.includes(to)&&Date.now()-started<10000){
+    const view=pane(to),state=view?.state();
+    if(state?.loadError||state?.blocked||state?.saveError)throw Error('这张白板暂时未准备好。');
+    if(state?.boardId===target.board&&!state.loading){return frames.get(to.id).contentWindow.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>epoch===referenceVisitEpoch&&current()?.id===to.id,target.rootId)}
+    await new Promise(resolve=>setTimeout(resolve,40));
+   }
+   return false;
+  }finally{for(const doc of docs)for(const type of events)doc.removeEventListener(type,cancel,true)}
+ }
+ const canLocateLibraryCopies=source=>source===explorerFrame?.contentWindow;
+ window.whiteboardWorkspace={canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
 })();

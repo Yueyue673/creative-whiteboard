@@ -19,6 +19,7 @@ jobs:
         with:
           node-version: '22'
       - run: python -m unittest discover -s tests -v
+      - run: node --check library-copies.js
       - run: node --check note-editor.js
       - run: node --check canvas-objects.js
       - run: node --check document-paper.js
@@ -93,6 +94,8 @@ jobs:
           PAPER_FIND_GUARDS_PROOF: .ci-proofs/paper-local-find-guards
           COLLECT_REVIEW_PROOF: .ci-proofs/collect-content-review
           HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
+          ARRANGEMENT_RETURN_PROOF: .ci-proofs/arrangement-return
+          LIBRARY_COPIES_PROOF: .ci-proofs/library-copies
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -358,10 +361,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
-      - name: Check temporary arrangement return
-        env:
-          ARRANGEMENT_RETURN_PROOF: .ci-proofs/arrangement-return
-        run: node tests/browser-arrangement-return.cjs
+      - name: Keep isolated library-copy location evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-copies-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-copies/result.json
+            .ci-proofs/library-copies/*.png
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Keep isolated arrangement-return evidence
         if: always()

@@ -505,12 +505,33 @@
   if(place&&(place.board!==boardId||place.id!==n.id)){referenceTrail.push({...place,destination:boardId});while(referenceTrail.length>12||referenceTrail.reduce((size,p)=>size+(p.field?.value?.length||0)*2,0)>4*1024*1024)referenceTrail.shift();}
   syncReferenceReturn();
  }
+ // Same-board copy inspection keeps a mounted writing field and its native Undo.
+ async function locateLibraryCopy(id,active,rootId=id){
+  if(typeof active!=='function'||!active()||loading||blocked)return false;
+  const matches=board.nodes.filter(n=>n.id===rootId);if(matches.length!==1)return false;
+  const records=noteRecords(board,boardId),rows=records.filter(r=>r.node.id===id&&(r.container?.id||r.node.id)===rootId);
+  if(rows.length>1)return false;const row=rows[0],node=row?.node||(id===rootId?matches[0]:null);if(!node)return false;
+  if(editorId){
+   if(editorId===id){whiteboardPane.focus();return true}
+   const place=captureReferencePlace(editorId);
+   if(!row||!peekReference(row,place,records))throw Error('请先收起当前编辑，再查看这块内容。');
+   return true;
+  }
+  const place={board:boardId,id:null,name:board.name||'原稿',selected:[...selected],view:{...view()}};
+  if(node.type==='frame'){
+   whiteboardPane.focusNode(id);referenceTrail.push({...place,destination:boardId});syncReferenceReturn();return true;
+  }
+  if(!row)return false;
+  await jumpReference(row,place,++referenceEpoch,records,false);return true;
+ }
  // Cross-document visits use the same original canvas and an ephemeral return action.
- async function visitReference(id,returnName,back,active){
+ async function visitReference(id,returnName,back,active,rootId){
   if(!active()||loading||blocked)return false;
   await closeReferenceEditor();if(!active()||loading||blocked)return false;
   if(id===null){referenceTrail.push({external:true,destination:boardId,name:returnName,back});while(referenceTrail.length>12)referenceTrail.shift();syncReferenceReturn();canvas.focus({preventScroll:true});return true}
-  const located=nestedTarget(id),n=located?.node;if(!n)throw Error('这块内容已经移走或删除');if(located.container){showNestedTarget(located);referenceTrail.push({external:true,destination:boardId,name:returnName,back});syncReferenceReturn();return true;}
+  const matches=rootId===undefined?null:noteRecords(board,boardId).filter(row=>row.node.id===id&&(row.container?.id||row.node.id)===rootId);
+  if(matches?.length>1)throw Error('这处副本记录重复，未打开其他内容。');
+  const located=matches?(matches[0]||(id===rootId&&board.nodes.filter(n=>n.id===id).length===1?{node:board.nodes.find(n=>n.id===id)}:null)):nestedTarget(id),n=located?.node;if(!n)throw Error('这块内容已经移走或删除');if(located.container){showNestedTarget(located);referenceTrail.push({external:true,destination:boardId,name:returnName,back});syncReferenceReturn();return true;}
   editorId=null;selected=new Set([n.id]);drawNodes();renderOutline();const rect=canvas.getBoundingClientRect();Object.assign(board.view,{x:rect.width/2-(n.x+n.w/2)*view().z,y:rect.height/2-(n.y+n.h/2)*view().z});moveView();canvas.focus({preventScroll:true});
   if(n.type==='note'&&rect.width<=680){whiteboardReading.open(n.id);const surface=$('immersiveSurface'),trigger=surface?.querySelector('#notePreview');if(trigger)togglePreview(trigger,n,surface.querySelector('.inner'));}
   referenceTrail.push({external:true,destination:boardId,name:returnName,back});while(referenceTrail.length>12)referenceTrail.shift();syncReferenceReturn();return true;
@@ -675,7 +696,7 @@
   return peekReference(row,context.place,records);
  }
 
- window.whiteboardNoteEditor={openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
+ window.whiteboardNoteEditor={locateLibraryCopy,openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.

@@ -3,6 +3,7 @@ from urllib.parse import parse_qs,urlparse
 from html.parser import HTMLParser
 from functools import lru_cache
 import json,hashlib,time,re,os,threading
+import library_usage as copy_scan
 from app_paths import APP_ROOT, DATA_ROOT
 from ai_context import spatial_context, save_visuals, task_archive, context_folders, research_task, research_material, visual_bytes, VisualUnavailable, AI_POLICY
 ROOT=DATA_ROOT
@@ -113,7 +114,58 @@ def search(q):
   if q.lower() in text.lower():rows.append({'kind':'library','id':a['id'],'title':a['title'],'location':a.get('folder') or '内容库根目录','snippet':snippet(text,q),'matchedIn':field})
  return {'results':rows[:150],'total':len(rows),'note':'搜索白板、组合正文、图片标注、备注与文件名；文本文件读取前256KB，音视频和PDF不做全文识别。'}
 
+
+def library_copies(identity):
+ budget=copy_scan.scan_budget()
+ catalog=ROOT/'素材目录.json'
+ if catalog.is_symlink():raise OSError('unsafe catalog')
+ with catalog.open('rb') as source:raw=source.read(copy_scan.MAX_BYTES+1)
+ if len(raw)>copy_scan.MAX_BYTES:raise OverflowError
+ value=json.loads(raw);assets=value.get('assets',[])
+ if not isinstance(assets,list):raise ValueError
+ found=False
+ try:
+  for item in assets:
+   copy_scan.tick(budget)
+   if isinstance(item,dict) and item.get('id')==identity and item.get('mime')=='application/x-creative-bundle' and not item.get('archived'):
+    found=True;break
+ except copy_scan.CopyScanLimit:raise OverflowError from None
+ if not found:raise LookupError
+ folder=ROOT/'内容';items=[];scanned=charged=0;limited=folder.is_symlink()
+ candidates=[]
+ if not limited:
+  for path in folder.glob('*.json'):
+   if len(candidates)>=copy_scan.MAX_RECORDS:limited=True;break
+   candidates.append(path)
+ for path in candidates:
+  if time.monotonic()>budget['deadline']:limited=True;break
+  try:
+   if path.is_symlink() or not safe_id(path.stem):limited=True;continue
+   stamp=path.stat()
+   if charged+stamp.st_size>copy_scan.MAX_BYTES:limited=True;break
+   charged+=stamp.st_size
+   with path.open('rb') as source:raw=source.read(stamp.st_size+1)
+   current=path.stat()
+   if len(raw)!=stamp.st_size or (stamp.st_mtime_ns,stamp.st_size)!=(current.st_mtime_ns,current.st_size):
+    limited=True;continue
+   board=json.loads(raw)
+  except (OSError,ValueError):limited=True;continue
+  found=copy_scan.board_copies(board,identity,budget,copy_scan.MAX_RESULTS-len(items))
+  if found.get('interrupted'):limited=True;break
+  scanned+=1;limited=limited or found['limited']
+  items.extend({**item,'boardId':path.stem,'boardName':copy_scan.label(board.get('name','')),'folder':copy_scan.label(board.get('folder','')),'updated':stamp.st_mtime}for item in found['items'])
+  if len(items)>=copy_scan.MAX_RESULTS:limited=True;break
+ return copy_scan.copy_response(identity,items,scanned,limited)
+
 def workflow_get(handler,p):
+ if p=='/api/library-copies':
+  try:identity=copy_scan.copy_query(parse_qs(urlparse(handler.path).query,keep_blank_values=True))
+  except ValueError as error:handler.reply(400,{'error':str(error)});return True
+  try:handler.reply(200,library_copies(identity))
+  except LookupError:handler.reply(404,{'error':'这份内容库原件不存在或已移出内容库'})
+  except OverflowError:handler.reply(413,{'error':'内容库记录较大，暂时不能完成这次查找'})
+  except (OSError,ValueError):handler.reply(409,{'error':'内容库暂时不能读取，请稍后重试'})
+  return True
  if p=='/api/ai/references':
   rows=[]
   for f in REFERENCES.glob('*.json'):

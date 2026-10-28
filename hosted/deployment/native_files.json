@@ -18,6 +18,7 @@
     "import-session.js",
     "index.html",
     "library-clipboard.js",
+    "library-copies.js",
     "library-editing.js",
     "library-folders.js",
     "library-spatial.css",

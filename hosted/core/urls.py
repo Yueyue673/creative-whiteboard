@@ -62,6 +62,7 @@ urlpatterns = [
     path("w/<uuid:workspace_id>/api/assets", document_views.library),
     path("w/<uuid:workspace_id>/api/native/assets", native_views.library),
     path("w/<uuid:workspace_id>/api/native/search", native_views.search),
+    path("w/<uuid:workspace_id>/api/library-copies", native_views.library_copies),
     path("w/<uuid:workspace_id>/api/native/folders/<document_key:key>", native_folders.folder),
     path("w/<uuid:workspace_id>/api/native/trash", native_folders.trash),
     path("w/<uuid:workspace_id>/api/native/trash/<document_key:batch_id>/restore", native_folders.restore_batch),
