@@ -655,7 +655,7 @@ if(board){applyTypography();syncTextTools();announce()}
 
 // Review the current pick set without replacing the original library query or destination.
 (()=>{
- let review=null;
+ let review=null,placing=false;
  const picked=()=>assetIndex.assets.filter(a=>!a.archived&&assetSelected.has(a.id));
  const scrolls=()=>{const rows=[];for(let el=$('assetList');el;el=el.parentElement){rows.push({el,top:el.scrollTop,left:el.scrollLeft});if(el===$('assetPane'))break}return rows};
  const restoreScroll=rows=>{for(const row of rows)if(row.el.isConnected){row.el.scrollTop=row.top;row.el.scrollLeft=row.left}};
@@ -670,7 +670,20 @@ if(board){applyTypography();syncTextTools();announce()}
     review={folder:assetFolder,limit:assetLimit,scrolls:scrolls()};assetLimit=80;renderAssets();for(const row of scrolls())row.el.scrollTop=0;
    };
   }
+
+  const action=$('assetPlace');
+  if(action&&action.parentElement!==bar){
+   const originalAction=action.onclick;action.parentElement.classList.add('wf-place-legacy');bar.append(action);action.setAttribute('aria-label','放入所选资源');
+   action.onclick=async event=>{
+    if(placing||!picked().length||!action.isConnected||$('assetPlace')!==action||action.parentElement!==bar||pane.hidden||document.querySelector('dialog[open]'))return false;
+    placing=true;sync();
+    try{return await originalAction.call(action,event)}catch(error){libraryImportError(error);return false}
+    finally{placing=false;sync()}
+   };
+  }
+
   const active=!!review,button=$('wfPickedReview'),hint=$('wfPickedHint'),total=picked().length;
+  if(action){action.hidden=!total;action.disabled=placing||!total;action.textContent=placing?'正在放入':'放入所选';action.setAttribute('aria-busy',String(placing))}
   button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active;hint.textContent='全部已选资源；返回后保留原搜索、类型和位置。';
   $('assetSearch').disabled=active;
   pane.querySelectorAll('.wf-library-type select,.wf-library-order select,#wfLibrarySearchContext button').forEach(el=>el.disabled=active);
@@ -699,5 +712,6 @@ if(board){applyTypography();syncTextTools();announce()}
    }else sync();
   }else sync();
  };
+ $('assetPane')?.addEventListener('contextmenu',()=>queueMicrotask(sync));
  sync();
 })();
