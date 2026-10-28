@@ -215,3 +215,17 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 /* The editor is bound before its mounted fields move into the expanded surface. */
 #documentSelectionResource{display:none}
 #immersiveSurface #documentSelectionResource{display:inline-flex}
+
+/* Disposable prototype: the original two mounted surfaces stack by explicit choice. */
+.source-peek-stack[hidden]{display:none!important}
+@media(max-width:820px){
+ .immersive-dialog #dialogBody.note-comparing.source-stacked{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) minmax(120px,.75fr)}
+ .note-comparing.source-stacked>#immersiveSurface{grid-column:1;grid-row:2;visibility:visible;pointer-events:auto;min-height:0}
+ .note-comparing.source-stacked>.note-source-peek{grid-column:1;grid-row:3;border-left:0;border-top:1px solid var(--ui-line);min-height:0}
+ .note-source-peek>header .source-peek-stack{font-size:12px;min-height:44px;padding:5px 8px}
+}
+
+@media(max-width:820px) and (max-height:599px){
+ .source-stacked .note-source-card :is([data-preview-id=title],.read-layout>h3){display:none}
+ #dialog .source-stacked .note-source-card .edit-scroll{padding:8px 12px}
+}
