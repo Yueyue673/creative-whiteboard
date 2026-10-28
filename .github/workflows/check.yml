@@ -82,6 +82,7 @@ jobs:
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
           PRESET_UPDATE_PROOF: .ci-proofs/appearance-preset-update
+          PORTABILITY_PROOF: .ci-proofs/appearance-portability
           PICKED_REVIEW_PROOF: .ci-proofs/library-picked-review
           REUSE_ENTRY_PROOF: .ci-proofs/library-reuse-entry
           PAPER_TOOLS_FOLD_PROOF: .ci-proofs/paper-tools-fold
@@ -342,6 +343,17 @@ jobs:
           path: |
             .ci-proofs/paper-tools-fold/result.json
             .ci-proofs/paper-tools-fold/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated appearance-portability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-portability-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-portability/result.json
+            .ci-proofs/appearance-portability/*.png
           if-no-files-found: ignore
           retention-days: 3
 

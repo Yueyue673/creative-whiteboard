@@ -561,3 +561,18 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 
 #empty .empty-example{margin:14px 0 0;pointer-events:auto}
 #empty .empty-example button{min-height:44px;padding:8px 12px;color:var(--ui-canvas-text,var(--ui-text));background:transparent;border-color:transparent;font-size:13px}
+
+#appearanceDialog .appearance-portable{margin-top:14px;padding-top:12px;border-top:1px solid var(--ui-line)}
+#appearanceDialog .appearance-portable>summary{cursor:pointer;font-size:13px;color:var(--ui-muted)}
+#appearanceDialog .appearance-portable-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+#appearanceDialog .appearance-import-review{margin-top:12px;padding:12px;background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:4px}
+#appearanceDialog .appearance-import-review[hidden]{display:none}
+#appearanceDialog .appearance-import-review h4{margin:0 0 8px;font-size:13px}
+#appearanceDialog .appearance-import-list{display:grid;gap:8px;max-height:200px;overflow:auto}
+#appearanceDialog .appearance-import-list label{display:flex;align-items:flex-start;gap:8px;min-width:0;line-height:1.6;font-size:13px}
+#appearanceDialog .appearance-import-list input{flex:none;margin:4px 0 0;min-width:0;width:auto}
+#appearanceDialog .appearance-import-list span{min-width:0;overflow-wrap:anywhere}
+
+#appearanceDialog .appearance-portable>summary{padding:12px 0;line-height:20px}
+#appearanceDialog .appearance-portable button{min-height:44px}
+#appearanceDialog .appearance-import-list label{min-height:44px;align-items:center}

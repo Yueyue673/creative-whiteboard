@@ -78,6 +78,17 @@ SOFTWARE.
     .map(row=>({id:row.id,name:row.name,appearance:normalise(row.appearance),ui:{scale:bounded(row.ui?.scale??1,.8,1.25,1),width:bounded(row.ui?.width??340,260,520,340)},...(row.navigation&&typeof row.navigation==='object'?{navigation:navigationPrefs(row.navigation)}:{})}));
   }catch{return []}
  }
+ function portablePresets(text){
+  const value=JSON.parse(text),object=v=>v&&typeof v==='object'&&!Array.isArray(v),number=(v,low,high)=>typeof v==='number'&&Number.isFinite(v)&&v>=low&&v<=high;
+  if(!object(value)||value.format!=='creative-whiteboard-appearance-presets'||value.version!==1||!Array.isArray(value.presets)||!value.presets.length||value.presets.length>24)throw Error('invalid presets');
+  const names=new Set();return value.presets.map(row=>{
+   if(!object(row)||typeof row.name!=='string'||!row.name.trim()||row.name.trim().length>40||names.has(row.name.trim()))throw Error('invalid name');
+   const name=row.name.trim(),a=row.appearance,u=row.ui,n=row.navigation;names.add(name);
+   if(!object(a)||!Object.hasOwn(palettes,a.preset)||!object(a.custom)||Object.entries(a.custom).some(([key,value])=>!['canvas','panel','accent'].includes(key)||!valid(value))||!valid(a.note)||!['plain','dots','grid'].includes(a.pattern)||!number(a.gridSize,12,64)||!Object.hasOwn(paperTypefaces,a.paperTypeface)||!['smart','original'].includes(a.overviewMode)||!number(a.overviewAt,15,75)||!number(a.overviewFont,9,18)||!object(u)||!number(u.scale,.8,1.25)||!number(u.width,260,520))throw Error('invalid appearance');
+   if(n!==undefined&&(!object(n)||typeof n.snap!=='boolean'||!number(n.zoomSpeed,.3,2)||!number(n.nudge,.1,100)||!number(n.bigNudge,1,500)||!number(n.gap,0,500)))throw Error('invalid navigation');
+   return {name,appearance:normalise(a),ui:{scale:u.scale,width:u.width},...(n?{navigation:navigationPrefs(n)}:{})};
+  });
+ }
  const rgb=value=>[1,3,5].map(offset=>parseInt(value.slice(offset,offset+2),16));
  function mix(a,b,amount){const start=rgb(a),end=rgb(b);return '#'+start.map((c,i)=>Math.round(c+(end[i]-c)*amount).toString(16).padStart(2,'0')).join('')}
  function luminance(value){return rgb(value).map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0)}
@@ -153,6 +164,48 @@ SOFTWARE.
    catch{navigation.querySelector('.navigation-message').textContent='浏览器未保存这次操作设置，仍使用原来的操作偏好。';renderNavigation(true);return false}
   }
   const message=(text,undo,undoLabel='撤销移除')=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent=undoLabel;b.onclick=()=>{if(owns()&&b.isConnected&&box.contains(b))undo()};box.append(b)}};
+  const portable=document.createElement('details');portable.className='appearance-portable';
+  portable.innerHTML='<summary>预设备份与导入</summary><p>把已保存的预设存成文件，换浏览器后可再导入。</p><div class="appearance-portable-actions"><button type="button" id="appearanceExport">导出我的预设</button><button type="button" id="appearanceImport">选择预设文件</button><input id="appearanceImportFile" type="file" accept=".json,application/json" hidden></div><section class="appearance-import-review" hidden><h4>待加入的预设</h4><div class="appearance-import-list"></div><p class="appearance-import-count" role="status" aria-live="polite"></p><div class="appearance-portable-actions"><button type="button" id="appearanceImportCommit">加入我的预设</button><button type="button" id="appearanceImportCancel">取消导入</button></div></section>';
+  d.querySelector('.appearance-saved').append(portable);
+  const exportButton=portable.querySelector('#appearanceExport'),fileInput=portable.querySelector('#appearanceImportFile'),review=portable.querySelector('.appearance-import-review'),importList=portable.querySelector('.appearance-import-list'),importCount=portable.querySelector('.appearance-import-count'),commitImport=portable.querySelector('#appearanceImportCommit');
+  let importEpoch=0,importRows=[];
+  const clearImport=()=>{++importEpoch;importRows=[];review.hidden=true;importList.replaceChildren();fileInput.value=''};
+  const importSelection=()=>[...importList.querySelectorAll('input:checked')].map(input=>importRows[Number(input.dataset.importIndex)]);
+  const refreshImport=()=>{const count=importSelection().length;importCount.textContent=count?'将加入 '+count+' 个预设，当前外观保留。':'请选择要加入的预设。';commitImport.disabled=!count};
+  exportButton.onclick=()=>{
+   if(!owns())return;const rows=savedPresets();if(!rows.length){message('还没有已保存的预设。');return}
+   const presets=rows.map(({name,appearance,ui,navigation})=>({name,appearance,ui,...(navigation?{navigation}:{})})),url=URL.createObjectURL(new Blob([JSON.stringify({format:'creative-whiteboard-appearance-presets',version:1,presets},null,2)+'\n'],{type:'application/json;charset=utf-8'}));
+   const link=document.createElement('a');link.href=url;link.download='whiteboard-appearance-presets.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  portable.querySelector('#appearanceImport').onclick=()=>{if(owns())fileInput.click()};
+  portable.querySelector('#appearanceImportCancel').onclick=()=>{if(!owns())return;clearImport();message('');portable.querySelector('#appearanceImport').focus()};
+  fileInput.onchange=async()=>{
+   if(!owns())return;const file=fileInput.files[0];clearImport();if(!file)return;message('');const epoch=importEpoch;
+   if(file.size>256*1024){message('预设文件过大，请选择导出的预设文件。');return}
+   try{
+    const rows=portablePresets(await file.text());if(!owns()||epoch!==importEpoch)return;
+    importRows=rows;const current=savedPresets();
+    for(let index=0;index<rows.length;index++){
+     const row=rows[index],label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span'),exists=current.some(value=>value.name===row.name);
+     input.type='checkbox';input.dataset.importIndex=String(index);input.checked=!exists;input.disabled=exists;input.onchange=refreshImport;name.textContent=row.name+(exists?'（同名预设已保留）':'');label.append(input,name);importList.append(label);
+    }
+    review.hidden=false;message('');refreshImport();
+   }catch{if(owns()&&epoch===importEpoch)message('无法读取这些预设，请选择导出的预设文件。')}
+  };
+  commitImport.onclick=()=>{
+   if(!owns()||review.hidden||!commitImport.isConnected)return;const rows=importSelection();if(!rows.length)return;
+   try{
+    const current=savedPresets();if(rows.some(row=>current.some(value=>value.name===row.name))){message('同名预设已有变化，请重新选择文件。');return}
+    if(current.length+rows.length>24){message('预设最多保存 24 个，请少选几个或先移除不用的预设。');return}
+    const added=rows.map(row=>({id:crypto.randomUUID(),...row}));localStorage.setItem(collectionKey,JSON.stringify([...current,...added]));clearImport();refreshSaved();
+    message('已加入 '+added.length+' 个预设，可从列表选择应用。',()=>{
+     try{
+      const latest=savedPresets();if(added.some(row=>JSON.stringify(latest.find(value=>value.id===row.id))!==JSON.stringify(row))){message('导入的预设已有后续变化，未移除。');return}
+      const ids=new Set(added.map(row=>row.id));localStorage.setItem(collectionKey,JSON.stringify(latest.filter(row=>!ids.has(row.id))));refreshSaved();message('已撤销导入，当前外观保留。');
+     }catch{message('浏览器无法保存预设，请检查存储空间。')}
+    },'撤销导入');
+   }catch{message('浏览器无法保存预设，请检查存储空间。')}
+  };
   const sourceLine=document.createElement('p');sourceLine.className='appearance-source';presets.after(sourceLine);
   for(const tone of ['light','dark']){
    const heading=document.createElement('h4');heading.textContent=tone==='light'?'浅色':'深色';presets.append(heading);
