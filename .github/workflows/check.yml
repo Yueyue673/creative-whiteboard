@@ -102,6 +102,7 @@ jobs:
           LIBRARY_TABLE_PIECES_PROOF: .ci-proofs/library-table-pieces
           LINK_LOCATION_PROOF: .ci-proofs/link-location-choice
           GROUP_WRITING_POINT_PROOF: .ci-proofs/group-writing-point
+          TAB_LOCATION_PROOF: .ci-proofs/tab-location-context
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -140,6 +141,16 @@ jobs:
           path: |
             .ci-proofs/link-location-choice/result.json
             .ci-proofs/link-location-choice/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated tab-location-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tab-location-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/tab-location-context/result.json
+            .ci-proofs/tab-location-context/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated group-writing-point evidence

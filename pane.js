@@ -40,6 +40,12 @@
  function state(){return {boardId,name:board?.name||'',dirty:!!dirty,blocked:!!blocked,saving:!!savePromise,loading:!!loading,pendingImports:window.whiteboardImports?.pendingCanvas()||false,contentDirty,savingContent,saveError,loadTargetId,loadError,loadErrorCode,revision:contentRevision}}
  function report(){if(explorer||reporting)return;reporting=true;queueMicrotask(()=>{reporting=false;const next=state(),key=JSON.stringify(next);if(key===lastState)return;lastState=key;send('pane-state',{state:next})})}
  const initialLoad=loadBoard;loadBoard=async function(id,options){if(explorer||board&&boardId&&id!==boardId){$('boards').value=boardId;send(explorer?'explorer-open':'pane-open',{boardId:id});return false}const loaded=await initialLoad(id,options);if(explorer)await showWorkspaceTab(workspaceTab);else report();return loaded};
+ // Reuse successful native catalog reads/writes. Only names, IDs and parents
+ // cross the shell boundary; document bodies and mounted editors stay here.
+ const listWithLocations=listBoards,loadWithLocations=loadFolders,saveWithLocations=saveFolders;
+ listBoards=async function(){const result=await listWithLocations();send('pane-board-locations',{boards:boardList.map(b=>({id:b.id,name:b.name,folder:b.folder,count:b.count}))});return result};
+ loadFolders=async function(){const result=await loadWithLocations();send('pane-board-locations',{folders:folderData.folders.map(f=>({id:f.id,name:f.name,parent:f.parent}))});return result};
+ saveFolders=async function(next){const result=await saveWithLocations(next);if(result)send('pane-board-locations',{folders:folderData.folders.map(f=>({id:f.id,name:f.name,parent:f.parent}))});return result};
  const oldChange=change,oldPersist=persist;change=function(viewOnly=false){if(explorer)return;oldChange(viewOnly);report()};persist=async function(){if(explorer)return true;const result=oldPersist();report();try{return await result}finally{report()}};
  function pauseMedia(doc=document){doc.querySelectorAll('audio,video').forEach(m=>m.pause());for(const frame of doc.querySelectorAll('iframe'))try{if(frame.contentDocument)pauseMedia(frame.contentDocument)}catch{}}
  if(explorer){
