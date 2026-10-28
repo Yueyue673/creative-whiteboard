@@ -34,6 +34,7 @@
 | 写长文时核对已取用便签的库中原话 | [在原段旁只读查看准确原件](paper-block-origin.md) |
 | 反复把材料存到常用文件夹，少重新定位 | [明确记住位置，再一按选好](library-favorite-folders.md) |
 | 想试另一种安排，并随时回原稿 | [另起一版，原稿标签保留](board-variant.md) |
+| 原稿被另一处移走后，保留本窗口草稿另存 | [核对同次另存，保留后来新写的内容](recovery-copy-confirmation.md) |
 | 材料放进表格后，还要核对准确原话 | [在格中只读查看库原件，再继续写](cell-item-origin.md) |
 | 留下一段原话，下次找到合适材料再取用 | [所选原文存到库](#candidate-text-resource) · [在组合里先读长文再挑选](#candidate-group-document) · [长文正文选句](#candidate-document-selection-text) |
 | 保留组合里常用的一部分 | [把组合所选另存为新资源](#candidate-subset-resource) |

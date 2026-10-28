@@ -118,6 +118,7 @@ jobs:
           CELL_ORIGIN_RETURN_PROOF: .ci-proofs/cell-origin-return
           DOCUMENT_LIBRARY_ORDER_PROOF: .ci-proofs/document-library-order
           SELECTION_VARIANT_PROOF: .ci-proofs/selection-variant
+          RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -675,5 +676,16 @@ jobs:
           path: |
             .ci-proofs/selection-variant/result.json
             .ci-proofs/selection-variant/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated recovery-copy-confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-copy-confirmation-${{ github.run_id }}
+          path: |
+            .ci-proofs/recovery-copy-confirmation/result.json
+            .ci-proofs/recovery-copy-confirmation/*.png
           if-no-files-found: ignore
           retention-days: 3

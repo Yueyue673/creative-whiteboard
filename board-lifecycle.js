@@ -12,9 +12,15 @@
  function controller(){return embedded?parent.whiteboardBoardLifecycle:window.whiteboardBoardLifecycle}
  const changed=()=>{if(shell)updateStatus();else window.whiteboardPane?.state()};
  const dirtyWork=state=>state?.contentDirty||state?.savingContent||state?.blocked||state?.saveError;
+ const copyScope=(host=window.whiteboardHosted)=>{host=host||null;return {host,key:host?JSON.stringify([host.account?.id,host.workspace,host.base]):''}};
+ const sameCopyScope=saved=>saved.host===(window.whiteboardHosted||null)&&saved.key===copyScope().key&&!window.whiteboardHosted?.paused;
+ const copySignature=value=>JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
 
  if(!shell){
   let held=0,inertBefore=false,coordinated=false,deleted=null;
+  const copyAttempts=new WeakMap();let materializing=false;
+  function copyNotice(){const button=$('deletedCopy'),status=$('deletedCopyState'),attempt=board&&copyAttempts.get(board);if(button){button.textContent=attempt?.changed?'另存结果需要核对':attempt?.confirmed?(contentRevision===attempt.revision?'打开已另存副本':'另存当前新修改'):attempt?'核对这次另存':'另存当前内容';button.disabled=materializing||!!attempt?.changed}if(status)status.textContent=attempt?.changed?'这次另存已有变化，未覆盖，当前草稿仍保留。请从白板列表核对。':attempt?.confirmed?(contentRevision===attempt.revision?'此前另存已确认；原稿仍保留，可打开已另存副本。':'此前另存已确认；后来新写的内容仍保留，可另存当前新修改。'):attempt?'本次另存尚未确认；核对只读取同一次结果，不重新创建。':''}
+  const ownsCopy=attempt=>board===attempt.source&&boardId===attempt.board&&!loading&&sameCopyScope(attempt.scope);
   const persistBefore=persist,loadBefore=loadBoard,changeBefore=change;
   function freeze(on){
    if(on){if(!held++){inertBefore=document.body.inert;document.body.inert=true}clearTimeout(saveTimer)}
@@ -24,8 +30,9 @@
    if(!deleted)return;
    $('notice').hidden=false;
    const draft=dirtyWork({contentDirty,savingContent,blocked:deleted.hadConflict,saveError});
-   $('notice').innerHTML='<div>'+(deleted.restored?'这张白板已恢复。当前窗口的草稿仍保留，请选择另存或查看恢复版本。':draft?'这张白板已在另一处删除。你的未保存内容仍在本窗口，请先另存。':'这张白板已移入回收站。可以恢复原件，或将当前内容另存。')+'</div><button id="deletedCopy">另存当前内容</button><button id="deletedRestore">'+(deleted.restored?'查看恢复的白板':'恢复原白板')+'</button>';
-   $('deletedCopy').onclick=()=>wfSafe(()=>controller().copy(boardId));
+   $('notice').innerHTML='<div>'+(deleted.restored?'这张白板已恢复。当前窗口的草稿仍保留，请选择另存或查看恢复版本。':draft?'这张白板已在另一处删除。你的未保存内容仍在本窗口，请先另存。':'这张白板已移入回收站。可以恢复原件，或将当前内容另存。')+'</div><button id="deletedCopy">另存当前内容</button><button id="deletedRestore">'+(deleted.restored?'查看恢复的白板':'恢复原白板')+'</button><span id="deletedCopyState" role="status" style="display:block;margin-top:6px"></span>';
+   copyNotice();
+   $('deletedCopy').onclick=()=>wfSafe(()=>controller().copy(boardId,window.whiteboardBoardDocument));
    $('deletedRestore').onclick=()=>wfSafe(async()=>{
     if(deleted.restored)return dirty?confirmReload():loadBoard(boardId);
     await controller().restore(deleted.ticket);
@@ -55,20 +62,34 @@
    return loaded;
   };
   async function materialize(){
-   freeze(true);
+   if(materializing)throw Error('正在处理这次另存，请稍候');if(!board||loading)throw Error('原稿尚未准备好，请稍后再另存。');
+   const context={source:board,board:boardId,scope:copyScope()};let attempt=copyAttempts.get(board);if(attempt&&!ownsCopy(attempt))throw Error('这次另存所属位置已变化，原稿保留，请先核对账号和工作区。');
+   if(attempt?.confirmed&&contentRevision!==attempt.revision)attempt=null;
+   materializing=true;freeze(true);copyNotice();
    try{
-    await window.whiteboardImports?.idle();
-    const value=clone(board),revision=contentRevision,folders=(await request('/api/folders')).value.folders,id=uid();
-    value.name+='（另存）';if(value.folder&&!folders.some(f=>f.id===value.folder))value.folder='';
-    await request('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});
-    return {id,name:value.name,folder:value.folder||'',count:value.nodes.length,revision};
-   }finally{freeze(false)}
+    if(!ownsCopy(context))throw Error('原稿所属位置已变化，另存已停止。');
+    if(window.whiteboardHosted&&!await window.whiteboardHosted.checkIdentity())throw Error('原账号或工作区尚未确认，原稿保留。');if(!ownsCopy(context))throw Error('原稿所属位置已变化，另存已停止。');
+    if(attempt){
+     if(attempt.changed)throw Error('这次另存已有变化，未覆盖，当前草稿仍保留。请从白板列表核对。');
+     let saved;try{saved=(await request('/api/boards/'+attempt.id,{cache:'no-store'})).value}catch(error){if(error.code===404)throw Error('暂时没有找到这次另存。请稍后再核对；原稿仍保留，本次没有重复提交。');throw error}
+     if(!ownsCopy(context))throw Error('原稿所属位置已变化，核对已停止。');
+     if(copySignature(saved)!==attempt.signature){attempt.changed=true;throw Error('这次另存已有变化，未覆盖，当前草稿仍保留。请从白板列表核对。')}
+    }else{
+     await window.whiteboardImports?.idle();if(!ownsCopy(context))throw Error('原稿所属位置已变化，另存已停止。');
+     const folders=(await request('/api/folders')).value.folders;if(!ownsCopy(context))throw Error('原稿所属位置已变化，另存已停止。');
+     const value=clone(board),revision=contentRevision,id=uid();value.name+='（另存）';if(value.folder&&!folders.some(f=>f.id===value.folder))value.folder='';
+     attempt={...context,id,value,revision,signature:copySignature(value)};copyAttempts.set(context.source,attempt);copyNotice();
+     await request('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});if(!ownsCopy(context))throw Error('原稿所属位置已变化，请保留原稿并核对这次另存。');
+    }
+    attempt.confirmed=true;return {id:attempt.id,name:attempt.value.name,folder:attempt.value.folder||'',count:attempt.value.nodes.length,revision:attempt.revision};
+   }catch(error){if(attempt&&!attempt.changed&&!error.message.includes('本次没有重复提交'))throw Error('本次另存尚未确认，可核对这次另存。原稿仍保留。 '+(error.message==='Failed to fetch'?'连接暂时中断。':error.message));throw error}
+   finally{materializing=false;freeze(false);copyNotice()}
   }
   window.whiteboardBoardDocument={
    freeze,markDeleted,restored,materialize,
    flush:async()=>{coordinated=true;try{return window.whiteboardImports?await whiteboardImports.flush(persistBefore):await persistBefore()}finally{coordinated=false}},
    detach:()=>{clearTimeout(saveTimer);if(typeof captureReading==='function')captureReading()},
-   state:()=>({boardId,dirty,contentDirty,savingContent,blocked,saveError,deleted:!!deleted,loading})
+   state:()=>({boardId,dirty,contentDirty,savingContent,blocked,saveError,deleted:!!deleted,loading,revision:contentRevision})
   };
   if(window.whiteboardPane){const stateBefore=whiteboardPane.state;whiteboardPane.state=()=>({...stateBefore(),deleted:!!deleted,restored:!!deleted?.restored})}
  }
@@ -84,8 +105,8 @@
   do{previous=ids.size;catalog.value.folders.filter(f=>ids.has(f.parent)).forEach(f=>ids.add(f.id))}while(previous!==ids.size);
   return list.value.filter(b=>ids.has(b.folder)).map(b=>b.id);
  }
- function removeTabs(ids,ticket){
-  const old=model.tabs.slice(),removed=old.filter(t=>ids.includes(t.boardId)),activeBefore={...model.active},sideBefore=model.side;
+ function removeTabs(ids,ticket,onlyTab){
+  const old=model.tabs.slice(),removed=old.filter(t=>ids.includes(t.boardId)&&(!onlyTab||t===onlyTab)),activeBefore={...model.active},sideBefore=model.side;
   if(!removed.length)return;
   for(const tab of removed){documentView(tab)?.detach();frames.get(tab.id)?.remove();frames.delete(tab.id)}
   model.tabs=old.filter(t=>!removed.includes(t));
@@ -171,14 +192,24 @@
   },
   async restored(value){announce('restored',value);await onRestored(value,true)},
   created(ids){announce('created',{ids})},
-  async copy(id){
+  async copy(id,requestedDocument){
+   const scope=copyScope();
    if(shell){
-    const tab=model.tabs.find(t=>t.boardId===id),doc=tab&&documentView(tab);if(!doc)return;
-    const copy=await doc.materialize();announce('created',{ids:[copy.id]});boards.push(copy);removeTabs([id]);openBoard(copy.id,tab.side);
-    try{await refresh()}catch(e){toast('副本已保存，列表暂时未能刷新：'+e.message);return}
-    toast('已另存当前内容，原件的删除或恢复状态保留');
-   }else{const copy=await whiteboardBoardDocument.materialize();announce('created',{ids:[copy.id]});if(await loadBoard(copy.id,{discardCurrent:true,expectedRevision:copy.revision}))toast('已另存当前内容')}
+    const tab=model.tabs.find(t=>t.boardId===id&&(!requestedDocument||documentView(t)===requestedDocument)),frame=tab&&frames.get(tab.id),doc=tab&&documentView(tab),side=tab?.side;if(!doc||doc.state().boardId!==id)return;
+    const writerScope=copyScope(frame.contentWindow.whiteboardHosted),writerOwns=()=>writerScope.host===(frame.contentWindow.whiteboardHosted||null)&&writerScope.key===copyScope(frame.contentWindow.whiteboardHosted).key&&!frame.contentWindow.whiteboardHosted?.paused;
+    if(!sameCopyScope(scope)||writerScope.key!==scope.key||!writerOwns())return toast('当前白板的账号或工作区尚未对应，原稿保留，请先核对。');
+    const copy=await doc.materialize();if(!sameCopyScope(scope)||!writerOwns())return;announce('created',{ids:[copy.id]});if(!boards.some(row=>row.id===copy.id))boards.push(copy);
+    const retained=!model.tabs.includes(tab)||frames.get(tab.id)!==frame||documentView(tab)!==doc||current()!==tab||tab.side!==side||doc.state().boardId!==id||doc.state().revision!==copy.revision;
+    if(!retained){removeTabs([id],undefined,tab);openBoard(copy.id,side)}
+    try{await refresh()}catch(e){toast('另存已确认，列表暂时未能刷新：'+e.message);return}
+    toast(retained?'此前另存已确认。当前标签和后来新写的内容仍保留，可从白板列表打开另存。':'已另存当前内容，原件的删除或恢复状态保留');
+   }else{
+    if(boardId!==id)return;const source=board,copy=await whiteboardBoardDocument.materialize();if(!sameCopyScope(scope))return;announce('created',{ids:[copy.id]});
+    if(board!==source||boardId!==id||contentRevision!==copy.revision){toast('此前另存已确认，后来新写的内容仍保留，可从白板列表打开另存。');return}
+    if(await loadBoard(copy.id,{discardCurrent:true,expectedRevision:copy.revision}))toast('已另存当前内容');
+   }
   }
+
  };
  if(shell){const createBefore=createBoard;createBoard=async function(...args){const id=await createBefore(...args);announce('created',{ids:[id]});return id}}
  if(!shell){
