@@ -359,11 +359,11 @@
   if(incomplete||!rows.length){const message=document.createElement('p');message.textContent=incomplete?'部分资料未能读到，请稍后重试。':'没有找到对应内容，可能已移走、删除或当前账号无法查看。';box.append(message)}
   const list=document.createElement('div');list.className='note-reference-choices';for(const row of rows){const button=document.createElement('button');button.type='button';button.className='note-reference-choice';const name=document.createElement('strong'),where=document.createElement('small'),excerpt=document.createElement('span');name.textContent=noteLabel(row.node);where.textContent=row.kind==='board'?(row.location||'整张白板'):row.name+(row.container?' · 表格内':'');excerpt.textContent=String(row.kind==='board'?row.preview||'':row.node.body||'').split('\n').find(line=>line.trim())?.slice(0,90)||'';button.append(name,where,excerpt);button.onclick=async()=>{if(panel!==box||boardId!==originBoard||!trigger.isConnected)return;closePanel();await onSelect(row)};list.append(button)}box.append(list);show(trigger);(list.querySelector('button')||close).focus({preventScroll:true});
  }
- async function allNotes(){
+ async function allNotes(current=()=>true){
   const response=await api('/api/boards'),list=await response.json(),records=[boardRecord(board,boardId),...noteRecords(board,boardId)];
   let incomplete=false;
   // Read a bounded batch at a time; these are explicit reference browsing requests.
-  for(let start=0;start<list.length;start+=4)await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();records.push(boardRecord(data,b.id),...noteRecords(data,b.id))}catch{incomplete=true}}));
+  for(let start=0;start<list.length;start+=4){if(!current())return {records,incomplete:true,cancelled:true};await Promise.all(list.slice(start,start+4).filter(b=>b.id!==boardId).map(async b=>{try{const data=await(await api('/api/boards/'+encodeURIComponent(b.id))).json();records.push(boardRecord(data,b.id),...noteRecords(data,b.id))}catch{incomplete=true}}))}
   return {records,incomplete};
  }
 
@@ -379,7 +379,7 @@
    const input=session.input;if(input?.isConnected){const hiddenDetails=input.closest('details:not([open])'),target=input.hidden?session.root.querySelector('#notePreview'):hiddenDetails?hiddenDetails.querySelector('summary'):input;if(target){if(session.mode==='canvas'&&window.whiteboardNavigation?.focusPreservingView)whiteboardNavigation.focusPreservingView(target);else target.focus({preventScroll:true})}remember(input)}
   }
  }
- function ownsSourcePeek(session){return session===sourcePeek&&board===session.source&&boardId===session.board&&!loading&&!blocked&&board.nodes.includes(session.author)&&editorId===session.author.id&&session.root.isConnected&&(!session.originAssetId||session.author.libraryOrigin?.id===session.originAssetId&&session.author.libraryOrigin?.nodeId===session.originNodeId&&session.author.libraryOrigin?.rootNodeId===session.originRootNodeId)&&(!session.input||session.input.isConnected)&&(session.mode==='expanded'?$('dialog').open:!$('dialog').open)}
+ function ownsSourcePeek(session){return session===sourcePeek&&board===session.source&&boardId===session.board&&!loading&&!blocked&&board.nodes.includes(session.author)&&editorId===session.author.id&&session.root.isConnected&&(!session.originAssetId||!session.bindLibraryOrigin||session.author.libraryOrigin?.id===session.originAssetId&&session.author.libraryOrigin?.nodeId===session.originNodeId&&session.author.libraryOrigin?.rootNodeId===session.originRootNodeId)&&(!session.input||session.input.isConnected)&&(session.mode==='expanded'?$('dialog').open:!$('dialog').open)}
  function layoutSourcePeek(){
   const session=sourcePeek;if(!session)return;if(!ownsSourcePeek(session)){closeSourcePeek(false);return}
   let covering=false;if(session.mode==='canvas'){const rect=session.root.getBoundingClientRect(),left=Math.max(0,rect.left-16),right=Math.max(0,innerWidth-rect.right-16),space=Math.max(left,right);covering=innerWidth<=820||session.full||space<340;session.aside.style.width=covering?'100%':Math.min(680,space,innerWidth*.46)+'px';session.aside.style.left=!covering&&left>right?'0':'auto';session.aside.style.right=!covering&&left>right?'auto':'0'}
@@ -393,12 +393,12 @@
  function sourceAssetIds(node,ids=new Set()){for(const id of [node.assetId,node.mediaId])if(id)ids.add(id);for(const image of node.images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellImages||[])for(const images of row||[])for(const image of images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellItems||[])for(const items of row||[])for(const item of items||[])sourceAssetIds(item,ids);return [...ids]}
  function pauseSource(root){for(const el of root.querySelectorAll('audio,video')){el.pause();el._captureReading?.()}for(const el of root.querySelectorAll('.json-reader'))el._captureReading?.()}
  function sourceContext(el){const session=sourcePeek;if(!session||!ownsSourcePeek(session))return null;const root=el?.closest?.('.note-source-card');if(!root||!session.aside.contains(root))return null;const view=[...session.views.values()].find(view=>view.paper===root);return view?{board:view.row.board,node:view.row.node,readOnly:true,...(view.row.kind==='library'?{library:{id:view.row.assetId,nodeId:view.row.node.id,...(view.row.originRootNodeId?{rootNodeId:view.row.originRootNodeId}:{})}}:{})}:null}
- function peekReference(row,place,records){
+ function peekReference(row,place,records,bindLibraryOrigin=true){
   const author=board.nodes.find(node=>node.id===editorId),expanded=place?.mode==='expanded',root=expanded?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===author?.id);
   if(!canCompare(row)||!['expanded','canvas'].includes(place?.mode)||!root||root.dataset.id!==author?.id||(row.board===boardId&&row.node===author)||expanded!==$('dialog').open)return false;
   closeSourcePeek(false);closePanel();const host=expanded?$('dialogBody'):document.body,aside=document.createElement('aside');aside.className='note-source-peek inline-ui'+(expanded?'':' source-from-canvas');aside.setAttribute('aria-label','对照资料');
   const heading=host.querySelector('.immersive-heading>span'),input=referenceFieldAt(place,root)||root.querySelector('#body');
-  const returnAction=expanded?host.querySelector('#immersiveReturn'):null,session={aside,host,root,author,mode:place.mode,source:board,board:boardId,input,returnAction,returnMarkup:returnAction?.innerHTML,heading:heading?.textContent||'展开编辑',epoch:0,trail:[],positions:new Map(),views:new Map(),originKind:row.kind,originAssetId:row.kind==='library'?row.assetId:null,originNodeId:row.originNodeId,originRootNodeId:row.originRootNodeId,rows:relatedRows(author,records).filter(canCompare)};sourcePeek=session;session.returnClick=event=>{if(innerWidth<=820||session.full){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}};returnAction?.addEventListener('click',session.returnClick,true);
+  const returnAction=expanded?host.querySelector('#immersiveReturn'):null,session={aside,host,root,author,mode:place.mode,source:board,board:boardId,input,returnAction,returnMarkup:returnAction?.innerHTML,heading:heading?.textContent||'展开编辑',epoch:0,trail:[],positions:new Map(),views:new Map(),originKind:row.kind,bindLibraryOrigin,originAssetId:row.kind==='library'?row.assetId:null,originNodeId:row.originNodeId,originRootNodeId:row.originRootNodeId,rows:relatedRows(author,records).filter(canCompare)};sourcePeek=session;session.returnClick=event=>{if(innerWidth<=820||session.full){event.preventDefault();event.stopImmediatePropagation();closeSourcePeek()}};returnAction?.addEventListener('click',session.returnClick,true);
   aside.innerHTML='<header><label>资料<select aria-label="对照资料"></select></label><button type="button" class="source-peek-stack" aria-pressed="false">同时看</button><button type="button" class="source-peek-return">返回记录</button></header><nav class="note-source-path" aria-label="资料浏览" hidden><button type="button" class="source-peek-back">上一份资料</button><span></span><button type="button" class="source-peek-open" hidden>打开白板</button></nav><p class="note-source-status" role="status" hidden></p><button type="button" class="source-peek-library" hidden>在内容库查看</button><div class="note-source-paper"></div>';
   const select=aside.querySelector('select'),status=aside.querySelector('[role=status]'),path=aside.querySelector('nav'),back=path.querySelector('.source-peek-back'),open=path.querySelector('.source-peek-open'),key=item=>item.kind==='library'?(item.originRootNodeId!==undefined?JSON.stringify(['library',item.assetId,item.originRootNodeId,item.originNodeId||'']):'library/'+item.assetId+'/'+(item.originNodeId||'')):item.board+'/'+item.node.id;
   const live=epoch=>ownsSourcePeek(session)&&session.epoch===epoch;
@@ -437,11 +437,13 @@
    if(item.kind!=='library')return recordsFor(item.board);
    try{
    // A fresh read never replaces the live editor or its shared library index.
-   const catalog=await(await api('/api/assets')).json(),asset=catalog.assets?.find(a=>a.id===item.assetId);
+   const catalog=bindLibraryOrigin?await(await api('/api/assets')).json():await readLibraryReferenceCatalog(),matches=bindLibraryOrigin?null:catalog.assets?.filter(a=>a.id===item.assetId),asset=bindLibraryOrigin?catalog.assets?.find(a=>a.id===item.assetId):matches?.[0];
+   if(!bindLibraryOrigin&&(matches?.length!==1||asset?.mime!==bundleMime))throw Error('暂时无法唯一对应库中原件，请重新选择');
    if(!asset||asset.archived)throw Error('库中原件已移出内容库');
    if(item.originRootNodeId!==undefined){
     const node=wfOriginNode({libraryOrigin:{nodeId:item.originNodeId,rootNodeId:item.originRootNodeId}},asset);
     if(!node)throw Error('暂时无法唯一对应到原件，请从内容库查看');
+    if(!bindLibraryOrigin&&(node.type!=='note'||node.canvasObject||sourceAssetIds(node).length))throw Error('原件类型已有变化，请重新选择文字便签');
     return [{kind:'library',assetId:asset.id,originNodeId:node.id,originRootNodeId:item.originRootNodeId,board:null,name:asset.title,node}];
    }
    if(!item.originNodeId||!asset.bundle?.nodes.some(n=>n.id===item.originNodeId))throw Error('找不到对应原件，请从内容库查看');
@@ -581,9 +583,74 @@
   board.edges.push({id:uid(),from:note.id,to:n.id,fromSide:'top',toSide:'bottom',label:''});drawEdges();change();syncRelations();$('body')?.focus({preventScroll:true});
  }
 
+
+ // Read-only library sources are chosen explicitly; they never become author text.
+ async function readLibraryReferenceCatalog(){
+  const response=await api('/api/assets'),reader=response.body?.getReader();
+  if(!reader)throw Error('内容库暂时不能读取，请稍后重试。');
+  const chunks=[];let length=0;
+  try{while(true){const part=await reader.read();if(part.done)break;length+=part.value.byteLength;if(length>8*1024*1024){await reader.cancel();throw Error('内容库较大，请从内容库查看所需原件。')}chunks.push(part.value)}}finally{reader.releaseLock()}
+  const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+  let value;try{value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))}catch{throw Error('内容库记录暂时不能准确读取，请重新读取。')}
+  if(!value||!Array.isArray(value.assets))throw Error('内容库记录暂时不能准确读取。');return value;
+ }
+ function libraryReferenceRows(catalog){
+  const rows=[],deadline=performance.now()+60,counts=new Map();let limited=false,parts=0;
+  const tick=()=>{if(++parts>12000||performance.now()>deadline)throw Error('limit')};
+  try{
+   for(const asset of catalog.assets){tick();if(typeof asset?.id==='string')counts.set(asset.id,(counts.get(asset.id)||0)+1)}
+   for(const asset of catalog.assets){
+    tick();if(!asset||asset.archived||asset.mime!==bundleMime)continue;
+    if(typeof asset.id!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(asset.id)||counts.get(asset.id)!==1||!Array.isArray(asset.bundle?.nodes)){limited=true;continue}
+    const roots=new Map;for(const node of asset.bundle.nodes){tick();if(typeof node?.id==='string')roots.set(node.id,(roots.get(node.id)||0)+1)}
+    for(const node of asset.bundle.nodes){
+     tick();if(node?.type!=='note'||node.canvasObject||sourceAssetIds(node).length)continue;
+     if(typeof node.id!=='string'||!node.id||node.id.length>1000||node.id.includes('\0')||roots.get(node.id)!==1){limited=true;continue}
+     if(rows.length>=600)throw Error('limit');
+     const name=String(asset.title||'未命名原件').slice(0,500),folder=String(asset.folder||'根目录').slice(0,500),title=noteLabel(node).slice(0,500),excerpt=projectReferences(String(node.body||'').slice(0,500)).display.replace(/\s+/g,' ').slice(0,160);
+     rows.push({kind:'library',assetId:asset.id,originNodeId:node.id,originRootNodeId:node.id,board:null,name,node,folder,title,excerpt});
+    }
+   }
+  }catch(error){if(error.message!=='limit')throw Error('内容库记录暂时不能准确读取，请重新读取。');limited=true}
+  return {rows,limited};
+ }
+ function mountLibrarySourceEntry(box,trigger,n){
+  if(n.type!=='note'||n.canvasObject||sourceAssetIds(n).length)return;
+  const header=box.querySelector('header');if(!header||header.querySelector('[data-library-source-entry]'))return;
+  const button=document.createElement('button');button.type='button';button.dataset.librarySourceEntry='';button.className='note-library-read-entry';button.textContent='库中原件';button.title='只读对照库中便签原件';
+  button.onclick=()=>{if(panel!==box||editorId!==n.id||!board.nodes.includes(n)||loading||blocked)return;closePanel();openLibrarySources(trigger,n)};header.insertBefore(button,header.lastElementChild);
+ }
+ function openLibrarySources(trigger,n){
+  if(n.type!=='note'||n.canvasObject||sourceAssetIds(n).length)return;
+  if(editorId!==n.id||!board.nodes.includes(n)||loading||blocked)return;
+  const source=board,sourceBoard=boardId,place=captureReferencePlace(n.id),root=place?.mode==='expanded'?$('immersiveSurface'):[...$('nodes').children].find(el=>el.dataset.id===n.id),input=root&&referenceFieldAt(place,root);
+  if(!place||!['canvas','expanded'].includes(place.mode)||!root||!input||place.field?.value===null||input.readOnly||input.disabled)return;
+  const box=popup(trigger,n,'library-sources');if(!box)return;box.classList.add('note-library-sources');box.setAttribute('aria-label','只读对照库中便签原件');
+  box.innerHTML='<header><b>库中便签原件</b><button type="button" data-library-back>白板关联</button><button type="button" aria-label="关闭库中原件">×</button></header><label class="note-link-search">查找原件<input type="search" aria-label="查找库中便签原件" placeholder="名称、目录或文字摘要"></label><p role="status">正在读取…</p><div class="note-library-source-list"></div><button type="button" data-library-retry hidden>重新读取</button><small class="note-library-source-scope">只读对照文字便签，不插入引用。文件资料和完整组合仍在内容库。</small>';
+  const search=box.querySelector('input'),status=box.querySelector('[role=status]'),list=box.querySelector('.note-library-source-list'),retry=box.querySelector('[data-library-retry]');let rows=[],limited=false,limit=30,request=0,reading=false,failed=false;
+  const same=()=>panel===box&&board===source&&boardId===sourceBoard&&board.nodes.includes(n)&&editorId===n.id&&root.isConnected&&input.isConnected&&referenceFieldAt(place,root)===input&&input.value===place.field.value&&!loading&&!blocked&&(place.mode==='expanded'?$('dialog').open&&!root.hidden:!$('dialog').open);
+  box.querySelector('[aria-label="关闭库中原件"]').onclick=closePanel;box.querySelector('[data-library-back]').onclick=()=>{if(!same())return;closePanel();openLinks(trigger,n)};
+  function draw(){
+   if(!same()||reading||failed)return;const query=search.value.trim().toLocaleLowerCase(),matches=rows.filter(row=>(row.name+' '+row.folder+' '+row.title+' '+row.excerpt).toLocaleLowerCase().includes(query));list.replaceChildren();
+   for(const row of matches.slice(0,limit)){
+    const button=document.createElement('button');button.type='button';button.className='note-link-row note-library-source-row';button.dataset.librarySourceAsset=row.assetId;button.dataset.librarySourceNode=row.originNodeId;
+    const title=document.createElement('strong'),where=document.createElement('small'),excerpt=document.createElement('small');title.textContent=row.name;where.textContent=row.folder+' · '+row.title;excerpt.textContent=row.excerpt;button.append(title,where,excerpt);list.append(button);
+    button.onclick=()=>{if(!same())return;const current=captureReferencePlace(n.id);if(!current||current.field?.value!==place.field.value)return;peekReference(row,current,[row],false)};
+   }
+   if(matches.length>limit){const more=document.createElement('button');more.type='button';more.textContent='显示更多';more.onclick=()=>{limit+=30;draw();positionPanel(trigger)};list.append(more)}
+   status.textContent=matches.length?'找到 '+matches.length+' 份库中便签原件。':'暂未找到匹配的库中便签原件。';if(limited)status.textContent+=' 已列出部分范围，其他材料请从内容库查找。';positionPanel(trigger);
+  }
+  async function load(){
+   if(!same())return;const token=++request;reading=true;failed=false;status.textContent='正在读取…';retry.hidden=true;list.replaceChildren();
+   try{const catalog=await readLibraryReferenceCatalog();if(!same()||token!==request)return;const result=libraryReferenceRows(catalog);rows=result.rows;limited=result.limited;reading=false;draw()}
+   catch(error){if(same()&&token===request){reading=false;failed=true;status.textContent=error.message||'暂时没有读到原件，原稿仍保留。';retry.hidden=false;positionPanel(trigger)}}
+  }
+  search.oninput=()=>{limit=30;draw()};retry.onclick=load;show(trigger);search.focus();load();
+ }
+
  async function openLinks(trigger,n){
-  const box=popup(trigger,n,'links');if(!box)return;box.setAttribute('aria-label','关联内容');box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><p role="status">正在读取可关联的内容…</p>';box.querySelector('button').onclick=closePanel;show(trigger);
-  const sourceBoard=boardId,source=board;let result;try{result=await allNotes()}catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message;return}if(panel!==box||board!==source||boardId!==sourceBoard||!board.nodes.includes(n))return;
+  const box=popup(trigger,n,'links');if(!box)return;box.setAttribute('aria-label','关联内容');box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><p role="status">正在读取可关联的内容…</p>';box.querySelector('button').onclick=closePanel;mountLibrarySourceEntry(box,trigger,n);show(trigger);
+  const sourceBoard=boardId,source=board;let result;try{result=await allNotes(()=>panel===box&&board===source&&boardId===sourceBoard&&board.nodes.includes(n))}catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message;return}if(panel!==box||board!==source||boardId!==sourceBoard||!board.nodes.includes(n))return;
   const records=[...result.records];
   // Keep explicit relationships legible even when their target cannot be read.
   // These transient labels come from the author's link, never source content.
@@ -608,7 +675,7 @@
   const otherHeading=document.createElement('b');otherHeading.className='note-other-heading';otherHeading.textContent='其他内容';list.before(section,otherHeading);
   const entry=row=>{const el=document.createElement('div');el.className='note-link-entry';el.append(rowButton(row,false));if(!row.unavailable)el.append(rowButton(row,true));return el};
   const filter=()=>{list.replaceChildren();incoming.replaceChildren();const query=search.value.toLocaleLowerCase(),matches=row=>(noteLabel(row.node)+' '+row.name).toLocaleLowerCase().includes(query),linked=backlinks.filter(matches),others=records.filter(row=>(row.board!==sourceBoard||row.node.id!==n.id)&&!related.has(row.board+'/'+row.node.id)&&matches(row));section.hidden=!linked.length;otherHeading.hidden=!others.length;for(const row of linked.slice(0,limit))incoming.append(entry(row));for(const row of others.slice(0,limit))list.append(entry(row));if(linked.length>limit||others.length>limit){const more=document.createElement('button');more.type='button';more.textContent='显示更多';more.onclick=()=>{limit+=30;filter()};list.append(more)}if(!linked.length&&!others.length){const empty=document.createElement('p');empty.textContent='没有匹配的内容';list.append(empty)}};
-  search.oninput=()=>{limit=30;filter()};filter();positionPanel(trigger);search.focus();
+  search.oninput=()=>{limit=30;filter()};filter();mountLibrarySourceEntry(box,trigger,n);positionPanel(trigger);search.focus();
  }
  const originalBind=bindInline;
  bindInline=function(){originalBind();const n=board?.nodes.find(n=>n.id===editorId&&selected.has(n.id)),root=document.querySelector('.live-layout');if(!n||!root)return;closePanel();field=null;range=null;preview=false;

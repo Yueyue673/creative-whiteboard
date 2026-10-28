@@ -229,3 +229,13 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
  .source-stacked .note-source-card :is([data-preview-id=title],.read-layout>h3){display:none}
  #dialog .source-stacked .note-source-card .edit-scroll{padding:8px 12px}
 }
+
+
+/* Optional read-only library source selection stays in the original writer popup. */
+.note-tools>header .note-library-read-entry,.note-library-sources>header [data-library-back]{min-height:44px;width:auto;padding:5px 8px;font-size:12px}
+.note-library-sources>header b{min-width:0;overflow-wrap:anywhere}
+.note-library-source-list{display:grid;gap:6px;max-height:min(42dvh,360px);overflow:auto;overscroll-behavior:contain}
+.note-library-source-row{display:grid;gap:4px;min-height:64px;white-space:normal;text-align:left}
+.note-library-source-row strong,.note-library-source-row small{overflow-wrap:anywhere;white-space:normal}
+.note-library-source-row small:last-child{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.note-library-source-scope{display:block;font-size:12px;line-height:1.6;opacity:.8}

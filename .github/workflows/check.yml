@@ -96,6 +96,7 @@ jobs:
           HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
           ARRANGEMENT_RETURN_PROOF: .ci-proofs/arrangement-return
           LIBRARY_COPIES_PROOF: .ci-proofs/library-copies
+          LIBRARY_REFERENCE_PROOF: .ci-proofs/library-writing-reference
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -358,6 +359,17 @@ jobs:
           path: |
             .ci-proofs/narrow-reference-stack/result.json
             .ci-proofs/narrow-reference-stack/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-writing reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-writing-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-writing-reference/result.json
+            .ci-proofs/library-writing-reference/*.png
           if-no-files-found: ignore
           retention-days: 3
 
