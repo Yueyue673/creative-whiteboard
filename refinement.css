@@ -576,3 +576,5 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 #appearanceDialog .appearance-portable>summary{padding:12px 0;line-height:20px}
 #appearanceDialog .appearance-portable button{min-height:44px}
 #appearanceDialog .appearance-import-list label{min-height:44px;align-items:center}
+
+.arrange-return{grid-column:1/-1;border-top:1px solid var(--ui-line);padding-top:10px}.arrange-return>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}.arrange-return p{font-size:12px;line-height:1.6;overflow-wrap:anywhere;margin:6px 0}.arrange-return-actions{display:flex;gap:8px;flex-wrap:wrap}.arrange-return-actions button{flex:1 1 130px;min-height:44px;white-space:normal}.arrange-return [role=status]{color:var(--ui-muted);min-height:1.6em}

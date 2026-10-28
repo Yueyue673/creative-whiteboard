@@ -358,6 +358,22 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+      - name: Check temporary arrangement return
+        env:
+          ARRANGEMENT_RETURN_PROOF: .ci-proofs/arrangement-return
+        run: node tests/browser-arrangement-return.cjs
+
+      - name: Keep isolated arrangement-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arrangement-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/arrangement-return/result.json
+            .ci-proofs/arrangement-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
       - name: Keep isolated appearance-portability evidence
         if: always()
         uses: actions/upload-artifact@v4
