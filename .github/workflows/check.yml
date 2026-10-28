@@ -117,6 +117,7 @@ jobs:
           CELL_ORIGIN_PROOF: .ci-proofs/cell-item-origin
           CELL_ORIGIN_RETURN_PROOF: .ci-proofs/cell-origin-return
           DOCUMENT_LIBRARY_ORDER_PROOF: .ci-proofs/document-library-order
+          SELECTION_VARIANT_PROOF: .ci-proofs/selection-variant
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -663,5 +664,16 @@ jobs:
           path: |
             .ci-proofs/document-library-order/result.json
             .ci-proofs/document-library-order/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated selection-variant evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selection-variant-${{ github.run_id }}
+          path: |
+            .ci-proofs/selection-variant/result.json
+            .ci-proofs/selection-variant/*.png
           if-no-files-found: ignore
           retention-days: 3

@@ -295,6 +295,21 @@ window.addEventListener('keydown',e=>{
   const owns=()=>dialog===d&&d.isConnected&&d.open&&owner()&&!document.hidden;
   const message=text=>status.textContent=text;
   const signature=value=>JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
+  function selectionPlan(){
+   const snapshot=view.snapshot(),ids=snapshot?.selected;
+   if(snapshot?.boardId!==tab.boardId||!Array.isArray(ids)||!ids.length||ids.some(id=>typeof id!=='string'||snapshot.board.nodes.filter(n=>n.id===id).length!==1)||typeof source.selectionBundle!=='function')return null;
+   const frames=snapshot.board.nodes.filter(n=>ids.includes(n.id)&&n.type==='frame');if(frames.some(f=>snapshot.board.nodes.some(n=>n.type==='frame'&&n.id!==f.id&&n.x>=f.x&&n.x<f.x+f.w&&n.y>=f.y&&n.y<f.y+f.h)))return null;
+   const bundle=source.selectionBundle(),nodeIds=new Set(bundle.nodes.map(n=>n.id));
+   if(!bundle.nodes.length||nodeIds.size!==bundle.nodes.length||bundle.nodes.some(n=>typeof n.id!=='string')||bundle.edges.some(e=>!nodeIds.has(e.from)||!nodeIds.has(e.to)))return null;
+   return {selected:ids.slice().sort(),bundle};
+  }
+  const plan=selectionPlan(),planSignature=plan&&signature(plan);let range=null;
+  if(plan){
+   const label=document.createElement('label'),preview=document.createElement('section'),summary=document.createElement('p'),list=document.createElement('ul');label.textContent='取用范围';range=document.createElement('select');range.setAttribute('aria-label','取用范围');range.innerHTML='<option value="board">当前整张白板</option><option value="selection">只取当前选中内容</option>';label.append(range);preview.className='board-variant-selection';preview.hidden=true;preview.setAttribute('aria-label','选中内容范围');
+   summary.textContent='本次共 '+plan.bundle.nodes.length+' 块、其中 '+plan.bundle.edges.length+' 条连线。连向其他内容的线不会复制；已有跳转保留原目的地。';
+   for(const n of plan.bundle.nodes.slice(0,10)){const row=document.createElement('li'),title=document.createElement('b'),detail=document.createElement('small');title.textContent=n.title||'未命名内容';const text=String(n.body||n.userText||n.annotation||(n.type==='table'?(n.columns||[]).join(' · '):'')||'');detail.textContent=(n.type==='frame'?'分组':n.type==='table'?'表格':n.type==='image'?'图片':n.mediaId?'音视频':n.assetId?'文件':'便签')+(text?' · '+text.slice(0,100)+(text.length>100?'…':''):'');row.append(title,detail);list.append(row)}
+   if(plan.bundle.nodes.length>10){const more=document.createElement('li');more.textContent='还有 '+(plan.bundle.nodes.length-10)+' 块，按当前选中范围一并保留。';list.append(more)}preview.append(summary,list);input.parentElement.before(label,preview);range.onchange=()=>{preview.hidden=range.value!=='selection'};
+  }else if(view.snapshot()?.selected?.length){const explain=document.createElement('p');explain.textContent='当前选择暂不能完整取用。可以整张白板另起一版，或返回原稿只选需要的具体内容。';input.parentElement.before(explain)}
   function complete(){
    committed=true;const {id,value,revision}=attempt,copy={id,name:value.name,folder:value.folder||'',count:value.nodes.length};
    if(!same(shellScope,window.whiteboardHosted)||!same(writerScope,source.whiteboardHosted))return;
@@ -305,7 +320,7 @@ window.addEventListener('keydown',e=>{
   }
   create.onclick=async()=>{
    if(!owns()||busy||committed||changedSaved)return;const name=attempt?.value.name||input.value.trim();if(!name){message('给新版本起个名字。');input.focus();return}
-   busy=true;input.disabled=create.disabled=true;message(attempt?'正在核对这次创建…':'正在准备当前内容…');
+       const selectionMode=range?.value==='selection';busy=true;input.disabled=create.disabled=true;if(range)range.disabled=true;message(attempt?'正在核对这次创建…':'正在准备当前内容…');
    try{
     if(!attempt)await source.whiteboardImports?.idle();if(!owns())return;
     if(source.whiteboardHosted&&!await source.whiteboardHosted.checkIdentity())throw Error('原账号或工作区尚未确认，原稿保留。');if(!owns())return;
@@ -321,10 +336,10 @@ window.addEventListener('keydown',e=>{
     const folderData=await api('/api/folders');if(!owns())return;
     // Snapshot only after all waits. The original save and undo owners stay intact.
     const snapshot=view.snapshot(),copiedRevision=view.state().revision;if(!snapshot||snapshot.boardId!==tab.boardId)throw Error('原白板已有变化，请返回后重新打开。');
-    const value=snapshot.board;value.name=name;if(value.folder&&!folderData.folders.some(folder=>folder.id===value.folder))value.folder='';
+         const value=snapshot.board;if(selectionMode){const currentPlan=selectionPlan();if(!currentPlan||signature(currentPlan)!==planSignature)throw Error('所选内容已有变化，请返回原稿重新选择。');value.nodes=currentPlan.bundle.nodes;value.edges=currentPlan.bundle.edges}value.name=name;if(value.folder&&!folderData.folders.some(folder=>folder.id===value.folder))value.folder='';
     attempt={id:uid(),value,revision:copiedRevision,signature:signature(value)};message('正在保存新版本…');await api('/api/boards/'+attempt.id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});complete();
    }catch(error){if(owns())message(committed?'新版本已保存，暂时未能打开，可从白板列表继续。':attempt?'本次保存尚未确认，可核对这次创建。原稿保留。 '+(error.message==='Failed to fetch'?'连接暂时中断。':error.message||''):error.message||'暂时未能创建新版本，原稿保留。')}
-   finally{busy=false;if(owns()){input.disabled=!!attempt;create.disabled=committed||changedSaved;create.textContent=changedSaved?'已保存内容需要核对':attempt&&!committed?'核对这次创建':'创建并打开新版本'}}
+   finally{busy=false;if(owns()){input.disabled=!!attempt;if(range)range.disabled=!!attempt;create.disabled=committed||changedSaved;create.textContent=changedSaved?'已保存内容需要核对':attempt&&!committed?'核对这次创建':'创建并打开新版本'}}
   };
   input.onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();create.click()}};
   d.querySelector('[data-variant-close]').onclick=()=>d.close();
