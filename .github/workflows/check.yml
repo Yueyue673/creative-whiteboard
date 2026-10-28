@@ -100,6 +100,7 @@ jobs:
           IMAGE_WRITING_REFERENCE_PROOF: .ci-proofs/image-writing-reference
           LIBRARY_IMAGE_PIECES_PROOF: .ci-proofs/library-image-pieces
           LIBRARY_TABLE_PIECES_PROOF: .ci-proofs/library-table-pieces
+          LINK_LOCATION_PROOF: .ci-proofs/link-location-choice
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,6 +129,16 @@ jobs:
           path: |
             .ci-proofs/library-table-pieces/result.json
             .ci-proofs/library-table-pieces/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated link-location-choice evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-location-choice-${{ github.run_id }}
+          path: |
+            .ci-proofs/link-location-choice/result.json
+            .ci-proofs/link-location-choice/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated subset-resource evidence

@@ -246,3 +246,6 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .source-stacked>.source-image-fit .note-source-card :is([data-preview-id=title],.read-layout>h3){display:none}
 .source-stacked>.source-image-fit .note-source-image{margin:0}
 .source-stacked>.source-image-fit .note-source-image img{max-height:calc(100cqh - 16px);width:auto;object-fit:contain}
+
+/* The original relation choices can identify an item inside its table. */
+.note-link-row .note-link-location,.note-reference-choice .note-link-location{white-space:normal;overflow-wrap:anywhere;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
