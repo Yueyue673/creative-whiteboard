@@ -274,3 +274,49 @@ window.addEventListener('keydown',e=>{
   d.addEventListener('close',()=>{window.removeEventListener('storage',storage);d.remove();if(dialog===d)dialog=null;const tab=current();queueMicrotask(()=>{if(current()===tab&&document.hasFocus()&&!document.hidden&&!document.querySelector('dialog[open]'))pane(tab)?.focus()})},{once:true});document.body.append(d);d.showModal();paint();if(!save.disabled)input.focus();else d.querySelector('[data-pair-close]').focus();
  };
 })();
+
+// A deliberate alternative keeps the mounted original available to return to.
+(() => {
+ 'use strict';
+ const menu=document.querySelector('#shellMore>div');if(!menu)return;let dialog=null;
+ const entry=document.createElement('button');entry.type='button';entry.id='boardVariant';entry.textContent='另起一版';menu.insertBefore(entry,menu.querySelector('[data-command=export]'));
+ const scope=host=>({host:host||null,key:host?JSON.stringify([host.account?.id,host.workspace,host.base]):''});
+ const same=(saved,host)=>saved.host===(host||null)&&saved.key===scope(host).key&&!host?.paused;
+ entry.onclick=()=>{
+  if(!entry.isConnected||dialog?.open||document.hidden||document.querySelector('dialog[open]'))return;
+  const tab=current(),frame=tab&&frames.get(tab.id),view=tab&&pane(tab),source=frame?.contentWindow,sourceDocument=frame?.contentDocument;
+  const shellScope=scope(window.whiteboardHosted),writerScope=scope(source?.whiteboardHosted),side=tab?.side;
+  const ready=()=>{const state=view?.state();return state?.boardId===tab?.boardId&&!state.loading&&!state.loadError&&!state.blocked&&!state.saveError&&!state.deleted};
+  if(!tab||!view||!ready()||shellScope.key!==writerScope.key||!same(shellScope,window.whiteboardHosted)||!same(writerScope,source.whiteboardHosted))return toast('先在当前白板处理打开或保存提示，再另起一版。');
+  $('shellMore').open=false;const d=document.createElement('dialog');dialog=d;d.className='board-variant';d.setAttribute('aria-label','另起一版');let busy=false,committed=false;
+  d.innerHTML='<h2>另起一版</h2><p>把当前内容、连线与摆放另存到新白板，原标签保留，可随时回去。两版各自编辑，媒体仍共用原文件，已有跳转保留原目的地。</p><label>新版本名称<input aria-label="新版本名称" maxlength="120" autocomplete="off"></label><div class="board-variant-actions"><button type="button" data-variant-close>返回原稿</button><button type="button" data-variant-create>创建并打开新版本</button></div><p role="status"></p>';
+  const input=d.querySelector('input'),create=d.querySelector('[data-variant-create]'),status=d.querySelector('[role=status]');input.value=(view.state().name+'（新方案）').slice(0,120);
+  const owner=()=>model.tabs.includes(tab)&&current()===tab&&tab.side===side&&frames.get(tab.id)===frame&&frame.contentDocument===sourceDocument&&pane(tab)===view&&same(shellScope,window.whiteboardHosted)&&same(writerScope,source.whiteboardHosted)&&ready();
+  const owns=()=>dialog===d&&d.isConnected&&d.open&&owner()&&!document.hidden;
+  const message=text=>status.textContent=text;
+  create.onclick=async()=>{
+   if(!owns()||busy||committed)return;const name=input.value.trim();if(!name){message('给新版本起个名字。');input.focus();return}
+   busy=true;input.disabled=create.disabled=true;message('正在准备当前内容…');let copy=null;
+   try{
+    await source.whiteboardImports?.idle();if(!owns())return;
+    if(source.whiteboardHosted&&!await source.whiteboardHosted.checkIdentity())throw Error('原账号或工作区尚未确认，原稿保留。');if(!owns())return;
+    const folderData=await api('/api/folders');if(!owns())return;
+    // Snapshot only after all waits. The original save and undo owners stay intact.
+    const snapshot=view.snapshot(),copiedRevision=view.state().revision;if(!snapshot||snapshot.boardId!==tab.boardId)throw Error('原白板已有变化，请返回后重新打开。');
+    const value=snapshot.board;value.name=name;if(value.folder&&!folderData.folders.some(folder=>folder.id===value.folder))value.folder='';
+    const id=uid();message('正在保存新版本…');await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});
+    committed=true;copy={id,name,folder:value.folder||'',count:value.nodes.length};
+    if(!same(shellScope,window.whiteboardHosted)||!same(writerScope,source.whiteboardHosted))return;
+    boards.push(copy);window.whiteboardBoardLifecycle?.created([id]);
+    if(owns()&&view.state().revision===copiedRevision){d.close();openBoard(id,side);toast('新版本已保存，原稿标签保留。')}
+    else if(owns())message('新版本已保存。期间原稿有了新修改，仍留在原稿，可从白板列表打开新版本。');
+    else if(!document.hidden)toast('新版本已保存，可在白板列表中打开。');
+   }catch(error){if(owns())message(copy?'新版本已保存，暂时未能打开，可从白板列表继续。':error.message||'暂时未能创建新版本，原稿保留。')}
+   finally{busy=false;if(owns()){input.disabled=false;create.disabled=committed}}
+  };
+  input.onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();create.click()}};
+  d.querySelector('[data-variant-close]').onclick=()=>d.close();
+  d.addEventListener('close',()=>{d.remove();if(dialog===d)dialog=null;queueMicrotask(()=>{if(owner()&&document.hasFocus()&&!document.hidden&&!document.querySelector('dialog[open]'))view.focus()})},{once:true});
+  document.body.append(d);d.showModal();input.focus();input.select();
+ };
+})();
