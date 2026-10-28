@@ -24,6 +24,15 @@
   if(active?.el===el&&active.add){active.add.disabled=!ready;active.replay.disabled=!ready}
  }
  function growTitle(s){const field=s.title;if(!field?.isConnected||s.editor.hidden)return;const css=getComputedStyle(field);field.style.height='auto';field.style.height=(field.scrollHeight+parseFloat(css.borderTopWidth)+parseFloat(css.borderBottomWidth))+'px'}
+ function extractMarker(s,m,owns){
+  const context=contentContext(s.el),root=context?.node,item=owner(s.el),id=item?.mediaId,asset=id&&assetById(id);
+  if(!owns()||context?.readOnly||context?.board!==boardId||!board?.nodes.includes(root)||loading||blocked||window.whiteboardHosted?.paused||window.whiteboardHosted?.role==='viewer'||!id||s.el.dataset.mediaAsset!==id||!asset||!/^(audio|video)\//.test(asset.mime||''))return;
+  if(s.time.getAttribute('aria-invalid')==='true')return toast('请先修正标记时间，再取出副本');
+  if(board.nodes.length>=5000)return toast('白板内容已满，请先整理后再取出副本');
+  const marker={...clone(m),id:uid()},node={id:uid(),type:'note',title:m.title||'',body:m.note||'',userText:'',annotation:'',tags:[],mediaId:id,assetId:id,url:asset.path||'',images:[],mediaTimeline:{[mediaKey(s.el)]:{markers:[marker],startMarkerId:marker.id}},x:0,y:0,w:340,h:300,sizeMode:'manual',color:'#ffffff'};
+  insertBundle({nodes:[node],edges:[]},{x:root.x+root.w+40,y:root.y,_keepContext:true});
+  toast('已将标记副本放到媒体右侧 · 原标记保留 · Ctrl+Z 可撤销');
+ }
  function markerEditor(s,m){
   let fields=s.editors.get(m);
   if(!fields){
@@ -44,6 +53,7 @@
     write(el,()=>m.time=value);
    };
    fields.start.onchange=()=>{if(owns())write(el,t=>t.startMarkerId=fields.start.checked?m.id:null)};
+   editor.querySelector('.media-extract-marker').onclick=()=>extractMarker(s,m,owns);
    editor.querySelector('.media-remove-marker').onclick=()=>{if(owns())write(el,t=>{t.markers=t.markers.filter(item=>item!==m);if(t.startMarkerId===m.id)t.startMarkerId=null;s.selected=t.markers[0]?.id||null})};
    if(contentContext(el)?.readOnly){fields.title.readOnly=fields.note.readOnly=fields.time.readOnly=true;fields.start.disabled=true;editor.querySelector('.media-marker-actions').hidden=true;}
   }
@@ -70,7 +80,7 @@
  }
  function decorate(){
   const popup=$('mediaPopover'),el=active?.el;if(!popup||!el||popup.querySelector('.media-markers'))return;
-  const section=document.createElement('section');section.className='media-markers';section.innerHTML='<div class="media-marker-heading"><strong>时间标记</strong><button class="media-add-marker">＋ 添加当前时间</button><button class="media-replay">重播</button></div><div class="media-marker-list" role="listbox" aria-label="时间标记：方向键选择，Home / End 到首尾"></div><div class="media-marker-editor" hidden><label>名称<textarea class="media-marker-title" rows="1" maxlength="200" placeholder="例如：这里接转场"></textarea></label><label>时间（秒或分:秒）<input class="media-marker-time" inputmode="decimal" aria-describedby="mediaMarkerError"></label><p class="media-marker-error" id="mediaMarkerError" role="alert" hidden></p><label class="media-marker-description">备注<textarea class="media-marker-note" rows="3" placeholder="这段用来做什么，或有哪些想法。" maxlength="20000"></textarea></label><div class="media-marker-actions"><label><input type="checkbox" class="media-marker-start">下次从这里开始</label><button class="media-remove-marker">删除标记</button></div></div><div class="media-replay-policy"><small></small><button class="media-resume">改为接着上次播放</button></div>';
+  const section=document.createElement('section');section.className='media-markers';section.innerHTML='<div class="media-marker-heading"><strong>时间标记</strong><button class="media-add-marker">＋ 添加当前时间</button><button class="media-replay">重播</button></div><div class="media-marker-list" role="listbox" aria-label="时间标记：方向键选择，Home / End 到首尾"></div><div class="media-marker-editor" hidden><label>名称<textarea class="media-marker-title" rows="1" maxlength="200" placeholder="例如：这里接转场"></textarea></label><label>时间（秒或分:秒）<input class="media-marker-time" inputmode="decimal" aria-describedby="mediaMarkerError"></label><p class="media-marker-error" id="mediaMarkerError" role="alert" hidden></p><label class="media-marker-description">备注<textarea class="media-marker-note" rows="3" placeholder="这段用来做什么，或有哪些想法。" maxlength="20000"></textarea></label><div class="media-marker-actions"><label><input type="checkbox" class="media-marker-start">下次从这里开始</label><button class="media-extract-marker">取出标记副本到白板</button><button class="media-remove-marker">删除标记</button></div></div><div class="media-replay-policy"><small></small><button class="media-resume">改为接着上次播放</button></div>';
   popup.append(section);const s=Object.assign(active,{list:section.querySelector('.media-marker-list'),editor:section.querySelector('.media-marker-editor'),title:section.querySelector('.media-marker-title'),note:section.querySelector('.media-marker-note'),time:section.querySelector('.media-marker-time'),error:section.querySelector('.media-marker-error'),start:section.querySelector('.media-marker-start'),summary:section.querySelector('.media-replay-policy small'),resume:section.querySelector('.media-resume'),add:section.querySelector('.media-add-marker'),replay:section.querySelector('.media-replay')});s.editors=new WeakMap();s.editorTemplate=s.editor.cloneNode(true);s.selected??=sorted(el)[0]?.id||null;
   s.list.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;const all=sorted(el);if(!all.length)return;e.preventDefault();e.stopPropagation();const index=all.findIndex(m=>m.id===s.selected),next=e.key==='Home'?0:e.key==='End'?all.length-1:Math.max(0,Math.min(all.length-1,index+(e.key==='ArrowDown'?1:-1)));s.selected=all[next].id;jump(el,all[next].time);renderPanel(s)});
   s.add.onclick=()=>{const id=uid();s.selected=id;write(el,t=>t.markers.push({id,time:Math.round(el.currentTime*100)/100,title:'',note:''}));s.title.focus()};
