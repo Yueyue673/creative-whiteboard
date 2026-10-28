@@ -107,6 +107,7 @@ jobs:
           PRESET_LIBRARY_PROOF: .ci-proofs/preset-library
           PRESET_LIBRARY_REFRESH_PROOF: .ci-proofs/preset-library-refresh
           CELL_RELATIONS_PROOF: .ci-proofs/cell-bundle-relations
+          CELL_LIBRARY_PROOF: .ci-proofs/cell-library-selection
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -546,5 +547,16 @@ jobs:
           path: |
             .ci-proofs/library-reuse-entry/result.json
             .ci-proofs/library-reuse-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-library-selection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-library-selection-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-library-selection/result.json
+            .ci-proofs/cell-library-selection/*.png
           if-no-files-found: ignore
           retention-days: 3

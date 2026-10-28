@@ -184,6 +184,49 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
 // Create original notes and files in the selected cell from one table Add menu.
 (() => {
  const previous=mountTableEditor,places=new WeakMap();let menu=null,opener=null;
+// Reuse the current library selection; no second picker or intermediate canvas copy.
+const cellLibraryBusy=new WeakSet();
+function cellLibraryPick(){
+ try{
+  const explorer=parent!==window?parent.whiteboardWorkspace?.explorer?.():null;
+  const state=explorer?explorer.selection():{ids:[...assetSelected],folder:assetFolder,panel:workspaceTab};
+  if(state?.panel!=='assetPane'||!Array.isArray(state.ids))return null;
+  const ids=[...new Set(state.ids.filter(id=>typeof id==='string'&&id))];
+  return {explorer,ids,key:JSON.stringify([state.panel,state.folder,ids])};
+ }catch{return null}
+}
+function cellLibraryOption(n,item,target){
+ const picked=cellLibraryPick(),count=picked?.ids.length||0;
+ const disabled=!count||cellLibraryBusy.has(n)||!target();
+ item(cellLibraryBusy.has(n)?'库中所选（正在取用）':count?'库中所选 · '+count+' 项':'库中所选（未选择）',async()=>{
+  if(disabled||cellLibraryBusy.has(n)||!target())return;
+  const scope=window.whiteboardHosted||null,scopeKey=JSON.stringify(scope);
+  const samePick=()=>{const current=cellLibraryPick();return current&&current.explorer===picked.explorer&&current.key===picked.key};
+  const owns=()=>target()&&samePick()&&(window.whiteboardHosted||null)===scope&&JSON.stringify(scope)===scopeKey;
+  let interrupted=false;
+  const interrupt=event=>{if(event.isTrusted)interrupted=true};
+  for(const type of ['pointerdown','keydown','input','wheel','touchmove'])document.addEventListener(type,interrupt,true);
+  cellLibraryBusy.add(n);
+  try{
+   await loadAssets({redraw:false});
+   if(!owns()||interrupted){if(target())toast('已取消取用，当前编辑保留。');return}
+   const assets=picked.ids.map(assetById);
+   if(assets.some(a=>!a||a.archived))return toast('所选内容已有变化，请回内容库重新选择。');
+   if(assets.some(a=>Array.isArray(a.bundle?.edges)&&a.bundle.edges.length))return toast('这组内容含连线，请先放到白板保留关系。');
+   if(assets.some(a=>a.bundle&&(!Array.isArray(a.bundle.nodes)||!a.bundle.nodes.length||a.bundle.nodes.some(value=>!['note','table','image'].includes(value?.type)))))return toast('这份组合含画布对象，请先放到白板保留布局。');
+   const at=target();if(!at)return;
+   const before=new Set((n.cellItems?.[at.r]?.[at.c]||[]).map(value=>value.id));
+   attachAssets(picked.ids,{nodeId:n.id,r:at.r,c:at.c});
+   const added=(n.cellItems?.[at.r]?.[at.c]||[]).find(value=>!before.has(value.id));
+   if(!added||!document.hasFocus()||board?.nodes.find(value=>value.id===n.id)!==n||editorId!==n.id)return;
+   const host=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');
+   if(!host?.isConnected||host.closest('[inert],[hidden],[aria-hidden="true"]'))return;
+   const section=[...host.querySelectorAll('[data-cell-item]')].find(el=>n.cellItems?.[+el.dataset.cellR]?.[+el.dataset.cellC]?.[+el.dataset.cellItem]?.id===added.id);
+   const field=section?.querySelector('[data-cell-note-field="body"]')||section?.querySelector('[data-cell-note-field="title"]');field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'});
+  }catch(error){if(owns()&&!interrupted)toast('暂时无法取用，请稍后重试。')}
+  finally{cellLibraryBusy.delete(n);for(const type of ['pointerdown','keydown','input','wheel','touchmove'])document.removeEventListener(type,interrupt,true)}
+ },disabled);
+}
  const style=document.createElement('style');style.textContent='.node.table .cell-shared-original-add{display:none!important}.node.table .cell-insert-target{outline:2px solid var(--ui-accent,#9a8760);outline-offset:-2px}.cell-add-menu{position:fixed;inset:auto;margin:0;padding:6px;min-width:170px;max-width:calc(100vw - 24px);border:1px solid var(--ui-line);border-radius:6px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 8px 24px #0003}.cell-add-menu button{display:block;width:100%;min-height:44px;text-align:left;border:0;background:transparent;color:inherit}.cell-add-menu button:disabled{opacity:.5}.cell-add-menu hr{border:0;border-top:1px solid var(--ui-line);margin:4px 0}';document.head.append(style);
  function close(restore=false){const old=opener;menu?.remove();menu=null;opener=null;if(restore&&old?.isConnected)old.focus({preventScroll:true})}
  document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&event.target!==opener)close()},true);
@@ -201,7 +244,7 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
    if(!editable())return;close();opener=shared;const row=place.row,column=place.column,target=()=>{if(!editable()||place.row!==row||place.column!==column)return null;return position()};menu=document.createElement('div');menu.className='cell-add-menu inline-ui';menu.setAttribute('popover','manual');menu.setAttribute('role','menu');menu.setAttribute('aria-label','添加到单元格');
    const ownMenu=menu,item=(label,action,disabled=false)=>{const option=document.createElement('button');option.type='button';option.setAttribute('role','menuitem');option.textContent=label;option.disabled=disabled;option.onclick=()=>{if(menu!==ownMenu||!ownMenu.isConnected)return;close();action()};ownMenu.append(option)};
    item('便签',()=>{const at=target();if(!at)return;const value={id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:300,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:colors[0]};undoPoint();cellItemGrid(n)[at.r][at.c].push(value);drawNodes();change();if(board!==owner||boardId!==ownerId||!board.nodes.includes(n)||editorId!==n.id||loading||blocked||window.whiteboardHosted?.paused||window.whiteboardHosted?.role==='viewer')return;const host=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');if(!host?.isConnected||host.closest('[inert],[hidden],[aria-hidden="true"]')||!document.hasFocus())return;const section=[...(host?.querySelectorAll('[data-cell-item]')||[])].find(e=>n.cellItems?.[+e.dataset.cellR]?.[+e.dataset.cellC]?.[+e.dataset.cellItem]?.id===value.id),field=section?.querySelector('[data-cell-note-field="title"]');field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'})},!target());
-   item('文件',()=>{const at=target();if(!at)return;const original=root.querySelector('[data-add-images="'+at.r+','+at.c+'"]');original?.onclick?.call(original,event)},!target());menu.append(document.createElement('hr'));
+   item('文件',()=>{const at=target();if(!at)return;const original=root.querySelector('[data-add-images="'+at.r+','+at.c+'"]');original?.onclick?.call(original,event)},!target());cellLibraryOption(n,item,target);menu.append(document.createElement('hr'));
    item('行',()=>{if(editable())addRow.onclick?.()});item('列',()=>{if(editable())addColumn.onclick?.()});
    (shared.closest('dialog[open]')||document.body).append(menu);menu.showPopover();const bounds=shared.getBoundingClientRect();menu.style.left=Math.max(12,Math.min(bounds.left,innerWidth-menu.offsetWidth-12))+'px';menu.style.top=Math.max(12,Math.min(bounds.bottom,innerHeight-menu.offsetHeight-12))+'px';menu.querySelector('button:not(:disabled)')?.focus({preventScroll:true});event.preventDefault();event.stopPropagation();
   };
