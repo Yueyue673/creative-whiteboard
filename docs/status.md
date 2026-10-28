@@ -31,6 +31,7 @@
 | 从内容库取材料到指定格子，并继续写 | [格内取用库中所选](cell-library-selection.md) |
 | 关过标签后，再接回常用的两张对照白板 | [命名白板组合](board-pairs.md) |
 | 把白板上选中的混合材料接成可续写的新稿 | [先确认顺序，再创建长文副本](selection-document.md) |
+| 写长文时核对已取用便签的库中原话 | [在原段旁只读查看准确原件](paper-block-origin.md) |
 | 留下一段原话，下次找到合适材料再取用 | [所选原文存到库](#candidate-text-resource) · [在组合里先读长文再挑选](#candidate-group-document) · [长文正文选句](#candidate-document-selection-text) |
 | 保留组合里常用的一部分 | [把组合所选另存为新资源](#candidate-subset-resource) |
 | 在长文里接着写、补材料 | [按原纸色和墨色写长文](#candidate-document-paper) · [把材料接在选定段落后](#candidate-document-after) |

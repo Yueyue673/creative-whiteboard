@@ -165,6 +165,7 @@
   };
   search.oninput=paint;retry.onclick=read;search.focus({preventScroll:true});read();
  }
+ const paperInputs=new WeakMap(),paperRoots=new WeakSet();
  function mount(){
   if(libraryPicker&&!validLibraryPicker(libraryPicker))closeLibraryPicker(false);
   const lookup=new Map(board?.nodes.map(n=>[n.id,n])||[]);
@@ -176,6 +177,12 @@
    if(!isDocument(n))continue;
    for(const section of root.querySelectorAll('.document-paragraph'))section.querySelector('[data-cell-note-field="body"]')?.setAttribute('placeholder','继续写…');
    const editing=root.querySelector('.live-layout');if(!editing||!live(n))continue;
+   if(!paperRoots.has(root)){paperRoots.add(root);root.addEventListener('focusin',e=>{if(e.target.matches('textarea,input[type=text],input:not([type])')&&!e.target.readOnly&&!e.target.disabled)paperInputs.set(root,e.target)})}
+   if(root.id==='immersiveSurface')for(const section of root.querySelectorAll('[data-cell-item]')){
+    const item=n.cellItems?.[+section.dataset.cellR]?.[+section.dataset.cellC]?.[+section.dataset.cellItem],origin=item&&cellItemOrigin(item,n),text=item?.type==='note'&&!item.canvasObject&&!item.assetId&&!item.mediaId&&!item.image&&!item.images?.length;let button=section.querySelector('[data-paper-origin]');
+    if(!text||!origin?.id||!origin.nodeId){button?.remove();continue}if(button)continue;
+    button=document.createElement('button');button.type='button';button.className='inline-ui';button.dataset.paperOrigin=item.id;button.textContent='查看库中原件';button.title='只读查看这块便签已记录的库中原件';button.style.cssText='min-height:44px;margin:6px 0;color:var(--ui-text,#292929)';let context=null;const capture=()=>window.whiteboardNoteEditor?.capturePaperOriginContext(n.id,paperInputs.get(root));button.onpointerdown=()=>{context=capture()};button.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')context=capture()};button.onclick=e=>{e.stopPropagation();const place=context||capture();context=null;if(!button.isConnected||!section.contains(button)||!window.whiteboardNoteEditor?.peekPaperOrigin(place,item.id))toast('这份原件暂不能唯一对应，请保留原稿并从内容库查看。')};section.append(button);
+   }
    const toolbar=editing.querySelector('.inline-toolbar');
    if(toolbar&&!toolbar.querySelector('.document-insert')){
     const tools=document.createElement('div');tools.className='document-insert';tools.setAttribute('role','group');tools.setAttribute('aria-label','插入文中');

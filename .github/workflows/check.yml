@@ -110,6 +110,7 @@ jobs:
           CELL_LIBRARY_PROOF: .ci-proofs/cell-library-selection
           BOARD_PAIRS_PROOF: .ci-proofs/board-pairs
           SELECTION_DOCUMENT_PROOF: .ci-proofs/selection-document
+          PAPER_BLOCK_ORIGIN_PROOF: .ci-proofs/paper-block-origin
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -581,5 +582,15 @@ jobs:
           path: |
             .ci-proofs/selection-document/result.json
             .ci-proofs/selection-document/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated paper-block-origin evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-block-origin-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-block-origin/result.json
+            .ci-proofs/paper-block-origin/*.png
           if-no-files-found: ignore
           retention-days: 3
