@@ -99,7 +99,30 @@
  }
  const originalFit=whiteboardExperience.fitBlock;
  whiteboardExperience.fitBlock=function(id){const el=canvasBlock(id),n=board.nodes.find(n=>n.id===id),area=el?.querySelector('.edit-scroll'),gallery=area?.querySelector(':scope>.single-image'),img=gallery?.querySelector('img');if(!n||!img?.naturalWidth)return originalFit(id);const style=getComputedStyle(area),width=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),other=[...area.children].filter(c=>c!==gallery&&getComputedStyle(c).display!=='none').reduce((sum,c)=>{const s=getComputedStyle(c);return sum+c.offsetHeight+parseFloat(s.marginTop||0)+parseFloat(s.marginBottom||0)},0);undoPoint();n.h=Math.ceil(Math.max(120,Math.min(5000,width*img.naturalHeight/img.naturalWidth+other+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+10)));drawNodes();change()};
- const previousMenu=fileMenu;fileMenu=function(e,items){const el=e.target.closest?.('.node[data-id]');if(el&&!e.target.closest('[data-edge]')){const source=board,sourceId=boardId,n=board.nodes.find(n=>n.id===el.dataset.id),record=n&&n.type!=='frame'&&selected.size===1&&selected.has(n.id)&&canvas.classList.contains('record-in-menu')&&window.whiteboardNoteEditor?.writeFrom;items=[['展开编辑',()=>readNote(el.dataset.id)],...(record?[['写记录',()=>{if(board===source&&boardId===sourceId&&board.nodes.includes(n))whiteboardNoteEditor.writeFrom(n.id)}]]:[]),...items.map(([label,fn])=>[label,label==='按内容调整大小'?()=>whiteboardExperience.fitBlock(el.dataset.id):fn])]}return previousMenu(e,items)};
+ function groupPointWriter(e,n,el){
+  if(!n||n.type!=='frame'||editorId||loading||blocked||$('dialog').open||parentModal()||!visiblePane()||e.target.closest('.inline-ui,.resize,.port,h3,input,textarea,button,select,a'))return null;
+  const source=board,sourceId=boardId,point=worldPoint(e.clientX,e.clientY);let used=false,selection=null,target=el;
+  const frameReady=()=>n.type==='frame'&&typeof n.id==='string'&&!!n.id&&source.nodes.includes(n)&&source.nodes.filter(item=>item.id===n.id).length===1&&[n.x,n.y,n.w,n.h].every(Number.isFinite)&&n.w>=332&&n.h>=196;
+  if(!frameReady()||![point.x,point.y].every(Number.isFinite)||point.x<n.x||point.x>n.x+n.w||point.y<n.y||point.y>n.y+n.h)return null;
+  const action=()=>{
+   if(used)return;used=true;
+   if(board!==source||boardId!==sourceId||loading||blocked||editorId||$('dialog').open||parentModal()||!visiblePane()||!target?.isConnected||!selection||selected.size!==selection.length||!selection.every(id=>selected.has(id))||!frameReady())return;
+   // Keep the original default card inside this frame without moving any material.
+   addNote({x:Math.max(n.x+166,Math.min(n.x+n.w-166,point.x)),y:Math.max(n.y+94,Math.min(n.y+n.h-86,point.y))});
+   if((window.whiteboardPane?.viewport?.().width||innerWidth)<=680)window.whiteboardReading.open(editorId);
+  };
+  return {action,capture:()=>{selection=[...selected];target=canvasBlock(n.id)}};
+ }
+ const previousMenu=fileMenu;fileMenu=function(e,items){
+  const el=e.target.closest?.('.node[data-id]');let pointWrite=null;
+  if(el&&!e.target.closest('[data-edge]')){
+   const source=board,sourceId=boardId,n=board.nodes.find(n=>n.id===el.dataset.id),record=n&&n.type!=='frame'&&selected.size===1&&selected.has(n.id)&&canvas.classList.contains('record-in-menu')&&window.whiteboardNoteEditor?.writeFrom;
+   pointWrite=groupPointWriter(e,n,el);
+   items=[...(pointWrite?[['在这里写便签',pointWrite.action]]:[]),['展开编辑',()=>readNote(el.dataset.id)],...(record?[['写记录',()=>{if(board===source&&boardId===sourceId&&board.nodes.includes(n))whiteboardNoteEditor.writeFrom(n.id)}]]:[]),...items.map(([label,fn])=>[label,label==='按内容调整大小'?()=>whiteboardExperience.fitBlock(el.dataset.id):fn])];
+  }
+  const result=previousMenu(e,items);pointWrite?.capture();return result;
+ };
+
  // Keep the existing actions and fields; narrow panes only change how they are reached.
  const dock=$('creationDock'),textTools=$('textSizeTools'),more=document.createElement('button');
  more.id='creationMore';more.textContent='⋯';more.title='创作工具';more.setAttribute('aria-label','创作工具');more.setAttribute('aria-haspopup','menu');more.setAttribute('aria-controls','fileContext');more.setAttribute('aria-expanded','false');dock.append(more);
