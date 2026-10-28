@@ -82,6 +82,7 @@ jobs:
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
           PRESET_UPDATE_PROOF: .ci-proofs/appearance-preset-update
+          PICKED_REVIEW_PROOF: .ci-proofs/library-picked-review
           PAPER_TOOLS_FOLD_PROOF: .ci-proofs/paper-tools-fold
           LIBRARY_KIND_FILTER_PROOF: .ci-proofs/library-kind-filter
           PAPER_CONTEXT_PROOF: .ci-proofs/paper-edit-context
@@ -351,5 +352,16 @@ jobs:
           path: |
             .ci-proofs/appearance-preset-update/result.json
             .ci-proofs/appearance-preset-update/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-picked-review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-picked-review-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-picked-review/result.json
+            .ci-proofs/library-picked-review/*.png
           if-no-files-found: ignore
           retention-days: 3
