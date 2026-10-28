@@ -103,6 +103,7 @@ jobs:
           LINK_LOCATION_PROOF: .ci-proofs/link-location-choice
           GROUP_WRITING_POINT_PROOF: .ci-proofs/group-writing-point
           TAB_LOCATION_PROOF: .ci-proofs/tab-location-context
+          LIBRARY_USED_ORDER_PROOF: .ci-proofs/library-used-order
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -141,6 +142,16 @@ jobs:
           path: |
             .ci-proofs/link-location-choice/result.json
             .ci-proofs/link-location-choice/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-used-order evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-used-order-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-used-order/result.json
+            .ci-proofs/library-used-order/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated tab-location-context evidence

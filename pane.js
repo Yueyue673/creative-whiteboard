@@ -61,14 +61,14 @@
    const request=placements.get(e.data.requestId);if(!request)return;
    placements.delete(e.data.requestId);placementPending=false;
    request.buttons.forEach(({button,disabled})=>{if(button.isConnected)button.disabled=disabled});
-   if(e.data.error){if(request.position)request.position._insertionError=e.data.error;toast(e.data.error)}if(Array.isArray(e.data.ids)&&e.data.ids.length)returnRequests.set(e.data.ids,e.data.requestId);request.resolve(e.data.ids||false);
+   if(e.data.error){if(request.position)request.position._insertionError=e.data.error;toast(e.data.error)}if(Array.isArray(e.data.ids)&&e.data.ids.length){wfRecordLibraryUse(request.assetIds);returnRequests.set(e.data.ids,e.data.requestId)}request.resolve(e.data.ids||false);
   });
   commitLibraryBatch=function(items,position,destination=placementDestination()){
    if(placementPending){toast('上一批内容还在添加，请稍候。');return Promise.resolve(false)}
    if(!items.length){toast('没有可添加的内容');return Promise.resolve(false)}
    placementPending=true;const requestId=uid(),buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.hasAttribute('data-library-place')||button.hasAttribute('data-library-destination')||['添加整个组合','添加选中内容'].includes(button.textContent)).map(button=>({button,disabled:button.disabled}));
    buttons.forEach(({button})=>button.disabled=true);
-   const returnContext=$('dialog').open&&$('pieceList')?parent.whiteboardWorkspace?.captureInsertionReturn?.():null;return new Promise(resolve=>{placements.set(requestId,{resolve,buttons,position});send('explorer-place',{items,position,requestId,destination,returnContext})});
+   const returnContext=$('dialog').open&&$('pieceList')?parent.whiteboardWorkspace?.captureInsertionReturn?.():null;return new Promise(resolve=>{placements.set(requestId,{resolve,buttons,position,assetIds:items.filter(item=>Array.isArray(item.bundle?.nodes)&&item.bundle.nodes.length).map(item=>item.asset?.id)});send('explorer-place',{items,position,requestId,destination,returnContext})});
   };
   selectNode=function(id){send('explorer-focus',{nodeId:id})};focusNode=function(n){if(n)send('explorer-focus',{nodeId:n.id})};
   const captureOutline=renderOutline;renderOutline=function(){captureOutline();$('items').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>send('explorer-focus',{nodeId:b.dataset.open}))};

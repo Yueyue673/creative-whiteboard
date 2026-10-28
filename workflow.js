@@ -175,16 +175,33 @@ function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]
 function wfExcerpt(text,query,before=40){const clean=String(text||'').replace(/\s+/g,' '),at=Math.max(0,clean.toLowerCase().indexOf(query.toLowerCase())-before);return (at?'…':'')+clean.slice(at,at+190)+(clean.length>at+190?'…':'')}
 function wfMark(text,q){if(!q)return esc(text);const at=text.toLowerCase().indexOf(q.toLowerCase());return at<0?esc(text):esc(text.slice(0,at))+'<mark>'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length))}
 let wfLibraryOrder='original',wfLibraryKind='all';
+// Window-local successful insertion history; never write the catalog or storage.
+// The displayed order is a snapshot, so an async insertion cannot move a row
+// under the author or change the range used by the visible Shift selection.
+const wfLibraryUsed=new Map();let wfLibraryUseTick=0,wfLibraryVisibleUses=new Map();
+function wfRecordLibraryUse(ids){
+ const valid=[...new Set(ids)].filter(id=>typeof id==='string'&&assetById(id)&&!assetById(id).archived);if(!valid.length)return;
+ const tick=++wfLibraryUseTick;
+ for(const id of valid){wfLibraryUsed.delete(id);wfLibraryUsed.set(id,tick)}
+ while(wfLibraryUsed.size>200)wfLibraryUsed.delete(wfLibraryUsed.keys().next().value);
+}
+const wfUseCommit=commitLibraryBatch;
+commitLibraryBatch=function(items,...args){
+ const assetIds=items.filter(item=>Array.isArray(item.bundle?.nodes)&&item.bundle.nodes.length).map(item=>item.asset?.id),accept=result=>{if(Array.isArray(result)&&result.length)wfRecordLibraryUse(assetIds);return result},result=wfUseCommit(items,...args);
+ return result&&typeof result.then==='function'?result.then(accept):accept(result);
+};
+
 function wfRenderLibraryOrder(){
  let row=$('assetPane').querySelector('.wf-library-order');
  if(!row){
   row=document.createElement('label');row.className='wf-library-order';
   const text=document.createElement('span'),select=document.createElement('select');text.textContent='内容顺序';select.setAttribute('aria-label','内容顺序');
-  select.innerHTML='<option value="original">原来顺序</option><option value="recent">最近保存优先</option>';
+  select.innerHTML='<option value="original">原来顺序</option><option value="recent">最近保存优先</option><option value="used">最近取用优先（本窗口）</option>';
   select.onchange=()=>{wfLibraryOrder=select.value;assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==$('assetPane');el=el.parentElement)el.scrollTop=0};
   row.append(text,select);$('assetSearch').after(row);
  }
  row.querySelector('select').value=wfLibraryOrder;
+ row.querySelector('select').title=wfLibraryOrder==='used'?'本窗口取用过的在前，其他保留原来顺序。列表在再次打开或调整查找时更新；关闭窗口后重置。最多记住最近200项。':'';
 }
 
 
@@ -204,6 +221,7 @@ function wfRenderLibraryKind(){
 
 const wfRenderAssets=renderAssets;
 renderAssets=function(){
+ wfLibraryVisibleUses=new Map(wfLibraryUsed);
  wfRenderAssets();$('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累 · F2 编辑 · 拖到白板使用副本 · Ctrl+Z 撤销库中操作';
  const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);wfRenderLibraryOrder();wfRenderLibraryKind();
  if(q)$('assetList').querySelectorAll('[data-asset]').forEach(row=>{
@@ -235,6 +253,7 @@ function wfRenderLibrarySearch(q){
 libraryMatches=function(){
  const q=$('assetSearch').value.trim().toLowerCase(),all=wfLibrarySearchScope()==='all';
  const list=assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q))&&(wfLibraryKind==='all'||libraryAssetKind(a)===wfLibraryKind));
+ if(wfLibraryOrder==='used')return list.map((item,index)=>({item,index})).sort((a,b)=>(wfLibraryVisibleUses.get(b.item.id)||0)-(wfLibraryVisibleUses.get(a.item.id)||0)||a.index-b.index).map(row=>row.item);
  if(wfLibraryOrder!=='recent')return list;
  const savedAt=a=>Number.isFinite(Number(a.updated))&&Number(a.updated)>0?Number(a.updated):0;
  return list.map((item,index)=>({item,index})).sort((a,b)=>savedAt(b.item)-savedAt(a.item)||a.index-b.index).map(row=>row.item);
