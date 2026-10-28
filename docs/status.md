@@ -27,6 +27,7 @@
 | 在同名白板之间辨认位置并切回原稿 | [标签中的文件夹位置](tab-location-context.md) |
 | 换过材料后，再拿回本窗口用过的旧资源 | [可选的最近取用顺序](library-used-order.md) |
 | 把自己的预设留在内容库，换浏览器时取回 | [预设备份作为资源取回](preset-library.md) |
+| 向表格取用材料时保留组合连线 | [带连线的组合先放在白板上](cell-bundle-relations.md) |
 | 留下一段原话，下次找到合适材料再取用 | [所选原文存到库](#candidate-text-resource) · [在组合里先读长文再挑选](#candidate-group-document) · [长文正文选句](#candidate-document-selection-text) |
 | 保留组合里常用的一部分 | [把组合所选另存为新资源](#candidate-subset-resource) |
 | 在长文里接着写、补材料 | [按原纸色和墨色写长文](#candidate-document-paper) · [把材料接在选定段落后](#candidate-document-after) |

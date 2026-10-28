@@ -106,6 +106,7 @@ jobs:
           LIBRARY_USED_ORDER_PROOF: .ci-proofs/library-used-order
           PRESET_LIBRARY_PROOF: .ci-proofs/preset-library
           PRESET_LIBRARY_REFRESH_PROOF: .ci-proofs/preset-library-refresh
+          CELL_RELATIONS_PROOF: .ci-proofs/cell-bundle-relations
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -144,6 +145,16 @@ jobs:
           path: |
             .ci-proofs/link-location-choice/result.json
             .ci-proofs/link-location-choice/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated cell-bundle-relations evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-bundle-relations-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-bundle-relations/result.json
+            .ci-proofs/cell-bundle-relations/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated preset-library-refresh evidence
