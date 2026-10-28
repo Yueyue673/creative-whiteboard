@@ -23,6 +23,7 @@
 
 | 想完成什么 | 从这里看起 |
 | --- | --- |
+| 按任务查看近期八项本机源码候选与验证范围 | [副本回访、资料对照、取用前阅读与落点写作](creation-candidates.md) |
 | 留下一段原话，下次找到合适材料再取用 | [所选原文存到库](#candidate-text-resource) · [在组合里先读长文再挑选](#candidate-group-document) · [长文正文选句](#candidate-document-selection-text) |
 | 保留组合里常用的一部分 | [把组合所选另存为新资源](#candidate-subset-resource) |
 | 在长文里接着写、补材料 | [按原纸色和墨色写长文](#candidate-document-paper) · [把材料接在选定段落后](#candidate-document-after) |
