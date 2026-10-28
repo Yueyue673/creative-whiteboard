@@ -239,3 +239,10 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 .note-library-source-row strong,.note-library-source-row small{overflow-wrap:anywhere;white-space:normal}
 .note-library-source-row small:last-child{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .note-library-source-scope{display:block;font-size:12px;line-height:1.6;opacity:.8}
+
+/* The selected single-image reference fits without changing its source bytes. */
+.source-stacked>.source-image-fit .note-source-paper{container-type:size}
+.source-stacked>.source-image-fit .note-source-card .edit-scroll{padding:8px}
+.source-stacked>.source-image-fit .note-source-card :is([data-preview-id=title],.read-layout>h3){display:none}
+.source-stacked>.source-image-fit .note-source-image{margin:0}
+.source-stacked>.source-image-fit .note-source-image img{max-height:calc(100cqh - 16px);width:auto;object-fit:contain}
