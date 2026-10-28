@@ -173,7 +173,7 @@ SOFTWARE.
   portable.innerHTML='<summary>预设备份与导入</summary><p>把已保存的预设存成文件，换浏览器后可再导入。</p><div class="appearance-portable-actions"><button type="button" id="appearanceExport">导出我的预设</button><button type="button" id="appearanceImport">选择预设文件</button><input id="appearanceImportFile" type="file" accept=".json,application/json" hidden></div><section class="appearance-import-review" hidden><h4>待加入的预设</h4><div class="appearance-import-list"></div><p class="appearance-import-count" role="status" aria-live="polite"></p><div class="appearance-portable-actions"><button type="button" id="appearanceImportCommit">加入我的预设</button><button type="button" id="appearanceImportCancel">取消导入</button></div></section>';
   d.querySelector('.appearance-saved').append(portable);
   const exportButton=portable.querySelector('#appearanceExport'),fileInput=portable.querySelector('#appearanceImportFile'),review=portable.querySelector('.appearance-import-review'),importList=portable.querySelector('.appearance-import-list'),importCount=portable.querySelector('.appearance-import-count'),commitImport=portable.querySelector('#appearanceImportCommit');
-  let importEpoch=0,importRows=[],libraryEpoch=0,importSourceValid=()=>true;const libraryRequests=new Map();
+  let importEpoch=0,importRows=[],libraryEpoch=0,importSourceValid=()=>true,librarySaved=false;const libraryRequests=new Map();
   const cancelLibraryReads=()=>{++libraryEpoch;for(const [controller,kind]of libraryRequests)if(kind!=='save')controller.abort();const status=d.querySelector('.appearance-library-status');if(status&&/^正在(?:查找|读取)/.test(status.textContent))status.textContent=''};
   const clearImport=()=>{++importEpoch;cancelLibraryReads();importSourceValid=()=>true;importRows=[];review.hidden=true;importList.replaceChildren();fileInput.value=''};
   const importSelection=()=>[...importList.querySelectorAll('input:checked')].map(input=>importRows[Number(input.dataset.importIndex)]);
@@ -250,7 +250,7 @@ SOFTWARE.
     const response=await libraryFetch('/api/assets/upload',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(file.name),'X-Folder':'','X-Folder-Id':''},body:file});
     if(!response.ok)throw libraryFailure(response.status===403?'当前内容库没有写入权限。':'未能确认已收存；请先在内容库核对，再重试。');
     const asset=JSON.parse(await limitedText(response,64*1024,'收存结果'));if(!asset||typeof asset.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(asset.id))throw libraryFailure('未能确认已收存；请先在内容库核对，再重试。');
-    if(libraryOwns())libraryStatus('已收进内容库根目录，当前外观保留。');
+    if(libraryOwns()){librarySaved=true;libraryStatus('已收进内容库根目录，当前外观保留。')}
    }catch(error){if(libraryOwns()&&error.name!=='AbortError')libraryStatus(error.libraryMessage||'未能确认已收存；请先在内容库核对，再重试。')}
    finally{libraryRequests.delete(controller);if(owns())store.disabled=libraryScope?.role==='viewer'}
   };
@@ -373,6 +373,13 @@ SOFTWARE.
   const storage=e=>{if(!owns())return;if([key,'creative-interface'].includes(e.key)){p=read();update(false)}else if(e.key===navigationKey){renderNavigation();refreshSaved()}else if(e.key===collectionKey)refreshSaved()};window.addEventListener('storage',storage);
   d.disposeAppearance=()=>{window.removeEventListener('storage',storage);++libraryEpoch;for(const controller of libraryRequests.keys())controller.abort();libraryRequests.clear()};d.addEventListener('close',()=>{
    d.disposeAppearance();d.remove();
+   // Let native settings focus return finish before the original list redraws.
+   // Refresh only an existing catalog; never open or navigate the explorer.
+   if(librarySaved)queueMicrotask(()=>{
+    if((window.whiteboardHosted||null)!==libraryScope||libraryScope?.paused)return;
+    const explorer=window.whiteboardWorkspace?.explorer?.();
+    try{Promise.resolve(explorer?explorer.refreshLibrary?.():typeof loadAssets==='function'?loadAssets({redraw:false}):undefined).catch(()=>{})}catch{}
+   });
    // Native dialog focus return can collapse a textarea's selected text.
    // Restore only this still-current field; never replay text or another document's position.
    if(!returning||!focused.isConnected||focused.value!==returning.value||source!==(typeof board==='undefined'?null:board)||sourceId!==(typeof boardId==='undefined'?null:boardId)||node&&source.nodes.find(n=>n.id===node.id)!==node)return;

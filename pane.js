@@ -77,6 +77,7 @@
   $('assetList').addEventListener('click',()=>queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder})));
   window.whiteboardExplorer={show:showWorkspaceTab,revealAsset:revealLibraryItem,pending:()=>window.whiteboardImports?.pending()||false,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline();window.dispatchEvent(new Event('creative-research-context'))},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
   whiteboardExplorer.placementDestination=placementDestination;
+  whiteboardExplorer.refreshLibrary=()=>loadAssets({redraw:false});
   const previewWithDestination=previewAsset;
   previewAsset=async function(id){
    const epoch=++previewDestinationEpoch;await previewWithDestination(id);
