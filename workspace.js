@@ -516,7 +516,8 @@ function libraryPieceImageMarkup(n){
  if(n.canvasObject||!Array.isArray(n.images)||!n.images.length||n.images.length>8||n.images.some(image=>!image||typeof image!=='object'))return null;
  return '<div class="library-piece-image-gallery">'+n.images.map(image=>'<figure class="library-piece-image-item"><img src="'+esc(imageURL(image))+'" alt="'+esc(image.name||n.title||'附带图片')+'"></figure>').join('')+'</div>';
 }
-function libraryDocumentMarkup(n){
+function libraryDocumentMarkup(n,rootTable=false){
+ if(rootTable&&(n?.type!=='table'||n.documentMode===true||!Array.isArray(n.columns)||!n.columns.length||n.columns.length>100||!Array.isArray(n.rows)||n.rows.length>2000||n.rows.some(row=>!Array.isArray(row)||row.length!==n.columns.length)))return null;
  let blocks=0,characters=0;
  const limit={};
  const literal=value=>{const text=String(value??'');characters+=text.length;if(characters>200000)throw limit;return esc(text)};
@@ -531,10 +532,11 @@ function libraryDocumentMarkup(n){
   html+=paragraph('补充',node.userText)+paragraph('备注',node.annotation)+images(node.images);
   const file=assetById(node.mediaId||node.assetId);
   if(file)html+='<p class="library-document-file">'+literal(file.title||file.path||'附带文件')+'</p>';
+  else if(rootTable&&(node.mediaId||node.assetId))html+='<p class="library-document-file">附带文件（可放到白板查看）</p>';
   return '<section>'+html+'</section>';
  };
  const images=list=>Array.isArray(list)&&list.length?'<div class="library-document-images">'+list.map(image=>{if(++blocks>2000)throw limit;return '<span>'+literal(image.name||'附带图片')+'</span>'}).join('')+'</div>':'';
- try{return paragraph('',n.body)+(n.cellItems?.[0]?.[0]||[]).map(node=>item(node)).join('')+paragraph('补充',n.userText)+paragraph('备注',n.annotation)}catch(error){if(error===limit)return null;throw error}
+ try{return rootTable?'<p class="wf-explain">只读查看文字和素材名称；取用后仍可继续编辑。</p>'+item(n):paragraph('',n.body)+(n.cellItems?.[0]?.[0]||[]).map(node=>item(node)).join('')+paragraph('补充',n.userText)+paragraph('备注',n.annotation)}catch(error){if(error===limit||rootTable)return null;throw error}
 }
 
 const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetById(id);if(a?.mime!==bundleMime)return previewBeforePieces(id);let picked=new Set(),previewElement;const append=async selectedOnly=>{if(!$('dialog').open||!previewElement?.isConnected||$('pieceList')!==previewElement)return;try{const result=await(selectedOnly?commitLibraryBatch([{asset:a,bundle:subsetBundle(a,picked)}]):placeAssets([id]));if(Array.isArray(result)&&result.length&&$('dialog').open&&previewElement.isConnected){$('dialog').close();window.whiteboardExplorer?.revealInserted(result)}}catch(e){toast(e.message)}};
@@ -567,8 +569,8 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
   $('pieceList').querySelectorAll('[data-library-piece-image]').forEach(details=>{const id=details.dataset.libraryPieceImage;details.open?openImages.add(id):openImages.delete(id)});
   const pieceIdentities=new Map();for(const n of a.bundle.nodes)pieceIdentities.set(n.id,(pieceIdentities.get(n.id)||0)+1);
   $('pieceList').innerHTML=matched().map(n=>{
-   const longDocument=n.type==='table'&&n.documentMode===true,heading='第'+piecePositions.get(n.id)+'块：'+(n.title||'未命名长文');
-   const reading=longDocument?'<details class="library-piece-reading" data-library-piece-reading="'+esc(n.id)+'" '+(openReadings.has(n.id)?'open':'')+'><summary>'+esc((openReadings.has(n.id)?'收起原文':'阅读原文')+' · '+heading)+'</summary><article class="library-document-preview library-piece-document" tabindex="0" aria-label="'+esc(heading+'原文')+'"></article></details>':'';
+   const longDocument=n.type==='table'&&n.documentMode===true,ordinaryTable=n.type==='table'&&n.documentMode!==true&&typeof n.id==='string'&&!!n.id&&n.id.length<=1000&&!n.id.includes('\0')&&pieceIdentities.get(n.id)===1,heading='第'+piecePositions.get(n.id)+'块：'+(n.title||(ordinaryTable?'未命名表格':'未命名长文'));
+   const reading=longDocument||ordinaryTable?'<details class="library-piece-reading'+(ordinaryTable?' library-piece-table':'')+'" data-library-piece-reading="'+esc(n.id)+'" '+(ordinaryTable?'data-library-piece-table="'+esc(n.id)+'" ':'')+(openReadings.has(n.id)?'open':'')+'><summary>'+esc((openReadings.has(n.id)?'收起':ordinaryTable?'查看':'阅读')+(ordinaryTable?'表格':'原文')+' · '+heading)+'</summary><article class="library-document-preview library-piece-document" tabindex="0" aria-label="'+esc(heading+(ordinaryTable?'表格内容':'原文'))+'"></article></details>':'';
    const hasImage=n.type==='note'&&pieceIdentities.get(n.id)===1&&(n.canvasObject?n.canvasObject.kind==='image':Array.isArray(n.images)&&n.images.length);
    const imageReading=hasImage?'<details class="library-piece-images" data-library-piece-image="'+esc(n.id)+'" '+(openImages.has(n.id)?'open':'')+'><summary>'+esc((openImages.has(n.id)?'收起图片':'查看图片')+' · 第'+piecePositions.get(n.id)+'块：'+(n.title||'未命名'))+'</summary><div class="library-piece-image-reader" role="group" aria-label="'+esc('第'+piecePositions.get(n.id)+'块图片预览')+'"></div></details>':'';
    return '<label class="piece-row"><input type="checkbox" data-piece="'+esc(n.id)+'" '+(picked.has(n.id)?'checked':'')+'><div><b>'+esc(n.title||'未命名')+'</b><p>'+esc((n.body||n.userText||'').slice(0,260))+'</p><small>'+esc(n.type==='frame'?'分组及其内容':longDocument?'长文':n.type==='table'?'可编辑表格':n.images?.length?'含图片':'内容')+'</small></div></label>'+reading+imageReading;
@@ -598,13 +600,13 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
   $('pieceList').querySelectorAll('[data-library-piece-reading]').forEach(details=>{
    details.ontoggle=()=>{
     if(!$('dialog').open||!details.isConnected||$('pieceList')!==previewElement)return;
-    const id=details.dataset.libraryPieceReading,wasOpen=openReadings.has(id),node=a.bundle.nodes.find(n=>n.id===id);
-    details.querySelector('summary').textContent=(details.open?'收起原文':'阅读原文')+' · 第'+piecePositions.get(id)+'块：'+(node?.title||'未命名长文');
+    const id=details.dataset.libraryPieceReading,wasOpen=openReadings.has(id),node=a.bundle.nodes.find(n=>n.id===id),ordinaryTable=details.hasAttribute('data-library-piece-table');
+    details.querySelector('summary').textContent=(details.open?'收起':ordinaryTable?'查看':'阅读')+(ordinaryTable?'表格':'原文')+' · 第'+piecePositions.get(id)+'块：'+(node?.title||(ordinaryTable?'未命名表格':'未命名长文'));
     if(details.open){
      openReadings.add(id);
      const reader=details.querySelector('article');if(reader.dataset.loaded)return;
-     const markup=node?libraryDocumentMarkup(node):null;
-     if(markup===null)reader.textContent='这份内容超出这里的预览范围。原文完整保留，可先选中，再放到白板查看。';
+     const markup=node?libraryDocumentMarkup(node,ordinaryTable):null;
+     if(markup===null)reader.textContent=ordinaryTable?'这张表暂不能完整预览，可选中后放到白板查看。':'这份内容超出这里的预览范围。原文完整保留，可先选中，再放到白板查看。';
      else reader.innerHTML=markup;
      reader.dataset.loaded='true';
     }else{

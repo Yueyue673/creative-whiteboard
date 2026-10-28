@@ -591,3 +591,7 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 .library-piece-image-gallery{display:grid;gap:12px}
 .library-piece-image-item{display:grid;place-items:center;margin:0;padding:8px;background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:5px}
 .library-piece-image-item img{display:block;max-width:100%;max-height:220px;object-fit:contain}
+
+/* Ordinary saved tables share the existing bounded read-only piece reader. */
+.library-piece-table{padding:4px 0 14px}
+.library-piece-table>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
