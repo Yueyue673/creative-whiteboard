@@ -580,3 +580,14 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 .arrange-return{grid-column:1/-1;border-top:1px solid var(--ui-line);padding-top:10px}.arrange-return>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}.arrange-return p{font-size:12px;line-height:1.6;overflow-wrap:anywhere;margin:6px 0}.arrange-return-actions{display:flex;gap:8px;flex-wrap:wrap}.arrange-return-actions button{flex:1 1 130px;min-height:44px;white-space:normal}.arrange-return [role=status]{color:var(--ui-muted);min-height:1.6em}
 
 .library-copies{border-top:1px solid var(--ui-line);margin:14px 0 0;padding-top:8px}.library-copies>summary{min-height:44px;cursor:pointer;align-content:center;font-weight:600}.library-copies p,.library-copies>small{font-size:12px;line-height:1.6;overflow-wrap:anywhere}.library-copy-list{display:grid;gap:8px}.library-copy-hit{display:grid;gap:3px;min-height:44px;text-align:left;white-space:normal;overflow-wrap:anywhere;width:100%;min-width:0}.library-copy-hit strong,.library-copy-hit small,.library-copy-hit span{min-width:0;overflow-wrap:anywhere}.library-copy-hit small{font-size:11px}.library-copy-retry{min-height:44px;margin:8px 0}
+
+/* Optional artwork reading stays beside the original combination checkbox. */
+.library-piece-images{padding:4px 0 14px}
+.library-piece-images>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.library-piece-image-reader{display:grid;gap:8px}
+.library-piece-image-reader>[hidden]{display:none!important}
+.library-piece-image-reader>button{min-height:44px;justify-self:start}
+.library-piece-image-status{margin:4px 0;font-size:13px;line-height:1.6;color:var(--ui-muted)}
+.library-piece-image-gallery{display:grid;gap:12px}
+.library-piece-image-item{display:grid;place-items:center;margin:0;padding:8px;background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:5px}
+.library-piece-image-item img{display:block;max-width:100%;max-height:220px;object-fit:contain}

@@ -98,6 +98,7 @@ jobs:
           LIBRARY_COPIES_PROOF: .ci-proofs/library-copies
           LIBRARY_REFERENCE_PROOF: .ci-proofs/library-writing-reference
           IMAGE_WRITING_REFERENCE_PROOF: .ci-proofs/image-writing-reference
+          LIBRARY_IMAGE_PIECES_PROOF: .ci-proofs/library-image-pieces
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -106,6 +107,16 @@ jobs:
           path: |
             .ci-proofs/image-writing-reference/result.json
             .ci-proofs/image-writing-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-image-pieces evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-image-pieces-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-image-pieces/result.json
+            .ci-proofs/library-image-pieces/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated subset-resource evidence
