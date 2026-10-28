@@ -118,14 +118,22 @@
   session.resize=new ResizeObserver(session.position);session.resize.observe($('dialog'));window.addEventListener('resize',session.position);session.position();
   panel.querySelector('[data-document-library-destination]').textContent='放在第 '+(index+1)+' 块后 · '+String(items[index].title||items[index].body||'表格').split('\n')[0].slice(0,70);
   panel.querySelector('[data-document-library-return]').onclick=()=>closeLibraryPicker();
-  let entries=[];const chosen=new Map(),tray=document.createElement('section');tray.className='document-library-chosen';tray.setAttribute('aria-label','本次取用');tray.innerHTML='<b>本次取用</b><p>按选择顺序接到原段后，各取一份副本。</p><div data-document-library-chosen></div><button type="button" data-document-library-commit disabled>请先选择内容</button>';panel.append(tray);
+  let entries=[];const chosen=new Map(),tray=document.createElement('section');tray.className='document-library-chosen';tray.setAttribute('aria-label','本次取用');tray.innerHTML='<b>本次取用</b><p>可先调整顺序，再接到原段后，各取一份副本。</p><div data-document-library-chosen></div><button type="button" data-document-library-commit disabled>请先选择内容</button>';panel.append(tray);
   const modeLabel=document.createElement('label'),multiple=document.createElement('input');modeLabel.className='document-library-mode';multiple.type='checkbox';multiple.dataset.documentLibraryMultiple='';modeLabel.append(multiple,document.createTextNode('一次取多块'));search.closest('label').after(modeLabel);tray.hidden=true;
   const commit=tray.querySelector('[data-document-library-commit]');
-  function showChosen(){
+  function showChosen(focusKey,direction){
    tray.hidden=!multiple.checked;
    const list=tray.querySelector('[data-document-library-chosen]');list.replaceChildren();let index=0;
-   for(const [key,item]of chosen){const row=document.createElement('div'),label=document.createElement('span'),remove=document.createElement('button');label.textContent=(++index)+'. '+item.title+' · '+(item.folder||'内容库根目录')+' · '+(item.piece.title||'未命名内容');remove.type='button';remove.textContent='移除';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;remove.onclick=()=>{chosen.delete(key);paint();showChosen()};row.append(label,remove);list.append(row)}
+   for(const [key,item]of chosen){
+    const row=document.createElement('div'),label=document.createElement('span'),excerpt=document.createElement('small'),controls=document.createElement('div'),remove=document.createElement('button'),up=document.createElement('button'),down=document.createElement('button');row.dataset.documentLibraryChoice=key;
+    label.textContent=(++index)+'. '+item.title+' · '+(item.folder||'内容库根目录')+' · '+(item.piece.title||'未命名内容');
+    const text=String(item.piece.body||item.piece.userText||item.piece.annotation||(item.piece.type==='table'?[(item.piece.columns||[]).join(' · '),...(item.piece.rows||[]).slice(0,2).map(row=>row.join(' · '))].join('\n'):'')||'');excerpt.textContent=text.slice(0,140)+(text.length>140?'…':'');if(text)label.append(excerpt);
+    controls.className='document-library-order';up.type=down.type=remove.type='button';up.textContent='↑';down.textContent='↓';up.dataset.documentLibraryMove='up';down.dataset.documentLibraryMove='down';up.setAttribute('aria-label','上移第 '+index+' 块');down.setAttribute('aria-label','下移第 '+index+' 块');up.disabled=session.pending||index===1;down.disabled=session.pending||index===chosen.size;up.hidden=down.hidden=chosen.size<2;
+    const move=(delta,direction)=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending||!multiple.checked)return;const order=[...chosen],at=order.findIndex(([id])=>id===key),to=at+delta;if(at<0||to<0||to>=order.length)return;[order[at],order[to]]=[order[to],order[at]];chosen.clear();for(const [id,choice]of order)chosen.set(id,choice);showChosen(key,direction)};
+    up.onclick=()=>move(-1,'up');down.onclick=()=>move(1,'down');remove.textContent='移除';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;remove.onclick=()=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending)return;chosen.delete(key);paint();showChosen()};controls.append(up,down,remove);row.append(label,controls);list.append(row);
+   }
    commit.disabled=session.pending||!chosen.size;commit.textContent=chosen.size?'将选中的 '+chosen.size+' 块接在原段后':'请先选择内容';
+   if(focusKey){const row=[...list.children].find(row=>row.dataset.documentLibraryChoice===focusKey),button=row?.querySelector('[data-document-library-move="'+direction+'"]');(button&&!button.disabled?button:row?.querySelector('[data-document-library-move]:not(:disabled)'))?.focus({preventScroll:true});row?.scrollIntoView({block:'nearest'})}
   }
   const busy=value=>{session.pending=value;if(value&&panel.contains(document.activeElement))panel.focus({preventScroll:true});search.disabled=value;retry.disabled=value;multiple.disabled=value;for(const button of results.querySelectorAll('button'))button.disabled=value;showChosen()};
   const applyChosen=async(selection)=>{
