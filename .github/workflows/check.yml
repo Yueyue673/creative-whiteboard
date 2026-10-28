@@ -113,6 +113,7 @@ jobs:
           PAPER_BLOCK_ORIGIN_PROOF: .ci-proofs/paper-block-origin
           FAVORITE_FOLDERS_PROOF: .ci-proofs/library-favorite-folders
           BOARD_VARIANT_PROOF: .ci-proofs/board-variant
+          VARIANT_CONFIRMATION_PROOF: .ci-proofs/board-variant-confirmation
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -615,5 +616,16 @@ jobs:
           path: |
             .ci-proofs/board-variant/result.json
             .ci-proofs/board-variant/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated board-variant-confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-variant-confirmation-${{ github.run_id }}
+          path: |
+            .ci-proofs/board-variant-confirmation/result.json
+            .ci-proofs/board-variant-confirmation/*.png
           if-no-files-found: ignore
           retention-days: 3

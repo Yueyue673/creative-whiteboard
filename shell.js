@@ -288,31 +288,43 @@ window.addEventListener('keydown',e=>{
   const shellScope=scope(window.whiteboardHosted),writerScope=scope(source?.whiteboardHosted),side=tab?.side;
   const ready=()=>{const state=view?.state();return state?.boardId===tab?.boardId&&!state.loading&&!state.loadError&&!state.blocked&&!state.saveError&&!state.deleted};
   if(!tab||!view||!ready()||shellScope.key!==writerScope.key||!same(shellScope,window.whiteboardHosted)||!same(writerScope,source.whiteboardHosted))return toast('先在当前白板处理打开或保存提示，再另起一版。');
-  $('shellMore').open=false;const d=document.createElement('dialog');dialog=d;d.className='board-variant';d.setAttribute('aria-label','另起一版');let busy=false,committed=false;
+  $('shellMore').open=false;const d=document.createElement('dialog');dialog=d;d.className='board-variant';d.setAttribute('aria-label','另起一版');let busy=false,committed=false,attempt=null,changedSaved=false;
   d.innerHTML='<h2>另起一版</h2><p>把当前内容、连线与摆放另存到新白板，原标签保留，可随时回去。两版各自编辑，媒体仍共用原文件，已有跳转保留原目的地。</p><label>新版本名称<input aria-label="新版本名称" maxlength="120" autocomplete="off"></label><div class="board-variant-actions"><button type="button" data-variant-close>返回原稿</button><button type="button" data-variant-create>创建并打开新版本</button></div><p role="status"></p>';
   const input=d.querySelector('input'),create=d.querySelector('[data-variant-create]'),status=d.querySelector('[role=status]');input.value=(view.state().name+'（新方案）').slice(0,120);
   const owner=()=>model.tabs.includes(tab)&&current()===tab&&tab.side===side&&frames.get(tab.id)===frame&&frame.contentDocument===sourceDocument&&pane(tab)===view&&same(shellScope,window.whiteboardHosted)&&same(writerScope,source.whiteboardHosted)&&ready();
   const owns=()=>dialog===d&&d.isConnected&&d.open&&owner()&&!document.hidden;
   const message=text=>status.textContent=text;
+  const signature=value=>JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
+  function complete(){
+   committed=true;const {id,value,revision}=attempt,copy={id,name:value.name,folder:value.folder||'',count:value.nodes.length};
+   if(!same(shellScope,window.whiteboardHosted)||!same(writerScope,source.whiteboardHosted))return;
+   if(!boards.some(row=>row.id===id))boards.push(copy);window.whiteboardBoardLifecycle?.created([id]);
+   if(owns()&&view.state().revision===revision){d.close();openBoard(id,side);toast('新版本已保存，原稿标签保留。')}
+   else if(owns())message('新版本已保存。期间原稿有了新修改，仍留在原稿，可从白板列表打开新版本。');
+   else if(!document.hidden)toast('新版本已保存，可在白板列表中打开。');
+  }
   create.onclick=async()=>{
-   if(!owns()||busy||committed)return;const name=input.value.trim();if(!name){message('给新版本起个名字。');input.focus();return}
-   busy=true;input.disabled=create.disabled=true;message('正在准备当前内容…');let copy=null;
+   if(!owns()||busy||committed||changedSaved)return;const name=attempt?.value.name||input.value.trim();if(!name){message('给新版本起个名字。');input.focus();return}
+   busy=true;input.disabled=create.disabled=true;message(attempt?'正在核对这次创建…':'正在准备当前内容…');
    try{
-    await source.whiteboardImports?.idle();if(!owns())return;
+    if(!attempt)await source.whiteboardImports?.idle();if(!owns())return;
     if(source.whiteboardHosted&&!await source.whiteboardHosted.checkIdentity())throw Error('原账号或工作区尚未确认，原稿保留。');if(!owns())return;
+    if(attempt){
+     // An uncertain response is not permission to send a second create.
+     const response=await fetch('/api/boards/'+attempt.id,{cache:'no-store'});if(!owns())return;
+     if(response.status===404){message('暂时没有找到这次创建。可以稍后再核对；原稿保留，本次没有重复提交。');return}
+     if(!response.ok)throw Error('暂时未能核对这次创建，请稍后再试。');
+     const saved=await response.json();if(!owns())return;
+     if(signature(saved)!==attempt.signature){changedSaved=true;message('这次创建的白板已有变化。未覆盖，请先从白板列表核对。');return}
+     complete();return;
+    }
     const folderData=await api('/api/folders');if(!owns())return;
     // Snapshot only after all waits. The original save and undo owners stay intact.
     const snapshot=view.snapshot(),copiedRevision=view.state().revision;if(!snapshot||snapshot.boardId!==tab.boardId)throw Error('原白板已有变化，请返回后重新打开。');
     const value=snapshot.board;value.name=name;if(value.folder&&!folderData.folders.some(folder=>folder.id===value.folder))value.folder='';
-    const id=uid();message('正在保存新版本…');await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});
-    committed=true;copy={id,name,folder:value.folder||'',count:value.nodes.length};
-    if(!same(shellScope,window.whiteboardHosted)||!same(writerScope,source.whiteboardHosted))return;
-    boards.push(copy);window.whiteboardBoardLifecycle?.created([id]);
-    if(owns()&&view.state().revision===copiedRevision){d.close();openBoard(id,side);toast('新版本已保存，原稿标签保留。')}
-    else if(owns())message('新版本已保存。期间原稿有了新修改，仍留在原稿，可从白板列表打开新版本。');
-    else if(!document.hidden)toast('新版本已保存，可在白板列表中打开。');
-   }catch(error){if(owns())message(copy?'新版本已保存，暂时未能打开，可从白板列表继续。':error.message||'暂时未能创建新版本，原稿保留。')}
-   finally{busy=false;if(owns()){input.disabled=false;create.disabled=committed}}
+    attempt={id:uid(),value,revision:copiedRevision,signature:signature(value)};message('正在保存新版本…');await api('/api/boards/'+attempt.id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(value)});complete();
+   }catch(error){if(owns())message(committed?'新版本已保存，暂时未能打开，可从白板列表继续。':attempt?'本次保存尚未确认，可核对这次创建。原稿保留。 '+(error.message==='Failed to fetch'?'连接暂时中断。':error.message||''):error.message||'暂时未能创建新版本，原稿保留。')}
+   finally{busy=false;if(owns()){input.disabled=!!attempt;create.disabled=committed||changedSaved;create.textContent=changedSaved?'已保存内容需要核对':attempt&&!committed?'核对这次创建':'创建并打开新版本'}}
   };
   input.onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();create.click()}};
   d.querySelector('[data-variant-close]').onclick=()=>d.close();
