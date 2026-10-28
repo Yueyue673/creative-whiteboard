@@ -191,3 +191,13 @@ body #toast .collection-result{min-width:64px;min-height:44px;padding:7px 12px;b
 .library-subset-actions{position:relative;flex:none}.library-subset-actions>summary[aria-disabled=true]{opacity:.5;cursor:default}.library-subset-actions>div{position:absolute;z-index:5;right:0;top:100%;padding:8px;min-width:144px;background:var(--ui-panel,#292d26);border:1px solid var(--ui-line,#626c58);border-radius:8px;box-shadow:0 6px 22px #0005}.library-subset-actions>div>button{width:100%;white-space:nowrap}.library-subset-buttons{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:18px}.library-subset-form [data-subset-status]{color:var(--ui-muted);white-space:pre-wrap}
 
 .library-subset-form{padding:16px 20px;min-width:0}.library-subset-form h2{margin:0 0 12px}.library-subset-form p{margin:0 0 14px;line-height:1.7}.library-subset-form label{display:block;margin:12px 0 4px;font-size:13px}.library-subset-form input{display:block;width:100%}
+
+.favorite-destinations{margin:8px 0;color:var(--ui-text,#292929)}
+.favorite-destinations>b{font-size:12px;font-weight:500;color:var(--ui-muted,#707782)}
+.favorite-folder-list{display:grid;gap:5px;max-height:160px;overflow:auto;margin-top:5px;overscroll-behavior:contain}
+.favorite-folder-row{display:flex;gap:5px;min-width:0}.favorite-folder-pick{flex:1;min-width:0;min-height:44px;text-align:left;font-size:12px;white-space:normal;overflow-wrap:anywhere;color:var(--ui-text,#292929)}
+.favorite-folder-remove{flex:none;min-width:44px;min-height:44px;padding:4px;color:var(--ui-text,#292929)}
+.favorite-folder-status{font-size:12px;line-height:1.7;color:var(--ui-muted,#707782);margin:6px 0}.favorite-folder-status button{min-height:36px;font-size:12px;color:var(--ui-text,#292929)}
+.destination-pin,.destination-footer:has(.destination-pin) .destination-done{min-height:44px;font-size:12px;white-space:nowrap;color:var(--ui-text,#292929)}
+.favorite-destinations[hidden],.favorite-folder-status[hidden]{display:none!important}
+@media(max-width:600px){.destination-footer:has(.destination-pin){flex-wrap:wrap}.destination-footer:has(.destination-pin)>span{flex-basis:100%}}

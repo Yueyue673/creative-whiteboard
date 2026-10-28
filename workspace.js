@@ -1021,3 +1021,49 @@ async function revealLibraryItem(id,canReveal=()=>true){
   row?.scrollIntoView({block:'center'});row?.focus({preventScroll:true});return !!row;
  }finally{for(const type of events)document.removeEventListener(type,cancel,true)}
 }
+
+// Optional browser-local shortcuts keep destination choice explicit.
+(() => {
+ 'use strict';
+ const key='creative-library-favorite-folders',maximum=12;
+ function read(){
+  try{const raw=localStorage.getItem(key);if(raw===null)return {ok:true,value:{version:1,folders:[]}};if(raw.length>65536)throw Error();const value=JSON.parse(raw),rows=value?.folders;
+   if(value?.version!==1||!Array.isArray(rows)||rows.length>maximum||rows.some(row=>!row||typeof row.id!=='string'||!row.id||row.id.length>1000||row.id.includes('\0')||typeof row.path!=='string'||!row.path||row.path.length>4096||row.path.includes('\0'))||new Set(rows.map(row=>row.id)).size!==rows.length)throw Error();return {ok:true,value};
+  }catch{return {ok:false}}
+ }
+ function write(value){try{const raw=JSON.stringify(value);if(raw.length>65536)return false;localStorage.setItem(key,raw);return localStorage.getItem(key)===raw}catch{return false}}
+ function locations(){const paths=new Set(libraryFolderPaths()),values=new Map();for(const [path,id]of Object.entries(assetIndex.folderIds||{}))if(paths.has(path))values.set(id,values.has(id)?null:path);return values}
+ const resolve=(id,values=locations())=>values.get(id)??null;
+ const pickers=new Set(),renderLibrary=renderAssets;renderAssets=function(...args){const result=renderLibrary(...args);for(const paint of pickers)paint();return result};
+ const previous=mountLibraryDestination;
+ mountLibraryDestination=function(id){
+  const result=previous(id),select=$(id),host=select?.closest('.destination-picker');if(!host||host.querySelector('.favorite-destinations'))return result;
+  const panel=host.querySelector('.destination-browser'),toggle=host.querySelector('.destination-toggle'),done=host.querySelector('.destination-done'),footer=host.querySelector('.destination-footer'),owner=board,ownerId=boardId,scope=window.whiteboardHosted||null,scopeKey=JSON.stringify([scope?.account?.id??scope?.account,scope?.workspace]);
+  const owns=()=>host.isConnected&&select.isConnected&&$('dialog').open&&$('dialogBody').contains(host)&&board===owner&&boardId===ownerId&&(window.whiteboardHosted||null)===scope&&!scope?.paused&&JSON.stringify([scope?.account?.id??scope?.account,scope?.workspace])===scopeKey;
+  const box=document.createElement('section'),heading=document.createElement('b'),list=document.createElement('div'),pin=document.createElement('button'),status=document.createElement('p');box.className='favorite-destinations';heading.textContent='常用位置';list.className='favorite-folder-list';list.setAttribute('role','group');list.setAttribute('aria-label','选择常用存放位置');box.append(heading,list);host.insertBefore(box,panel);pin.type='button';pin.className='destination-pin';pin.textContent='记为常用';footer.insertBefore(pin,done);status.className='favorite-folder-status';status.setAttribute('role','status');status.hidden=true;host.insertBefore(status,panel);let undo=null;
+  const message=text=>{if(!owns())return;status.replaceChildren();status.textContent=text;status.hidden=!text};
+  function store(bank,rows){if(!owns())return false;if(!write({...bank.value,folders:rows})){message('未能记住常用位置，原位置选择仍可照常使用。');return false}return true}
+  function paint(){
+   if(!owns())return;const bank=read(),scroll=list.scrollTop;list.replaceChildren();box.hidden=!panel.hidden||!bank.ok||!bank.value.folders.length;
+   if(!bank.ok){pin.disabled=true;pin.textContent='常用位置暂不可用';message('常用位置暂时不能读取，仍可从原入口选择。');return}
+   const rows=bank.value.folders,target=libraryFolderTarget(select.value),values=locations(),current=target.id&&resolve(target.id,values)===select.value,known=rows.some(row=>row.id===target.id);pin.disabled=!current||known||rows.length>=maximum||select.value.length>4096;pin.textContent=known?'已记为常用':'记为常用';pin.title=known?'这个位置已记住':!target.path?'根目录可从原入口直接选择':!current?'这个文件夹暂时不能准确记住，仍可正常选择':rows.length>=maximum?'最多记住12个位置，可先移除不再使用的项':'仅记住此浏览器的存放位置，不修改内容库';
+   for(const row of rows){
+    const path=resolve(row.id,values),entry=document.createElement('div'),pick=document.createElement('button'),remove=document.createElement('button');entry.className='favorite-folder-row';pick.type=remove.type='button';pick.className='favorite-folder-pick';pick.dataset.favoriteFolder=row.id;pick.textContent=path===null?'已不可用 · '+row.path:'内容库 / '+path.split('/').join(' / ');pick.title=pick.textContent;pick.setAttribute('aria-label','用常用位置：'+(path??row.path));pick.disabled=path===null;remove.className='favorite-folder-remove';remove.textContent='×';remove.setAttribute('aria-label','移除常用位置：'+(path??row.path));remove.title='移除常用位置，保留文件夹';entry.append(pick,remove);list.append(entry);
+    pick.onclick=()=>{
+     if(!owns())return;const latest=read();if(!latest.ok)return paint();if(!latest.value.folders.some(value=>value.id===row.id)){message('这条常用位置已移除，请重新选择。');paint();return}const path=resolve(row.id);if(path===null){message('原文件夹暂时不能对应，请从原入口选择。');paint();return}
+     if(![...select.options].some(option=>option.value===path))select.add(new Option(path,path));select.value=path;select.dispatchEvent(new Event('change',{bubbles:true}));done.click();message('');
+    };
+    remove.onclick=()=>{
+     if(!owns())return;const latest=read();if(!latest.ok)return paint();const index=latest.value.folders.findIndex(value=>value.id===row.id);if(index<0)return paint();const removed=latest.value.folders[index],focused=document.activeElement===remove;if(!store(latest,latest.value.folders.filter(value=>value.id!==row.id)))return;undo={removed,index};paint();message('已移除常用位置，文件夹保留。');const restore=document.createElement('button');restore.type='button';restore.textContent='撤销移除';restore.onclick=()=>{
+      if(!owns()||!undo)return;const latest=read();if(!latest.ok)return paint();if(latest.value.folders.some(value=>value.id===undo.removed.id)){undo=null;message('这个位置已在常用列表中。');paint();return}if(latest.value.folders.length>=maximum){message('常用位置已满，请先移除一项。');return}const next=latest.value.folders.slice();next.splice(Math.min(undo.index,next.length),0,undo.removed);if(!store(latest,next))return;undo=null;paint();message('已恢复常用位置。');
+     };status.append(document.createTextNode(' '),restore);if(focused)(list.querySelector('button:not(:disabled)')||toggle).focus({preventScroll:true});
+    };
+   }
+   list.scrollTop=scroll;
+  }
+  pin.onclick=()=>{
+   if(!owns())return;const bank=read();if(!bank.ok)return paint();const target=libraryFolderTarget(select.value);if(!target.id||resolve(target.id)!==select.value||!target.path||target.path.length>4096||bank.value.folders.some(row=>row.id===target.id))return;if(bank.value.folders.length>=maximum){message('最多记住12个位置，可先移除不再使用的项。');return}if(!store(bank,[...bank.value.folders,{id:target.id,path:target.path}]))return;undo=null;paint();message('已记为常用位置，仅保存在此浏览器。');
+  };
+  select.addEventListener('change',paint);toggle.addEventListener('click',paint);done.addEventListener('click',paint);const storage=event=>{if(event.key===key||event.key?.endsWith(':'+key))paint()};window.addEventListener('storage',storage);pickers.add(paint);onDialogDismiss(()=>{window.removeEventListener('storage',storage);pickers.delete(paint)});paint();return result;
+ };
+})();

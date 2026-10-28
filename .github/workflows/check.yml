@@ -111,6 +111,7 @@ jobs:
           BOARD_PAIRS_PROOF: .ci-proofs/board-pairs
           SELECTION_DOCUMENT_PROOF: .ci-proofs/selection-document
           PAPER_BLOCK_ORIGIN_PROOF: .ci-proofs/paper-block-origin
+          FAVORITE_FOLDERS_PROOF: .ci-proofs/library-favorite-folders
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -592,5 +593,15 @@ jobs:
           path: |
             .ci-proofs/paper-block-origin/result.json
             .ci-proofs/paper-block-origin/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-favorite-folders evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-favorite-folders-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-favorite-folders/result.json
+            .ci-proofs/library-favorite-folders/*.png
           if-no-files-found: ignore
           retention-days: 3
