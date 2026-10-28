@@ -100,7 +100,7 @@ mountTableEditor=function(n){
   if(!target?.isConnected||editorId!==n.id||board.nodes.find(x=>x.id===n.id)!==n)return;
   const items=n.cellItems[+target.dataset.cellR]?.[+target.dataset.cellC],index=+target.dataset.cellItem,item=items?.[index];
   if(!item)return;
-  if(button.hasAttribute('data-cell-origin')){const context=originContext||captureOrigin();originContext=null;if(!button.isConnected||context?.section!==target)return;options.open=false;if(!window.whiteboardNoteEditor?.peekCellOrigin(context))toast('这份原件暂不能唯一对应，请保留原稿并从内容库查看。');return}
+  if(button.hasAttribute('data-cell-origin')){const context=originContext||captureOrigin();originContext=null;if(!button.isConnected||context?.section!==target)return;if(!window.whiteboardNoteEditor?.peekCellOrigin(context)){context.returnToInput?.(button);toast('这份原件暂不能唯一对应，请保留原稿并从内容库查看。')}options.open=false;return}
   options.open=false;
   if(button.hasAttribute('data-cell-remove')){undoPoint();items.splice(index,1);openEditor(n.id);change()}
   else{insertBundle({nodes:[cellItemCopy(item,n)],edges:[]},{x:n.x+n.w+40,y:n.y});toast('已将副本放到表格右侧')}
