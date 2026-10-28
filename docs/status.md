@@ -41,6 +41,7 @@
 | 看视频资料时继续写原文 | [视频旁写作步骤与画面](video-writing-reference.md) |
 | 小窗口里调长文字体、接材料和滚动阅读 | [菜单与阅读步骤](document-tool-panels.md) |
 | 在长文原段后直接取用已存便签或表格 | [查找资源、核对位置和返回原文](document-library-insert.md) |
+| 一次挑几块材料，排好顺序接在原段后 | [本次取用、上下移动与继续写](document-library-multiple.md) |
 | 从已存组合里取一块接在原段后 | [辨认组内内容、取用副本与继续写](document-library-pieces.md) |
 | 在取用前辨认原组合布局 | [可选布局、原文列表与准确勾选](library-spatial-preview.md) |
 | 明确修改库中原件 | [在库中维护长文文字](#candidate-document-maintenance) · [先看长文的具体修改](#candidate-document-comparison) |
