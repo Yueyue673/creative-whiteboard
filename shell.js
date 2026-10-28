@@ -215,3 +215,62 @@ window.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='k'){e.preventDefault();e.stopImmediatePropagation();command('search')}
  else if(e.key==='\\'){e.preventDefault();e.stopImmediatePropagation();window.whiteboardWorkspace?.toggle()}
 });
+
+// Named board pairs remember navigation, never document contents or hidden tabs.
+(()=>{
+ const key='creative-board-pairs',limit=12;let dialog=null;
+ const entry=document.createElement('button');entry.type='button';entry.id='boardPairs';entry.textContent='白板组合';document.querySelector('#shellMore>div').append(entry);
+ const style=document.createElement('style');style.textContent='.board-pairs{width:min(560px,calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow:auto;border:1px solid var(--ui-line,#ccc);border-radius:10px;padding:22px;background:var(--ui-panel,#faf9f5);color:var(--ui-text,#30302c)}.board-pairs::backdrop{background:#0005}.board-pairs h2{font-size:22px;margin:0 0 8px}.board-pairs p{line-height:1.7}.board-pairs label{display:block}.board-pairs input{display:block;width:100%;padding:10px;margin:6px 0}.board-pairs button{min-height:44px;white-space:normal}.board-pairs-list{display:grid;gap:8px;margin:18px 0}.board-pair-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:6px}.board-pair-row button{text-align:left;padding:12px;overflow-wrap:anywhere}.board-pair-row small{display:block;opacity:.7;margin-top:5px}.board-pair-remove{text-align:center!important;padding:6px!important}.board-pairs-actions{display:flex;justify-content:space-between;gap:10px}.board-pairs-message{min-height:1.7em}.board-pairs-current{font-size:13px;opacity:.75}.board-pairs-undo{margin-left:8px}';document.head.append(style);
+ const id=value=>typeof value==='string'&&value.length>0&&value.length<=150&&!/[\u0000-\u001f]/.test(value);
+ function valid(row){return row&&id(row.id)&&typeof row.name==='string'&&row.name.trim()===row.name&&row.name.length>0&&row.name.length<=40&&id(row.left)&&typeof row.split==='boolean'&&(row.split?id(row.right)&&row.right!==row.left:row.right===null)&&Number.isFinite(row.ratio)&&row.ratio>=20&&row.ratio<=80&&['left','right'].includes(row.side)&&(!row.split?row.side==='left':true)&&['focus','split'].includes(row.narrowView)}
+ function read(){
+  try{const raw=localStorage.getItem(key);if(raw===null)return {value:{format:'creative-board-pairs',version:1,pairs:[]},raw};if(raw.length>65536)throw Error();const value=JSON.parse(raw);if(value?.format!=='creative-board-pairs'||value.version!==1||!Array.isArray(value.pairs)||value.pairs.length>limit||!value.pairs.every(valid)||new Set(value.pairs.map(row=>row.id)).size!==value.pairs.length||new Set(value.pairs.map(row=>row.name)).size!==value.pairs.length)throw Error();return {value,raw}}catch{return {error:'浏览器中的组合记录暂时无法读取，原记录保留。'}}
+ }
+ function write(value){const raw=JSON.stringify(value);try{localStorage.setItem(key,raw);if(localStorage.getItem(key)!==raw)return '组合已在别处改变，请重新查看。';return ''}catch{return '浏览器未能保存组合，请稍后重试。'}}
+ function capture(){const left=current('left'),right=model.split?current('right'):null;return {left:left?.boardId||null,right:right?.boardId||null,split:model.split,ratio:model.ratio,side:model.split?model.side:'left',narrowView:model.narrowView==='split'?'split':'focus'}}
+ function ready(value){return [value.left,value.split?value.right:null].filter(Boolean).every(id=>{const tab=model.tabs.find(t=>t.boardId===id),state=tab&&pane(tab)?.state();return state?.boardId===id&&!state.loading&&!state.loadError})&&!!value.left&&(!value.split||!!value.right)}
+ function name(id){return model.tabs.find(t=>t.boardId===id)?.name||boards.find(b=>b.id===id)?.name||'原白板暂时不可用'}
+ entry.onclick=()=>{
+  if(!entry.isConnected||dialog?.open||document.hidden||window.whiteboardHosted?.paused)return;$('shellMore').open=false;
+  const d=document.createElement('dialog');dialog=d;d.className='board-pairs';d.setAttribute('aria-label','白板组合');const opening=capture(),scope=window.whiteboardHosted||null;let busy=false,undo=null;
+  d.innerHTML='<h2>白板组合</h2><p>记住当前显示的白板与分栏，其他标签继续保留。组合只存在本浏览器，白板内容按原方式保存。</p><p class="board-pairs-current"></p><div class="board-pairs-list"></div><label>组合名称<input maxlength="40" aria-label="组合名称" autocomplete="off"></label><div class="board-pairs-actions"><button type="button" data-pair-save>记住当前组合</button><button type="button" data-pair-close>返回白板</button></div><p role="status" class="board-pairs-message"></p>';
+  const list=d.querySelector('.board-pairs-list'),input=d.querySelector('input'),save=d.querySelector('[data-pair-save]'),status=d.querySelector('[role=status]');
+  d.querySelector('.board-pairs-current').textContent='当前：'+[opening.left,opening.right].filter(Boolean).map(name).join(' · ');
+  const owns=()=>dialog===d&&d.isConnected&&d.open&&(window.whiteboardHosted||null)===scope&&!scope?.paused;
+  function message(text,action){status.textContent=text;if(action){const b=document.createElement('button');b.type='button';b.className='board-pairs-undo';b.textContent='撤销移除';b.onclick=()=>{if(owns()&&!busy)action()};status.append(b)}}
+  function paint(){
+   const store=read();list.replaceChildren();save.disabled=busy||!!store.error||!ready(opening);input.disabled=busy;
+   if(store.error){message(store.error);return}
+   if(!store.value.pairs.length){const empty=document.createElement('small');empty.textContent='常用的对照搭好后，可以记在这里。';list.append(empty)}
+   for(const row of store.value.pairs){
+    const line=document.createElement('div'),open=document.createElement('button'),remove=document.createElement('button'),title=document.createElement('span'),description=document.createElement('small');line.className='board-pair-row';open.type=remove.type='button';open.dataset.boardPairId=row.id;open.setAttribute('aria-label','打开组合：'+row.name);title.textContent=row.name;description.textContent=[row.left,row.right].filter(Boolean).map(name).join(' · ');open.append(title,description);open.disabled=remove.disabled=busy;remove.className='board-pair-remove';remove.textContent='×';remove.setAttribute('aria-label','移除组合：'+row.name);
+    open.onclick=async()=>{
+     if(!owns()||busy||!open.isConnected)return;const initial=read();if(initial.error||JSON.stringify(initial.value.pairs.find(value=>value.id===row.id))!==JSON.stringify(row)){paint();message('组合已有变化，请重新选择。');return}
+     busy=true;undo=null;message('');paint();const intent=JSON.stringify(capture());
+     try{
+      const fresh=await api('/api/boards');if(!owns()||JSON.stringify(capture())!==intent)return;
+      const latest=read();if(latest.error||JSON.stringify(latest.value.pairs.find(value=>value.id===row.id))!==JSON.stringify(row)){paint();message('组合已有变化，请重新选择。');return}
+      if(!Array.isArray(fresh)||[row.left,row.right].filter(Boolean).some(id=>!fresh.some(value=>value.id===id))){message('组合中有白板暂时不可用，当前标签保留。');return}
+      boards=fresh;openBoard(row.left,'left');if(row.right)openBoard(row.right,'right');model.split=row.split;model.ratio=row.ratio;model.narrowView=row.narrowView;model.side=row.side;renderTabs();d.close();
+     }catch{if(owns())message('暂时无法打开组合，请稍后重试。')}
+     finally{busy=false;if(owns())paint()}
+    };
+    remove.onclick=()=>{
+     if(!owns()||busy||!remove.isConnected)return;const latest=read();if(latest.error)return message(latest.error);const at=latest.value.pairs.findIndex(value=>value.id===row.id);if(at<0||JSON.stringify(latest.value.pairs[at])!==JSON.stringify(row)){paint();return message('组合已有变化，请重新选择。')}
+     latest.value.pairs.splice(at,1);const error=write(latest.value);if(error){paint();return message(error)}undo={row,index:at};paint();message('已移除“'+row.name+'”，白板保留。',()=>{
+      if(!undo||undo.row!==row)return;const current=read();if(current.error)return message(current.error);if(current.value.pairs.length>=limit||current.value.pairs.some(value=>value.id===row.id||value.name===row.name)){paint();return message('组合已有后续变化，未覆盖。')}
+      current.value.pairs.splice(Math.min(undo.index,current.value.pairs.length),0,row);const error=write(current.value);if(error)return message(error);undo=null;paint();message('已恢复“'+row.name+'”。');
+     });
+    };line.append(open,remove);list.append(line);
+   }
+  }
+  save.onclick=()=>{
+   if(!owns()||busy)return;const label=input.value.trim();if(!label){message('先给这组白板起个名字。');input.focus();return}if(JSON.stringify(capture())!==JSON.stringify(opening)||!ready(opening))return message('当前白板组合已有变化，请重新打开后再记住。');
+   const store=read();if(store.error)return message(store.error);if(store.value.pairs.some(row=>row.name===label))return message('名称已存在，请换个名称。');if(store.value.pairs.length>=limit)return message('已记住12组，请先移除一组。');
+   store.value.pairs.push({id:uid(),name:label,...opening});const error=write(store.value);if(error)return message(error);input.value='';undo=null;paint();message('已记住“'+label+'”。');
+  };
+  input.onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();save.click()}};d.querySelector('[data-pair-close]').onclick=()=>d.close();
+  const storage=event=>{if(owns()&&event.key===key){undo=null;paint()}};window.addEventListener('storage',storage);
+  d.addEventListener('close',()=>{window.removeEventListener('storage',storage);d.remove();if(dialog===d)dialog=null;const tab=current();queueMicrotask(()=>{if(current()===tab&&document.hasFocus()&&!document.hidden&&!document.querySelector('dialog[open]'))pane(tab)?.focus()})},{once:true});document.body.append(d);d.showModal();paint();if(!save.disabled)input.focus();else d.querySelector('[data-pair-close]').focus();
+ };
+})();

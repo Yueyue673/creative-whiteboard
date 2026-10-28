@@ -108,6 +108,7 @@ jobs:
           PRESET_LIBRARY_REFRESH_PROOF: .ci-proofs/preset-library-refresh
           CELL_RELATIONS_PROOF: .ci-proofs/cell-bundle-relations
           CELL_LIBRARY_PROOF: .ci-proofs/cell-library-selection
+          BOARD_PAIRS_PROOF: .ci-proofs/board-pairs
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -558,5 +559,16 @@ jobs:
           path: |
             .ci-proofs/cell-library-selection/result.json
             .ci-proofs/cell-library-selection/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated board-pairs evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-pairs-${{ github.run_id }}
+          path: |
+            .ci-proofs/board-pairs/result.json
+            .ci-proofs/board-pairs/*.png
           if-no-files-found: ignore
           retention-days: 3
