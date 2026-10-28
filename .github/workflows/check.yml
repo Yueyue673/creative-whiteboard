@@ -114,6 +114,7 @@ jobs:
           FAVORITE_FOLDERS_PROOF: .ci-proofs/library-favorite-folders
           BOARD_VARIANT_PROOF: .ci-proofs/board-variant
           VARIANT_CONFIRMATION_PROOF: .ci-proofs/board-variant-confirmation
+          CELL_ORIGIN_PROOF: .ci-proofs/cell-item-origin
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -627,5 +628,16 @@ jobs:
           path: |
             .ci-proofs/board-variant-confirmation/result.json
             .ci-proofs/board-variant-confirmation/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-item-origin evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-item-origin-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-item-origin/result.json
+            .ci-proofs/cell-item-origin/*.png
           if-no-files-found: ignore
           retention-days: 3

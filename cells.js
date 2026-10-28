@@ -75,19 +75,21 @@ mountTableEditor=function(n){
  const root=$('inlineTable'),live=root.closest('.live-layout');
  const tools=document.createElement('div');tools.className='cell-tools';tools.hidden=true;
  tools.setAttribute('role','group');tools.setAttribute('aria-label','单元格内容操作');
- tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
+ tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-origin hidden>查看库中原件</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
  const options=root.querySelector('.table-options');options.querySelector(':scope>div').append(tools);
- let target=null;
- const clear=()=>{target?.classList.remove('cell-target');target=null;tools.hidden=true};
+ let target=null,originContext=null;const originInputs=new WeakMap(),originButton=tools.querySelector("[data-cell-origin]"),captureOrigin=()=>target&&window.whiteboardNoteEditor?.captureCellOriginContext(n.id,target,originInputs.get(target));
+ const clear=()=>{target?.classList.remove('cell-target');target=null;originContext=null;tools.hidden=true};
  const labelTarget=()=>{
   const title=target.querySelector('[data-cell-note-field=title]')?.value.trim()||'未命名内容';
   tools.querySelector('[data-cell-caption]').textContent='内容：'+title;
-  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
+  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-origin')?'查看库中原件':b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
+  const item=n.cellItems?.[+target.dataset.cellR]?.[+target.dataset.cellC]?.[+target.dataset.cellItem],origin=item&&cellItemOrigin(item,n);originButton.hidden=!root.closest('#immersiveSurface')||!!n.documentMode||item?.type!=='note'||!!item.canvasObject||!!item.assetId||!!item.mediaId||!!item.image||!!item.images?.length||!origin?.id||!origin.nodeId;
  };
  const choose=el=>{if(target===el)return;clear();target=el;target.classList.add('cell-target');tools.hidden=false;labelTarget()};
  live.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el);else if(!e.target.closest('.cell-tools,.table-options'))clear()});
  // Keep the chosen copy while tabbing back to its toolbar actions.
- live.addEventListener('focusin',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el)});
+ live.addEventListener('focusin',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el)){if(e.target.matches('[data-cell-note-field]'))originInputs.set(el,e.target);choose(el)}});
+ originButton.onpointerdown=()=>originContext=captureOrigin();originButton.onkeydown=event=>{if(event.key==='Enter'||event.key===' ')originContext=captureOrigin()};
  live.addEventListener('keydown',e=>{const handle=e.target.closest('[data-cell-move]');if(!handle||!(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'))return;e.preventDefault();e.stopImmediatePropagation();choose(handle.closest('[data-cell-item]'));options.open=true;tools.querySelector('button')?.focus({preventScroll:true})});
  for(const handle of root.querySelectorAll('[data-cell-move]'))handle.setAttribute('aria-keyshortcuts','Shift+F10');
  root.querySelectorAll('[data-cell-note-field]').forEach(field=>{
@@ -98,6 +100,7 @@ mountTableEditor=function(n){
   if(!target?.isConnected||editorId!==n.id||board.nodes.find(x=>x.id===n.id)!==n)return;
   const items=n.cellItems[+target.dataset.cellR]?.[+target.dataset.cellC],index=+target.dataset.cellItem,item=items?.[index];
   if(!item)return;
+  if(button.hasAttribute('data-cell-origin')){const context=originContext||captureOrigin();originContext=null;if(!button.isConnected||context?.section!==target)return;options.open=false;if(!window.whiteboardNoteEditor?.peekCellOrigin(context))toast('这份原件暂不能唯一对应，请保留原稿并从内容库查看。');return}
   options.open=false;
   if(button.hasAttribute('data-cell-remove')){undoPoint();items.splice(index,1);openEditor(n.id);change()}
   else{insertBundle({nodes:[cellItemCopy(item,n)],edges:[]},{x:n.x+n.w+40,y:n.y});toast('已将副本放到表格右侧')}

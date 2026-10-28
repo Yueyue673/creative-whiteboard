@@ -788,7 +788,26 @@
   if(!node||node.type!=='note'||node.canvasObject||sourceAssetIds(node).length)return false;const signature=JSON.stringify(origin),owns=()=>ownsPaperOrigin(context)&&context.author.cellItems?.[0]?.[0]?.filter(value=>value.id===itemId).length===1&&context.author.cellItems[0][0].includes(item)&&JSON.stringify(cellItemOrigin(item,context.author))===signature;
   return peekReference({kind:'library',assetId:origin.id,originNodeId:origin.nodeId,originRootNodeId:rootId,board:null,name:asset.title,node:clone(node)},context.place,[],false,owns);
  }
- window.whiteboardNoteEditor={capturePaperOriginContext,peekPaperOrigin,locateLibraryCopy,openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
+
+ // A selected ordinary-table copy owns its exact cell and library pointer.
+ function captureCellOriginContext(id,section,input){
+  const author=board?.nodes.find(n=>n.id===id);if(author?.type!=='table'||author.documentMode||editorId!==id||loading||blocked||window.whiteboardHosted?.paused)return null;
+  const place=captureReferencePlace(id);if(place?.mode!=='expanded')return null;
+  const root=$('immersiveSurface');if(!root?.contains(section)||section.closest('.note-source-card'))return null;
+  const r=+section.dataset.cellR,c=+section.dataset.cellC,index=+section.dataset.cellItem,items=author.cellItems?.[r]?.[c],item=items?.[index];if(![r,c,index].every(Number.isInteger)||!item||typeof item.id!=='string'||items.filter(value=>value.id===item.id).length!==1)return null;
+  if(input?.isConnected&&section.contains(input)&&input.matches('textarea,input[type=text],input:not([type])')&&!input.readOnly&&!input.disabled){const selector=fieldSelector(input);if(selector)place.field={id:input.id,selector,value:input.value.length<=512*1024?input.value:null,start:input.selectionStart,end:input.selectionEnd,direction:input.selectionDirection,top:input.scrollTop,left:input.scrollLeft}}
+  const scope=window.whiteboardHosted||null;return {owner:board,board:boardId,author,root,section,r,c,index,items,item,row:author.rowIds?.[r],column:author.columnIds?.[c],originSignature:JSON.stringify(cellItemOrigin(item,author)),place,scope,scopeKey:JSON.stringify([scope?.account?.id??scope?.account,scope?.workspace])};
+ }
+ function ownsCellOrigin(context){return !!context&&board===context.owner&&boardId===context.board&&board.nodes.includes(context.author)&&editorId===context.author.id&&context.root.isConnected&&context.section.isConnected&&context.root.contains(context.section)&&!loading&&!blocked&&!window.whiteboardHosted?.paused&&(window.whiteboardHosted||null)===context.scope&&JSON.stringify([context.scope?.account?.id??context.scope?.account,context.scope?.workspace])===context.scopeKey&&(context.place.mode==='expanded'?$('dialog').open&&$('immersiveSurface')===context.root:!$('dialog').open)&&context.author.rowIds?.[context.r]===context.row&&context.author.columnIds?.[context.c]===context.column&&context.author.cellItems?.[context.r]?.[context.c]===context.items&&context.items[context.index]===context.item&&context.items.filter(value=>value.id===context.item.id).length===1&&JSON.stringify(cellItemOrigin(context.item,context.author))===context.originSignature}
+ function peekCellOrigin(context){
+  if(!ownsCellOrigin(context))return false;const input=referenceFieldAt(context.place,context.root);if(context.place.field&&(context.place.field.value===null||!input?.isConnected||input.value!==context.place.field.value))return false;
+  const item=context.item,origin=cellItemOrigin(item,context.author);if(item.type!=='note'||item.canvasObject||item.assetId||item.mediaId||item.image||item.images?.length||!origin?.id||!origin.nodeId)return false;
+  const assets=assetIndex.assets.filter(a=>a.id===origin.id);if(assets.length!==1||assets[0].archived||assets[0].mime!==bundleMime)return false;const asset=assets[0],rootId=origin.rootNodeId||origin.nodeId,node=wfOriginNode({libraryOrigin:{nodeId:origin.nodeId,rootNodeId:rootId}},asset);
+  if(!node||node.type!=='note'||node.canvasObject||sourceAssetIds(node).length)return false;
+  return peekReference({kind:'library',assetId:origin.id,originNodeId:origin.nodeId,originRootNodeId:rootId,board:null,name:asset.title,node:clone(node)},context.place,[],false,()=>ownsCellOrigin(context));
+ }
+
+ window.whiteboardNoteEditor={captureCellOriginContext,peekCellOrigin,capturePaperOriginContext,peekPaperOrigin,locateLibraryCopy,openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.
