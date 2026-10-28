@@ -152,7 +152,7 @@ SOFTWARE.
    if(!owns())return false;try{localStorage.setItem(navigationKey,JSON.stringify(navigationPrefs(value)));navigation.querySelector('.navigation-message').textContent='';renderNavigation();return true}
    catch{navigation.querySelector('.navigation-message').textContent='浏览器未保存这次操作设置，仍使用原来的操作偏好。';renderNavigation(true);return false}
   }
-  const message=(text,undo)=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent='撤销移除';b.onclick=()=>{if(owns())undo()};box.append(b)}};
+  const message=(text,undo,undoLabel='撤销移除')=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent=undoLabel;b.onclick=()=>{if(owns()&&b.isConnected&&box.contains(b))undo()};box.append(b)}};
   const sourceLine=document.createElement('p');sourceLine.className='appearance-source';presets.after(sourceLine);
   for(const tone of ['light','dark']){
    const heading=document.createElement('h4');heading.textContent=tone==='light'?'浅色':'深色';presets.append(heading);
@@ -173,10 +173,23 @@ SOFTWARE.
     const palette=theme(row.appearance).palette;choose.style.setProperty('--saved-canvas',palette.canvas);choose.style.setProperty('--saved-accent',palette.accent);
     choose.setAttribute('aria-pressed',String(JSON.stringify(normalise(p))===JSON.stringify(row.appearance)&&JSON.stringify(interfacePrefs())===JSON.stringify(row.ui)&&(!row.navigation||JSON.stringify(navigationPrefs())===JSON.stringify(row.navigation))));
     choose.onclick=()=>{if(!owns())return;message('');p=normalise(row.appearance);applyInterface(row.ui);const operationSaved=!row.navigation||saveNavigation(row.navigation);if(update()!==false&&operationSaved)message('已应用“'+row.name+'”。')};
+    const replacePreset=document.createElement('button');replacePreset.type='button';replacePreset.textContent='更新';replacePreset.setAttribute('aria-label','用当前设置更新预设：'+row.name);
+    replacePreset.onclick=()=>{
+     if(!owns()||!replacePreset.isConnected||!list.contains(replacePreset))return;
+     const invalid=d.querySelector('[data-hex][aria-invalid="true"]');if(invalid){message('请先修正颜色值，再更新预设。');invalid.focus();return}
+     const invalidNavigation=navigation.querySelector('input[type=number]:invalid');if(invalidNavigation){message('请先填写范围内的移动距离，再更新预设。');invalidNavigation.focus();return}
+     try{
+      const rows=savedPresets(),index=rows.findIndex(value=>value.id===row.id);if(index<0||JSON.stringify(rows[index])!==JSON.stringify(row)){refreshSaved();message('预设已有变化，请重新查看。');return}
+      const previous=rows[index],next={...previous,appearance:normalise(p),ui:interfacePrefs(),navigation:navigationPrefs()};if(JSON.stringify(next)===JSON.stringify(previous)){if(!d.querySelector('.appearance-message button'))message('当前设置与“'+row.name+'”相同。');return}
+      rows[index]=next;localStorage.setItem(collectionKey,JSON.stringify(rows));refreshSaved();message('已更新“'+row.name+'”。',()=>{
+       try{const latest=savedPresets(),at=latest.findIndex(value=>value.id===row.id);if(at<0||JSON.stringify(latest[at])!==JSON.stringify(next)){refreshSaved();message('预设已有后续变化，未覆盖。');return}latest[at]=previous;localStorage.setItem(collectionKey,JSON.stringify(latest));refreshSaved();message('已还原“'+row.name+'”的预设，当前外观保留。')}catch{message('浏览器无法保存预设，请检查存储空间。')}
+      },'撤销更新');
+     }catch{message('浏览器无法保存预设，请检查存储空间。')}
+    };
     remove.textContent='×';remove.setAttribute('aria-label','移除预设：'+row.name);
     remove.onclick=()=>{if(!owns())return;try{localStorage.setItem(collectionKey,JSON.stringify(savedPresets().filter(r=>r.id!==row.id)));refreshSaved();d.querySelector('#appearanceName').focus();message('已移除“'+row.name+'”，当前外观保留。',()=>{
       try{const current=savedPresets();if(current.length>=24){message('已满 24 个预设，请先移除一个。');return}if(!current.some(r=>r.id===row.id))localStorage.setItem(collectionKey,JSON.stringify([...current,row]));refreshSaved();message('已恢复“'+row.name+'”。')}catch{message('浏览器无法保存预设，请检查存储空间。')}
-     })}catch{message('浏览器无法保存预设，请检查存储空间。')}};item.append(choose,remove);list.append(item);
+     })}catch{message('浏览器无法保存预设，请检查存储空间。')}};item.append(choose,replacePreset,remove);list.append(item);
    }
   }
   d.querySelector('#appearanceSave').onclick=()=>{
