@@ -89,6 +89,11 @@ SOFTWARE.
    return {name,appearance:normalise(a),ui:{scale:u.scale,width:u.width},...(n?{navigation:navigationPrefs(n)}:{})};
   });
  }
+ const libraryStyle=document.createElement('style');libraryStyle.textContent='body #appearanceDialog .appearance-library{margin-top:14px;padding-top:12px;border-top:1px solid var(--ui-line,#7775)}body #appearanceDialog .appearance-library>label{display:block}body #appearanceDialog #appearanceLibraryName{display:block;width:100%;min-width:0;min-height:44px;box-sizing:border-box;margin:5px 0 9px}body #appearanceDialog .appearance-library-list>button{display:flex;flex-direction:column;align-items:stretch;gap:3px;min-height:44px;width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere;margin:5px 0;padding:8px 10px}body #appearanceDialog .appearance-library-list small{font-size:11px;opacity:.75}body #appearanceDialog .appearance-library-status{min-height:1.4em}';document.head.append(libraryStyle);
+ function presetFileText(rows){
+  const presets=rows.map(({name,appearance,ui,navigation})=>({name,appearance,ui,...(navigation?{navigation}:{})}));
+  return JSON.stringify({format:'creative-whiteboard-appearance-presets',version:1,presets},null,2)+'\n';
+ }
  const rgb=value=>[1,3,5].map(offset=>parseInt(value.slice(offset,offset+2),16));
  function mix(a,b,amount){const start=rgb(a),end=rgb(b);return '#'+start.map((c,i)=>Math.round(c+(end[i]-c)*amount).toString(16).padStart(2,'0')).join('')}
  function luminance(value){return rgb(value).map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((sum,c,i)=>sum+c*[.2126,.7152,.0722][i],0)}
@@ -168,32 +173,35 @@ SOFTWARE.
   portable.innerHTML='<summary>预设备份与导入</summary><p>把已保存的预设存成文件，换浏览器后可再导入。</p><div class="appearance-portable-actions"><button type="button" id="appearanceExport">导出我的预设</button><button type="button" id="appearanceImport">选择预设文件</button><input id="appearanceImportFile" type="file" accept=".json,application/json" hidden></div><section class="appearance-import-review" hidden><h4>待加入的预设</h4><div class="appearance-import-list"></div><p class="appearance-import-count" role="status" aria-live="polite"></p><div class="appearance-portable-actions"><button type="button" id="appearanceImportCommit">加入我的预设</button><button type="button" id="appearanceImportCancel">取消导入</button></div></section>';
   d.querySelector('.appearance-saved').append(portable);
   const exportButton=portable.querySelector('#appearanceExport'),fileInput=portable.querySelector('#appearanceImportFile'),review=portable.querySelector('.appearance-import-review'),importList=portable.querySelector('.appearance-import-list'),importCount=portable.querySelector('.appearance-import-count'),commitImport=portable.querySelector('#appearanceImportCommit');
-  let importEpoch=0,importRows=[];
-  const clearImport=()=>{++importEpoch;importRows=[];review.hidden=true;importList.replaceChildren();fileInput.value=''};
+  let importEpoch=0,importRows=[],libraryEpoch=0,importSourceValid=()=>true;const libraryRequests=new Map();
+  const cancelLibraryReads=()=>{++libraryEpoch;for(const [controller,kind]of libraryRequests)if(kind!=='save')controller.abort();const status=d.querySelector('.appearance-library-status');if(status&&/^正在(?:查找|读取)/.test(status.textContent))status.textContent=''};
+  const clearImport=()=>{++importEpoch;cancelLibraryReads();importSourceValid=()=>true;importRows=[];review.hidden=true;importList.replaceChildren();fileInput.value=''};
   const importSelection=()=>[...importList.querySelectorAll('input:checked')].map(input=>importRows[Number(input.dataset.importIndex)]);
   const refreshImport=()=>{const count=importSelection().length;importCount.textContent=count?'将加入 '+count+' 个预设，当前外观保留。':'请选择要加入的预设。';commitImport.disabled=!count};
   exportButton.onclick=()=>{
    if(!owns())return;const rows=savedPresets();if(!rows.length){message('还没有已保存的预设。');return}
-   const presets=rows.map(({name,appearance,ui,navigation})=>({name,appearance,ui,...(navigation?{navigation}:{})})),url=URL.createObjectURL(new Blob([JSON.stringify({format:'creative-whiteboard-appearance-presets',version:1,presets},null,2)+'\n'],{type:'application/json;charset=utf-8'}));
+   const url=URL.createObjectURL(new Blob([presetFileText(rows)],{type:'application/json;charset=utf-8'}));
    const link=document.createElement('a');link.href=url;link.download='whiteboard-appearance-presets.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   portable.querySelector('#appearanceImport').onclick=()=>{if(owns())fileInput.click()};
   portable.querySelector('#appearanceImportCancel').onclick=()=>{if(!owns())return;clearImport();message('');portable.querySelector('#appearanceImport').focus()};
-  fileInput.onchange=async()=>{
-   if(!owns())return;const file=fileInput.files[0];clearImport();if(!file)return;message('');const epoch=importEpoch;
+  async function previewPresetFile(file,valid=()=>true){
+   if(!owns()||!valid())return;clearImport();if(!file)return;message('');const epoch=importEpoch;importSourceValid=valid;
    if(file.size>256*1024){message('预设文件过大，请选择导出的预设文件。');return}
    try{
-    const rows=portablePresets(await file.text());if(!owns()||epoch!==importEpoch)return;
+    const rows=portablePresets(await file.text());if(!owns()||epoch!==importEpoch||!valid())return;
     importRows=rows;const current=savedPresets();
     for(let index=0;index<rows.length;index++){
      const row=rows[index],label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span'),exists=current.some(value=>value.name===row.name);
      input.type='checkbox';input.dataset.importIndex=String(index);input.checked=!exists;input.disabled=exists;input.onchange=refreshImport;name.textContent=row.name+(exists?'（同名预设已保留）':'');label.append(input,name);importList.append(label);
     }
-    review.hidden=false;message('');refreshImport();
-   }catch{if(owns()&&epoch===importEpoch)message('无法读取这些预设，请选择导出的预设文件。')}
-  };
+    review.hidden=false;message('');refreshImport();return true;
+   }catch{if(owns()&&epoch===importEpoch)message('无法读取这些预设，请选择导出的预设文件。');return false}
+  }
+  fileInput.onchange=()=>previewPresetFile(fileInput.files[0]);
   commitImport.onclick=()=>{
-   if(!owns()||review.hidden||!commitImport.isConnected)return;const rows=importSelection();if(!rows.length)return;
+   if(!owns()||review.hidden||!commitImport.isConnected)return;
+   if(!importSourceValid()){message('原内容库的登录状态已变化，请重新核对后取回。');return}const rows=importSelection();if(!rows.length)return;
    try{
     const current=savedPresets();if(rows.some(row=>current.some(value=>value.name===row.name))){message('同名预设已有变化，请重新选择文件。');return}
     if(current.length+rows.length>24){message('预设最多保存 24 个，请少选几个或先移除不用的预设。');return}
@@ -205,6 +213,75 @@ SOFTWARE.
      }catch{message('浏览器无法保存预设，请检查存储空间。')}
     },'撤销导入');
    }catch{message('浏览器无法保存预设，请检查存储空间。')}
+  };
+  // Preset files are explicit library resources, under the existing library
+  // transport and permissions. No account preference or automatic sync store.
+  const libraryScope=window.whiteboardHosted||null,library=document.createElement('section');library.className='appearance-library';
+  library.innerHTML='<h4>内容库中的预设备份</h4><p>收进当前内容库根目录，沿用内容库的读取权限。取回后先核对，再选择应用。</p><label>备份名称<input id="appearanceLibraryName" maxlength="40" value="我的外观预设"></label><div class="appearance-portable-actions"><button type="button" id="appearanceLibraryStore">收进内容库</button><button type="button" id="appearanceLibraryBrowse">从内容库取回</button></div><div class="appearance-library-list"></div><p class="appearance-library-status" role="status" aria-live="polite"></p>';portable.insertBefore(library,review);
+  const store=library.querySelector('#appearanceLibraryStore'),browse=library.querySelector('#appearanceLibraryBrowse'),choices=library.querySelector('.appearance-library-list'),libraryStatus=text=>{if(owns())library.querySelector('.appearance-library-status').textContent=text};
+  const libraryOwns=()=>owns()&&(window.whiteboardHosted||null)===libraryScope&&!libraryScope?.paused;
+  const libraryIdentity=async()=>libraryOwns()&&(!libraryScope?.checkIdentity||await libraryScope.checkIdentity())&&libraryOwns();
+  if(libraryScope?.role==='viewer'){store.disabled=true;store.title='当前内容库只有阅读权限，可取回已有备份。'}
+  const libraryFailure=text=>Object.assign(new Error(text),{libraryMessage:text});
+  async function limitedText(response,limit,label){
+   if(!response.ok)throw libraryFailure(label+'暂时无法读取，请稍后重试。');
+   const declared=Number(response.headers.get('Content-Length'));if(declared>limit)throw libraryFailure(label+'范围过大，请沿原文件入口取回。');
+   const reader=response.body?.getReader(),chunks=[];let length=0;
+   if(reader){try{for(;;){const next=await reader.read();if(next.done)break;length+=next.value.byteLength;if(length>limit){await reader.cancel();throw libraryFailure(label+'范围过大，请沿原文件入口取回。')}chunks.push(next.value)}}finally{reader.releaseLock()}}
+   else{const bytes=new Uint8Array(await response.arrayBuffer());length=bytes.byteLength;if(length>limit)throw libraryFailure(label+'范围过大，请沿原文件入口取回。');chunks.push(bytes)}
+   const bytes=new Uint8Array(length);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.byteLength}
+   try{return new TextDecoder('utf-8',{fatal:true}).decode(bytes)}catch{throw libraryFailure('无法读取'+label+'，请沿原文件入口核对。')}
+  }
+  const libraryFetch=(url,options={})=>fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error',...options});
+  const backupCandidate=a=>a&&typeof a.id==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(a.id)&&!a.archived&&typeof a.title==='string'&&(a.title.endsWith('.appearance-presets.json')||a.title==='whiteboard-appearance-presets.json')&&Number.isFinite(a.size)&&a.size>=0&&a.size<=256*1024;
+  const backupIdentity=a=>JSON.stringify([a.id,a.title,a.folder,a.mime,a.size]);
+  async function libraryCatalog(signal){const text=await limitedText(await libraryFetch('/api/assets',{signal}),8*1024*1024,'内容库目录'),value=(()=>{try{return JSON.parse(text)}catch{throw libraryFailure('内容库目录暂时无法读取，请稍后重试。')}})();if(!Array.isArray(value.assets)||value.assets.length>12000)throw libraryFailure('目录范围过大，请从内容库下载预设文件后导入。');return value.assets}
+  store.onclick=async()=>{
+   if(!libraryOwns()||store.disabled||libraryScope?.role==='viewer')return;
+   const input=library.querySelector('#appearanceLibraryName'),name=input.value.trim(),rows=savedPresets();
+   if(!rows.length){libraryStatus('还没有已保存的预设。');return}
+   if(!name||name.length>40||/[\\/:*?"<>|\u0000-\u001f]/.test(name)){libraryStatus('请填写不含路径符号的备份名称。');input.focus();return}
+   const text=presetFileText(rows),file=new File([text],name+'.appearance-presets.json',{type:'application/json'});
+   if(file.size>256*1024){libraryStatus('预设备份超过大小范围，请减少预设后再保存。');return}
+   const controller=new AbortController();libraryRequests.set(controller,'save');store.disabled=true;libraryStatus('正在收进内容库…');
+   try{
+    if(!await libraryIdentity()){libraryStatus('原内容库的登录状态暂时无法核对，请保留当前设置后重试。');return}
+    if(!libraryOwns())return;
+    const response=await libraryFetch('/api/assets/upload',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/octet-stream','X-File-Name':encodeURIComponent(file.name),'X-Folder':'','X-Folder-Id':''},body:file});
+    if(!response.ok)throw libraryFailure(response.status===403?'当前内容库没有写入权限。':'未能确认已收存；请先在内容库核对，再重试。');
+    const asset=JSON.parse(await limitedText(response,64*1024,'收存结果'));if(!asset||typeof asset.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(asset.id))throw libraryFailure('未能确认已收存；请先在内容库核对，再重试。');
+    if(libraryOwns())libraryStatus('已收进内容库根目录，当前外观保留。');
+   }catch(error){if(libraryOwns()&&error.name!=='AbortError')libraryStatus(error.libraryMessage||'未能确认已收存；请先在内容库核对，再重试。')}
+   finally{libraryRequests.delete(controller);if(owns())store.disabled=libraryScope?.role==='viewer'}
+  };
+  browse.onclick=async()=>{
+   if(!libraryOwns()||browse.disabled)return;cancelLibraryReads();const epoch=libraryEpoch,originalImport=importEpoch,controller=new AbortController();libraryRequests.set(controller,'list');browse.disabled=true;choices.replaceChildren();libraryStatus('正在查找预设备份…');
+   try{
+    if(!await libraryIdentity()){libraryStatus('原内容库的登录状态暂时无法核对，请稍后重试。');return}
+    const catalog=await libraryCatalog(controller.signal);if(!libraryOwns()||epoch!==libraryEpoch||originalImport!==importEpoch)return;
+    const all=catalog.filter(backupCandidate),savedAt=a=>Number.isFinite(Number(a.updated))?Number(a.updated):0;
+    const candidates=all.map((asset,index)=>({asset,index})).sort((a,b)=>savedAt(b.asset)-savedAt(a.asset)||a.index-b.index).slice(0,80).map(row=>row.asset);
+    for(const asset of candidates){
+     const button=document.createElement('button');button.type='button';button.dataset.appearanceLibraryAsset=asset.id;
+     const name=document.createElement('span'),location=document.createElement('small');name.textContent=asset.title;location.textContent=asset.folder||'内容库根目录';button.append(name,location);
+     button.onclick=async()=>{
+      if(!libraryOwns()||!button.isConnected||!choices.contains(button))return;cancelLibraryReads();const epoch=libraryEpoch,originalImport=++importEpoch,controller=new AbortController();libraryRequests.set(controller,'read');button.disabled=true;libraryStatus('正在读取这份预设备份…');
+      try{
+       if(!await libraryIdentity()){libraryStatus('原内容库的登录状态暂时无法核对，请稍后重试。');return}
+       const current=(await libraryCatalog(controller.signal)).find(a=>a.id===asset.id);
+       if(!backupCandidate(current)||backupIdentity(current)!==backupIdentity(asset))throw libraryFailure('备份已有变化，请刷新列表后重新选择。');
+       const url=typeof libraryScope?.mediaURL==='function'?libraryScope.mediaURL(asset.id):'/api/media/'+encodeURIComponent(asset.id),text=await limitedText(await libraryFetch(url,{signal:controller.signal}),256*1024,'预设备份');
+       if(!libraryOwns()||epoch!==libraryEpoch||originalImport!==importEpoch||!button.isConnected||!choices.contains(button))return;
+       if(!await libraryIdentity())return;
+       const ready=await previewPresetFile(new File([text],asset.title,{type:'application/json'}),libraryOwns);
+       if(libraryOwns())libraryStatus(ready?'已读取备份，请先核对要加入的预设。':'备份未加入，请选择导出的预设文件。');
+      }catch(error){if(libraryOwns()&&epoch===libraryEpoch&&error.name!=='AbortError')libraryStatus(error.libraryMessage||'无法读取这份预设备份，请选择导出的预设文件。')}
+      finally{libraryRequests.delete(controller);if(owns()&&button.isConnected)button.disabled=false}
+     };choices.append(button);
+    }
+    libraryStatus(all.length>80?'这里只显示前80份备份；其他文件可从内容库下载后导入。':candidates.length?'请选择要核对的预设备份。':'没有找到预设备份文件，可选择原导出的预设文件。');
+   }catch(error){if(libraryOwns()&&epoch===libraryEpoch&&error.name!=='AbortError')libraryStatus(error.libraryMessage||'内容库暂时无法读取，请稍后重试。')}
+   finally{libraryRequests.delete(controller);if(owns())browse.disabled=false}
   };
   const sourceLine=document.createElement('p');sourceLine.className='appearance-source';presets.after(sourceLine);
   for(const tone of ['light','dark']){
@@ -294,7 +371,7 @@ SOFTWARE.
   d.querySelector('#appearanceRevert').onclick=()=>{message('');p=normalise(opening.appearance);applyInterface(opening.ui);const operationSaved=saveNavigation(opening.navigation);if(update()!==false&&operationSaved)message('已还原打开设置时的外观与操作偏好。')};
   d.querySelector('#appearanceDone').onclick=()=>d.close();
   const storage=e=>{if(!owns())return;if([key,'creative-interface'].includes(e.key)){p=read();update(false)}else if(e.key===navigationKey){renderNavigation();refreshSaved()}else if(e.key===collectionKey)refreshSaved()};window.addEventListener('storage',storage);
-  d.disposeAppearance=()=>window.removeEventListener('storage',storage);d.addEventListener('close',()=>{
+  d.disposeAppearance=()=>{window.removeEventListener('storage',storage);++libraryEpoch;for(const controller of libraryRequests.keys())controller.abort();libraryRequests.clear()};d.addEventListener('close',()=>{
    d.disposeAppearance();d.remove();
    // Native dialog focus return can collapse a textarea's selected text.
    // Restore only this still-current field; never replay text or another document's position.

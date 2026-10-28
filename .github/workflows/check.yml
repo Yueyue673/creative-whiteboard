@@ -104,6 +104,7 @@ jobs:
           GROUP_WRITING_POINT_PROOF: .ci-proofs/group-writing-point
           TAB_LOCATION_PROOF: .ci-proofs/tab-location-context
           LIBRARY_USED_ORDER_PROOF: .ci-proofs/library-used-order
+          PRESET_LIBRARY_PROOF: .ci-proofs/preset-library
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -142,6 +143,16 @@ jobs:
           path: |
             .ci-proofs/link-location-choice/result.json
             .ci-proofs/link-location-choice/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated preset-library evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preset-library-${{ github.run_id }}
+          path: |
+            .ci-proofs/preset-library/result.json
+            .ci-proofs/preset-library/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated library-used-order evidence
