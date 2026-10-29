@@ -126,6 +126,7 @@ jobs:
           LIBRARY_SOURCE_RETURN_PROOF: .ci-proofs/library-source-return
           CELL_DOCUMENT_REFERENCE_PROOF: .ci-proofs/cell-document-reference
           LIBRARY_TABLE_TEXT_EDIT_PROOF: .ci-proofs/library-table-text-edit
+          LIBRARY_TABLE_CREATION_PROOF: .ci-proofs/library-table-creation
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -771,5 +772,16 @@ jobs:
           path: |
             .ci-proofs/library-table-text-edit/result.json
             .ci-proofs/library-table-text-edit/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-table-creation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-creation-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-creation/result.json
+            .ci-proofs/library-table-creation/*.png
           if-no-files-found: ignore
           retention-days: 3

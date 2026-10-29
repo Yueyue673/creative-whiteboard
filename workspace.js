@@ -830,9 +830,10 @@ window.addEventListener('message',e=>{if(e.data?.type!=='creative-document-activ
 
 // Create and maintain library contents without staging them on a board first.
 function libraryFolderOptions(value){return '<option value="">内容库根目录</option>'+allAssetFolders().map(f=>'<option value="'+esc(f)+'" '+(f===value?'selected':'')+'>'+esc(f)+'</option>').join('')}
-function writeLibraryContent(id=null){return window.whiteboardLibraryEditing.editContent(id)}
+function writeLibraryContent(id=null,kind='note'){return window.whiteboardLibraryEditing.editContent(id,kind)}
 const editLibraryFileInfo=editAsset;editAsset=function(id){return assetById(id)?.mime===bundleMime?writeLibraryContent(id):editLibraryFileInfo(id)};
 const newLibraryButton=document.createElement('button');newLibraryButton.id='libraryCreate';newLibraryButton.textContent='写便签';newLibraryButton.onclick=()=>writeLibraryContent();$('assetFolderNew').before(newLibraryButton);
+const newLibraryTableButton=document.createElement('button');newLibraryTableButton.id='libraryCreateTable';newLibraryTableButton.textContent='写表格';newLibraryTableButton.onclick=()=>writeLibraryContent(null,'table');newLibraryButton.after(newLibraryTableButton);
 const libraryGuide=document.createElement('details');libraryGuide.className='library-guide';libraryGuide.innerHTML='<summary>从哪里开始？</summary><p><b>积累内容：</b>点“写便签”记下想法；导入文件，或在白板上选中内容后收进库。</p><p><b>整理和修改：</b>文件夹负责分类。选中一项按 F2，可编辑库中的文字；拖到文件夹可移动位置。</p><p><b>用于创作：</b>从库拖到白板会得到副本。白板上的改动不会自动覆盖库中版本。</p>';$('assetPane').querySelector('.explorer-location').after(libraryGuide);
 // A successful save is a result in the current creation, not a request to navigate.
 function showCollectedResource(id){
@@ -909,7 +910,7 @@ function mountLibraryDestination(id){const select=$(id);if(!select||select.datas
  create.onsubmit=async e=>{e.preventDefault();const input=create.querySelector('input'),name=input.value.trim(),status=create.querySelector('p');if(!name||/[\\/]/.test(name)||name==='.'||name==='..'){status.textContent='请填写名称，不要包含斜杠。';return}const path=(current?current+'/':'')+name;if(allAssetFolders().includes(path)){status.textContent='这里已有同名文件夹。';return}const next=clone(assetIndex);next.folders.push(path);const submit=create.querySelector('[type=submit]');submit.disabled=true;try{if(await saveAssets(next))navigate(path);else status.textContent='未能创建，请重试。'}finally{submit.disabled=false}};
  host.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();host.querySelector('.destination-up').click()}});draw()
 }
-const writeBeforeFolderBrowser=writeLibraryContent;writeLibraryContent=function(id=null){writeBeforeFolderBrowser(id);mountLibraryDestination('libraryDestination')};
+const writeBeforeFolderBrowser=writeLibraryContent;writeLibraryContent=function(id=null,kind='note'){writeBeforeFolderBrowser(id,kind);mountLibraryDestination('libraryDestination')};
 const collectBeforeFolderBrowser=askCollectSelection;askCollectSelection=function(){collectBeforeFolderBrowser();mountLibraryDestination('collectDestination')};
 collectDock.onclick=()=>askCollectSelection();
 

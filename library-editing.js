@@ -149,9 +149,22 @@
   }
   return '';
  }
+ function newContentName(node){
+  if(!ordinaryTable(node))return newNoteName(node);
+  const words=[node.title,...node.rows.flat(),...node.columns.filter((value,c)=>value!=='列 '+(c+1)),node.body,node.userText,node.annotation];
+  for(const value of words){const name=newNoteName({body:value});if(name)return name}
+  return '';
+ }
  function missingName(state){
+  if(state.mode==='content'&&!state.base&&ordinaryTable(state.draft.bundle.nodes[0])){notice(state,'先为表格写点内容，或填写标题。');state.form.querySelector('[data-library-table-field="3"]')?.focus();return}
   notice(state,state.mode==='content'&&!state.base?'先写点内容。':'请填写名称。');
   $(state.mode==='file'?'assetTitle':state.base?'libraryName':'library-body')?.focus();
+ }
+ function finishSave(state,result,asCopy,confirmed=false){
+  if(!active(state))return;
+  if(tableScopeProblem(state)){$('dialog').close();toast('已保存到原内容库。所属位置随后发生变化，已停下后续定位。');return}
+  if(state.mode==='content'||asCopy){enterAssetFolder(result.folder);assetSelected=new Set([result.id]);renderAssets()}
+  $('dialog').close();toast(confirmed?'这次内容已保存到内容库':asCopy?'已另存你的编辑，原件保留':state.base?'已保存到内容库，白板副本保留原来的内容':'已保存');
  }
  async function save(state,asCopy=false){
   if(state.busy||!active(state))return;
@@ -167,6 +180,14 @@
    if(state.base&&!asCopy){const missing=unavailable(state,current,draft);if(missing){showUnavailable(state,missing);return}}
    const target=destination(state.destination);
    if(target===null&&(!state.base||asCopy||destinationEdited(state))){notice(state,'存放的文件夹已删除。请重新选择位置，你写的内容仍在这里。');return}
+   if(!state.base&&!asCopy){
+    const existing=assetById(draft.id);
+    if(existing){
+     const stored=clone(existing),wanted=clone(draft);wanted.folder=target;delete stored.updated;delete wanted.updated;
+     if(!existing.archived&&equal(stored,wanted)){finishSave(state,existing,false,true);return}
+     showUnavailable(state,'这次内容已经保存，随后又被修改或移走。你的输入仍保留，可以另存一份；库中的后来版本保持现状。');return;
+    }
+   }
    let result;
    if(!state.base||asCopy){
     result=clone(draft);if(asCopy){result.id=uid();delete result.archived;delete result.archiveBatch}
@@ -183,10 +204,7 @@
     result.updated=Date.now();busy(state,true,true);
     if(!await saveAssets(next)){notice(state,'没有保存成功，你的输入仍保留。再点保存会重新核对最新版本。');return}
    }
-   if(!active(state))return;
-   if(tableScopeProblem(state)){$('dialog').close();toast('已保存到原内容库。所属位置随后发生变化，已停下后续定位。');return}
-   if(state.mode==='content'||asCopy){enterAssetFolder(result.folder);assetSelected=new Set([result.id]);renderAssets()}
-   $('dialog').close();toast(asCopy?'已另存你的编辑，原件保留':state.base?'已保存到内容库，白板副本保留原来的内容':'已保存');
+   finishSave(state,result,asCopy);
   }catch(error){notice(state,error.message||'暂时不能保存，你的输入仍保留。')}
   finally{busy(state,false)}
  }
@@ -207,13 +225,14 @@
   fillTextarea(state.form.querySelector('#assetNotes'),item.notes);
   mountLibraryDestination('libraryDestination');
  }
- function editContent(id=null){
+ function editContent(id=null,kind='note'){
   const original=id?assetById(id):null;if(original&&original.mime!==bundleMime)return editFile(id);
   if(id&&!original)return toast('这项内容已移走，请重新选择。');
   if(original&&!original.bundle?.nodes.length)return toast('这份组合没有内容块，可以先把内容收进库，再继续编辑。');
-  const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'}],edges:[]}},busy:false};let index=0;
+  const freshNode=()=>kind==='table'?{id:uid(),type:'table',sizeMode:'manual',x:0,y:0,w:620,h:360,title:'',body:'',userText:'',annotation:'',tags:[],color:'#ffffff',...tableData(Array.from({length:3},()=>['','','']),false),rowIds:Array.from({length:3},()=>uid()),columnIds:Array.from({length:3},()=>uid())}:{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'};
+  const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[freshNode()],edges:[]}},busy:false};let index=0;
   const supplement=original?'<div id="librarySupplement"></div>':'<details class="library-note-details"><summary><span class="library-note-caret" aria-hidden="true">›</span>补充和备注</summary><div id="librarySupplement"></div></details>';
-  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
+  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">先从三行三列写起，保存后可直接复用。增减或移动行列，可放到白板继续编辑。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
   const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value;for(const {field,path,initial,initialValue,root}of state.documentFields||[]){let target=root||state.draft.bundle.nodes[index].cellItems[0][0];for(const key of path.slice(0,-1))target=target[key];const key=path.at(-1);if(field.value!==initial)target[key]=field.value;else if(initialValue===undefined)delete target[key];else target[key]=copy(initialValue)}};
   const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'"></textarea></label>';
 
@@ -252,11 +271,11 @@
    state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(node.type==='table'?'<p class="library-edit-explain">'+(node.documentMode===true?'内容结构与附件保持。增删或移动文中内容时，可放到白板编辑后再收录。':'可直接修改列名和格子文字，格内资料原样保留。增删或移动行列时，可放到白板编辑后再收录。')+'</p>':'');
    for(const key of ['title','body','userText','annotation'])fillTextarea(state.form.querySelector('#library-'+key),state.draft.bundle.nodes[index][key]);
   };
-  state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newNoteName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
+  state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newContentName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);
   const piece=state.form.querySelector('#libraryPiece');
   if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();index=Number(piece.value);draw()};
-  draw();const documentField=state.form.querySelector('[data-library-document-field]');if(documentField)documentField.focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
+  draw();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
  }
  window.whiteboardLibraryEditing={editFile,editContent};
 })();
