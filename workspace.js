@@ -502,6 +502,7 @@ function placeLibraryFolder(path,recursive=false,p){const ids=folderContentIds(p
 const menuBeforeBulk=fileMenu;fileMenu=function(e,items){if(e.target.closest?.('#assetPane')){const folder=e.target.closest('[data-asub],[data-afolder]'),row=e.target.closest('[data-asset]');if(folder||!row){const path=folder?(folder.dataset.asub??folder.dataset.afolder):assetFolder;items.unshift(['添加当前层内容（'+folderContentIds(path).length+' 项）',()=>placeLibraryFolder(path)],['添加全部，含子文件夹（'+folderContentIds(path,true).length+' 项）',()=>placeLibraryFolder(path,true)])}else if(assetSelected.size){items.unshift(['添加选中的 '+assetSelected.size+' 项',()=>placeAssets([...assetSelected])])}}return menuBeforeBulk(e,items)};
 const canvasDropBeforeFolder=canvas.ondrop;canvas.ondrop=e=>{const path=e.dataTransfer.getData('application/x-asset-folder');if(path){e.preventDefault();e.stopPropagation();if(e.target.closest('.inline-ui')&&!e.target.closest('.empty-actions'))return toast('把文件夹拖到画布空白处；单元格里请拖入图片');placeLibraryFolder(path,true,worldPoint(e.clientX,e.clientY));return}canvasDropBeforeFolder(e)};
 // A plain note has one useful placement action; collections retain piece selection.
+const libraryPreviewContinuations=new WeakMap();
 function singleTextLibraryNote(a){const n=a?.bundle?.nodes?.length===1?a.bundle.nodes[0]:null;return a?.mime===bundleMime&&n?.type==='note'&&!n.assetId&&!n.mediaId&&!n.images?.length?n:null}
 function libraryReuseHeading(a){return '<div class="reuse-heading"><span data-reuse-return></span><h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2><details class="reuse-original"><summary>原件</summary><div class="reuse-source-actions"></div></details></div>'}
 function arrangeLibraryPreview(preview){
@@ -621,7 +622,20 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
   });
   update();
  };
- $('pieceSearch').oninput=draw;$('pieceAll').onchange=e=>{matched().forEach(n=>e.target.checked?picked.add(n.id):picked.delete(n.id));draw()};draw()
+ $('pieceSearch').oninput=draw;$('pieceAll').onchange=e=>{matched().forEach(n=>e.target.checked?picked.add(n.id):picked.delete(n.id));draw()};draw();
+ libraryPreviewContinuations.set(previewElement,{
+  capture:()=>({picked:[...picked],search:$('pieceSearch').value,readings:[...previewElement.querySelectorAll('[data-library-piece-reading][open]')].map(el=>el.dataset.libraryPieceReading),images:[...previewElement.querySelectorAll('[data-library-piece-image][open]')].map(el=>el.dataset.libraryPieceImage),spatial:!!previewElement.querySelector('.library-spatial')?.open,scroll:previewElement.scrollTop,bodyScroll:$('dialogBody').scrollTop,dialogScroll:$('dialog').scrollTop}),
+  restore:(snapshot,current)=>{
+   if(!snapshot)return;
+   const counts=new Map();for(const node of a.bundle.nodes)counts.set(node.id,(counts.get(node.id)||0)+1);
+   picked=new Set(snapshot.picked.filter(id=>counts.get(id)===1));$('pieceSearch').value=snapshot.search;draw();
+   for(const details of previewElement.querySelectorAll('[data-library-piece-reading]'))if(snapshot.readings.includes(details.dataset.libraryPieceReading))details.open=true;
+   for(const details of previewElement.querySelectorAll('[data-library-piece-image]'))if(snapshot.images.includes(details.dataset.libraryPieceImage))details.open=true;
+   let interrupted=false;const events=['pointerdown','keydown','input','wheel','touchstart'],interrupt=event=>{if(event.isTrusted)interrupted=true},cleanup=()=>{for(const type of events)document.removeEventListener(type,interrupt,true)};
+   for(const type of events)document.addEventListener(type,interrupt,true);onDialogDismiss(cleanup);
+   requestAnimationFrame(()=>{cleanup();if(interrupted||!current()||!$('dialog').open||!previewElement.isConnected||$('pieceList')!==previewElement)return;const spatial=previewElement.querySelector('.library-spatial');if(spatial)spatial.open=snapshot.spatial;previewElement.scrollTop=snapshot.scroll;$('dialogBody').scrollTop=snapshot.bodyScroll;$('dialog').scrollTop=snapshot.dialogScroll});
+  }
+ });
 };
 let libraryRangeAnchor=null;
 const renderBeforeRange=renderAssets;renderAssets=function(){renderBeforeRange();$('assetList').querySelectorAll('[data-asset]').forEach(el=>{const old=el.onclick;el.onclick=e=>{if(e.target.closest('button'))return;const id=el.dataset.asset;if(e.shiftKey&&libraryRangeAnchor){const list=libraryMatches().map(a=>a.id),a=list.indexOf(libraryRangeAnchor),b=list.indexOf(id);if(a>=0&&b>=0){if(!e.ctrlKey&&!e.metaKey)assetSelected.clear();list.slice(Math.min(a,b),Math.max(a,b)+1).forEach(x=>assetSelected.add(x));updateAssetSelection();return}}old(e);libraryRangeAnchor=id};el.title=assetById(el.dataset.asset)?.title||''})};
@@ -834,7 +848,7 @@ window.addEventListener('message',e=>{if(e.data?.type!=='creative-document-activ
 
 // Create and maintain library contents without staging them on a board first.
 function libraryFolderOptions(value){return '<option value="">内容库根目录</option>'+allAssetFolders().map(f=>'<option value="'+esc(f)+'" '+(f===value?'selected':'')+'>'+esc(f)+'</option>').join('')}
-function writeLibraryContent(id=null,kind='note'){return window.whiteboardLibraryEditing.editContent(id,kind)}
+function writeLibraryContent(id=null,kind='note',returnToPreview=null){return window.whiteboardLibraryEditing.editContent(id,kind,returnToPreview)}
 const editLibraryFileInfo=editAsset;editAsset=function(id){return assetById(id)?.mime===bundleMime?writeLibraryContent(id):editLibraryFileInfo(id)};
 const newLibraryButton=document.createElement('button');newLibraryButton.id='libraryCreate';newLibraryButton.textContent='写便签';newLibraryButton.onclick=()=>writeLibraryContent();$('assetFolderNew').before(newLibraryButton);
 const newLibraryTableButton=document.createElement('button');newLibraryTableButton.id='libraryCreateTable';newLibraryTableButton.textContent='写表格';newLibraryTableButton.onclick=()=>writeLibraryContent(null,'table');newLibraryButton.after(newLibraryTableButton);
@@ -897,7 +911,31 @@ askCollectSelection=function(){
 };
 const collectDock=document.createElement('button');collectDock.id='collectToLibrary';collectDock.textContent='收进库';collectDock.title='收录选中的内容 · Ctrl+Shift+L';collectDock.onclick=askCollectSelection;$('creationDock').append(collectDock);
 function syncCollectButton(){collectDock.hidden=!selected.size}const beforeCollectSelectionUI=refreshSelectionUI;refreshSelectionUI=function(){beforeCollectSelectionUI();syncCollectButton()};const beforeCollectDraw=drawNodes;drawNodes=function(){beforeCollectDraw();syncCollectButton()};syncCollectButton();
-const previewBeforeLibraryEdit=previewAsset;previewAsset=async function(id){await previewBeforeLibraryEdit(id);if(assetById(id)?.mime===bundleMime&&$('dialog').open){const button=document.createElement('button');button.textContent='编辑库中内容';button.onclick=()=>writeLibraryContent(id);const menu=$('dialogBody').querySelector('.reuse-source-actions');if(menu){const preview=$('pieceList'),open=button.onclick;button.textContent='编辑原件';button.onclick=()=>{if($('dialog').open&&preview.isConnected&&$('pieceList')===preview)open()};menu.append(button)}else $('dialogActions').prepend(button)}};
+function libraryPreviewEditScope(){
+ try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null,tab=parent===window?null:parent.current?.();if(parent!==window&&!tab)return null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base,boardId,tab?.id,tab?.boardId])}}catch{return null}
+}
+function editFromLibraryPreview(id,preview){
+ if(!$('dialog').open||!preview?.isConnected||$('pieceList')!==preview)return;
+ const scope=libraryPreviewEditScope(),remembered=libraryPreviewContinuations.get(preview)?.capture();
+ const current=()=>{
+  const now=libraryPreviewEditScope();
+  return !!scope&&!!now&&now.inner===scope.inner&&now.outer===scope.outer&&now.key===scope.key&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&[now.inner,now.outer].every(host=>!host||!host.paused&&host.role!=='viewer'&&host.account?.id!=null&&host.workspace!=null&&host.base!=null);
+ };
+ if(!current())return toast('所属账号、工作区或编辑位置尚未确认。原预览保留，请回到原位置再编辑。');
+ const returnToPreview={current,open:form=>{
+  const asset=assetById(id);if(!current()||!$('dialog').open||!form?.isConnected||!$('dialogBody').contains(form)||asset?.archived||asset?.mime!==bundleMime||!asset.bundle?.nodes?.length)return false;
+  const pending=previewAsset(id),returned=$('pieceList'),owns=()=>current()&&$('dialog').open&&returned?.isConnected&&$('pieceList')===returned;
+  const opened=!!returned&&returned!==preview&&!form.isConnected;
+  Promise.resolve(pending).then(()=>{
+   if(!opened||!owns())return;
+   libraryPreviewContinuations.get(returned)?.restore(remembered,current);
+   returned.focus({preventScroll:true});
+  }).catch(error=>{if(owns())toast(error.message||'预览暂未完整打开，请返回内容库重新选择。')});
+  return opened;
+ }};
+ writeLibraryContent(id,'note',returnToPreview);
+}
+const previewBeforeLibraryEdit=previewAsset;previewAsset=async function(id){await previewBeforeLibraryEdit(id);if(assetById(id)?.mime===bundleMime&&$('dialog').open){const button=document.createElement('button');button.textContent='编辑库中内容';button.onclick=()=>writeLibraryContent(id);const menu=$('dialogBody').querySelector('.reuse-source-actions');if(menu){const preview=$('pieceList');button.textContent='编辑原件';button.onclick=()=>editFromLibraryPreview(id,preview);menu.append(button)}else $('dialogActions').prepend(button)}};
 $('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累内容 · F2 编辑 · 拖到白板使用副本';
 window.addEventListener('blur',()=>{document.body.classList.remove('canvas-gesture');if(gesture)endGesture({clientX:0,clientY:0},true)});
 document.addEventListener('selectstart',e=>{if(document.body.classList.contains('canvas-gesture'))e.preventDefault()},true);
@@ -914,7 +952,7 @@ function mountLibraryDestination(id){const select=$(id);if(!select||select.datas
  create.onsubmit=async e=>{e.preventDefault();const input=create.querySelector('input'),name=input.value.trim(),status=create.querySelector('p');if(!name||/[\\/]/.test(name)||name==='.'||name==='..'){status.textContent='请填写名称，不要包含斜杠。';return}const path=(current?current+'/':'')+name;if(allAssetFolders().includes(path)){status.textContent='这里已有同名文件夹。';return}const next=clone(assetIndex);next.folders.push(path);const submit=create.querySelector('[type=submit]');submit.disabled=true;try{if(await saveAssets(next))navigate(path);else status.textContent='未能创建，请重试。'}finally{submit.disabled=false}};
  host.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowUp'){e.preventDefault();e.stopPropagation();host.querySelector('.destination-up').click()}});draw()
 }
-const writeBeforeFolderBrowser=writeLibraryContent;writeLibraryContent=function(id=null,kind='note'){writeBeforeFolderBrowser(id,kind);mountLibraryDestination('libraryDestination')};
+const writeBeforeFolderBrowser=writeLibraryContent;writeLibraryContent=function(id=null,kind='note',returnToPreview=null){writeBeforeFolderBrowser(id,kind,returnToPreview);mountLibraryDestination('libraryDestination')};
 const collectBeforeFolderBrowser=askCollectSelection;askCollectSelection=function(){collectBeforeFolderBrowser();mountLibraryDestination('collectDestination')};
 collectDock.onclick=()=>askCollectSelection();
 
