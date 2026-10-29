@@ -121,6 +121,7 @@ jobs:
           RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
           MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
+          ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -711,5 +712,16 @@ jobs:
           path: |
             .ci-proofs/library-replay-cue/result.json
             .ci-proofs/library-replay-cue/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated origin-review-ownership evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-review-ownership-${{ github.run_id }}
+          path: |
+            .ci-proofs/origin-review-ownership/result.json
+            .ci-proofs/origin-review-ownership/*.png
           if-no-files-found: ignore
           retention-days: 3
