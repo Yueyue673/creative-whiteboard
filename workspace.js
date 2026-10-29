@@ -837,11 +837,11 @@ const newLibraryButton=document.createElement('button');newLibraryButton.id='lib
 const newLibraryTableButton=document.createElement('button');newLibraryTableButton.id='libraryCreateTable';newLibraryTableButton.textContent='写表格';newLibraryTableButton.onclick=()=>writeLibraryContent(null,'table');newLibraryButton.after(newLibraryTableButton);
 const libraryGuide=document.createElement('details');libraryGuide.className='library-guide';libraryGuide.innerHTML='<summary>从哪里开始？</summary><p><b>积累内容：</b>点“写便签”记下想法；导入文件，或在白板上选中内容后收进库。</p><p><b>整理和修改：</b>文件夹负责分类。选中一项按 F2，可编辑库中的文字；拖到文件夹可移动位置。</p><p><b>用于创作：</b>从库拖到白板会得到副本。白板上的改动不会自动覆盖库中版本。</p>';$('assetPane').querySelector('.explorer-location').after(libraryGuide);
 // A successful save is a result in the current creation, not a request to navigate.
-function showCollectedResource(id){
- const sourceBoard=boardId;toast('已保存到内容库');
- const notice=$('toast'),message=document.createElement('span'),button=document.createElement('button');message.textContent='已保存到内容库';button.type='button';button.className='collection-result';button.textContent='查看';button.setAttribute('aria-label','查看刚保存到内容库的资源');notice.replaceChildren(message,button);
- const owns=()=>boardId===sourceBoard&&!notice.hidden&&notice.contains(button)&&!document.hidden;
- button.onclick=()=>{if(!owns()||$('dialog').open||!button.getClientRects().length)return;notice.hidden=true;revealLibraryItem(id).catch(error=>toast(error.message))};
+function showCollectedResource(id,resultText='已保存到内容库',resultLabel='查看刚保存到内容库的资源',canReveal=()=>true){
+ const sourceBoard=boardId;toast(resultText);
+ const notice=$('toast'),message=document.createElement('span'),button=document.createElement('button');message.textContent=resultText;button.type='button';button.className='collection-result';button.textContent='查看';button.setAttribute('aria-label',resultLabel);notice.replaceChildren(message,button);
+ const owns=()=>boardId===sourceBoard&&!notice.hidden&&notice.contains(button)&&!document.hidden&&canReveal();
+ button.onclick=()=>{if(!owns()||$('dialog').open||!button.getClientRects().length)return;notice.hidden=true;revealLibraryItem(id,canReveal).catch(error=>toast(error.message))};
  clearTimeout(toast.t);toast.t=setTimeout(()=>{notice.hidden=true},8000);
  // Refresh an already loaded list without opening it or changing its query/selection.
  const existing=parent!==window?parent.whiteboardWorkspace?.explorer?.():null;

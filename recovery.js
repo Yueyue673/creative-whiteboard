@@ -171,17 +171,27 @@
  };
 
  function chosenRevision(ids,value){return value.assets.filter(a=>ids.has(a.id)).map(a=>unarchive(clone(a)))}
+ function recoveryResultScope(){
+  let outer=null;try{if(parent!==window)outer=parent.whiteboardHosted||null}catch{return null}
+  const inner=window.whiteboardHosted||null,hosts=[inner,outer];
+  return {inner,outer,key:JSON.stringify(hosts.map(host=>host?[host.account?.id,host.workspace,host.base,host.role,!!host.paused]:null)),valid:hosts.every(host=>!host||!host.paused&&host.account?.id!=null&&host.workspace!=null&&host.base!=null)};
+ }
+ function sameRecoveryResultScope(before){const now=recoveryResultScope();return !!(before?.valid&&now?.valid&&before.inner===now.inner&&before.outer===now.outer&&before.key===now.key)}
  async function recoverLibraryCopy(token,ids,value){
   if(!ids.size)return toast('先勾选内容');
+  const resultScope=recoveryResultScope(),created=[];
   await loadAssets();if(!active(token))return;
   const next=clone(assetIndex);
   for(const original of chosenRevision(ids,value)){
    original.id=uid();original.title=(original.title||'未命名内容')+' · 恢复副本';original.updated=Date.now();
    next.assets.push(original);addFolders(next,[original.folder]);
+   created.push(original.id);
   }
   if(await saveAssets(next)){
-   if(active(token))dialog.close();
-   toast('已另存所选旧内容，当前版本保留');
+   const completedHere=active(token);if(completedHere)dialog.close();
+   const canReveal=()=>token===epoch&&sameRecoveryResultScope(resultScope);
+   if(completedHere&&!primary.open&&created.length===1&&canReveal())showCollectedResource(created[0],'已另存所选旧内容，当前版本保留','查看刚另存的恢复副本',canReveal);
+   else toast('已另存所选旧内容，当前版本保留');
   }
  }
  async function recoverLibraryReview(token,ids,value){
