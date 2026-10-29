@@ -91,11 +91,11 @@ const {spawn}=require('child_process'),{chromium}=require('playwright');
   await page.evaluate(id=>editAsset(id),fileCopy.id);await page.locator('#assetNotes').fill('开始核对时的文字。');await page.route('**/api/assets',typingHold);await save('保存',false);await typingArrived;
   await page.locator('#assetNotes').fill('核对期间继续写下的完整文字。');releaseTyping();await typingFulfilled;await page.unroute('**/api/assets',typingHold);await page.waitForFunction(()=>!document.getElementById('dialog').open);
   assert.equal((await current()).assets.find(a=>a.id===fileCopy.id).notes,'核对期间继续写下的完整文字。');
-  // Closing during preparation cannot cause a later, invisible write.
+  // Explicit Cancel during preparation cannot cause a later, invisible write; Escape keeps changed writing open.
   let release,arrive,finish;const arrived=new Promise(resolve=>arrive=resolve),fulfilled=new Promise(resolve=>finish=resolve);
   const hold=async route=>{if(route.request().method()!=='GET')return route.continue();const response=await route.fetch();await new Promise(resolve=>{release=resolve;arrive()});try{await route.fulfill({response})}finally{finish()}};
   await page.evaluate(id=>editAsset(id),fileCopy.id);await page.locator('#assetNotes').fill('取消后不该写入的内容。');await page.route('**/api/assets',hold);
-  await save('保存',false);await arrived;await page.keyboard.press('Escape');release();await fulfilled;await page.unroute('**/api/assets',hold);await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,100)));
+  await save('保存',false);await arrived;await page.getByRole('button',{name:'取消',exact:true}).click();release();await fulfilled;await page.unroute('**/api/assets',hold);await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,100)));
   assert.equal((await current()).assets.find(a=>a.id===fileCopy.id).notes,'核对期间继续写下的完整文字。');
   // New content follows a renamed destination, but not a deleted-and-recreated one.
   await page.evaluate(()=>{enterAssetFolder('片段');writeLibraryContent()});await page.locator('#library-title').fill('刚写的内容');await page.locator('#library-body').fill('这是我自己写的。');

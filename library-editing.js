@@ -1,6 +1,7 @@
 // Library forms preserve authored drafts and compare against the latest stored fields.
 (() => {
  'use strict';
+ let escapeGuard=null;
  const copy=value=>value===undefined?undefined:clone(value);
  const text=value=>value===undefined?'（已移除）':Array.isArray(value)?value.join('，'):String(value??'');
  const equal=(a,b)=>wfEqual(a,b);
@@ -221,6 +222,22 @@
   state.form.append(state.message,state.conflict);state.choices=new Map();state.buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.textContent!=='取消');state.frozen=[];
   state.initialDestination=libraryFolderTarget(state.base?.folder??state.draft.folder);state.destination={...state.initialDestination};watchDestination(state);
  }
+ function keepWritingOnEscape(state){
+  const snapshot=()=>{
+   const draft=capture(state);
+   if(state.mode==='content')for(const node of draft.bundle.nodes)for(const key of ['title','body','userText','annotation'])node[key]=String(node[key]||'');
+   if(!destinationEdited(state))draft.folder=null;
+   return draft;
+  };
+  const before=snapshot(),text=()=>state.form.querySelector('[data-library-table-text]')?.value??'',initialText=text(),name=state.form.querySelector('#libraryName'),initialName=name?.value;
+  const message=element('p','library-edit-explain library-escape-message','Esc 未关闭编辑，输入仍在。要退出，请点“取消”；未保存的输入会放弃。');message.hidden=true;message.setAttribute('role','status');state.form.append(message);
+  const guard=event=>{
+   if(event.key!=='Escape'||event.defaultPrevented||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||!active(state))return false;
+   if(equal(before,snapshot())&&text()===initialText&&name?.value===initialName)return false;
+   message.hidden=false;return true;
+  };
+  escapeGuard=guard;onDialogDismiss(()=>{if(escapeGuard===guard)escapeGuard=null});
+ }
  function editFile(id){
   const item=assetById(id);if(!item)return;const state={mode:'file',base:clone(item),draft:clone(item),busy:false};
   showDialog('<section class="library-edit-form"><h2>文件说明</h2><label>显示名称<input id="assetTitle" value="'+esc(item.title)+'"></label><label>存放位置<select id="libraryDestination">'+libraryFolderOptions(item.folder)+'</select></label><label>备注<textarea id="assetNotes">'+esc(item.notes||'')+'</textarea></label><label>标签，用逗号分开<input id="assetTags" value="'+esc((item.tags||[]).join('，'))+'"></label><p class="library-edit-explain">修改名称与说明不会重命名原文件。</p></section>',[['取消',()=>$('dialog').close()],['保存',()=>save(state)]]);
@@ -228,6 +245,7 @@
   setup(state);
   fillTextarea(state.form.querySelector('#assetNotes'),item.notes);
   mountLibraryDestination('libraryDestination');
+  keepWritingOnEscape(state);
  }
  function editContent(id=null,kind='note'){
   const original=id?assetById(id):null;if(original&&original.mime!==bundleMime)return editFile(id);
@@ -405,6 +423,7 @@
   const piece=state.form.querySelector('#libraryPiece');
   if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();index=Number(piece.value);draw()};
   draw();if(!original&&kind==='table')mountTextIntake();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
+  keepWritingOnEscape(state);
  }
- window.whiteboardLibraryEditing={editFile,editContent};
+ window.whiteboardLibraryEditing={editFile,editContent,keepOnEscape:event=>escapeGuard?.(event)||false};
 })();
