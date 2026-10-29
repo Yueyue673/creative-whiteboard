@@ -195,15 +195,39 @@
   });
  }
  function previewReturnProblem(state){return state.previewReturn&&!state.previewReturn.current()?'所属账号、工作区或编辑位置已有变化。你的输入仍保留，请回到原位置再保存。':''}
+ const copyValue=value=>{const result=clone(value);delete result.updated;return result};
+ function copyScopeProblem(state){
+  const before=state.copyContext,now=tableScope();
+  return !before||!now||now.inner!==before.inner||now.outer!==before.outer||now.key!==before.key||[now.inner,now.outer].some(host=>host&&(host.paused||host.role==='viewer'||host.account?.id==null||host.workspace==null||host.base==null))?'所属账号、工作区或编辑权限已有变化。你的输入仍保留，请回到原位置再另存。':'';
+ }
+ function prepareSeparateCopy(state,draft,target){
+  const make=id=>{const result=clone(draft);result.id=id;result.folder=target;delete result.archived;delete result.archiveBatch;return result};
+  const pending=state.copyAttempt;
+  if(pending){
+   const result=make(pending.id),found=assetIndex.assets.filter(item=>item.id===pending.id);
+   if(found.length||state.copyReview){
+    const stored=found.length===1?found[0]:null;
+    if(stored&&!stored.archived&&equal(copyValue(stored),pending.value)&&equal(copyValue(result),pending.value))return {confirmed:stored};
+    const review=state.copyReview;
+    if(!review||!equal(review.stored,found)||!equal(review.draft,result)){
+     state.copyReview={stored:clone(found),draft:clone(result)};state.copyButton.textContent='另存后续编辑';
+     showUnavailable(state,'上一次另存的副本已有保存记录，或随后发生变化。你的输入仍在；点“另存后续编辑”会再留一份，已有副本保持现状。');return {};
+    }
+   }else return {result};
+  }
+  let id;do{id=uid()}while(assetIndex.assets.some(item=>item.id===id));
+  state.copyAttempt={id,value:null};state.copyReview=null;state.copyButton.textContent='另存我的编辑';return {result:make(id)};
+ }
  function finishSave(state,result,asCopy,confirmed=false,keepOpen=false){
   if(!active(state))return;
-  if(previewReturnProblem(state)||tableScopeProblem(state)){$('dialog').close();toast('已保存到原内容库。所属位置随后发生变化，已停下后续定位。');return}
+  if(previewReturnProblem(state)||tableScopeProblem(state)||(asCopy&&copyScopeProblem(state))){$('dialog').close();toast('已保存到原内容库。所属位置随后发生变化，已停下后续定位。');return}
   if(state.mode==='content'||asCopy){enterAssetFolder(result.folder);assetSelected=new Set([result.id]);renderAssets()}
   if(keepOpen&&state.base&&!asCopy){continueEditing(state,result);return}
   if(asCopy||!state.previewReturn?.open(state.form))$('dialog').close();toast(confirmed?'这次内容已保存到内容库':asCopy?'已另存你的编辑，原件保留':state.base?'已保存到内容库，白板副本保留原来的内容':'已保存');
  }
  async function save(state,asCopy=false,keepOpen=false){
   if(state.busy||!active(state))return;
+  if(asCopy&&copyScopeProblem(state)){notice(state,copyScopeProblem(state));return}
   if(previewReturnProblem(state)){notice(state,previewReturnProblem(state));return}
   if(tableScopeProblem(state)){notice(state,tableScopeProblem(state));return}
   let tableTextIssue=state.tableTextSaveProblem?.();if(tableTextIssue){notice(state,tableTextIssue);return}
@@ -211,6 +235,7 @@
   busy(state,true);notice(state,'');
   try{
    await loadAssets();if(!active(state))return;
+   if(asCopy&&copyScopeProblem(state)){notice(state,copyScopeProblem(state));return}
    if(previewReturnProblem(state)){notice(state,previewReturnProblem(state));return}
    if(tableScopeProblem(state)){notice(state,tableScopeProblem(state));return}
    tableTextIssue=state.tableTextSaveProblem?.();if(tableTextIssue){notice(state,tableTextIssue);return}
@@ -230,8 +255,11 @@
    }
    let result;
    if(!state.base||asCopy){
-    result=clone(draft);if(asCopy){result.id=uid();delete result.archived;delete result.archiveBatch}
-    result.folder=target;
+    if(asCopy){
+     const prepared=prepareSeparateCopy(state,draft,target);
+     if(prepared.confirmed){finishSave(state,prepared.confirmed,true,true);return}
+     if(!prepared.result)return;result=prepared.result;
+    }else{result=clone(draft);result.folder=target}
    }else{
     const changes=fields(state,draft),overlap=conflicts(state,changes,current);
     if(overlap.some(change=>!choice(state,change,current))){showConflicts(state,overlap,current);return}
@@ -245,6 +273,7 @@
    const next=clone(assetIndex),at=next.assets.findIndex(a=>a.id===result.id);
    if(at<0)next.assets.push(result);else next.assets[at]=result;
    if(!state.base||asCopy||!equal(current,result)){
+    if(asCopy)state.copyAttempt.value=copyValue(result);
     result.updated=Date.now();busy(state,true,true);
     if(!await saveAssets(next)){notice(state,'没有保存成功，你的输入仍保留。再点保存会重新核对最新版本。');return}
    }
@@ -253,7 +282,7 @@
   finally{busy(state,false)}
  }
  function setup(state){
-  state.form=$('dialogBody').querySelector('.library-edit-form');
+  state.form=$('dialogBody').querySelector('.library-edit-form');state.copyContext=tableScope();
   if(state.mode==='content'&&state.draft.bundle.nodes.some(ordinaryTable))state.tableContext=tableScope()||{unavailable:true};
   state.message=element('p','library-edit-message');state.message.hidden=true;state.message.setAttribute('role','status');
   state.conflict=element('section','library-edit-conflicts');state.conflict.hidden=true;state.conflict.setAttribute('aria-label','库中版本与我的编辑');
