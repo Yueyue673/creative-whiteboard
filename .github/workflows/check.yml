@@ -129,6 +129,7 @@ jobs:
           LIBRARY_SAVE_CONTINUE_PROOF: .ci-proofs/library-save-continue
           LIBRARY_SAVE_SHORTCUT_PROOF: .ci-proofs/library-save-shortcut
           LIBRARY_SAVED_PIECE_PROOF: .ci-proofs/library-saved-piece-label
+          LIBRARY_NOTE_APPEARANCE_PROOF: .ci-proofs/library-note-appearance
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
@@ -1013,5 +1014,15 @@ jobs:
           path: |
             .ci-proofs/history-comparison-field-return/result.json
             .ci-proofs/history-comparison-field-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-note-appearance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-note-appearance-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-note-appearance/result.json
+            .ci-proofs/library-note-appearance/*.png
           if-no-files-found: ignore
           retention-days: 3
