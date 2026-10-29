@@ -126,6 +126,7 @@ jobs:
           MEDIA_PLAYBACK_RATE_PROOF: .ci-proofs/media-playback-rate
           LIBRARY_SAVE_CONTINUE_PROOF: .ci-proofs/library-save-continue
           LIBRARY_SAVE_SHORTCUT_PROOF: .ci-proofs/library-save-shortcut
+          LIBRARY_SAVED_PIECE_PROOF: .ci-proofs/library-saved-piece-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -939,6 +940,16 @@ jobs:
           path: |
             .ci-proofs/library-save-shortcut/result.json
             .ci-proofs/library-save-shortcut/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-saved-piece-label evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-saved-piece-label-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-saved-piece-label/result.json
+            .ci-proofs/library-saved-piece-label/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated import-failed-retry evidence

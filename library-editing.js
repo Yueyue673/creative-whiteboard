@@ -172,6 +172,7 @@
   // Keep the actual controls and table arrays: native undo and append ownership live there.
   state.base=clone(result);state.draft.folder=result.folder;
   state.initialDestination={...state.destination};state.choices.clear();state.conflict.replaceChildren();state.conflict.hidden=true;
+  state.refreshSavedPieceLabel?.();
   state.resetEscapeBaseline?.();notice(state,'已保存，可继续编辑。');state.savedInPlace=true;
   const field=state.lastField,range=field&&[field.selectionStart,field.selectionEnd,field.selectionDirection],scroll=field&&[field.scrollTop,field.scrollLeft];
   queueMicrotask(()=>{
@@ -502,6 +503,7 @@
   state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newContentName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);
   const piece=state.form.querySelector('#libraryPiece');
+  state.refreshSavedPieceLabel=()=>{if(piece?.options[index])piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index)};
   if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index);index=Number(piece.value);draw()};
   draw();if(!original&&kind==='table')mountTextIntake();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
   keepWritingOnEscape(state);
