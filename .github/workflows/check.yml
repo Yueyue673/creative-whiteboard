@@ -122,6 +122,7 @@ jobs:
           RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
           MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
           MEDIA_TO_NEXT_MARKER_PROOF: .ci-proofs/media-to-next-marker
+          MEDIA_NEXT_VIDEO_PROOF: .ci-proofs/media-next-video
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -729,6 +730,17 @@ jobs:
           path: |
             .ci-proofs/media-to-next-marker/result.json
             .ci-proofs/media-to-next-marker/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-next-video evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-next-video-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-next-video/result.json
+            .ci-proofs/media-next-video/*.png
           if-no-files-found: ignore
           retention-days: 3
 
