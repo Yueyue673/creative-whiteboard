@@ -35,10 +35,10 @@
   try{const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}
  }
  function mountSourceReturn(asset,body){
-  const source=asset.source,menu=body.querySelector('.reuse-source-actions'),preview=$('pieceList');
+  const referenceOnly=!asset.source&&!!asset.sourceReference,source=asset.source||asset.sourceReference,menu=body.querySelector('.reuse-source-actions'),preview=$('pieceList');
   if(!menu||!preview||typeof source?.boardId!=='string'||!(/^[A-Za-z0-9_-]{1,100}$/).test(source.boardId)||!Array.isArray(source.nodeIds)||!source.nodeIds.length)return;
-  const initial=sourceContext(),sourceVersion=JSON.stringify(source),button=document.createElement('button'),status=document.createElement('p');
-  button.type='button';button.textContent='查看收录时的白板';button.title='查看整张来源白板，再返回当前原稿';
+  const initial=sourceContext(),sourceVersion=JSON.stringify([asset.source,asset.sourceReference]),button=document.createElement('button'),status=document.createElement('p');
+  button.type='button';button.textContent=referenceOnly?'查看原组合收录时的白板':'查看收录时的白板';button.title=referenceOnly?'仅作为原组合的来源参考；这份独立资源不会用原白板整体替换':'查看整张来源白板，再返回当前原稿';
   status.className='wf-explain library-source-status';status.setAttribute('role','status');status.hidden=true;menu.append(button,status);
   let navigating=false;
   const scopeValid=()=>{
@@ -46,7 +46,7 @@
    return [now.inner,now.outer].every(host=>!host||!host.paused&&host.account?.id!=null&&host.workspace!=null&&host.base!=null);
   };
   const ownsPreview=()=>$('dialog').open&&preview.isConnected&&$('pieceList')===preview&&button.isConnected;
-  const owns=()=>ownsPreview()&&JSON.stringify(assetById(asset.id)?.source)===sourceVersion;
+  const owns=()=>ownsPreview()&&JSON.stringify([assetById(asset.id)?.source,assetById(asset.id)?.sourceReference])===sourceVersion;
   const explain=message=>{if(ownsPreview()){status.textContent=message;status.hidden=false}};
   button.onclick=async()=>{
    if(navigating||!ownsPreview())return;if(!owns())return explain('来源记录已有变化，请重新打开预览后核对。');if(!scopeValid())return explain('所属账号或工作区尚未确认，请保留当前输入，回到原位置后重试。');

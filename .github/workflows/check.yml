@@ -131,6 +131,7 @@ jobs:
           LIBRARY_SAVED_PIECE_PROOF: .ci-proofs/library-saved-piece-label
           LIBRARY_NOTE_APPEARANCE_PROOF: .ci-proofs/library-note-appearance
           LIBRARY_APPEND_NOTE_PROOF: .ci-proofs/library-append-note
+          LIBRARY_MIXED_SUBSET_SOURCE_PROOF: .ci-proofs/library-mixed-subset-source
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
@@ -1035,5 +1036,15 @@ jobs:
           path: |
             .ci-proofs/library-append-note/result.json
             .ci-proofs/library-append-note/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-mixed-subset-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-mixed-subset-source-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-mixed-subset-source/result.json
+            .ci-proofs/library-mixed-subset-source/*.png
           if-no-files-found: ignore
           retention-days: 3

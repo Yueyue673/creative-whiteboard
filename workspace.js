@@ -457,12 +457,15 @@ function subsetBundle(a,chosen){const ids=librarySubsetIds(a,chosen);return {nod
 function saveLibrarySubset(a,chosen,returnTo){
  const bundle=subsetBundle(a,chosen);if(!bundle.nodes.length)return toast('先选择要保留的内容');
  const ids=new Set(bundle.nodes.map(n=>n.id)),source=a.source;
- if(source&&(!source.boardId||!Array.isArray(source.nodeIds)||bundle.nodes.some(n=>!source.nodeIds.includes(n.id))))return toast('这份组合的来源暂时不能精确对应，可放到白板后再收录。');
+ if(source&&(!source.boardId||!Array.isArray(source.nodeIds)))return toast('这份组合的来源暂时不能精确对应，可放到白板后再收录。');
+ const independent=source&&bundle.nodes.some(n=>!source.nodeIds.includes(n.id));
+ if(independent&&!(typeof source.boardId==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(source.boardId)&&source.nodeIds.length&&source.nodeIds.every(id=>typeof id==='string'&&id.length>0&&id.length<=1000&&!id.includes('\0'))))return toast('这份组合的来源暂时不能精确对应，可放到白板后再收录。');
  const draft=clone(a);draft.id=uid();draft.bundle=bundle;delete draft.archived;delete draft.archiveBatch;
- if(source)draft.source={...clone(source),nodeIds:source.nodeIds.filter(id=>ids.has(id))};
+ if(independent){draft.sourceReference=clone(source);delete draft.source}
+ else if(source)draft.source={...clone(source),nodeIds:source.nodeIds.filter(id=>ids.has(id))};
  const body=$('dialogBody'),actions=$('dialogActions'),previous=[...body.children,actions].map(el=>({el,hidden:el.hidden,display:el.style.getPropertyValue('display'),priority:el.style.getPropertyPriority('display')})),returnFocus=returnTo||document.activeElement?.closest('.library-subset-actions')?.querySelector('summary')||document.activeElement;
  for(const item of previous){item.el.hidden=true;item.el.style.setProperty('display','none','important')}
- const form=document.createElement('section');form.className='library-subset-form';form.innerHTML='<h2>把所选另存为新内容</h2><p>保留 '+bundle.nodes.length+' 块内容和其中的 '+bundle.edges.length+' 条连线。原组合与白板保持原样，之后可分别修改。</p><label>内容名称<input data-subset-name maxlength="1000" value="'+esc(a.title+'（所选）')+'"></label><label>存放位置<select id="subsetDestination">'+libraryFolderOptions(a.folder)+'</select></label><p data-subset-status role="status" hidden></p><div class="library-subset-buttons"><button type="button" data-subset-cancel>返回选择</button><button type="button" data-subset-save>保存到内容库</button></div>';body.append(form);
+ const form=document.createElement('section');form.className='library-subset-form';form.innerHTML='<h2>把所选另存为新内容</h2><p>保留 '+bundle.nodes.length+' 块内容和其中的 '+bundle.edges.length+' 条连线。原组合与白板保持原样，之后可分别修改。</p>'+((independent||a.sourceReference)?'<p class="wf-explain" data-subset-source-reference>所选内容将作为独立资源保存。保留原组合收录时的白板供参考，不用原白板整体替换这份内容。</p>':'')+'<label>内容名称<input data-subset-name maxlength="1000" value="'+esc(a.title+'（所选）')+'"></label><label>存放位置<select id="subsetDestination">'+libraryFolderOptions(a.folder)+'</select></label><p data-subset-status role="status" hidden></p><div class="library-subset-buttons"><button type="button" data-subset-cancel>返回选择</button><button type="button" data-subset-save>保存到内容库</button></div>';body.append(form);
  const name=form.querySelector('[data-subset-name]'),destination=$('subsetDestination'),status=form.querySelector('[data-subset-status]'),save=form.querySelector('[data-subset-save]');let target=libraryFolderTarget(destination.value),busy=false;
  const active=()=>$('dialog').open&&form.isConnected&&body.contains(form)&&(!frameElement||!!frameElement.getClientRects().length);
  const message=text=>{status.hidden=!text;status.textContent=text};
