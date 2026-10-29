@@ -154,20 +154,40 @@
  feedback.id = 'importFeedback'; feedback.hidden = true;
  feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
  feedback.setAttribute('aria-atomic', 'true');
- const heading = document.createElement('strong'), detail = document.createElement('span'), dismiss = document.createElement('button');
+ const heading = document.createElement('strong'), detail = document.createElement('span'), dismiss = document.createElement('button'), locate = document.createElement('button'), returnView = document.createElement('button'), feedbackActions=document.createElement('div');
  dismiss.type = 'button'; dismiss.textContent = '关闭';
- feedback.append(heading, detail, dismiss); document.body.append(feedback);
- let failure = '', failurePlacement = null;
+ locate.type=returnView.type='button';locate.textContent='回到未添加位置';returnView.textContent='返回刚才位置';locate.hidden=returnView.hidden=true;
+ feedbackActions.className='import-feedback-actions';if(!explorer)feedbackActions.append(locate,returnView);feedbackActions.append(dismiss);feedback.append(heading, detail, feedbackActions); document.body.append(feedback);
+ let failure = '', failurePlacement = null, previousFailureView=null;
+ const canLocateFailure=()=>!explorer&&board&&!loading&&!blocked&&!document.hidden&&canvasInsertionReady()&&(!frameElement||!!frameElement.getClientRects().length)&&!document.querySelector('dialog[open],#imageViewer:not([hidden])');
+ const offscreenFailure=()=>[...placements.values()].reverse().find(value=>value.failed&&value.ownerId===boardId&&value.element.isConnected&&!value.visible()&&value.retryReady?.());
+ const keepFailureFocus=element=>element?.isConnected&&element!==document.body&&!feedback.contains(element)&&!!element.getClientRects().length;
+ function navigateFailureView(next,focus){board.view={...next};moveView();change(true);if(keepFailureFocus(focus))focus.focus({preventScroll:true})}
  function updateFeedback() {
   const active = [...tasks.values()].filter(task => task.label && !matchingPlacements(task).some(placement=>placement.visible())), latest = active.at(-1);
    const error=(failurePlacement?.visible()?'':failure)||[...placements.values(),...libraryUploads.values()].filter(placement=>placement.failed&&!placement.visible()).at(-1)?.error||'';
-  feedback.hidden = !latest && !error;
+  if(previousFailureView&&!previousFailureView.valid())previousFailureView=null;
+  const target=canLocateFailure()?offscreenFailure():null;locate.hidden=!!latest||!target;locate.title=target?.element.querySelector('.import-placement-name')?.textContent||'';returnView.hidden=!previousFailureView||!canLocateFailure();
+  feedback.hidden = !latest && !error && returnView.hidden;
   feedback.classList.toggle('import-failed', !!error);
-  heading.textContent = error ? '未添加' : latest?.label || '';
-  detail.textContent = error || latest?.names || '';
-  dismiss.hidden = !error || !!latest;
+  heading.textContent = error ? '未添加' : latest?.label || '已回到未添加位置';
+  detail.textContent = error || latest?.names || '查看提示后，可以返回刚才的创作位置。';
+  dismiss.hidden = !!latest || (!error&&returnView.hidden);
  }
-  dismiss.onclick = () => {failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values(),...libraryUploads.values()])if(placement.failed)placement.remove();updateFeedback();};
+ for(const button of [locate,returnView])button.onpointerdown=event=>{event.preventDefault();event.stopPropagation()};
+ locate.onclick=event=>{
+  const target=offscreenFailure();if(!canLocateFailure()||!target){updateFeedback();return}
+  finishRetryClick(event,locate);
+  const focus=document.activeElement;previousFailureView={view:{...view()},valid:target.retryReady,focus:keepFailureFocus(focus)?focus:null};
+  const rect=canvas.getBoundingClientRect(),z=1;navigateFailureView({x:rect.width/2-(target.point.x+target.frame.w/2)*z,y:rect.height/2-(target.point.y+target.frame.h/2)*z,z},previousFailureView.focus);target.align();updateFeedback();
+  if(!previousFailureView.focus&&!returnView.hidden)returnView.focus({preventScroll:true});
+ };
+ returnView.onclick=event=>{
+  const saved=previousFailureView;if(!saved||!saved.valid()||!canLocateFailure()){updateFeedback();return}
+  finishRetryClick(event,returnView);
+  previousFailureView=null;const focus=keepFailureFocus(document.activeElement)?document.activeElement:saved.focus;navigateFailureView(saved.view,focus);updateFeedback();if(!keepFailureFocus(focus)&&!locate.hidden)locate.focus({preventScroll:true});
+ };
+ dismiss.onclick = () => {previousFailureView=null;if(feedback.classList.contains('import-failed')){failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values(),...libraryUploads.values()])if(placement.failed)placement.remove();}updateFeedback();};
  function filesLabel(files, action) {
   return {label:action || (files.every(file=>/\.(md|txt|csv|tsv|json)$/i.test(file.name))?'读取中':'上传中'), names:files.map(file => file.name).join('、'), files};
  }
@@ -352,8 +372,8 @@
   const valid=()=>{
    const now=fileContext();return board===owner&&boardId===ownerId&&!loading&&!blocked&&!saveError&&folder===libraryFolderIdentity(assetFolder)&&scope&&now&&now.inner===scope.inner&&now.outer===scope.outer&&now.key===scope.key&&[now.inner,now.outer].every(host=>!host||!host.paused&&host.role!=='viewer'&&host.account?.id!=null&&host.workspace!=null&&host.base!=null);
   };
-  preview.element.classList.add('has-file-retry');
-  preview.clearRetry=()=>{remaining=[];button.onclick=null;button.onpointerdown=null;button.remove();preview.element.classList.remove('has-file-retry');preview.clearRetry=null};
+  preview.element.classList.add('has-file-retry');preview.retryReady=valid;
+  preview.clearRetry=()=>{remaining=[];button.onclick=null;button.onpointerdown=null;button.remove();preview.element.classList.remove('has-file-retry');preview.retryReady=null;preview.clearRetry=null};
   button.onpointerdown=event=>event.stopPropagation();
   button.onclick=event=>{
    event.stopPropagation();if(button.disabled||!remaining.length)return;
