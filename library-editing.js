@@ -242,7 +242,13 @@
   state.message=element('p','library-edit-message');state.message.hidden=true;state.message.setAttribute('role','status');
   state.conflict=element('section','library-edit-conflicts');state.conflict.hidden=true;state.conflict.setAttribute('aria-label','库中版本与我的编辑');
   state.copyButton=element('button','','另存我的编辑');state.copyButton.type='button';state.copyButton.addEventListener('click',()=>save(state,true));
-  if(state.base){const button=element('button','','保存并继续编辑');button.type='button';button.dataset.librarySaveContinue='';button.addEventListener('click',()=>save(state,false,true));$('dialogActions').insertBefore(button,$('dialogActions').lastElementChild)}
+  if(state.base){
+   const button=element('button','','保存并继续编辑');button.type='button';button.dataset.librarySaveContinue='';button.title='保存后继续编辑（Ctrl+S / ⌘S）';button.setAttribute('aria-keyshortcuts','Control+S Meta+S');button.addEventListener('click',()=>save(state,false,true));$('dialogActions').insertBefore(button,$('dialogActions').lastElementChild);
+   state.form.addEventListener('keydown',event=>{
+    if(event.defaultPrevented||event.isComposing||event.keyCode===229||event.altKey||event.shiftKey||event.ctrlKey===event.metaKey||event.key.toLowerCase()!=='s'||!active(state))return;
+    event.preventDefault();event.stopPropagation();if(!event.repeat)save(state,false,true);
+   });
+  }
   state.form.addEventListener('focusin',event=>{if(event.target.matches('input,textarea,select')&&!event.target.closest('.library-edit-conflicts'))state.lastField=event.target});
   state.form.addEventListener('input',()=>{if(state.savedInPlace){notice(state,'');state.savedInPlace=false}});
   state.form.append(state.message,state.conflict);state.choices=new Map();state.buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.textContent!=='取消');state.frozen=[];
