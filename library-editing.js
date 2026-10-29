@@ -141,6 +141,7 @@
   state.copyButton.disabled=value;
   if(freeze){state.frozen=[...state.form.querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);for(const el of state.frozen)el.disabled=true}
   else if(!value){for(const el of state.frozen||[])if(el.isConnected)el.disabled=false;state.frozen=[]}
+  state.refreshTableTextControls?.();
  }
  function newNoteName(node){
   for(const value of [node.title,node.body,node.userText,node.annotation]){
@@ -169,11 +170,13 @@
  async function save(state,asCopy=false){
   if(state.busy||!active(state))return;
   if(tableScopeProblem(state)){notice(state,tableScopeProblem(state));return}
+  let tableTextIssue=state.tableTextSaveProblem?.();if(tableTextIssue){notice(state,tableTextIssue);return}
   let draft=capture(state);if(!draft.title.trim()){missingName(state);return}
   busy(state,true);notice(state,'');
   try{
    await loadAssets();if(!active(state))return;
    if(tableScopeProblem(state)){notice(state,tableScopeProblem(state));return}
+   tableTextIssue=state.tableTextSaveProblem?.();if(tableTextIssue){notice(state,tableTextIssue);return}
    // Allow typing during the fresh read; the final snapshot includes those later words.
    draft=capture(state);if(!draft.title.trim()){missingName(state);return}
    const current=state.base?assetById(state.base.id):null;
@@ -232,7 +235,7 @@
   const freshNode=()=>kind==='table'?{id:uid(),type:'table',sizeMode:'manual',x:0,y:0,w:620,h:360,title:'',body:'',userText:'',annotation:'',tags:[],color:'#ffffff',...tableData(Array.from({length:3},()=>['','','']),false),rowIds:Array.from({length:3},()=>uid()),columnIds:Array.from({length:3},()=>uid())}:{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'};
   const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[freshNode()],edges:[]}},busy:false};let index=0;
   const supplement=original?'<div id="librarySupplement"></div>':'<details class="library-note-details"><summary><span class="library-note-caret" aria-hidden="true">›</span>补充和备注</summary><div id="librarySupplement"></div></details>';
-  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">先从三行三列写起，保存后可直接复用。增减或移动行列，可放到白板继续编辑。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
+  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">可直接填写三行三列，或从表格文本开始。保存后可复用；行列调整可放到白板继续。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
   const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value;for(const {field,path,initial,initialValue,root}of state.documentFields||[]){let target=root||state.draft.bundle.nodes[index].cellItems[0][0];for(const key of path.slice(0,-1))target=target[key];const key=path.at(-1);if(field.value!==initial)target[key]=field.value;else if(initialValue===undefined)delete target[key];else target[key]=copy(initialValue)}};
   const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'"></textarea></label>';
 
@@ -260,7 +263,7 @@
 
   function ordinaryTableFields(node){
    const controls=[],field=(path,label,value,rows)=>{const i=controls.length;controls.push({path,value,root:node});return '<label>'+esc(label)+'<textarea data-library-table-field="'+i+'" rows="'+rows+'"></textarea></label>'};
-   const html='<div class="library-document-edit-table" tabindex="0" role="region" aria-label="表格文字"><table><thead><tr>'+node.columns.map((value,c)=>'<th>'+field(['columns',c],'列 '+(c+1),value,1)+'</th>').join('')+'</tr></thead><tbody>'+node.rows.map((row,r)=>'<tr>'+node.columns.map((_,c)=>'<td>'+(Object.hasOwn(row,c)?field(['rows',r,c],'第 '+(r+1)+' 行，第 '+(c+1)+' 列',row[c],3):'')+((node.cellItems?.[r]?.[c]?.length||node.cellImages?.[r]?.[c]?.length)?'<small>格内资料原样保留</small>':'')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+   const html='<div class="library-document-edit-table" tabindex="0" role="region" aria-label="表格文字"><table style="min-width:'+Math.max(320,node.columns.length*160)+'px"><thead><tr>'+node.columns.map((value,c)=>'<th>'+field(['columns',c],'列 '+(c+1),value,1)+'</th>').join('')+'</tr></thead><tbody>'+node.rows.map((row,r)=>'<tr>'+node.columns.map((_,c)=>'<td>'+(Object.hasOwn(row,c)?field(['rows',r,c],'第 '+(r+1)+' 行，第 '+(c+1)+' 列',row[c],3):'')+((node.cellItems?.[r]?.[c]?.length||node.cellImages?.[r]?.[c]?.length)?'<small>格内资料原样保留</small>':'')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
    return {html,controls};
   }
   const draw=()=>{
@@ -271,11 +274,68 @@
    state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(node.type==='table'?'<p class="library-edit-explain">'+(node.documentMode===true?'内容结构与附件保持。增删或移动文中内容时，可放到白板编辑后再收录。':'可直接修改列名和格子文字，格内资料原样保留。增删或移动行列时，可放到白板编辑后再收录。')+'</p>':'');
    for(const key of ['title','body','userText','annotation'])fillTextarea(state.form.querySelector('#library-'+key),state.draft.bundle.nodes[index][key]);
   };
+  function mountTextIntake(){
+   const node=state.draft.bundle.nodes[0],initial=tableContent(node),panel=element('details','library-table-text-intake'),summary=element('summary','','从表格文本开始'),explain=element('p','library-edit-explain','贴入已有表格文字，先预览，再建成行列。支持100行、12列的小表格；调整后点“保存到内容库”留存。'),textLabel=element('label','','表格文本'),input=element('textarea'),formatLabel=element('label','','分隔方式'),format=element('select'),headerLabel=element('label'),header=element('input'),status=element('p','library-edit-explain'),preview=element('div','library-table-text-preview'),actions=element('div','library-table-text-actions'),apply=element('button','','建成表格'),undo=element('button','','撤回这次建表');
+   input.rows=6;input.dataset.libraryTableText='';format.dataset.libraryTableTextFormat='';
+   for(const [value,label]of[['tsv','制表符（表格复制）'],['csv','逗号（CSV）']]){const option=element('option','',label);option.value=value;format.append(option)}
+   headerLabel.className='library-table-text-header';header.type='checkbox';header.dataset.libraryTableTextHeader='';headerLabel.append(header,document.createTextNode('首行作为列名'));status.setAttribute('role','status');status.dataset.libraryTableTextState='';preview.dataset.libraryTableTextPreview='';apply.type=undo.type='button';apply.dataset.libraryTableTextApply='';undo.dataset.libraryTableTextUndo='';textLabel.append(input);formatLabel.append(format);actions.append(apply,undo);panel.append(summary,explain,textLabel,formatLabel,headerLabel,status,preview,actions);state.form.querySelector('#libraryFields').before(panel);
+   let parsed=null,parsedKey='',parseError='',applied=null,caption='',lastField=null;
+   const textKey=()=>JSON.stringify([input.value,format.value,header.checked]);
+   const owns=()=>active(state)&&state.draft.bundle.nodes.length===1&&state.draft.bundle.nodes[0]===node&&ordinaryTable(node);
+   const untouched=()=>state.documentFields.every(({field,initial})=>field.value===initial)&&equal(tableContent(node),initial);
+   const message=value=>{if(owns())status.textContent=value};
+   function controls(){
+    if(!owns())return;
+    const scope=tableScopeProblem(state);input.readOnly=!!applied;format.disabled=header.disabled=!!applied||state.busy;apply.hidden=!!applied;undo.hidden=!applied;apply.disabled=!!scope||state.busy||!parsed||!untouched();undo.disabled=!!scope||state.busy;
+    if(scope)message(scope);else if(state.busy)message('正在核对保存，文本与预览仍保留。');else if(applied&&applied.sourceKey!==textKey())message('文本预览已有变化，当前格子仍保留上次建表结果。要改用这份文本，可先撤回这次建表；后续格子输入会保留。');else if(!applied&&parsed)message(untouched()?caption:'这张新表已有格子输入，建表不会替换它；待建表文本仍在上方。');
+   }
+   const canChange=()=>{if(!owns())return false;const scope=tableScopeProblem(state);if(scope){message(scope);return false}if(state.busy){message('正在核对保存，请稍后操作；文本仍保留。');return false}return true};
+   function inspect(){
+    if(!owns())return;parsed=null;parsedKey='';parseError='';preview.replaceChildren();
+    if(!input.value.trim()){message('贴入文本后会显示行列预览。');controls();return}
+    try{
+     if(input.value.length>262144)throw Error('这段文本较长，请拆成更小的表格；输入仍保留。');
+     const matrix=parseDelimited(input.value,format.value==='csv'?',':'\t'),height=matrix.length-(header.checked?1:0);
+     if(height>100||matrix.some(row=>row.length>12))throw Error('这里支持最多100行、12列；输入仍保留，可用原白板导入更大的表格。');
+     if(!matrix.some(row=>row.some(value=>value.trim())))throw Error('没有找到表格文字，请检查输入。');
+     parsed=tableData(matrix,header.checked);parsedKey=textKey();caption=parsed.rows.length+' 行 · '+parsed.columns.length+' 列。预览前5行、6列及每格前160字，建表会保留完整文字。';
+     const table=element('table'),head=element('thead'),titles=element('tr'),body=element('tbody'),short=value=>{const letters=Array.from(String(value??''));return letters.slice(0,160).join('')+(letters.length>160?'…':'')};
+     table.style.minWidth=Math.max(320,Math.min(parsed.columns.length,6)*140)+'px';head.append(titles);table.append(head,body);preview.append(table);
+     for(const value of parsed.columns.slice(0,6))titles.append(element('th','',short(value)));
+     for(const values of parsed.rows.slice(0,5)){const row=element('tr');for(const value of values.slice(0,6)){const cell=element('td');cell.append(element('pre','',short(value)));row.append(cell)}body.append(row)}message(caption);
+    }catch(error){parseError=error.message||'暂时不能解析，输入仍保留。';message(parseError)}
+    controls();
+   }
+   const write=value=>{for(const key of tableKeys)if(Object.hasOwn(value,key))node[key]=copy(value[key]);else delete node[key]};
+   apply.onclick=()=>{
+    if(!canChange()||!parsed||applied)return;if(parsedKey!==textKey()){inspect();message('文本或设定已有变化，请核对预览后再建表。');return}capturePiece();if(!untouched()){controls();return}
+    const grid=state.form.querySelector('#libraryFields .library-document-edit-table');if(!grid||!state.form.contains(grid))return;
+    const priorFields=state.documentFields,origin=lastField&&grid.contains(lastField)?lastField:priorFields.find(({path})=>path[0]==='rows')?.field||priorFields[0]?.field;
+    const focus=origin?{field:origin,start:origin.selectionStart,end:origin.selectionEnd,direction:origin.selectionDirection,top:origin.scrollTop,left:origin.scrollLeft}:null;
+    const data={columns:copy(parsed.columns),rows:copy(parsed.rows),columnIds:parsed.columns.map(()=>uid()),rowIds:parsed.rows.map(()=>uid())};write(data);
+    const content=ordinaryTableFields(node),box=element('div');box.innerHTML=content.html;const next=box.firstElementChild;
+    const fields=content.controls.map((control,i)=>{const field=next.querySelector('[data-library-table-field="'+i+'"]');fillTextarea(field,String(control.value??''));return {field,path:control.path,root:node,initial:field.value,initialValue:copy(control.value)}});
+    grid.replaceWith(next);state.documentFields=fields;applied={before:copy(initial),grid,next,fields:priorFields,after:tableContent(node),focus,sourceKey:parsedKey};controls();message('已建成 '+node.rows.length+' 行、'+node.columns.length+' 列。可继续改格子，再保存到内容库。');const target=fields.find(({path})=>path[0]==='rows')?.field||fields[0]?.field;target?.focus({preventScroll:true});target?.scrollIntoView({block:'nearest'});
+   };
+   undo.onclick=()=>{
+    if(!canChange()||!applied)return;capturePiece();if(!equal(tableContent(node),applied.after)){message('表格已有后续输入，未撤回。当前格子与文本仍保留，可另建一张表。');return}
+    if(!applied.next.isConnected||!state.form.contains(applied.next))return;const before=applied;write(before.before);before.next.replaceWith(before.grid);state.documentFields=before.fields;applied=null;controls();message('已回到建表前的格子，文本输入仍保留。');if(before.focus?.field.isConnected){const f=before.focus;f.field.focus({preventScroll:true});f.field.setSelectionRange(f.start,f.end,f.direction);f.field.scrollTop=f.top;f.field.scrollLeft=f.left}
+   };
+   for(const field of[input,format,header])field.addEventListener('input',inspect);
+   state.form.addEventListener('focusin',event=>{if(event.target.matches('[data-library-table-field]'))lastField=event.target});
+   state.form.addEventListener('input',event=>{if(owns()&&event.target.matches('[data-library-table-field]')){if(!applied)capturePiece();controls()}});
+   state.tableTextSaveProblem=()=>{
+    if(!owns())return '';
+    const issue=applied?(applied.sourceKey!==textKey()?'文本或设定已有变化，请保留当前输入并重新核对建表结果。':''):input.value.trim()?(parseError||'文本尚未建成格子，请先“建成表格”，或明确清空这段文本后保存当前格子。'):'';
+    if(issue){panel.open=true;message(issue);input.focus({preventScroll:true});input.scrollIntoView({block:'nearest'})}return issue;
+   };
+   state.refreshTableTextControls=controls;inspect();
+  }
   state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newContentName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);
   const piece=state.form.querySelector('#libraryPiece');
   if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();index=Number(piece.value);draw()};
-  draw();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
+  draw();if(!original&&kind==='table')mountTextIntake();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
  }
  window.whiteboardLibraryEditing={editFile,editContent};
 })();
