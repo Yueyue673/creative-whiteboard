@@ -138,6 +138,7 @@ jobs:
           TOOLBAR_FOLDER_DRAFT_PROOF: .ci-proofs/library-toolbar-folder-draft
           FILE_REFERENCE_RETURN_PROOF: .ci-proofs/file-reference-dialog-return
           LIBRARY_COPY_SAVE_RETRY_PROOF: .ci-proofs/library-copy-save-retry
+          LIBRARY_EDIT_COPY_ENTRY_PROOF: .ci-proofs/library-edit-copy-entry
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
@@ -1112,5 +1113,15 @@ jobs:
           path: |
             .ci-proofs/library-copy-save-retry/result.json
             .ci-proofs/library-copy-save-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-edit-copy-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-edit-copy-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-edit-copy-entry/result.json
+            .ci-proofs/library-edit-copy-entry/*.png
           if-no-files-found: ignore
           retention-days: 3
