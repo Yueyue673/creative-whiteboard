@@ -121,6 +121,7 @@ jobs:
           SELECTION_VARIANT_PROOF: .ci-proofs/selection-variant
           RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
           RECOVERY_COPY_REVEAL_PROOF: .ci-proofs/recovery-copy-reveal
+          HISTORY_COMPARISON_FIELD_PROOF: .ci-proofs/history-comparison-field-return
           MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
           MEDIA_TO_NEXT_MARKER_PROOF: .ci-proofs/media-to-next-marker
           MEDIA_NEXT_VIDEO_PROOF: .ci-proofs/media-next-video
@@ -1002,5 +1003,15 @@ jobs:
           path: |
             .ci-proofs/recovery-copy-reveal/result.json
             .ci-proofs/recovery-copy-reveal/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated history-comparison-field-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-comparison-field-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/history-comparison-field-return/result.json
+            .ci-proofs/history-comparison-field-return/*.png
           if-no-files-found: ignore
           retention-days: 3

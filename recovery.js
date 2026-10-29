@@ -197,11 +197,11 @@
  }
  async function recoverLibraryReview(token,ids,value){
   if(!ids.size)return toast('先勾选内容');
-  await loadAssets();if(!active(token))return;
+  await loadAssets({redraw:dialog===primary});if(!active(token))return;
   const changes=chosenRevision(ids,value).map(old=>({field:old.id,label:old.title,before:clone(assetById(old.id)??null),after:old}));
   const baseline=assetETag;
   wfReview('确认要恢复的库中内容','这里会更新勾选项的当前版本。只想保留一份旧内容时，可以返回历史记录，选择另存。',changes,async chosen=>{
-   await loadAssets();if(!active(token))return false;if(assetETag!==baseline)return toast('内容库已变化，请重新比较'),false;
+   await loadAssets({redraw:dialog===primary});if(!active(token))return false;if(assetETag!==baseline)return toast('内容库已变化，请重新比较'),false;
    const next=clone(assetIndex);
    for(const c of chosen){next.assets=next.assets.filter(a=>a.id!==c.field);next.assets.push(clone(c.after));addFolders(next,[c.after.folder])}
    return saveAssets(next);
