@@ -128,6 +128,7 @@ jobs:
           LIBRARY_TABLE_TEXT_EDIT_PROOF: .ci-proofs/library-table-text-edit
           LIBRARY_TABLE_APPEND_ROW_PROOF: .ci-proofs/library-table-append-row
           LIBRARY_ESCAPE_DRAFT_PROOF: .ci-proofs/library-escape-draft-guard
+          IMPORT_FAILED_RETRY_PROOF: .ci-proofs/import-failed-retry
           LIBRARY_TABLE_CREATION_PROOF: .ci-proofs/library-table-creation
           LIBRARY_TABLE_TEXT_INTAKE_PROOF: .ci-proofs/library-table-text-intake
           LIBRARY_TABLE_VERSION_READING_PROOF: .ci-proofs/library-table-version-reading
@@ -856,5 +857,15 @@ jobs:
           path: |
             .ci-proofs/library-escape-draft-guard/result.json
             .ci-proofs/library-escape-draft-guard/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated import-failed-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-failed-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/import-failed-retry/result.json
+            .ci-proofs/import-failed-retry/*.png
           if-no-files-found: ignore
           retention-days: 3
