@@ -143,7 +143,7 @@
   if(freeze){state.frozen=[...state.form.querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);for(const el of state.frozen)el.disabled=true}
   else if(!value){for(const el of state.frozen||[])if(el.isConnected)el.disabled=false;state.frozen=[]}
   state.refreshTableTextControls?.();
-  state.refreshTableRowControls?.();
+  state.refreshTableRowControls?.();state.refreshTableColumnControls?.();
  }
  function newNoteName(node){
   for(const value of [node.title,node.body,node.userText,node.annotation]){
@@ -280,7 +280,8 @@
    return {html:'<div class="library-document-fields">'+sections+'</div>',controls};
   }
 
-  const appendedRows=new WeakMap();
+  const appendedRows=new WeakMap(),appendedColumns=new WeakMap();
+  const tableFieldOffset=()=>1+Math.max(-1,...(state.documentFields||[]).map(({field})=>Number(field.dataset.libraryTableField)).filter(Number.isFinite));
   function mountTableRowActions(node){
    state.form.querySelector('.library-table-row-actions')?.remove();state.refreshTableRowControls=null;
    if(!ordinaryTable(node))return;
@@ -298,18 +299,51 @@
     if(!canChange())return;if(node.rows.length>=100||!node.columns.length||node.columns.length>12){message('这里支持最多100行、12列，当前内容保留；更大的表格可放到白板继续。');return}
     const ids=node.rowIds;if(ids!==undefined&&(!Array.isArray(ids)||ids.length!==node.rows.length||ids.some(id=>typeof id!=='string'||!id||id.length>100)||new Set(ids).size!==ids.length)){message('现有行编号暂时不能准确对应，未加行。可放到白板核对后继续，当前内容保留。');return}
     if(['cellItems','cellImages'].some(key=>node[key]!==undefined&&(!Array.isArray(node[key])||node[key].slice(node.rows.length).some(hasMaterials)))){message('现有末行之外还有格内资料，未加行。可放到白板核对后继续，当前内容保留。');return}
-    capturePiece();const r=node.rows.length,row=node.columns.map(()=>''),line=element('tr');let id;
+    capturePiece();const r=node.rows.length,row=node.columns.map(()=>''),line=element('tr'),offset=tableFieldOffset();let id;
     if(Array.isArray(ids)){do{id=uid()}while(ids.includes(id));ids.push(id)}node.rows.push(row);
-    const fields=node.columns.map((_,c)=>{const cell=element('td'),label=element('label','','第 '+(r+1)+' 行，第 '+(c+1)+' 列'),field=element('textarea');field.rows=3;field.dataset.libraryTableField=String(state.documentFields.length+c);label.append(field);cell.append(label);line.append(cell);return {field,path:['rows',r,c],root:node,initial:'',initialValue:''}});
-    grid.querySelector('tbody').append(line);state.documentFields.push(...fields);stack.push({row,id});refresh();state.refreshTableTextControls?.();message('已加第 '+(r+1)+' 行。填写后点“保存到内容库”留存。');fields[0]?.field.focus({preventScroll:true});fields[0]?.field.scrollIntoView({block:'nearest'});
+    const fields=node.columns.map((_,c)=>{const cell=element('td'),label=element('label','','第 '+(r+1)+' 行，第 '+(c+1)+' 列'),field=element('textarea');field.rows=3;field.dataset.libraryTableField=String(offset+c);label.append(field);cell.append(label);line.append(cell);return {field,path:['rows',r,c],root:node,initial:'',initialValue:''}});
+    grid.querySelector('tbody').append(line);state.documentFields.push(...fields);stack.push({row,id});refresh();state.refreshTableColumnControls?.();state.refreshTableTextControls?.();message('已加第 '+(r+1)+' 行。填写后点“保存到内容库”留存。');fields[0]?.field.focus({preventScroll:true});fields[0]?.field.scrollIntoView({block:'nearest'});
    };
    undo.onclick=()=>{
     if(!canChange()||!stack.length)return;capturePiece();const last=stack.at(-1),r=node.rows.length-1;
     if(node.rows[r]!==last.row||(last.id!==undefined&&node.rowIds?.[r]!==last.id)||last.row.some(value=>value!=='')||['cellItems','cellImages'].some(key=>hasMaterials(node[key]?.[r]))){message('新增末行已有内容或对应发生变化，未撤回；所有输入仍保留。');return}
     const line=grid.querySelector('tbody')?.lastElementChild;if(!line||grid.querySelector('tbody').children.length!==node.rows.length)return;
-    node.rows.pop();if(last.id!==undefined)node.rowIds.pop();state.documentFields=state.documentFields.filter(control=>!(control.root===node&&control.path[0]==='rows'&&control.path[1]===r));line.remove();stack.pop();refresh();state.refreshTableTextControls?.();message('已撤回新增空行，其他格子和输入保留。');add.focus({preventScroll:true});
+    node.rows.pop();if(last.id!==undefined)node.rowIds.pop();state.documentFields=state.documentFields.filter(control=>!(control.root===node&&control.path[0]==='rows'&&control.path[1]===r));line.remove();stack.pop();refresh();state.refreshTableColumnControls?.();state.refreshTableTextControls?.();message('已撤回新增空行，其他格子和输入保留。');add.focus({preventScroll:true});
    };
    state.refreshTableRowControls=refresh;refresh();
+  }
+  function mountTableColumnActions(node){
+   state.form.querySelector('.library-table-column-actions')?.remove();state.refreshTableColumnControls=null;
+   if(!ordinaryTable(node))return;
+   const grid=state.form.querySelector('#libraryFields .library-document-edit-table');if(!grid)return;
+   const box=element('section','library-table-column-actions'),actions=element('div','library-table-text-actions'),add=element('button','','加一列'),undo=element('button','','撤回新增空列'),status=element('p','library-edit-explain');
+   add.type=undo.type='button';add.dataset.libraryTableAddColumn='';undo.dataset.libraryTableUndoColumn='';status.dataset.libraryTableColumnState='';status.setAttribute('role','status');actions.append(add,undo);box.append(actions,element('p','library-edit-explain','可在末尾新增一个字段；只有这次新增且列名、格子仍为空的末列可以撤回。'),status);(state.form.querySelector('.library-table-row-actions')||grid).after(box);
+   const stack=appendedColumns.get(node)||[];appendedColumns.set(node,stack);
+   const owns=()=>active(state)&&box.isConnected&&grid.isConnected&&state.form.contains(box)&&state.form.contains(grid)&&state.draft.bundle.nodes[index]===node;
+   const message=value=>{if(owns())status.textContent=value};
+   const refresh=()=>{if(!owns())return;const unavailable=state.busy||!!tableScopeProblem(state);add.disabled=unavailable||node.rows.length>100||!node.columns.length||node.columns.length>=12;undo.hidden=!stack.length;undo.disabled=unavailable||!stack.length};
+   const canChange=()=>{if(!owns()||state.busy)return false;const scope=tableScopeProblem(state);if(scope){message(scope);return false}const pending=state.tableTextSaveProblem?.();if(pending){message(pending);return false}return true};
+   const nonempty=value=>value!==undefined&&value!==null&&(!Array.isArray(value)||value.length>0);
+   const materialBeyond=c=>['cellItems','cellImages'].some(key=>node[key]!==undefined&&(!Array.isArray(node[key])||node[key].some(row=>row!==undefined&&row!==null&&(!Array.isArray(row)||row.slice(c).some(nonempty)))));
+   const setWidth=()=>{grid.querySelector('table').style.minWidth=Math.max(320,node.columns.length*160)+'px'};
+   add.onclick=()=>{
+    if(!canChange())return;const c=node.columns.length;
+    if(node.rows.length>100||!c||c>=12){message('这里支持最多100行、12列，当前内容保留；更大的表格可放到白板继续。');return}
+    if(node.rows.some(row=>row.length!==c||Array.from({length:c},(_,i)=>i).some(i=>!Object.hasOwn(row,i)))){message('现有行列暂时不能完整对应，未加列。可放到白板核对后继续，当前内容保留。');return}
+    const ids=node.columnIds;if(ids!==undefined&&(!Array.isArray(ids)||ids.length!==c||ids.some(id=>typeof id!=='string'||!id||id.length>100)||new Set(ids).size!==ids.length)){message('现有列编号暂时不能准确对应，未加列。可放到白板核对后继续，当前内容保留。');return}
+    if(materialBeyond(c)){message('现有末列之外还有格内资料，未加列。可放到白板核对后继续，当前内容保留。');return}
+    const head=grid.querySelector('thead tr'),lines=[...grid.querySelectorAll('tbody tr')];if(!head||head.children.length!==c||lines.length!==node.rows.length||lines.some(line=>line.children.length!==c))return;
+    capturePiece();let id;if(Array.isArray(ids)){do{id=uid()}while(ids.includes(id));ids.push(id)}node.columns.push('');for(const row of node.rows)row.push('');
+    const fields=[],offset=tableFieldOffset(),append=(line,path,labelText,rows,kind)=>{const cell=element(kind),label=element('label','',labelText),field=element('textarea');field.rows=rows;field.dataset.libraryTableField=String(offset+fields.length);label.append(field);cell.append(label);line.append(cell);fields.push({field,path,root:node,initial:'',initialValue:''})};
+    append(head,['columns',c],'列 '+(c+1),1,'th');lines.forEach((line,r)=>append(line,['rows',r,c],'第 '+(r+1)+' 行，第 '+(c+1)+' 列',3,'td'));state.documentFields.push(...fields);stack.push({c,id,columns:node.columns,ids:node.columnIds});setWidth();refresh();state.refreshTableRowControls?.();state.refreshTableTextControls?.();message('已加第 '+(c+1)+' 列。填写列名和格子后点“保存到内容库”留存。');fields[0].field.focus({preventScroll:true});fields[0].field.scrollIntoView({block:'nearest'});
+   };
+   undo.onclick=()=>{
+    if(!canChange()||!stack.length)return;capturePiece();const last=stack.at(-1),c=node.columns.length-1;
+    if(c!==last.c||node.columns!==last.columns||node.columnIds!==last.ids||(last.id!==undefined&&node.columnIds?.[c]!==last.id)||node.columns[c]!==''||node.rows.some(row=>row.length!==c+1||row[c]!=='')||materialBeyond(c)){message('新增末列已有内容或对应发生变化，未撤回；所有输入仍保留。');return}
+    const head=grid.querySelector('thead tr'),lines=[...grid.querySelectorAll('tbody tr')];if(!head||head.children.length!==c+1||lines.length!==node.rows.length||lines.some(line=>line.children.length!==c+1))return;
+    node.columns.pop();for(const row of node.rows)row.pop();if(last.id!==undefined)node.columnIds.pop();head.lastElementChild.remove();for(const line of lines)line.lastElementChild.remove();state.documentFields=state.documentFields.filter(control=>!(control.root===node&&((control.path[0]==='columns'&&control.path[1]===c)||(control.path[0]==='rows'&&control.path[2]===c))));stack.pop();setWidth();refresh();state.refreshTableRowControls?.();state.refreshTableTextControls?.();message('已撤回新增空列，其他格子和输入保留。');add.focus({preventScroll:true});
+   };
+   state.refreshTableColumnControls=refresh;refresh();
   }
   function ordinaryTableFields(node){
    const controls=[],field=(path,label,value,rows)=>{const i=controls.length;controls.push({path,value,root:node});return '<label>'+esc(label)+'<textarea data-library-table-field="'+i+'" rows="'+rows+'"></textarea></label>'};
@@ -321,9 +355,9 @@
    const node=state.draft.bundle.nodes[index],documentContent=node.type==='table'&&node.documentMode===true?documentFields(node):null,tableText=ordinaryTable(node)?ordinaryTableFields(node):null,content=documentContent||tableText;state.documentFields=[];
    state.form.querySelector('#libraryFields').innerHTML=field('title',original?'标题':'标题（可不填）',1)+(content?content.html+'<details class="library-document-description" '+(node.body?'open':'')+'><summary>说明</summary>'+field('body','说明',2)+'</details>':field('body','正文',7));
    if(content)state.documentFields=content.controls.map((control,i)=>{const field=state.form.querySelector('[data-library-'+(tableText?'table':'document')+'-field="'+i+'"]');fillTextarea(field,String(control.value??''));return {field,path:control.path,root:control.root,initial:field.value,initialValue:copy(control.value)}});
-   state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(node.type==='table'?'<p class="library-edit-explain">'+(node.documentMode===true?'内容结构与附件保持。增删或移动文中内容时，可放到白板编辑后再收录。':'可直接修改列名和格子文字，也可在末尾加一行，格内资料原样保留。删除、移动行列或改列数时，可放到白板编辑后再收录。')+'</p>':'');
+   state.form.querySelector('#librarySupplement').innerHTML=field('userText','自己的补充',3)+field('annotation','备注',2)+(node.type==='table'?'<p class="library-edit-explain">'+(node.documentMode===true?'内容结构与附件保持。增删或移动文中内容时，可放到白板编辑后再收录。':'可直接修改列名和格子文字，也可在末尾加行、加列，格内资料原样保留。删除或移动已有行列时，可放到白板编辑后再收录。')+'</p>':'');
    for(const key of ['title','body','userText','annotation'])fillTextarea(state.form.querySelector('#library-'+key),state.draft.bundle.nodes[index][key]);
-   mountTableRowActions(node);
+   mountTableRowActions(node);mountTableColumnActions(node);
   };
   function mountTextIntake(){
    const node=state.draft.bundle.nodes[0],initial=tableContent(node),panel=element('details','library-table-text-intake'),summary=element('summary','','从表格文本开始'),explain=element('p','library-edit-explain','贴入已有表格文字，先预览，再建成行列。支持100行、12列的小表格；调整后点“保存到内容库”留存。'),textLabel=element('label','','表格文本'),input=element('textarea'),formatLabel=element('label','','分隔方式'),format=element('select'),headerLabel=element('label'),header=element('input'),status=element('p','library-edit-explain'),preview=element('div','library-table-text-preview'),actions=element('div','library-table-text-actions'),apply=element('button','','建成表格'),undo=element('button','','撤回这次建表');
@@ -367,11 +401,11 @@
     const data={columns:copy(parsed.columns),rows:copy(parsed.rows),columnIds:parsed.columns.map(()=>uid()),rowIds:parsed.rows.map(()=>uid())};write(data);
     const content=ordinaryTableFields(node),box=element('div');box.innerHTML=content.html;const next=box.firstElementChild;
     const fields=content.controls.map((control,i)=>{const field=next.querySelector('[data-library-table-field="'+i+'"]');fillTextarea(field,String(control.value??''));return {field,path:control.path,root:node,initial:field.value,initialValue:copy(control.value)}});
-    grid.replaceWith(next);state.documentFields=fields;applied={before:copy(initial),grid,next,fields:priorFields,after:tableContent(node),focus,sourceKey:parsedKey};mountTableRowActions(node);controls();message('已建成 '+node.rows.length+' 行、'+node.columns.length+' 列。可继续改格子，再保存到内容库。');const target=fields.find(({path})=>path[0]==='rows')?.field||fields[0]?.field;target?.focus({preventScroll:true});target?.scrollIntoView({block:'nearest'});
+    grid.replaceWith(next);state.documentFields=fields;applied={before:copy(initial),grid,next,fields:priorFields,after:tableContent(node),focus,sourceKey:parsedKey};mountTableRowActions(node);mountTableColumnActions(node);controls();message('已建成 '+node.rows.length+' 行、'+node.columns.length+' 列。可继续改格子，再保存到内容库。');const target=fields.find(({path})=>path[0]==='rows')?.field||fields[0]?.field;target?.focus({preventScroll:true});target?.scrollIntoView({block:'nearest'});
    };
    undo.onclick=()=>{
     if(!canChange()||!applied)return;capturePiece();if(!equal(tableContent(node),applied.after)){message('表格已有后续输入，未撤回。当前格子与文本仍保留，可另建一张表。');return}
-    if(!applied.next.isConnected||!state.form.contains(applied.next))return;const before=applied;write(before.before);before.next.replaceWith(before.grid);state.documentFields=before.fields;applied=null;mountTableRowActions(node);controls();message('已回到建表前的格子，文本输入仍保留。');if(before.focus?.field.isConnected){const f=before.focus;f.field.focus({preventScroll:true});f.field.setSelectionRange(f.start,f.end,f.direction);f.field.scrollTop=f.top;f.field.scrollLeft=f.left}
+    if(!applied.next.isConnected||!state.form.contains(applied.next))return;const before=applied;write(before.before);before.next.replaceWith(before.grid);state.documentFields=before.fields;applied=null;mountTableRowActions(node);mountTableColumnActions(node);controls();message('已回到建表前的格子，文本输入仍保留。');if(before.focus?.field.isConnected){const f=before.focus;f.field.focus({preventScroll:true});f.field.setSelectionRange(f.start,f.end,f.direction);f.field.scrollTop=f.top;f.field.scrollLeft=f.left}
    };
    for(const field of[input,format,header])field.addEventListener('input',inspect);
    state.form.addEventListener('focusin',event=>{if(event.target.matches('[data-library-table-field]'))lastField=event.target});
