@@ -174,7 +174,43 @@ function wfCompareOrigin(n,a,original,direction){
    toast('已更新库中原件 · 在内容库按 Ctrl+Z 可撤销');
   }
  })}
-refreshLibrarySource=async function(id){const a=assetById(id);if(!a?.source)return toast('这项内容没有原白板来源');if(!await persist())return;try{const source=await(await api('/api/boards/'+a.source.boardId)).json(),ids=new Set(a.source.nodeIds),nodes=source.nodes.filter(n=>ids.has(n.id));if(nodes.length!==ids.size)return toast('原白板有内容已删除，请重新收录需要的内容');const baseline=JSON.stringify(a),bundle={nodes,edges:source.edges.filter(e=>ids.has(e.from)&&ids.has(e.to))};wfReview('从来源白板更新组合','将替换库中的这份组合；其他白板上的副本不变。',[{field:'组合',before:a.bundle,after:bundle}],async()=>{if(JSON.stringify(assetById(id))!==baseline)return toast('库中版本已改变，请重新比较'),false;const next=clone(assetIndex),item=next.assets.find(x=>x.id===id);item.bundle=bundle;item.updated=Date.now();return saveAssets(next)})}catch(e){toast(e.message)}};
+refreshLibrarySource=async function(id){
+ const a=assetById(id);if(!a?.source)return toast('这项内容没有原白板来源');
+ const baseline=JSON.stringify(a),owner=$('dialogBody').firstElementChild;
+ const context=()=>{try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}},scope=context();
+ const scopeReason=()=>{
+  const now=context();
+  if(!scope||!now||now.inner!==scope.inner||now.outer!==scope.outer||now.key!==scope.key)return '所属账号或工作区已有变化，请回到原位置重新读取。库中内容保留。';
+  for(const host of [now.inner,now.outer])if(host&&(host.paused||host.role==='viewer'||host.account?.id==null||host.workspace==null||host.base==null))return '账号或工作区尚未确认，或当前只有查看权限。库中内容保留。';
+  return '';
+ };
+ const stopped=()=>scopeReason()||(loading||blocked?'请先处理当前的加载或保存提示，再重新读取。库中内容保留。':JSON.stringify(assetById(id))!==baseline?'库中原件已有变化，请重新读取并比较。原内容保留。':'');
+ const initial=stopped();if(initial)return toast(initial);
+ // Reading is allowed to finish, but a later activity owns the next panel.
+ // Closing the original preview is intentional; its body identifies this read.
+ let interrupted=false;const cleanups=[],interrupt=()=>{interrupted=true;for(const cleanup of cleanups.splice(0))cleanup()},listen=(target,type,handler)=>{target.addEventListener(type,handler,true);cleanups.push(()=>target.removeEventListener(type,handler,true))},trusted=e=>{if(e.isTrusted)interrupt()};
+ for(const type of ['pointerdown','keydown','input','wheel','touchstart']){
+  listen(document,type,trusted);try{if(parent!==window)listen(parent.document,type,trusted)}catch{interrupt()}
+ }
+ listen(window,'blur',interrupt);listen(window,'pagehide',interrupt);listen(document,'visibilitychange',()=>{if(document.hidden)interrupt()});
+ const ownsRead=()=>!interrupted&&!document.hidden&&!$('dialog').open&&owner?.isConnected&&$('dialogBody').firstElementChild===owner;
+ try{
+  if(!await persist()||!ownsRead())return;
+  const beforeRead=stopped();if(beforeRead)return toast(beforeRead);
+  const source=await(await api('/api/boards/'+a.source.boardId)).json();
+  if(!ownsRead())return;const reason=stopped();if(reason)return toast(reason);
+  const ids=new Set(a.source.nodeIds),nodes=source.nodes.filter(n=>ids.has(n.id));
+  if(nodes.length!==ids.size)return toast('原白板有内容已删除，请重新收录需要的内容');
+  const bundle={nodes,edges:source.edges.filter(e=>ids.has(e.from)&&ids.has(e.to))};
+  for(const cleanup of cleanups.splice(0))cleanup();
+  wfReview('从来源白板更新组合','将替换库中的这份组合；其他白板上的副本不变。',[{field:'组合',before:a.bundle,after:bundle}],async(picked,report)=>{
+   const reason=stopped();if(reason){report(reason);return false}
+   const next=clone(assetIndex),item=next.assets.find(x=>x.id===id);item.bundle=bundle;item.updated=Date.now();
+   if(!await saveAssets(next))return false;
+   if(scopeReason()||loading||blocked){report('原位置的更新请求已完成，当前所属位置或保存状态已有变化。请回到原位置核对结果。');return false}
+  });
+ }catch(e){if(ownsRead())toast(e.message)}finally{for(const cleanup of cleanups)cleanup()}
+};
 function wfMountOrigins(){const lookup=new Map(board.nodes.map(n=>[n.id,n]));for(const el of $('nodes').children){const n=lookup.get(el.dataset.id),id=n?.libraryOrigin?.id||n?.assetId,a=assetById(id),meta=el.querySelector('#inlineMeta,[data-preview-id=inlineMeta]');let b=el.querySelector('.wf-origin');if(!a||!meta){b?.remove();continue}if(!b){b=document.createElement('button');b.className='wf-origin inline-ui';b.onclick=e=>{e.stopPropagation();wfOriginReview(n.id)}}b.textContent=(a.archived?'原件已移出库：':'库中原件：')+a.title;b.title='查看原件与版本';meta.querySelector('.meta-heading').after(b)}}
 const wfDrawNodes=drawNodes;drawNodes=function(){wfDrawNodes();wfMountOrigins()};
 const wfFileMenu=fileMenu;fileMenu=function(e,items){const n=board?.nodes.find(n=>n.id===e.target.closest?.('.node')?.dataset.id);if(n&&(n.libraryOrigin||n.assetId))items.push(['来源与版本…',()=>wfOriginReview(n.id)]);if(e.target.closest?.('#assetPane')&&assetSelected.size>1)items.push(['给选中内容添加标签…',wfBatchTags]);return wfFileMenu(e,items)};
