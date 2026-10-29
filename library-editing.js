@@ -247,6 +247,20 @@
   mountLibraryDestination('libraryDestination');
   keepWritingOnEscape(state);
  }
+ function pieceLabel(node,index){
+  const kind=node.type==='table'?(node.documentMode===true?'长文':'表格'):({note:'便签',image:'图片',media:'媒体',frame:'分组'}[node.type]||'内容'),values=[node.title,node.body,node.userText,node.annotation];
+  if(node.type==='table'){
+   if(node.documentMode===true){const items=node.cellItems?.[0]?.[0];if(Array.isArray(items))for(const item of items.slice(0,4))if(item)values.push(item.title,item.body)}
+   else{for(const row of (Array.isArray(node.rows)?node.rows:[]).slice(0,3))if(Array.isArray(row))values.push(...row.slice(0,4));if(Array.isArray(node.columns))values.push(...node.columns.slice(0,4))}
+  }
+  const value=values.find(value=>typeof value==='string'&&value.trim()),prefix=(index+1)+'. '+kind+' · ';let hint='',space=false,count=0;
+  for(const letter of value?value.trim():'未命名内容'){
+   if(/\s/u.test(letter)){space=!!hint;continue}
+   if(space){if(count===36)return prefix+hint+'…';hint+=' ';count++}
+   if(count===36)return prefix+hint+'…';hint+=letter;count++;space=false;
+  }
+  return prefix+hint;
+ }
  function editContent(id=null,kind='note'){
   const original=id?assetById(id):null;if(original&&original.mime!==bundleMime)return editFile(id);
   if(id&&!original)return toast('这项内容已移走，请重新选择。');
@@ -254,7 +268,7 @@
   const freshNode=()=>kind==='table'?{id:uid(),type:'table',sizeMode:'manual',x:0,y:0,w:620,h:360,title:'',body:'',userText:'',annotation:'',tags:[],color:'#ffffff',...tableData(Array.from({length:3},()=>['','','']),false),rowIds:Array.from({length:3},()=>uid()),columnIds:Array.from({length:3},()=>uid())}:{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:'#fff0aa'};
   const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[freshNode()],edges:[]}},busy:false};let index=0;
   const supplement=original?'<div id="librarySupplement"></div>':'<details class="library-note-details"><summary><span class="library-note-caret" aria-hidden="true">›</span>补充和备注</summary><div id="librarySupplement"></div></details>';
-  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">可直接填写三行三列，或从表格文本开始。记录增多时可在末尾加行，保存后继续复用。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(n.title||'未命名内容')+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
+  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">可直接填写三行三列，或从表格文本开始。记录增多时可在末尾加行，保存后继续复用。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(pieceLabel(n,i))+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
   const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value;for(const {field,path,initial,initialValue,root}of state.documentFields||[]){let target=root||state.draft.bundle.nodes[index].cellItems[0][0];for(const key of path.slice(0,-1))target=target[key];const key=path.at(-1);if(field.value!==initial)target[key]=field.value;else if(initialValue===undefined)delete target[key];else target[key]=copy(initialValue)}};
   const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'"></textarea></label>';
 
@@ -455,7 +469,7 @@
   state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newContentName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);
   const piece=state.form.querySelector('#libraryPiece');
-  if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();index=Number(piece.value);draw()};
+  if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index);index=Number(piece.value);draw()};
   draw();if(!original&&kind==='table')mountTextIntake();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
   keepWritingOnEscape(state);
  }

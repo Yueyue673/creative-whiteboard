@@ -129,6 +129,7 @@ jobs:
           LIBRARY_TABLE_TEXT_EDIT_PROOF: .ci-proofs/library-table-text-edit
           LIBRARY_TABLE_APPEND_ROW_PROOF: .ci-proofs/library-table-append-row
           LIBRARY_TABLE_APPEND_COLUMN_PROOF: .ci-proofs/library-table-append-column
+          LIBRARY_PIECE_RECOGNITION_PROOF: .ci-proofs/library-piece-recognition
           LIBRARY_ESCAPE_DRAFT_PROOF: .ci-proofs/library-escape-draft-guard
           IMPORT_FAILED_RETRY_PROOF: .ci-proofs/import-failed-retry
           IMPORT_FAILURE_RETURN_PROOF: .ci-proofs/import-failure-return
@@ -860,6 +861,16 @@ jobs:
           path: |
             .ci-proofs/library-table-append-column/result.json
             .ci-proofs/library-table-append-column/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-piece-recognition evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-piece-recognition-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-piece-recognition/result.json
+            .ci-proofs/library-piece-recognition/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated library-escape-draft-guard evidence
