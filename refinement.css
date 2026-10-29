@@ -425,6 +425,8 @@ html.listening-preview #dialogActions button{padding:2px 8px;font-size:13px;min-
 .appearance-saved-list button:first-child::before{content:'';width:20px;height:20px;flex:none;border-radius:5px;background:var(--saved-canvas);border:2px solid var(--saved-accent)}
 .appearance-saved-list button[aria-pressed=true]{background:var(--ui-selected);border-color:var(--ui-focus)}
 .appearance-saved-list button:last-child{width:36px;flex:none;font-size:18px;padding:0}
+.appearance-saved-list button[data-rename-preset]{flex:none;font-size:12px;padding:6px}.appearance-preset-name-edit{margin:8px 0 12px;padding:10px;border:1px solid var(--ui-line);border-radius:6px}.appearance-preset-name-edit[hidden]{display:none}.appearance-preset-name-edit label{display:grid;gap:6px;min-width:0}.appearance-preset-name-edit input{width:100%;min-width:0;box-sizing:border-box}.appearance-preset-name-edit p{margin:6px 0;font-size:12px;color:var(--ui-muted)}.appearance-preset-name-edit>div{display:flex;flex-wrap:wrap;gap:6px}
+@media(max-width:520px){.appearance-saved-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto auto}.appearance-saved-list button:first-child{grid-column:1/-1;min-height:38px}}
 .appearance-save-row{display:flex;gap:8px;min-width:0}
 .appearance-save-row input{flex:1;min-width:0;width:0;font-size:13px}
 .appearance-save-row button{flex:none;font-size:12px;padding:6px 10px}

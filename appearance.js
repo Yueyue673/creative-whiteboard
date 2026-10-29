@@ -169,6 +169,38 @@ SOFTWARE.
    catch{navigation.querySelector('.navigation-message').textContent='浏览器未保存这次操作设置，仍使用原来的操作偏好。';renderNavigation(true);return false}
   }
   const message=(text,undo,undoLabel='撤销移除')=>{const box=d.querySelector('.appearance-message');box.replaceChildren(document.createTextNode(text));if(undo){const b=document.createElement('button');b.type='button';b.textContent=undoLabel;b.onclick=()=>{if(owns()&&b.isConnected&&box.contains(b))undo()};box.append(b)}};
+  // Keep the draft outside refreshSaved's replaceable list. Renaming writes
+  // only one raw name, preserving stored settings and unrecognised record data.
+  const renameBox=document.createElement('section');renameBox.className='appearance-preset-name-edit';renameBox.hidden=true;
+  const renameLabel=document.createElement('label'),renameInput=document.createElement('input'),renameHelp=document.createElement('p'),renameActions=document.createElement('div'),saveName=document.createElement('button'),cancelName=document.createElement('button');
+  renameLabel.textContent='修改预设名称';renameInput.type='text';renameInput.maxLength=40;renameInput.setAttribute('aria-label','预设的新名称');renameLabel.append(renameInput);renameHelp.textContent='只改名称，已存配色和当前外观保留。Enter 保存，Esc 取消改名。';saveName.type=cancelName.type='button';saveName.textContent='保存名称';cancelName.textContent='取消改名';renameActions.append(saveName,cancelName);renameBox.append(renameLabel,renameHelp,renameActions);d.querySelector('.appearance-save-row').before(renameBox);
+  let renaming=null;
+  const focusRename=id=>[...d.querySelectorAll('[data-rename-preset]')].find(button=>button.dataset.renamePreset===id)?.focus({preventScroll:true});
+  function rawPreset(id){
+   const rows=JSON.parse(localStorage.getItem(collectionKey)||'[]');if(!Array.isArray(rows))throw Error('changed presets');
+   const matches=rows.map((row,index)=>row&&row.id===id?index:-1).filter(index=>index>=0);if(matches.length!==1)throw Error('changed preset');return{rows,index:matches[0],value:rows[matches[0]]};
+  }
+  function closeRename(){const id=renaming?.id;renaming=null;renameBox.hidden=true;renameInput.value='';return id}
+  function beginRename(row){
+   if(!owns())return;
+   if(renaming&&(renaming.id===row.id||renameInput.value!==renaming.name)){if(renaming.id!==row.id)message('请先保存或取消这次改名。');renameInput.focus();return}
+   try{const current=savedPresets().find(value=>value.id===row.id);if(!current||JSON.stringify(current)!==JSON.stringify(row)){refreshSaved();message('预设已有变化，请重新查看。');return}
+    const stored=rawPreset(row.id);renaming={id:row.id,name:row.name,previous:stored.value};renameInput.value=row.name;renameBox.hidden=false;renameInput.focus();renameInput.select();
+   }catch{message('无法读取这条预设，请重新查看。')}
+  }
+  cancelName.onclick=()=>{if(!owns())return;focusRename(closeRename());if(!d.querySelector('.appearance-message button'))message('已取消改名，原预设和当前外观保留。')};
+  saveName.onclick=()=>{
+   if(!owns()||!renaming||renameBox.hidden)return;const name=renameInput.value.trim();if(!name||name.length>40){message('请填写 1 到 40 个字符的预设名称。');renameInput.focus();return}
+   try{const state=renaming,stored=rawPreset(state.id);if(JSON.stringify(stored.value)!==JSON.stringify(state.previous)){refreshSaved();message('预设已有变化，未改名。输入仍保留，请取消后重新查看。');return}
+    if(stored.rows.some((row,index)=>index!==stored.index&&row?.name===name)){message('这个名称已存在，请换一个名称。');renameInput.focus();return}
+    if(name===state.name){focusRename(closeRename());if(!d.querySelector('.appearance-message button'))message('名称没有变化，原预设保留。');return}
+    const previous=stored.value,next={...previous,name};stored.rows[stored.index]=next;localStorage.setItem(collectionKey,JSON.stringify(stored.rows));closeRename();refreshSaved();focusRename(state.id);
+    message('已改名为“'+name+'”，配色和当前外观保留。',()=>{
+     try{const latest=rawPreset(state.id);if(JSON.stringify(latest.value)!==JSON.stringify(next)){refreshSaved();message('预设已有后续变化，未覆盖。');return}latest.rows[latest.index]=previous;localStorage.setItem(collectionKey,JSON.stringify(latest.rows));refreshSaved();message('已还原预设名称，当前外观保留。')}catch{message('浏览器无法保存预设，请检查存储空间。')}
+    },'撤销改名');
+   }catch{message('浏览器无法保存这次改名，输入仍保留，请检查存储空间。')}
+  };
+  renameInput.onkeydown=event=>{if(event.isComposing)return;if(event.key==='Enter'||event.key==='Escape'){event.preventDefault();event.stopPropagation();(event.key==='Enter'?saveName:cancelName).click()}};
   const portable=document.createElement('details');portable.className='appearance-portable';
   portable.innerHTML='<summary>预设备份与导入</summary><p>把已保存的预设存成文件，换浏览器后可再导入。</p><div class="appearance-portable-actions"><button type="button" id="appearanceExport">导出我的预设</button><button type="button" id="appearanceImport">选择预设文件</button><input id="appearanceImportFile" type="file" accept=".json,application/json" hidden></div><section class="appearance-import-review" hidden><h4>待加入的预设</h4><div class="appearance-import-list"></div><p class="appearance-import-count" role="status" aria-live="polite"></p><div class="appearance-portable-actions"><button type="button" id="appearanceImportCommit">加入我的预设</button><button type="button" id="appearanceImportCancel">取消导入</button></div></section>';
   d.querySelector('.appearance-saved').append(portable);
@@ -319,7 +351,7 @@ SOFTWARE.
     remove.textContent='×';remove.setAttribute('aria-label','移除预设：'+row.name);
     remove.onclick=()=>{if(!owns())return;try{localStorage.setItem(collectionKey,JSON.stringify(savedPresets().filter(r=>r.id!==row.id)));refreshSaved();d.querySelector('#appearanceName').focus();message('已移除“'+row.name+'”，当前外观保留。',()=>{
       try{const current=savedPresets();if(current.length>=24){message('已满 24 个预设，请先移除一个。');return}if(!current.some(r=>r.id===row.id))localStorage.setItem(collectionKey,JSON.stringify([...current,row]));refreshSaved();message('已恢复“'+row.name+'”。')}catch{message('浏览器无法保存预设，请检查存储空间。')}
-     })}catch{message('浏览器无法保存预设，请检查存储空间。')}};item.append(choose,replacePreset,remove);list.append(item);
+     })}catch{message('浏览器无法保存预设，请检查存储空间。')}};const rename=document.createElement('button');rename.type='button';rename.textContent='改名';rename.dataset.renamePreset=row.id;rename.setAttribute('aria-label','改名预设：'+row.name);rename.onclick=()=>{if(rename.isConnected&&list.contains(rename))beginRename(row)};item.append(choose,replacePreset,rename,remove);list.append(item);
    }
   }
   d.querySelector('#appearanceSave').onclick=()=>{

@@ -83,6 +83,7 @@ jobs:
           LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
           PRESET_UPDATE_PROOF: .ci-proofs/appearance-preset-update
+          PRESET_RENAME_PROOF: .ci-proofs/appearance-preset-rename
           PORTABILITY_PROOF: .ci-proofs/appearance-portability
           STACKED_SOURCE_PROOF: .ci-proofs/narrow-reference-stack
           PICKED_REVIEW_PROOF: .ci-proofs/library-picked-review
@@ -878,5 +879,15 @@ jobs:
           path: |
             .ci-proofs/import-failure-return/result.json
             .ci-proofs/import-failure-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated appearance-preset-rename evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-preset-rename-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-preset-rename/result.json
+            .ci-proofs/appearance-preset-rename/*.png
           if-no-files-found: ignore
           retention-days: 3
