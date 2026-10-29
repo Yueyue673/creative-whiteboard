@@ -82,7 +82,7 @@
  }
  function tableComparison(value,label){
   const box=element('div','library-document-conflict-value library-document-edit-table'),table=element('table'),head=element('thead'),titles=element('tr'),body=element('tbody');
-  box.setAttribute('role','region');box.setAttribute('aria-label',label+'表格');box.tabIndex=0;
+  box.setAttribute('role','region');box.setAttribute('aria-label',label+'表格');box.tabIndex=0;table.style.minWidth=Math.max(320,(value.columns?.length||0)*160)+'px';
   box.append(element('p','library-edit-explain','表格文字与格内资料摘要'),table);table.append(head,body);head.append(titles);
   for(const title of value.columns||[])titles.append(element('th','',String(title??'')));
   for(const [r,row]of (value.rows||[]).entries()){
