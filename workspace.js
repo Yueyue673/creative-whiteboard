@@ -298,9 +298,32 @@ renderAssets=function(){if(!$('assetTree'))return;const q=$('assetSearch').value
  $('assetList').querySelectorAll('[data-asset]').forEach(el=>{const select=e=>{if(e.target.closest('button'))return;const id=el.dataset.asset;if(e.ctrlKey||e.shiftKey||e.target.type==='checkbox'){assetSelected.has(id)?assetSelected.delete(id):assetSelected.add(id)}else assetSelected=new Set([id]);updateAssetSelection()};el.onclick=select;el.ondblclick=()=>previewAsset(el.dataset.asset);el.onkeydown=e=>{if(e.key==='Enter')previewAsset(el.dataset.asset)};el.ondragstart=e=>{if(!assetSelected.has(el.dataset.asset))assetSelected=new Set([el.dataset.asset]);e.dataTransfer.setData('application/x-creative-assets',JSON.stringify([...assetSelected]));e.dataTransfer.effectAllowed='copyMove'}});$('assetList').querySelectorAll('[data-asset-preview]').forEach(b=>b.onclick=()=>previewAsset(b.dataset.assetPreview));if($('assetMore'))$('assetMore').onclick=()=>{assetLimit+=80;renderAssets()};
  renderAssetReadState();
 };
+function createLibraryFolder(){
+ const target=libraryFolderTarget(),scopeOf=()=>{try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}},ownerScope=scopeOf();let busy=false;
+ showDialog('<section class="library-folder-create"><h2>新建文件夹</h2><label>名称<input id="nameInput" aria-label="名称" value="新文件夹"></label><p class="wf-explain" data-folder-create-location></p><p id="libraryFolderCreateError" role="status" hidden></p></section>',[['取消',()=>$('dialog').close()],['创建',()=>submit()]]);
+ const form=$('dialogBody').querySelector('.library-folder-create'),input=$('nameInput'),error=$('libraryFolderCreateError'),button=$('dialogActions').lastElementChild,location=form.querySelector('[data-folder-create-location]');
+ const active=()=>form.isConnected&&$('dialog').open&&$('dialogBody').contains(form),owns=()=>{const scope=scopeOf();return active()&&!!ownerScope&&!!scope&&scope.inner===ownerScope.inner&&scope.outer===ownerScope.outer&&scope.key===ownerScope.key&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&[scope.inner,scope.outer].every(value=>!value||!value.paused&&value.role!=='viewer'&&value.account?.id!=null&&value.workspace!=null&&value.base!=null)};
+ const message=text=>{if(!active())return;error.hidden=!text;error.textContent=text},place=path=>{location.textContent='位置：'+(path?'内容库 / '+path.split('/').join(' / '):'内容库根目录')};place(target.path);
+ async function submit(){
+  if(busy||!active())return;if(!owns()){message('所属位置尚未确认，请回到原位置再创建。名称仍保留。');return}
+  const name=input.value.trim();if(!name||/[\\/]/.test(name)||name==='.'||name==='..'){message('请填写名称，不要使用斜杠或单独的句点。');input.focus();return}
+  busy=true;button.disabled=true;input.disabled=true;message('');
+  try{
+   await loadAssets({redraw:false});if(!active())return;if(!owns()){message('所属位置已有变化，请回到原位置再创建。名称仍保留。');return}
+   const parent=libraryFolderLocation(target);if((target.path||target.id)&&!parent){message('原存放位置已移除，请取消后选择位置。名称仍保留。');return}place(parent);
+   const path=(parent?parent+'/':'')+name;if(allAssetFolders().includes(path)){message('这里已有同名文件夹，请换个名称。');return}
+   const next=clone(assetIndex);next.folders.push(path);
+   if(await saveAssets(next)){if(owns())$('dialog').close();else if(active())message('文件夹已保存；所属位置已有变化，请回到原位置查看。')}
+   else message('未能创建，名称仍保留。请重试。');
+  }catch(reason){message('暂时未能读取目录：'+reason.message+'。名称仍保留，请重试。')}
+  finally{busy=false;if(input.isConnected)input.disabled=false;if(button.isConnected)button.disabled=false}
+ }
+ input.focus();input.select();
+}
+
 const assetHead=document.createElement('div');assetHead.className='explorer-location';assetHead.innerHTML='<button id="assetUp" title="上一级">↑</button><nav id="assetBreadcrumbs"></nav>';$('assetFolder').before(assetHead);$('assetFolder').hidden=true;
 const assetColumns=document.createElement('div');assetColumns.className='explorer-columns';const tree=document.createElement('nav');tree.id='assetTree';tree.setAttribute('aria-label','素材文件夹目录');$('assetList').before(assetColumns);assetColumns.append(tree,$('assetList'));const renameButton=document.createElement('button');renameButton.id='assetFolderRename';renameButton.textContent='重命名文件夹';$('assetFolderNew').after(renameButton);
-$('assetUp').onclick=()=>enterAssetFolder(assetFolder.includes('/')?assetFolder.slice(0,assetFolder.lastIndexOf('/')):'');$('assetFolderNew').onclick=()=>askName('在当前目录新建文件夹','新文件夹',async name=>{if(/[\\/]/.test(name))return toast('名称不要包含斜杠；进入文件夹后再建子文件夹');const path=(assetFolder?assetFolder+'/':'')+name;if(allAssetFolders().includes(path))return toast('已有同名文件夹');const next=clone(assetIndex);next.folders.push(path);if(await saveAssets(next))renderAssets()});$('assetFolderRename').onclick=()=>renameAssetFolder();bindAssetFolderDrop($('assetList'),()=>assetFolder);
+$('assetUp').onclick=()=>enterAssetFolder(assetFolder.includes('/')?assetFolder.slice(0,assetFolder.lastIndexOf('/')):'');$('assetFolderNew').onclick=createLibraryFolder;$('assetFolderRename').onclick=()=>renameAssetFolder();bindAssetFolderDrop($('assetList'),()=>assetFolder);
 $('assetMove').onclick=()=>{if(!assetSelected.size)return toast('先选择素材');showDialog('<h2>选择目标文件夹</h2><select id="assetMoveFolder"><option value="">素材库</option>'+allAssetFolders().map(f=>'<option value="'+esc(f)+'">'+esc(f)+'</option>').join('')+'</select><p>也可以直接将素材拖到左侧目录。原文件不会搬动。</p>',[['取消',()=>$('dialog').close()],['移动',()=>{const path=$('assetMoveFolder').value;$('dialog').close();moveAssetItems([...assetSelected],path)}]])};
 renderFolders();renderAssets();
 // Explorer commands use focus, so deleting a file never deletes canvas notes.
