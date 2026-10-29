@@ -124,6 +124,7 @@ jobs:
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
           LIBRARY_SOURCE_RETURN_PROOF: .ci-proofs/library-source-return
+          CELL_DOCUMENT_REFERENCE_PROOF: .ci-proofs/cell-document-reference
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -747,5 +748,16 @@ jobs:
           path: |
             .ci-proofs/library-source-return/result.json
             .ci-proofs/library-source-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-document-reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-document-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-document-reference/result.json
+            .ci-proofs/cell-document-reference/*.png
           if-no-files-found: ignore
           retention-days: 3

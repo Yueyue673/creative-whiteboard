@@ -75,21 +75,23 @@ mountTableEditor=function(n){
  const root=$('inlineTable'),live=root.closest('.live-layout');
  const tools=document.createElement('div');tools.className='cell-tools';tools.hidden=true;
  tools.setAttribute('role','group');tools.setAttribute('aria-label','单元格内容操作');
- tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-origin hidden>查看库中原件</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
+ tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-origin hidden>查看库中原件</button><button data-cell-file-preview hidden>在旁查看文档</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
  const options=root.querySelector('.table-options');options.querySelector(':scope>div').append(tools);
- let target=null,originContext=null;const originInputs=new WeakMap(),originButton=tools.querySelector("[data-cell-origin]"),captureOrigin=()=>target&&window.whiteboardNoteEditor?.captureCellOriginContext(n.id,target,originInputs.get(target));
- const clear=()=>{target?.classList.remove('cell-target');target=null;originContext=null;tools.hidden=true};
+ let target=null,originContext=null,fileContext=null;const originInputs=new WeakMap(),originButton=tools.querySelector("[data-cell-origin]"),fileButton=tools.querySelector('[data-cell-file-preview]'),captureOrigin=()=>target&&window.whiteboardNoteEditor?.captureCellOriginContext(n.id,target,originInputs.get(target)),captureFile=()=>target&&window.whiteboardNoteEditor?.captureCellFileContext(n.id,target,originInputs.get(target));
+ const clear=()=>{target?.classList.remove('cell-target');target=null;originContext=fileContext=null;tools.hidden=true};
  const labelTarget=()=>{
   const title=target.querySelector('[data-cell-note-field=title]')?.value.trim()||'未命名内容';
   tools.querySelector('[data-cell-caption]').textContent='内容：'+title;
-  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-origin')?'查看库中原件':b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
+  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-file-preview')?'在旁查看文档':b.hasAttribute('data-cell-origin')?'查看库中原件':b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
   const item=n.cellItems?.[+target.dataset.cellR]?.[+target.dataset.cellC]?.[+target.dataset.cellItem],origin=item&&cellItemOrigin(item,n);originButton.hidden=!root.closest('#immersiveSurface')||!!n.documentMode||item?.type!=='note'||!!item.canvasObject||!!item.assetId||!!item.mediaId||!!item.image||!!item.images?.length||!origin?.id||!origin.nodeId;
+  fileButton.hidden=!root.closest('#immersiveSurface')||!!n.documentMode||item?.type!=='note'||!!item.canvasObject||!documentKind(assetById(item?.assetId||item?.mediaId));
  };
  const choose=el=>{if(target===el)return;clear();target=el;target.classList.add('cell-target');tools.hidden=false;labelTarget()};
  live.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el);else if(!e.target.closest('.cell-tools,.table-options'))clear()});
  // Keep the chosen copy while tabbing back to its toolbar actions.
  live.addEventListener('focusin',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el)){if(e.target.matches('[data-cell-note-field]'))originInputs.set(el,e.target);choose(el)}});
  originButton.onpointerdown=()=>originContext=captureOrigin();originButton.onkeydown=event=>{if(event.key==='Enter'||event.key===' ')originContext=captureOrigin()};
+ fileButton.onpointerdown=()=>fileContext=captureFile();fileButton.onkeydown=event=>{if(event.key==='Enter'||event.key===' ')fileContext=captureFile()};
  live.addEventListener('keydown',e=>{const handle=e.target.closest('[data-cell-move]');if(!handle||!(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'))return;e.preventDefault();e.stopImmediatePropagation();choose(handle.closest('[data-cell-item]'));options.open=true;tools.querySelector('button')?.focus({preventScroll:true})});
  for(const handle of root.querySelectorAll('[data-cell-move]'))handle.setAttribute('aria-keyshortcuts','Shift+F10');
  root.querySelectorAll('[data-cell-note-field]').forEach(field=>{
@@ -100,6 +102,7 @@ mountTableEditor=function(n){
   if(!target?.isConnected||editorId!==n.id||board.nodes.find(x=>x.id===n.id)!==n)return;
   const items=n.cellItems[+target.dataset.cellR]?.[+target.dataset.cellC],index=+target.dataset.cellItem,item=items?.[index];
   if(!item)return;
+  if(button.hasAttribute('data-cell-file-preview')){const context=fileContext||captureFile();fileContext=null;if(!button.isConnected||context?.section!==target){toast('这份文档暂不能唯一对应，请保留原稿并用原文件入口查看。');options.open=false;return}if(!window.whiteboardNoteEditor?.peekCellFile(context)){if(context.fileOwns?.())context.returnToInput?.(button);toast('这份文档的所属位置已有变化，请保留原稿重新查看。')}options.open=false;return}
   if(button.hasAttribute('data-cell-origin')){const context=originContext||captureOrigin();originContext=null;if(!button.isConnected||context?.section!==target)return;if(!window.whiteboardNoteEditor?.peekCellOrigin(context)){context.returnToInput?.(button);toast('这份原件暂不能唯一对应，请保留原稿并从内容库查看。')}options.open=false;return}
   options.open=false;
   if(button.hasAttribute('data-cell-remove')){undoPoint();items.splice(index,1);openEditor(n.id);change()}

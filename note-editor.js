@@ -380,7 +380,7 @@
   for(const view of session.views.values())pauseSource(view.paper);whiteboardMedia.close();session.aside.remove();session.host.classList.remove('note-comparing','source-reading-full','source-focused','source-comparing-canvas','source-stacked');session.root.inert=false;session.root.removeAttribute('aria-hidden');
   if(session.returnAction){session.returnAction.removeEventListener('click',session.returnClick,true);session.returnAction.innerHTML=session.returnMarkup}const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=session.heading;
   session.host.querySelector('#immersiveDetails')?.removeAttribute('hidden');
-  if(focus&&session.root.isConnected&&board===session.source&&boardId===session.board&&editorId===session.author.id){
+  if(focus&&session.root.isConnected&&board===session.source&&boardId===session.board&&editorId===session.author.id&&(!session.extraOwns||session.extraOwns())){
    const input=session.input;if(input?.isConnected){const hiddenDetails=input.closest('details:not([open])'),target=input.hidden?session.root.querySelector('#notePreview'):hiddenDetails?hiddenDetails.querySelector('summary'):input;if(target){if(session.mode==='canvas'&&window.whiteboardNavigation?.focusPreservingView)whiteboardNavigation.focusPreservingView(target);else target.focus({preventScroll:true})}remember(input)}
   }
  }
@@ -396,7 +396,7 @@
   const title=session.host.querySelector('.immersive-heading>span');if(title)title.textContent=narrow?((session.row?.kind||session.originKind)==='library'?'查看原件':'查看资料'):session.heading;
   session.host.querySelector('#immersiveDetails')?.toggleAttribute('hidden',narrow);
   if(narrow&&session.root.contains(document.activeElement))session.aside.querySelector('.source-peek-return').focus({preventScroll:true});
-  if(session.row?.board===boardId){const node=nestedTarget(session.row.node.id)?.node;if(node!==session.row.node||JSON.stringify(node)!==session.signature)session.render(node?{...session.row,node}:null)}
+  if(session.row?.kind!=='file'&&session.row?.board===boardId){const node=nestedTarget(session.row.node.id)?.node;if(node!==session.row.node||JSON.stringify(node)!==session.signature)session.render(node?{...session.row,node}:null)}
  }
  function canCompare(row){return row&&['note','image','table'].includes(row.node.type)}
  function sourceAssetIds(node,ids=new Set()){for(const id of [node.assetId,node.mediaId])if(id)ids.add(id);for(const image of node.images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellImages||[])for(const images of row||[])for(const image of images||[])if(image.assetId)ids.add(image.assetId);for(const row of node.cellItems||[])for(const items of row||[])for(const item of items||[])sourceAssetIds(item,ids);return [...ids]}
@@ -429,20 +429,22 @@
    for(const current of session.rows){const option=document.createElement('option');option.value=key(current);option.textContent=noteLabel(current.node)+(current.board!==session.board?' · '+current.name:'');select.append(option)}
    for(const view of session.views.values()){pauseSource(view.paper);view.paper.hidden=true}whiteboardMedia.close();
    let view=session.views.get(key(item));if(view&&view.signature!==session.signature){pauseSource(view.paper);view.paper.remove();session.views.delete(key(item));view=null}
-   if(!view){const template=document.createElement('template');template.innerHTML=noteMarkup(item.node,true);const paper=template.content.firstElementChild;paper.classList.remove('active');paper.classList.add('note-source-card');paper.removeAttribute('data-id');paper.style.setProperty('--body-size',(item.node.fontSize||16)+'px');paper.style.setProperty('--title-size',(item.node.titleFontSize||24)+'px');for(const table of paper.querySelectorAll('.table-scroll')){table.classList.add('note-text-scroll');table.dataset.noteScroll='table'}paper.querySelectorAll('.port,.resize,.block-actions,.space-card-label,.inline-toolbar,.table-actions,.table-help,.table-grip,.col-remove,.add-cell-image,button[disabled]').forEach(el=>el.remove());
+   if(!view){const template=document.createElement('template');template.innerHTML=noteMarkup(item.node,true);const paper=template.content.firstElementChild;paper.classList.remove('active');paper.classList.add('note-source-card');paper.removeAttribute('data-id');if(item.kind==='file')for(const box of paper.querySelectorAll('.inline-document')){box.style.flex='none';box.style.height='clamp(260px, calc(100dvh - 330px), 640px)';box.style.minHeight='260px'}paper.style.setProperty('--body-size',(item.node.fontSize||16)+'px');paper.style.setProperty('--title-size',(item.node.titleFontSize||24)+'px');for(const table of paper.querySelectorAll('.table-scroll')){table.classList.add('note-text-scroll');table.dataset.noteScroll='table'}paper.querySelectorAll('.port,.resize,.block-actions,.space-card-label,.inline-toolbar,.table-actions,.table-help,.table-grip,.col-remove,.add-cell-image,button[disabled]').forEach(el=>el.remove());
     view={paper,row:item,signature:session.signature};session.views.set(key(item),view);box.append(paper);
     for(const img of paper.querySelectorAll('.cell-images img')){const button=document.createElement('button');button.type='button';button.className='note-source-image inline-ui';button.setAttribute('aria-label','查看原图：'+(img.alt||item.node.title||'图片'));img.before(button);button.append(img);button.onclick=()=>{if(ownsSourcePeek(session))openImageView(img.currentSrc||img.src,img.alt||item.node.title||'图片')}}
     for(const link of paper.querySelectorAll('a[data-file-link]')){const asset=assetById(item.node.assetId);if(!documentKind(asset))continue;const button=document.createElement('button');button.type='button';button.className='note-source-expand inline-ui';button.textContent='放大查看';button.onclick=()=>{session.full=!session.full;session.host.classList.toggle('source-reading-full',session.full);button.textContent=session.full?'并排查看':'放大查看';layoutSourcePeek()};link.replaceWith(button)}
    }else{view.row=item;session.views.delete(key(item));session.views.set(key(item),view)}
    view.paper.hidden=false;view.paper.querySelectorAll('.note-source-expand').forEach(button=>button.textContent=session.full?'并排查看':'放大查看');growContentFields(view.paper);select.value=key(item);box.scrollTop=session.positions.get(key(item))||0;
    while(session.views.size>6){const [id,old]=session.views.entries().next().value;pauseSource(old.paper);old.paper.remove();session.views.delete(id)}
+   if(item.kind==='file'&&item.fileData)for(const box of view.paper.querySelectorAll('.inline-document[data-document-kind=json]'))if(!box.dataset.mounted){box.dataset.mounted='true';renderJSONReader(box,item.fileData)}
    fillTextPreviews(view.paper);mountInlineDocuments();mountReadingState();whiteboardMedia.mount();whiteboardMedia.markers.mount();scheduleScrollSurfaces();
 
-   const label=aside.querySelector('header label');label.firstChild.textContent=item.kind==='library'?'库中原件':'资料';let name=label.querySelector('.source-peek-name');if(!name){name=document.createElement('span');name.className='source-peek-name';label.append(name)}name.textContent=item.name;const single=item.kind==='library'&&session.rows.length===1;name.hidden=!single;select.hidden=single;layoutSourcePeek();path.hidden=!session.trail.length&&(item.kind==='library'||item.board===session.board);back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.kind==='library'||item.board===session.board;open.title='打开白板：'+item.name;message('');
+   const label=aside.querySelector('header label');label.firstChild.textContent=item.kind==='library'?'库中原件':'资料';let name=label.querySelector('.source-peek-name');if(!name){name=document.createElement('span');name.className='source-peek-name';label.append(name)}name.textContent=item.name;const single=['library','file'].includes(item.kind)&&session.rows.length===1;name.hidden=!single;select.hidden=single;layoutSourcePeek();path.hidden=!session.trail.length&&(item.kind==='library'||item.board===session.board);back.hidden=!session.trail.length;path.querySelector('span').textContent=item.name;open.hidden=item.kind==='library'||item.board===session.board;open.title='打开白板：'+item.name;message('');
   };
   const recordsFor=async id=>{if(id===session.board)return noteRecords(board,id);const value=await(await api('/api/boards/'+encodeURIComponent(id))).json();return noteRecords(value,id)};
   const libraryReadFailure=error=>Object.assign(error instanceof Error?error:new Error(String(error)),{libraryOriginalUnavailable:true});
   const rowsFor=async item=>{
+   if(item.kind==='file'){if(!extraOwns?.())throw Error('这份文件的所属位置已有变化，请保留原稿。');const asset=assetById(item.assetId);return documentKind(asset)==='json'?[{...item,fileData:await readJSONDocument(asset)}]:[item]}
    if(item.kind!=='library')return recordsFor(item.board);
    try{
    // A fresh read never replaces the live editor or its shared library index.
@@ -790,8 +792,8 @@
  }
 
  // A selected ordinary-table copy owns its exact cell and library pointer.
- function captureCellOriginContext(id,section,input){
-  const author=board?.nodes.find(n=>n.id===id);if(author?.type!=='table'||author.documentMode||editorId!==id||loading||blocked||window.whiteboardHosted?.paused)return null;
+ function captureCellOriginContext(id,section,input,allowDocument=false){
+  const author=board?.nodes.find(n=>n.id===id);if(author?.type!=='table'||author.documentMode&&!allowDocument||editorId!==id||loading||blocked||window.whiteboardHosted?.paused)return null;
   const place=captureReferencePlace(id);if(place?.mode!=='expanded')return null;
   const root=$('immersiveSurface');if(!root?.contains(section)||section.closest('.note-source-card'))return null;
   const r=+section.dataset.cellR,c=+section.dataset.cellC,index=+section.dataset.cellItem,items=author.cellItems?.[r]?.[c],item=items?.[index];if(![r,c,index].every(Number.isInteger)||!item||typeof item.id!=='string'||items.filter(value=>value.id===item.id).length!==1)return null;
@@ -807,6 +809,27 @@
 
  }
  function ownsCellOrigin(context){return !!context&&board===context.owner&&boardId===context.board&&board.nodes.includes(context.author)&&editorId===context.author.id&&context.root.isConnected&&context.section.isConnected&&context.root.contains(context.section)&&!loading&&!blocked&&!window.whiteboardHosted?.paused&&(window.whiteboardHosted||null)===context.scope&&JSON.stringify([context.scope?.account?.id??context.scope?.account,context.scope?.workspace])===context.scopeKey&&(context.place.mode==='expanded'?$('dialog').open&&$('immersiveSurface')===context.root:!$('dialog').open)&&context.author.rowIds?.[context.r]===context.row&&context.author.columnIds?.[context.c]===context.column&&context.author.cellItems?.[context.r]?.[context.c]===context.items&&context.items[context.index]===context.item&&context.items.filter(value=>value.id===context.item.id).length===1&&JSON.stringify(cellItemOrigin(context.item,context.author))===context.originSignature}
+ function captureCellFileContext(id,section,input){
+  const context=captureCellOriginContext(id,section,input,true);if(!context)return null;
+  const item=context.item,identity=item.assetId||item.mediaId,assets=assetIndex.assets.filter(asset=>asset.id===identity);
+  if(item.type!=='note'||item.canvasObject||item.assetId&&item.mediaId&&item.assetId!==item.mediaId||assets.length!==1||!documentKind(assets[0]))return null;
+  // Duplicate authored IDs are never resolved by choosing a different cell.
+  if(noteRecords(board,boardId).filter(row=>row.node.id===item.id).length!==1)return null;
+  let outer;try{outer=parent===window?null:parent.whiteboardHosted||null}catch{return null}
+  const hosts=[context.scope,outer].filter(Boolean),account=host=>host.account?.id??(typeof host.account==='object'?null:host.account);if(hosts.some(host=>host.paused||account(host)==null||host.workspace==null||host.base==null)||hosts.length>1&&JSON.stringify([account(hosts[0]),hosts[0].workspace])!==JSON.stringify([account(hosts[1]),hosts[1].workspace]))return null;
+  const asset=assets[0],version=JSON.stringify(asset),outerKey=JSON.stringify([outer?.account?.id??outer?.account,outer?.workspace,outer?.base]),innerBase=context.scope?.base;
+  context.fileAsset=asset;
+  context.fileOwns=()=>{
+   let current;try{current=parent===window?null:parent.whiteboardHosted||null}catch{return false}
+   return ownsCellOrigin(context)&&(context.item.assetId||context.item.mediaId)===identity&&JSON.stringify(assetById(identity))===version&&context.scope?.base===innerBase&&current===outer&&!current?.paused&&JSON.stringify([current?.account?.id??current?.account,current?.workspace,current?.base])===outerKey;
+  };
+  return context;
+ }
+ function peekCellFile(context){
+  if(!context?.fileOwns?.())return false;
+  const asset=context.fileAsset,item=context.item,node={id:item.id,type:'note',title:asset.title||item.title||'文件资料',body:'',assetId:asset.id,tags:[],x:0,y:0,w:340,h:240};
+  return peekReference({kind:'file',assetId:asset.id,board:context.board,name:asset.title||'文件资料',node},context.place,[],true,context.fileOwns);
+ }
  function peekCellOrigin(context){
   if(!ownsCellOrigin(context))return false;const input=referenceFieldAt(context.place,context.root);if(context.place.field&&(context.place.field.value===null||!input?.isConnected||input.value!==context.place.field.value))return false;
   const refuse=()=>{if(sourcePeek?.root===context.root)closeSourcePeek(false);return false};
@@ -816,7 +839,7 @@
   return peekReference({kind:'library',assetId:origin.id,originNodeId:origin.nodeId,originRootNodeId:rootId,board:null,name:asset.title,node:clone(node)},context.place,[],false,()=>ownsCellOrigin(context));
  }
 
- window.whiteboardNoteEditor={captureCellOriginContext,peekCellOrigin,capturePaperOriginContext,peekPaperOrigin,locateLibraryCopy,openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
+ window.whiteboardNoteEditor={captureCellFileContext,peekCellFile,captureCellOriginContext,peekCellOrigin,capturePaperOriginContext,peekPaperOrigin,locateLibraryCopy,openBoardLinks,sourceContext,fieldSelector,captureSearchContext,compareSearchResult,keepsEditor:()=>!!sourcePeek&&ownsSourcePeek(sourcePeek),visitReference,render:rendered,renderPlain:linkedText,bindDraftReference,readableReference:raw=>projectReferences(String(raw||'')).display,records:noteRecords,format,openAppearance,writeFrom,mountRelations,syncRelations,close:closePanel,dismissSource:()=>{if(!sourcePeek)return false;closeSourcePeek();return true},dismiss:()=>{dismissPanel()}};
 })();
 
 // Distance changes presentation only: keep original content, editors and players mounted.
