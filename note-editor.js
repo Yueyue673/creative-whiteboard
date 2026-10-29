@@ -269,7 +269,7 @@
   hex.onchange=()=>{if(!active())return;if(!/^#[0-9a-f]{6}$/i.test(hex.value)){hex.setCustomValidity('请填写完整颜色，例如 #fff0aa');hex.reportValidity();return}hex.setCustomValidity('');if(n.color!==hex.value){checkpoint();choose(hex.value)}};hex.oninput=()=>hex.setCustomValidity('');
   box.querySelectorAll('[data-paper]').forEach(b=>b.onclick=()=>{if(!active()||(n.paperStyle||'plain')===b.dataset.paper)return;checkpoint();n.paperStyle=b.dataset.paper;updateSurface(n);refresh()});show(trigger);
  }
- function remember(el){if(el?.matches('textarea')&&(referenceFields.has(el)||['body','userText','annotation'].includes(el.id))){field=el;range={start:el.selectionStart,end:el.selectionEnd}}}
+ function remember(el){if(el?.matches('textarea')&&(referenceFields.has(el)||['body','userText','annotation'].includes(el.id))){field=el;range={start:el.selectionStart,end:el.selectionEnd};panel?._refreshSelectionInfo?.()}}
  function ownsField(n){return !loading&&!blocked&&field?.isConnected&&editorId===n?.id&&board?.nodes.includes(n)&&field.closest('.node')?.dataset.id===n.id&&(!document.getElementById('dialog').open||Boolean(field.closest('#dialog.immersive-dialog')))}
  function setText(n,value,start,end){if(!ownsField(n))return false;checkpoint();if(n.type!=='table')n.textFormat='markdown';const binding=referenceFields.get(field),raw=serializeField(field,value);if(binding)binding.write(binding.parse(raw));else n[field.id]=raw;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();return true;}
  function format(n,kind){
@@ -337,10 +337,33 @@
   };
   name.focus({preventScroll:true});positionPanel(trigger);prepare();
  }
+ let selectionSegmenter;
+ function mountFormatSelectionInfo(box,active){
+  const info=document.createElement('p');info.className='note-format-selection';info.setAttribute('aria-label','当前文字范围');info.setAttribute('aria-live','off');box.querySelector('header').after(info);let previous=null;
+  box._refreshSelectionInfo=()=>{
+   const collect=box.querySelector('.note-selection-entry');
+   if(!info.isConnected||!box.contains(info)||!active()){info.hidden=true;if(collect)collect.disabled=true;return}info.hidden=false;
+   const value=field.value,start=range?.start??field.selectionStart,end=range?.end??field.selectionEnd;
+   if(collect)collect.disabled=field.readOnly||field.disabled||start===end;
+   if(previous&&previous.field===field&&previous.value===value&&previous.start===start&&previous.end===end)return;
+   previous={field,value,start,end};const label=({body:'正文',userText:'自己的补充',annotation:'备注'})[field.id]||'当前文字';let summary='未选中文字';
+   if(end>start){
+    summary='已选文字';
+    if(end-start>200000)summary='所选文字较长，未统计';
+    else try{
+     if(selectionSegmenter===undefined)selectionSegmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(undefined,{granularity:'grapheme'}):null;
+     if(selectionSegmenter){let count=0;for(const item of selectionSegmenter.segment(value.slice(start,end)))count++;summary='已选 '+count+' 个字符'}
+    }catch{selectionSegmenter=null}
+   }
+   info.textContent=label+' · '+summary;info.title='按当前输入中所选的可见字符计数，含空格和换行。只看这个字段，不统计其他文字或附件。';
+  };
+  box._refreshSelectionInfo();
+ }
  function openFormat(trigger,n){const box=popup(trigger,n,'format');if(!box)return;
   const source=board,sourceId=boardId,active=()=>panel===box&&board===source&&boardId===sourceId&&ownsField(n);
   if(!field?.isConnected){field=document.getElementById('body');remember(field)}
   box.innerHTML='<header><b>文字格式</b><button type="button" aria-label="关闭文字格式">×</button></header><div class="note-format-grid">'+[['bold','粗体','B'],['italic','斜体','I'],['strike','删除线','S'],['highlight','高亮','标记'],['code','行内代码','代码'],['heading','标题','H1'],['quote','引用','引用'],['bullet','无序列表','• 列表'],['number','有序列表','1. 列表'],['task','任务列表','☐ 任务'],['fence','代码块','代码块']].map(([id,label,text])=>'<button type="button" data-format="'+id+'" aria-label="'+label+'" title="'+label+'">'+text+'</button>').join('')+'</div><label class="note-external-link">外部链接<input type="url" aria-label="外部链接网址" placeholder="https://"><button type="button" data-insert-link>插入链接</button></label><label class="note-mode"><input type="checkbox" '+(n.textFormat==='markdown'?'checked':'')+'>按 Markdown 显示</label><p>选中文字后应用；Ctrl+B 粗体，Ctrl+I 斜体。原文保存在便签里。</p>';
+  mountFormatSelectionInfo(box,active);
   const collect=document.createElement('button');collect.type='button';collect.className='note-selection-entry';collect.textContent='所选文字存到库';collect.disabled=!ownsField(n)||field.readOnly||field.disabled||field.selectionStart===field.selectionEnd;collect.onpointerdown=event=>event.preventDefault();collect.onclick=()=>{if(active())openSelectionResource(box,trigger,n)};box.querySelector('.note-format-grid').after(collect);box.querySelector('header button').onclick=()=>{if(active())closePanel()};box.querySelectorAll('[data-format]').forEach(b=>{b.onpointerdown=e=>e.preventDefault();b.onclick=()=>{if(active()&&format(n,b.dataset.format))box.querySelector('input[type=checkbox]').checked=true}});
   box.querySelector('[data-insert-link]').onclick=()=>{if(!active()||!ownsField(n))return;const input=box.querySelector('input[type=url]'),url=input.value.trim();if(!/^(https?:\/\/|mailto:)/i.test(url)||!parser.validateLink(url)){input.setCustomValidity('请填写 http、https 或 mailto 链接');input.reportValidity();return}input.setCustomValidity('');const {start,end}=range||{start:field.selectionStart,end:field.selectionEnd},label=field.value.slice(start,end)||url,link='['+label.replace(/[\\[\]]/g,'\\$&')+'](<'+url.replace(/[<>\s]/g,c=>encodeURIComponent(c))+'>)';if(setText(n,field.value.slice(0,start)+link+field.value.slice(end),start+link.length,start+link.length))box.querySelector('input[type=checkbox]').checked=true};
   box.querySelector('input[type=url]').oninput=e=>e.target.setCustomValidity('');box.querySelector('input[type=checkbox]').onchange=e=>{if(!active())return;checkpoint();n.textFormat=e.target.checked?'markdown':'plain';change()};show(trigger);

@@ -249,3 +249,5 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 
 /* The original relation choices can identify an item inside its table. */
 .note-link-row .note-link-location,.note-reference-choice .note-link-location{white-space:normal;overflow-wrap:anywhere;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+
+.note-tools .note-format-selection{margin:0 0 12px;color:var(--ui-text);font-size:12px}
