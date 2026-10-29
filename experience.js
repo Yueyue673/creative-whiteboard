@@ -191,16 +191,33 @@
   if(!active||active===document.body||active===$('dialog')||$('dialog').contains(active))canvas.focus({preventScroll:true});
  });
  async function referenceDialog({replaceId=null,initialPaths='',folder=assetFolder}={}){
-  showDialog('<h2>'+(replaceId?'重新定位原文件':'引用本地文件')+'</h2><p class="wf-explain">'+(replaceId?'此文件在所有白板上的引用会一起更新。你的文字、尺寸和连线保留。':'保留文件原位置，不复制。可以从文件资源管理器复制路径后粘贴在这里。')+'</p><label>文件路径<textarea id="referencePaths" rows="3" placeholder="每行一个完整路径">'+esc(initialPaths)+'</textarea></label>'+(replaceId?'':'<label>存放位置<select id="referenceFolder">'+libraryFolderOptions(folder)+'</select></label>')+'<p id="referenceError" role="status"></p>',[['取消',()=>$('dialog').close()],[replaceId?'更新位置':'添加',async()=>{
+  const ownerScope=libraryPreviewEditScope(),label=replaceId?'更新位置':'添加';let busy=false,accepted=null;
+  const current=()=>{const scope=libraryPreviewEditScope();return !!ownerScope&&!!scope&&scope.inner===ownerScope.inner&&scope.outer===ownerScope.outer&&scope.key===ownerScope.key&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&[scope.inner,scope.outer].every(value=>!value||!value.paused&&value.role!=='viewer'&&value.account?.id!=null&&value.workspace!=null&&value.base!=null)};
+  showDialog('<h2>'+(replaceId?'重新定位原文件':'引用本地文件')+'</h2><p class="wf-explain">'+(replaceId?'此文件在所有白板上的引用会一起更新。你的文字、尺寸和连线保留。':'保留文件原位置，不复制。可以从文件资源管理器复制路径后粘贴在这里。')+'</p><label>文件路径<textarea id="referencePaths" rows="3" placeholder="每行一个完整路径">'+esc(initialPaths)+'</textarea></label>'+(replaceId?'':'<label>存放位置<select id="referenceFolder">'+libraryFolderOptions(folder)+'</select></label>')+'<p id="referenceError" role="status"></p>',[['取消',()=>$('dialog').close()],[label,()=>submit()]]);
+  const input=$('referencePaths'),destination=$('referenceFolder'),error=$('referenceError'),button=$('dialogActions').lastElementChild,active=()=>input.isConnected&&$('dialog').open&&$('dialogBody').contains(input),owns=()=>active()&&current(),scopeProblem=()=>{if(active())error.textContent='所属位置已有变化，路径仍保留。请回到原位置再试。'};
+  async function submit(){
+   if(busy||!active())return;if(!owns()){scopeProblem();return}
+   busy=true;button.disabled=true;input.readOnly=true;if(destination)destination.disabled=true;error.textContent='';
    try{
-    const paths=$('referencePaths').value.split(/\r?\n/).map(p=>p.trim().replace(/^"(.*)"$/,'$1')).filter(Boolean);
-    const destination=replaceId?'':$('referenceFolder').value,target=libraryFolderTarget(destination);
-    const response=await api('/api/assets/reference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paths,folder:destination,folderId:target.id,replaceId})});
-    const result=await response.json();await loadAssets();$('dialog').close();
+    if(!accepted){
+     const paths=input.value.split(/\r?\n/).map(p=>p.trim().replace(/^"(.*)"$/,'$1')).filter(Boolean),folder=replaceId?'':destination.value,target=libraryFolderTarget(folder);
+     const response=await api('/api/assets/reference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paths,folder,folderId:target.id,replaceId})}),result=await response.json();
+     if(!Array.isArray(result.assets)||!result.assets.length||result.assets.some(item=>!item?.id||typeof item.path!=='string'))throw Error('暂未确认文件引用结果，请核对内容库后再试。');
+     accepted=result;
+    }
+    if(!owns()){scopeProblem();return}
+    await loadAssets({redraw:false});if(!owns()){scopeProblem();return}
+    if(accepted.assets.some(item=>{const matches=assetIndex.assets.filter(value=>value.id===item.id&&!value.archived);return matches.length!==1||matches[0].path!==item.path||matches[0].mime!==item.mime})){error.textContent='已保存的文件引用已有变化，请从内容库核对。路径仍保留。';return}
+    $('dialog').close();if(!current())return;
     if(replaceId){imageRatios.delete(replaceId);drawNodes();toast('已更新文件位置，内容和连线保留')}
-    else{await placeAssets(result.assets.map(a=>a.id));if(result.assets.some(a=>a.destinationMissing))toast('原文件夹已删除，文件引用保留在内容库根目录，可以重新放置。')}
-   }catch(err){$('referenceError').textContent=err.message}
-  }]]);
+    else{await placeAssets(accepted.assets.map(item=>item.id));if(current()&&accepted.assets.some(item=>item.destinationMissing&&assetById(item.id)?.folder===''))toast('原文件夹已删除，文件引用保留在内容库根目录，可以重新放置。')}
+   }catch(reason){
+    if(active()){if(!current())scopeProblem();else error.textContent=accepted?'文件引用已保存，暂未读回内容库。路径仍保留，可点“重试读取”。':reason.message}
+    else if(accepted&&current()&&!$('dialog').open)toast('文件引用已保存，暂未完成显示：'+reason.message);
+   }finally{
+    busy=false;if(active()){input.readOnly=!!accepted;if(destination)destination.disabled=!!accepted;button.disabled=false;button.textContent=accepted?'重试读取':label}
+   }
+  }
  }
  const importClick=$('import').onclick;
  const importOptions=()=>[['选择文件…',()=>importClick()],['引用本地文件…',()=>referenceDialog()]];

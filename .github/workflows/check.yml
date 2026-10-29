@@ -136,6 +136,7 @@ jobs:
           LIBRARY_GENERATED_COUNT_NOTE_PROOF: .ci-proofs/library-generated-count-note
           FOLDER_CREATE_REFRESH_PROOF: .ci-proofs/library-folder-create-refresh
           TOOLBAR_FOLDER_DRAFT_PROOF: .ci-proofs/library-toolbar-folder-draft
+          FILE_REFERENCE_RETURN_PROOF: .ci-proofs/file-reference-dialog-return
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
@@ -1090,5 +1091,15 @@ jobs:
           path: |
             .ci-proofs/library-toolbar-folder-draft/result.json
             .ci-proofs/library-toolbar-folder-draft/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated file-reference-dialog-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-reference-dialog-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/file-reference-dialog-return/result.json
+            .ci-proofs/file-reference-dialog-return/*.png
           if-no-files-found: ignore
           retention-days: 3
