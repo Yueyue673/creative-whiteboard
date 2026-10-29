@@ -63,7 +63,15 @@
   for(const key of state.mode==='file'?['title','notes','tags']:['title'])add(key,({title:'内容名称',notes:'备注',tags:'标签'})[key],state.base[key],draft[key],a=>a[key],(a,v)=>a[key]=clone(v));
   if(state.mode==='content'){
    for(const n of draft.bundle.nodes){
-    const original=state.base.bundle.nodes.find(node=>node.id===n.id);if(!original)continue;
+    const original=state.base.bundle.nodes.find(node=>node.id===n.id);
+    if(!original){
+     if(state.addedNoteIds?.has(n.id))add('node:'+n.id+':added','新增 '+pieceLabel(n,draft.bundle.nodes.indexOf(n)),undefined,copy(n),a=>a.bundle?.nodes.find(node=>node.id===n.id),(a,value)=>{
+      const found=a.bundle.nodes.filter(node=>node.id===n.id);
+      if(!found.length)a.bundle.nodes.push(copy(value));
+      else if(found.length!==1||!equal(found[0],value))throw Error('新增便签的编号已有另一版内容。请保留输入并另存，原件保持现状。');
+     });
+     continue;
+    }
     for(const key of ['title','body','userText','annotation'])add('node:'+n.id+':'+key,(n.title||'未命名内容')+' · '+({title:'标题',body:'正文',userText:'自己的补充',annotation:'备注'})[key],original[key]||'',n[key]||'',a=>a.bundle?.nodes.find(node=>node.id===n.id)?.[key]||'',(a,v)=>a.bundle.nodes.find(node=>node.id===n.id)[key]=clone(v),n.id);
     documentChanges(state,original,n,add);
     tableChanges(original,n,add);
@@ -128,6 +136,10 @@
   if(!current||current.archived)return '原件已从内容库移除。你的输入仍保留，可以另存一份继续使用。';
   if(state.mode==='content'){
    if(current.mime!==bundleMime||!current.bundle)return '原件的内容类型已改变。可以把你的编辑另存，原件保持现状。';
+   for(const node of draft.bundle.nodes)if(state.addedNoteIds?.has(node.id)&&!state.base.bundle.nodes.some(old=>old.id===node.id)){
+    const found=current.bundle.nodes.filter(old=>old.id===node.id);
+    if(found.length&&(found.length!==1||!equal(found[0],node)))return '新增便签的编号已有另一版内容。你的输入仍保留，可以另存一份；原件保持现状。';
+   }
    const changed=fields(state,draft).filter(change=>change.nodeId!==null);
    if(changed.some(change=>!current.bundle.nodes.some(node=>node.id===change.nodeId)))return '你正在修改的内容块已从原件移除。可以另存你的编辑，原件保持现状。';
    if(changed.some(change=>change.documentContent&&current.bundle.nodes.some(node=>node.id===change.nodeId&&(node.type!=='table'||node.documentMode!==true))))return '原件的长文结构已改变。可以另存你的编辑，原件保持现状。';
@@ -143,7 +155,7 @@
   if(freeze){state.frozen=[...state.form.querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);for(const el of state.frozen)el.disabled=true}
   else if(!value){for(const el of state.frozen||[])if(el.isConnected)el.disabled=false;state.frozen=[]}
   state.refreshTableTextControls?.();
-  state.refreshTableRowControls?.();state.refreshTableColumnControls?.();
+  state.refreshTableRowControls?.();state.refreshTableColumnControls?.();state.refreshNoteControls?.();
  }
  function newNoteName(node){
   for(const value of [node.title,node.body,node.userText,node.annotation]){
@@ -295,12 +307,13 @@
   }
   return prefix+hint;
  }
+ function blankLibraryNote(){return {id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:colors[0]}}
  function editContent(id=null,kind='note'){
   const original=id?assetById(id):null;if(original&&original.mime!==bundleMime)return editFile(id);
   if(id&&!original)return toast('这项内容已移走，请重新选择。');
   if(original&&!original.bundle?.nodes.length)return toast('这份组合没有内容块，可以先把内容收进库，再继续编辑。');
-  const freshNode=()=>kind==='table'?{id:uid(),type:'table',sizeMode:'manual',x:0,y:0,w:620,h:360,title:'',body:'',userText:'',annotation:'',tags:[],color:'#ffffff',...tableData(Array.from({length:3},()=>['','','']),false),rowIds:Array.from({length:3},()=>uid()),columnIds:Array.from({length:3},()=>uid())}:{id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:340,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:colors[0]};
-  const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[freshNode()],edges:[]}},busy:false};let index=0;
+  const freshNode=()=>kind==='table'?{id:uid(),type:'table',sizeMode:'manual',x:0,y:0,w:620,h:360,title:'',body:'',userText:'',annotation:'',tags:[],color:'#ffffff',...tableData(Array.from({length:3},()=>['','','']),false),rowIds:Array.from({length:3},()=>uid()),columnIds:Array.from({length:3},()=>uid())}:blankLibraryNote();
+  const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[freshNode()],edges:[]}},busy:false,addedNoteIds:new Set()};let index=0;
   const supplement=original?'<div id="librarySupplement"></div>':'<details class="library-note-details"><summary><span class="library-note-caret" aria-hidden="true">›</span>补充和备注</summary><div id="librarySupplement"></div></details>';
   showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">已放到白板上的副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">可直接填写三行三列，或从表格文本开始。记录增多时可在末尾加行，保存后继续复用。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(pieceLabel(n,i))+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>$('dialog').close()],['保存到内容库',()=>save(state)]]);
   const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value;for(const {field,path,initial,initialValue,root}of state.documentFields||[]){let target=root||state.draft.bundle.nodes[index].cellItems[0][0];for(const key of path.slice(0,-1))target=target[key];const key=path.at(-1);if(field.value!==initial)target[key]=field.value;else if(initialValue===undefined)delete target[key];else target[key]=copy(initialValue)}};
@@ -502,10 +515,58 @@
   }
   state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newContentName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);
-  const piece=state.form.querySelector('#libraryPiece');
-  state.refreshSavedPieceLabel=()=>{if(piece?.options[index])piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index)};
-  if(piece)piece.onchange=()=>{if(!active(state))return;capturePiece();piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index);index=Number(piece.value);draw()};
+  let piece=state.form.querySelector('#libraryPiece'),ownedPieceLabel=null;
+  const noteKeys=['title','body','userText','annotation'];
+  const ownedLastNote=()=>{
+   const node=state.draft.bundle.nodes.at(-1);
+   return node?.type==='note'&&state.addedNoteIds.has(node.id)&&!state.base?.bundle.nodes.some(old=>old.id===node.id)?node:null;
+  };
+  const emptyAddedNote=node=>noteKeys.every(key=>(node[key]||'')==='')&&!node.assetId&&!node.mediaId&&!node.url&&!node.images?.length&&!node.tags?.length;
+  function refreshNoteControls(){
+   if(!state.noteAdd)return;
+   state.noteAdd.disabled=state.busy||!active(state);
+   const node=ownedLastNote(),here=node&&state.draft.bundle.nodes[index]===node;
+   const visible=here?{...node,...Object.fromEntries(noteKeys.map(key=>[key,state.form.querySelector('#library-'+key)?.value??node[key]]))}:node;
+   state.noteUndo.hidden=!node;state.noteUndo.disabled=state.busy||!active(state)||!here||!emptyAddedNote(visible);
+  }
+  function selectPiece(event){
+   if(!active(state)||event.currentTarget!==piece||!piece.isConnected)return;
+   capturePiece();if(piece.options[index])piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index);
+   const next=Number(piece.value);if(!Number.isInteger(next)||next<0||next>=state.draft.bundle.nodes.length)return;
+   index=next;draw();refreshNoteControls();
+  }
+  function rebuildPieces(){
+   if(state.draft.bundle.nodes.length===1&&ownedPieceLabel){ownedPieceLabel.remove();ownedPieceLabel=null;piece=null;return}
+   if(!piece){
+    ownedPieceLabel=element('label','','选择要编辑的内容');piece=document.createElement('select');piece.id='libraryPiece';ownedPieceLabel.append(piece);state.form.querySelector('.library-content-writing').prepend(ownedPieceLabel);
+   }
+   piece.replaceChildren(...state.draft.bundle.nodes.map((node,i)=>new Option(pieceLabel(node,i),String(i))));piece.value=String(index);piece.onchange=selectPiece;
+  }
+  if(original){
+   const actions=element('div','library-table-text-actions library-note-actions'),add=element('button','','添加便签'),undo=element('button','','撤回新增空白便签');
+   add.type=undo.type='button';add.dataset.libraryAddNote='';undo.dataset.libraryUndoNote='';undo.title='只可撤回这次新增、尚未保存且仍为空的末尾便签';
+   actions.append(add,undo);state.form.querySelector('#libraryFields').before(actions);state.noteAdd=add;state.noteUndo=undo;state.refreshNoteControls=refreshNoteControls;
+   add.onclick=()=>{
+    if(!active(state)||state.busy||!add.isConnected)return;
+    capturePiece();const node=blankLibraryNote();if(state.draft.bundle.nodes.some(old=>old.id===node.id))return notice(state,'暂时未能添加，请重试。原内容保留。');
+    let x=Infinity,bottom=-Infinity;
+    for(const old of state.draft.bundle.nodes){const left=Number.isFinite(old.x)?old.x:0,top=Number.isFinite(old.y)?old.y:0,height=Number.isFinite(old.h)&&old.h>0?old.h:120;x=Math.min(x,left);bottom=Math.max(bottom,top+height)}
+    const y=bottom+40;if(!Number.isFinite(x)||!Number.isFinite(y)||y<=bottom)return notice(state,'这份资源的范围过大，请先在白板调整后再添加。原内容保留。');
+    node.x=x;node.y=y;state.draft.bundle.nodes.push(node);state.addedNoteIds.add(node.id);index=state.draft.bundle.nodes.length-1;state.savedInPlace=false;notice(state,'');
+    rebuildPieces();draw();refreshNoteControls();state.form.querySelector('#library-body')?.focus({preventScroll:true});
+   };
+   undo.onclick=()=>{
+    if(!active(state)||state.busy||!undo.isConnected)return;
+    capturePiece();const node=ownedLastNote();if(!node||state.draft.bundle.nodes[index]!==node||!emptyAddedNote(node))return;
+    state.draft.bundle.nodes.pop();state.addedNoteIds.delete(node.id);index=Math.max(0,state.draft.bundle.nodes.length-1);state.savedInPlace=false;notice(state,'已撤回这次新增的空白便签');
+    rebuildPieces();draw();refreshNoteControls();(piece||state.form.querySelector('#libraryName'))?.focus({preventScroll:true});
+   };
+   state.form.addEventListener('input',refreshNoteControls);
+  }
+  state.refreshSavedPieceLabel=()=>{if(piece?.options[index])piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index);refreshNoteControls()};
+  if(piece)piece.onchange=selectPiece;
   draw();if(!original&&kind==='table')mountTextIntake();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
+  refreshNoteControls();
   keepWritingOnEscape(state);
  }
  window.whiteboardLibraryEditing={editFile,editContent,keepOnEscape:event=>escapeGuard?.(event)||false};
