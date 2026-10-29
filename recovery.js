@@ -180,7 +180,8 @@
  async function recoverLibraryCopy(token,ids,value){
   if(!ids.size)return toast('先勾选内容');
   const resultScope=recoveryResultScope(),created=[];
-  await loadAssets();if(!active(token))return;
+  // A catalog refresh must not rebuild the expanded editor beneath this history layer.
+  await loadAssets({redraw:dialog===primary});if(!active(token))return;
   const next=clone(assetIndex);
   for(const original of chosenRevision(ids,value)){
    original.id=uid();original.title=(original.title||'未命名内容')+' · 恢复副本';original.updated=Date.now();
