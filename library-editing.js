@@ -201,7 +201,7 @@
   return !before||!now||now.inner!==before.inner||now.outer!==before.outer||now.key!==before.key||[now.inner,now.outer].some(host=>host&&(host.paused||host.role==='viewer'||host.account?.id==null||host.workspace==null||host.base==null))?'所属账号、工作区或编辑权限已有变化。你的输入仍保留，请回到原位置再另存。':'';
  }
  function prepareSeparateCopy(state,draft,target){
-  const make=id=>{const result=clone(draft);result.id=id;result.folder=target;delete result.archived;delete result.archiveBatch;return result};
+  const make=id=>{const result=clone(draft);result.id=id;result.folder=target;delete result.archived;delete result.archiveBatch;if(state.mode==='content'&&state.base)result.libraryReference={id:state.base.id,name:state.base.title};return result};
   const pending=state.copyAttempt;
   if(pending){
    const result=make(pending.id),found=assetIndex.assets.filter(item=>item.id===pending.id);
