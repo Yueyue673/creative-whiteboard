@@ -454,6 +454,9 @@ function itemBundle(a){if(a.mime===bundleMime)return clone(a.bundle);return {nod
 function librarySubsetIds(a,chosen){const ids=new Set(chosen),nodes=a.bundle.nodes,valid=new Set(nodes.map(n=>n.id));for(const id of ids)if(!valid.has(id))ids.delete(id);for(const f of nodes.filter(n=>ids.has(n.id)&&n.type==='frame'))for(const n of nodes)if(n.x>=f.x&&n.y>=f.y&&n.x+n.w<=f.x+f.w&&n.y+n.h<=f.y+f.h)ids.add(n.id);return ids}
 function subsetBundle(a,chosen){const ids=librarySubsetIds(a,chosen);return {nodes:clone(a.bundle.nodes.filter(n=>ids.has(n.id))),edges:clone(a.bundle.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)))}}
 
+let librarySubsetRestore=null;
+const dialogBeforeLibrarySubset=showDialog;
+showDialog=function(...args){librarySubsetRestore?.();return dialogBeforeLibrarySubset(...args)};
 function saveLibrarySubset(a,chosen,returnTo){
  const bundle=subsetBundle(a,chosen);if(!bundle.nodes.length)return toast('先选择要保留的内容');
  const ids=new Set(bundle.nodes.map(n=>n.id)),source=a.source;
@@ -466,11 +469,17 @@ function saveLibrarySubset(a,chosen,returnTo){
  const body=$('dialogBody'),actions=$('dialogActions'),previous=[...body.children,actions].map(el=>({el,hidden:el.hidden,display:el.style.getPropertyValue('display'),priority:el.style.getPropertyPriority('display')})),returnFocus=returnTo||document.activeElement?.closest('.library-subset-actions')?.querySelector('summary')||document.activeElement;
  for(const item of previous){item.el.hidden=true;item.el.style.setProperty('display','none','important')}
  const form=document.createElement('section');form.className='library-subset-form';form.innerHTML='<h2>把所选另存为新内容</h2><p>保留 '+bundle.nodes.length+' 块内容和其中的 '+bundle.edges.length+' 条连线。原组合与白板保持原样，之后可分别修改。</p>'+((independent||a.sourceReference)?'<p class="wf-explain" data-subset-source-reference>所选内容将作为独立资源保存。保留原组合收录时的白板供参考，不用原白板整体替换这份内容。</p>':'')+'<label>内容名称<input data-subset-name maxlength="1000" value="'+esc(a.title+'（所选）')+'"></label><label>存放位置<select id="subsetDestination">'+libraryFolderOptions(a.folder)+'</select></label><p data-subset-status role="status" hidden></p><div class="library-subset-buttons"><button type="button" data-subset-cancel>返回选择</button><button type="button" data-subset-save>保存到内容库</button></div>';body.append(form);
+ const dialog=$('dialog'),restore=()=>{
+  if(librarySubsetRestore!==restore)return;
+  librarySubsetRestore=null;dialog.removeEventListener('close',closed);form.remove();
+  for(const item of previous)if(item.el.isConnected){item.el.hidden=item.hidden;if(item.display)item.el.style.setProperty('display',item.display,item.priority);else item.el.style.removeProperty('display')}
+ },closed=()=>{if(!dialog.open)restore()};
+ librarySubsetRestore=restore;dialog.addEventListener('close',closed);
  const name=form.querySelector('[data-subset-name]'),destination=$('subsetDestination'),status=form.querySelector('[data-subset-status]'),save=form.querySelector('[data-subset-save]');let target=libraryFolderTarget(destination.value),busy=false;
  const active=()=>$('dialog').open&&form.isConnected&&body.contains(form)&&(!frameElement||!!frameElement.getClientRects().length);
  const message=text=>{status.hidden=!text;status.textContent=text};
  destination.addEventListener('change',()=>{target=libraryFolderTarget(destination.value)});
- form.querySelector('[data-subset-cancel]').onclick=()=>{if(!active()||form.dataset.writing)return;form.remove();for(const item of previous)if(item.el.isConnected){item.el.hidden=item.hidden;if(item.display)item.el.style.setProperty('display',item.display,item.priority);else item.el.style.removeProperty('display')}if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true})};
+ form.querySelector('[data-subset-cancel]').onclick=()=>{if(!active()||form.dataset.writing)return;restore();if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true})};
  save.onclick=async()=>{
   if(busy||!active())return;if(!name.value.trim()){message('请填写内容名称。');name.focus();return}
   busy=true;save.disabled=true;let frozen=[];
@@ -481,7 +490,7 @@ function saveLibrarySubset(a,chosen,returnTo){
    const item={...clone(draft),title,folder,updated:Date.now()},next=clone(assetIndex),existing=next.assets.find(a=>a.id===item.id);if(existing){const before={...clone(existing)},after={...clone(item)};delete before.updated;delete after.updated;if(JSON.stringify(before)!==JSON.stringify(after)){message('这份新内容已有不同编辑，保留现状。可以返回后重新另存。');return}}else next.assets.push(item);
    form.dataset.writing='true';frozen=[...form.querySelectorAll('input,select,button')].filter(el=>!el.disabled);for(const el of frozen)el.disabled=true;
    if(!existing&&!await saveAssets(next)){if(active())message('没有保存成功，输入仍在这里。再点保存会核对最新内容库。');return}
-   if(!active())return;enterAssetFolder(folder);assetSelected=new Set([item.id]);renderAssets();$('dialog').close();toast('已另存所选，原组合保留');
+   if(!active())return;enterAssetFolder(folder);assetSelected=new Set([item.id]);renderAssets();restore();dialog.close();toast('已另存所选，原组合保留');
   }catch(error){if(active())message(error.message||'暂时不能保存，输入仍保留。')}
   finally{busy=false;delete form.dataset.writing;for(const el of frozen)if(el.isConnected)el.disabled=false;if(save.isConnected)save.disabled=false}
  };
@@ -898,7 +907,7 @@ askCollectSelection=function(){
    const name=nameField.value.trim();if(!name)return toast('请填写内容名称');
    const folder=libraryFolderLocation(target),missing=!!(target.id||target.path)&&!folder;
    if(missing)return toast('原存放文件夹已移除，请重新选择位置。');
-   const next=clone(assetIndex),id=uid();next.assets.push({id,title:name,path:'',folder,mime:bundleMime,size:0,notes:bundle.nodes.length+' 块内容',tags:[],bundle,source:{boardId:sourceId,nodeIds:bundle.nodes.map(n=>n.id)},updated:Date.now()});
+   const next=clone(assetIndex),id=uid();next.assets.push({id,title:name,path:'',folder,mime:bundleMime,size:0,notes:'',tags:[],bundle,source:{boardId:sourceId,nodeIds:bundle.nodes.map(n=>n.id)},updated:Date.now()});
    // The fresh read allows editing or cancelling. The final write is one submission.
    frozen=[...$('dialog').querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);for(const el of frozen)el.disabled=true;
    if(await saveAssets(next)&&active()){$('dialog').close();showCollectedResource(id)}
