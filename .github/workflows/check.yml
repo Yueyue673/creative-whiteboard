@@ -120,6 +120,7 @@ jobs:
           SELECTION_VARIANT_PROOF: .ci-proofs/selection-variant
           RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
           MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
+          LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -699,5 +700,16 @@ jobs:
           path: |
             .ci-proofs/media-marker-extract/result.json
             .ci-proofs/media-marker-extract/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-replay-cue evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-replay-cue-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-replay-cue/result.json
+            .ci-proofs/library-replay-cue/*.png
           if-no-files-found: ignore
           retention-days: 3
