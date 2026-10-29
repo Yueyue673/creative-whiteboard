@@ -279,7 +279,7 @@
    input.rows=6;input.dataset.libraryTableText='';format.dataset.libraryTableTextFormat='';
    for(const [value,label]of[['tsv','制表符（表格复制）'],['csv','逗号（CSV）']]){const option=element('option','',label);option.value=value;format.append(option)}
    headerLabel.className='library-table-text-header';header.type='checkbox';header.dataset.libraryTableTextHeader='';headerLabel.append(header,document.createTextNode('首行作为列名'));status.setAttribute('role','status');status.dataset.libraryTableTextState='';preview.dataset.libraryTableTextPreview='';apply.type=undo.type='button';apply.dataset.libraryTableTextApply='';undo.dataset.libraryTableTextUndo='';textLabel.append(input);formatLabel.append(format);actions.append(apply,undo);panel.append(summary,explain,textLabel,formatLabel,headerLabel,status,preview,actions);state.form.querySelector('#libraryFields').before(panel);
-   let parsed=null,parsedKey='',parseError='',applied=null,caption='',lastField=null;
+   let parsed=null,parsedKey='',parseError='',applied=null,caption='',lastField=null,readingFile=null,updateFileControls=()=>{};
    const textKey=()=>JSON.stringify([input.value,format.value,header.checked]);
    const owns=()=>active(state)&&state.draft.bundle.nodes.length===1&&state.draft.bundle.nodes[0]===node&&ordinaryTable(node);
    const untouched=()=>state.documentFields.every(({field,initial})=>field.value===initial)&&equal(tableContent(node),initial);
@@ -288,6 +288,7 @@
     if(!owns())return;
     const scope=tableScopeProblem(state);input.readOnly=!!applied;format.disabled=header.disabled=!!applied||state.busy;apply.hidden=!!applied;undo.hidden=!applied;apply.disabled=!!scope||state.busy||!parsed||!untouched();undo.disabled=!!scope||state.busy;
     if(scope)message(scope);else if(state.busy)message('正在核对保存，文本与预览仍保留。');else if(applied&&applied.sourceKey!==textKey())message('文本预览已有变化，当前格子仍保留上次建表结果。要改用这份文本，可先撤回这次建表；后续格子输入会保留。');else if(!applied&&parsed)message(untouched()?caption:'这张新表已有格子输入，建表不会替换它；待建表文本仍在上方。');
+    if(readingFile)apply.disabled=true;updateFileControls();
    }
    const canChange=()=>{if(!owns())return false;const scope=tableScopeProblem(state);if(scope){message(scope);return false}if(state.busy){message('正在核对保存，请稍后操作；文本仍保留。');return false}return true};
    function inspect(){
@@ -326,10 +327,45 @@
    state.form.addEventListener('input',event=>{if(owns()&&event.target.matches('[data-library-table-field]')){if(!applied)capturePiece();controls()}});
    state.tableTextSaveProblem=()=>{
     if(!owns())return '';
-    const issue=applied?(applied.sourceKey!==textKey()?'文本或设定已有变化，请保留当前输入并重新核对建表结果。':''):input.value.trim()?(parseError||'文本尚未建成格子，请先“建成表格”，或明确清空这段文本后保存当前格子。'):'';
+    const issue=readingFile?'正在读取已选文件，请等读取结束，或取消读取后再保存。':applied?(applied.sourceKey!==textKey()?'文本或设定已有变化，请保留当前输入并重新核对建表结果。':''):input.value.trim()?(parseError||'文本尚未建成格子，请先“建成表格”，或明确清空这段文本后保存当前格子。'):'';
     if(issue){panel.open=true;message(issue);input.focus({preventScroll:true});input.scrollIntoView({block:'nearest'})}return issue;
    };
-   state.refreshTableTextControls=controls;inspect();
+   function mountSelectedFile(){
+    const file=assetSelected.size===1?assetById([...assetSelected][0]):null;
+    const kind=file&&!file.archived&&file.mime!==bundleMime?(/\.tsv$/i.test(file.path||'')||file.mime==='text/tab-separated-values'?'tsv':/\.csv$/i.test(file.path||'')||file.mime==='text/csv'?'csv':null):null;
+    if(!kind)return;
+    const originalFile=copy(file),section=element('section','library-table-file-source'),label=element('p','library-edit-explain','库中已选：'+(file.folder?file.folder+' / ':'')+file.title),help=element('p','library-edit-explain','可读取这份CSV/TSV的完整UTF-8文字（文件最多1MB），无需下载转抄。原文件保留，新表格独立保存。'),fileActions=element('div','library-table-text-actions'),read=element('button','','读取已选文件'),cancel=element('button','','取消读取');
+    read.type=cancel.type='button';read.dataset.libraryTableFileRead='';cancel.dataset.libraryTableFileCancel='';section.dataset.libraryTableFileSource='';fileActions.append(read,cancel);section.append(label,help,fileActions);textLabel.before(section);
+    const sameFile=()=>assetSelected.size===1&&assetSelected.has(file.id)&&equal(assetById(file.id),originalFile);
+    updateFileControls=()=>{if(!owns())return;read.disabled=!!applied||state.busy||!!readingFile||!!tableScopeProblem(state)||!untouched()||input.value!==''||!sameFile();cancel.hidden=!readingFile;cancel.disabled=!readingFile};
+    const stop=show=>{const request=readingFile;if(!request)return;readingFile=null;request.controller.abort();if(show&&owns())message('已停止读取，当前文字与格子保留。');controls()};
+    cancel.onclick=()=>stop(true);
+    for(const field of[input,format,header])field.addEventListener('input',()=>stop(false));
+    onDialogDismiss(()=>stop(false));
+    read.onclick=async()=>{
+     if(!canChange()||readingFile||applied||input.value!==''||!untouched()||!sameFile())return;
+     if(Number(file.size)>1048576){message('这份文件较大，请用原白板导入；原文件与当前表格保留。');return}
+     const request={controller:new AbortController(),key:textKey(),timedOut:false};readingFile=request;controls();message('正在读取已选文件，当前表格保留。');const timer=setTimeout(()=>{request.timedOut=true;request.controller.abort()},15000);
+     try{
+      const response=await fetch(mediaURL(file.id),{signal:request.controller.signal,cache:'no-store'});
+      if(!response.ok)throw Error('文件暂时无法读取（'+response.status+'），原文件与当前表格保留。');
+      if(response.status!==200)throw Error('这次只读到了部分文件，未用于建表；请重新读取。');
+      if(Number(response.headers.get('Content-Length'))>1048576)throw Error('这份文件较大，请用原白板导入；原文件与当前表格保留。');
+      const reader=response.body.getReader(),decoder=new TextDecoder('utf-8',{fatal:true}),decode=(value,options)=>{try{return decoder.decode(value,options)}catch{throw Error('这份文件暂时无法按UTF-8文字读取，请检查文件编码；原文件与表格保留。')}};let bytes=0,value='';
+      try{
+       while(true){const chunk=await reader.read();if(chunk.done)break;bytes+=chunk.value.byteLength;if(bytes>1048576)throw Error('这份文件较大，请用原白板导入；原文件与当前表格保留。');value+=decode(chunk.value,{stream:true});if(value.length>262144)throw Error('这份文件文字较长，请用原白板导入；当前表格保留。')}
+       value+=decode();if(value.length>262144)throw Error('这份文件文字较长，请用原白板导入；当前表格保留。');
+      }catch(error){try{await reader.cancel()}catch{}throw error}finally{reader.releaseLock()}
+      if(readingFile!==request||!owns())return;
+      if(!canChange()||!sameFile()||textKey()!==request.key||!untouched()){message('已有后续输入或文件信息变化，未替换文字；当前表格保留。');return}
+      input.value=value;format.value=kind;inspect();if(document.hasFocus()&&document.activeElement===read){input.focus({preventScroll:true});input.scrollIntoView({block:'nearest'})}
+     }catch(error){
+      if(readingFile!==request||!owns())return;
+      message(request.timedOut?'读取超时，当前表格保留。可以重新读取。':error.name==='AbortError'?'已停止读取，当前表格保留。':error instanceof TypeError?'文件读取暂时中断，请重试；原文件与当前表格保留。':error.message||'文件暂时无法读取，当前表格保留。');
+     }finally{request.controller.abort();clearTimeout(timer);if(readingFile===request){readingFile=null;controls()}}
+    };
+   }
+   mountSelectedFile();state.refreshTableTextControls=controls;inspect();
   }
   state.capture=()=>{capturePiece();state.draft.title=original?$('libraryName').value.trim():newContentName(state.draft.bundle.nodes[0]);state.draft.folder=$('libraryDestination').value};
   setup(state);

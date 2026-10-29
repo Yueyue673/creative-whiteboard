@@ -606,3 +606,5 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 
 #dialogBody .library-table-text-header{display:flex;align-items:center;gap:8px}
 .library-table-text-header input{width:auto;margin:0}
+
+.library-table-file-source{min-width:0;overflow-wrap:anywhere}

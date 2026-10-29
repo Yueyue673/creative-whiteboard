@@ -129,6 +129,7 @@ jobs:
           LIBRARY_TABLE_CREATION_PROOF: .ci-proofs/library-table-creation
           LIBRARY_TABLE_TEXT_INTAKE_PROOF: .ci-proofs/library-table-text-intake
           LIBRARY_TABLE_VERSION_READING_PROOF: .ci-proofs/library-table-version-reading
+          LIBRARY_CSV_TABLE_ENTRY_PROOF: .ci-proofs/library-csv-table-entry
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -808,5 +809,17 @@ jobs:
           path: |
             .ci-proofs/library-table-version-reading/result.json
             .ci-proofs/library-table-version-reading/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+
+      - name: Keep isolated library-csv-table-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-csv-table-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-csv-table-entry/result.json
+            .ci-proofs/library-csv-table-entry/*.png
           if-no-files-found: ignore
           retention-days: 3
