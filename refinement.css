@@ -610,3 +610,5 @@ html[data-paper-typeface]:not([data-paper-typeface="original"]) .node.paper-card
 .library-table-text-header input{width:auto;margin:0}
 
 .library-table-file-source{min-width:0;overflow-wrap:anywhere}
+
+.media-marker-preview{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:8px}.media-marker-preview[hidden]{display:none}.media-marker-preview button{font-size:12px;padding:5px 7px}.media-preview-state{font-size:12px;color:var(--ui-muted)}

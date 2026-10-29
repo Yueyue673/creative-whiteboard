@@ -121,6 +121,7 @@ jobs:
           SELECTION_VARIANT_PROOF: .ci-proofs/selection-variant
           RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
           MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
+          MEDIA_TO_NEXT_MARKER_PROOF: .ci-proofs/media-to-next-marker
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -717,6 +718,17 @@ jobs:
           path: |
             .ci-proofs/media-marker-extract/result.json
             .ci-proofs/media-marker-extract/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-to-next-marker evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-to-next-marker-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-to-next-marker/result.json
+            .ci-proofs/media-to-next-marker/*.png
           if-no-files-found: ignore
           retention-days: 3
 
