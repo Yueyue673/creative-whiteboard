@@ -123,6 +123,7 @@ jobs:
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
+          LIBRARY_SOURCE_RETURN_PROOF: .ci-proofs/library-source-return
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -735,5 +736,16 @@ jobs:
           path: |
             .ci-proofs/source-refresh-ownership/result.json
             .ci-proofs/source-refresh-ownership/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-source-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-source-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-source-return/result.json
+            .ci-proofs/library-source-return/*.png
           if-no-files-found: ignore
           retention-days: 3

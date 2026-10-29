@@ -31,6 +31,43 @@
   catch{return null}
   return board&&!loading&&(!target||target===boardId)?{boardId,board:clone(board)}:null;
  };
+ function sourceContext(){
+  try{const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}
+ }
+ function mountSourceReturn(asset,body){
+  const source=asset.source,menu=body.querySelector('.reuse-source-actions'),preview=$('pieceList');
+  if(!menu||!preview||typeof source?.boardId!=='string'||!(/^[A-Za-z0-9_-]{1,100}$/).test(source.boardId)||!Array.isArray(source.nodeIds)||!source.nodeIds.length)return;
+  const initial=sourceContext(),sourceVersion=JSON.stringify(source),button=document.createElement('button'),status=document.createElement('p');
+  button.type='button';button.textContent='查看收录时的白板';button.title='查看整张来源白板，再返回当前原稿';
+  status.className='wf-explain library-source-status';status.setAttribute('role','status');status.hidden=true;menu.append(button,status);
+  let navigating=false;
+  const scopeValid=()=>{
+   const now=sourceContext();if(!initial||!now||now.inner!==initial.inner||now.outer!==initial.outer||now.key!==initial.key)return false;
+   return [now.inner,now.outer].every(host=>!host||!host.paused&&host.account?.id!=null&&host.workspace!=null&&host.base!=null);
+  };
+  const ownsPreview=()=>$('dialog').open&&preview.isConnected&&$('pieceList')===preview&&button.isConnected;
+  const owns=()=>ownsPreview()&&JSON.stringify(assetById(asset.id)?.source)===sourceVersion;
+  const explain=message=>{if(ownsPreview()){status.textContent=message;status.hidden=false}};
+  button.onclick=async()=>{
+   if(navigating||!ownsPreview())return;if(!owns())return explain('来源记录已有变化，请重新打开预览后核对。');if(!scopeValid())return explain('所属账号或工作区尚未确认，请保留当前输入，回到原位置后重试。');
+   navigating=true;button.disabled=true;explain('正在核对来源白板…');
+   let interrupted=false;const controller=new AbortController(),cleanups=[],cancel=()=>{interrupted=true;controller.abort();for(const cleanup of cleanups.splice(0))cleanup()};
+   const docs=new Set([document]);try{docs.add(parent.document);for(const frame of parent.document.querySelectorAll('iframe'))if(frame.contentDocument)docs.add(frame.contentDocument)}catch{cancel()}
+   for(const doc of docs)for(const type of ['pointerdown','keydown','input','change','wheel','touchmove']){const stop=e=>{if(e.isTrusted)cancel()};doc.addEventListener(type,stop,true);cleanups.push(()=>doc.removeEventListener(type,stop,true))}
+   onDialogDismiss(cancel);const active=()=>!interrupted&&owns()&&scopeValid();
+   try{
+    // The recorded board is the destination. A group never chooses one child
+    // as a substitute for the whole source board.
+    const live=liveSnapshot(source.boardId);
+    if(!live)await(await api('/api/boards/'+encodeURIComponent(source.boardId),{signal:controller.signal})).json();
+    if(!active()){if(!interrupted&&ownsPreview())explain('来源或所属位置已有变化，未打开其他白板。当前原稿保留。');return}
+    for(const cleanup of cleanups.splice(0))cleanup();
+    const opened=await parent.whiteboardWorkspace.openLibraryCopy(window,{board:source.boardId,id:null,returnName:label(liveSnapshot()?.board?.name)||'原稿'},active,scopeValid);
+    if(opened===false&&owns())explain('暂未打开来源白板，当前原稿保留。请处理提示后再试。');
+   }catch(error){if(!interrupted&&owns()&&error.name!=='AbortError')explain(error.message||'暂时不能打开来源白板，当前原稿保留。')}
+   finally{for(const cleanup of cleanups)cleanup();navigating=false;if(ownsPreview()){button.disabled=false;if(interrupted)explain('已停下本次打开，当前原稿保留。需要时可重试。')}}
+  };
+ }
  const previous=previewAsset;
  previewAsset=function(id){
   const epoch=++sequence,before=$('dialogBody').firstElementChild,result=previous(id);
@@ -38,6 +75,7 @@
    const asset=assetById(id),body=$('dialogBody');
    if(parent===window||!parent.whiteboardWorkspace?.canLocateLibraryCopies?.(window))return;
    if(epoch!==sequence||!$('dialog').open||body.firstElementChild===before||asset?.mime!==bundleMime||asset.archived)return;
+   mountSourceReturn(asset,body);
    const section=document.createElement('details');section.className='library-copies';
    const summary=document.createElement('summary');summary.textContent='用过的白板副本';
    const status=document.createElement('p');status.setAttribute('role','status');status.textContent='按原件记录查找，副本改名后也能找到。';

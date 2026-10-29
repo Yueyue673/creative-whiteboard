@@ -158,31 +158,33 @@
   const tab=target?model.tabs.find(t=>t.boardId===target):current(),view=tab&&pane(tab);
   return view?.state()?.boardId===tab?.boardId&&!view.state().loading?view.snapshot():null;
  }
- async function openLibraryCopy(source,target,valid){
-  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid())return false;
+ async function openLibraryCopy(source,target,valid,contextValid=()=>true){
+  const ownsContext=()=>{try{return contextValid()!==false}catch{return false}};
+  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid()||!ownsContext())return false;
   const from=current(),writer=from&&frames.get(from.id)?.contentWindow,writerDoc=writer?.document,sourceDoc=source.document;
   let untouched=true;const events=['pointerdown','keydown','input','change','wheel','touchmove'],cancel=()=>untouched=false;
   const docs=new Set([document,...[...frames.values()].map(frame=>frame.contentDocument).filter(Boolean)]);
   for(const doc of docs)for(const type of events)doc.addEventListener(type,cancel,{capture:true,passive:true});
-  const original=()=>untouched&&source===explorerFrame?.contentWindow&&source.document===sourceDoc&&current()?.id===from?.id&&(!from||model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc)&&valid();
+  const original=()=>untouched&&ownsContext()&&source===explorerFrame?.contentWindow&&source.document===sourceDoc&&current()?.id===from?.id&&(!from||model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc)&&valid();
   try{
    if(from&&!await pane(from).flush())throw Error('原稿尚未保存，请先处理保存提示。');
    if(!original())return false;
    if(from){
     if(target.board===from.boardId){
      sourceDoc.getElementById('dialog').close();showCanvas();
-     return writer.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>model.tabs.includes(from)&&current()?.id===from.id&&frames.get(from.id)?.contentDocument===writerDoc,target.rootId);
+     if(target.id===null){pane(from).focus();return true}
+     return writer.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>ownsContext()&&model.tabs.includes(from)&&current()?.id===from.id&&frames.get(from.id)?.contentDocument===writerDoc,target.rootId);
     }
     sourceDoc.getElementById('dialog').close();showCanvas();
-    return openReference(writer,target,()=>model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc);
+    return openReference(writer,target,()=>ownsContext()&&model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc);
    }
    boards=await api('/api/boards');if(!original())return false;
    sourceDoc.getElementById('dialog').close();showCanvas();openBoard(target.board);
    const to=current(),epoch=++referenceVisitEpoch,started=Date.now();
-   while(epoch===referenceVisitEpoch&&current()?.id===to?.id&&model.tabs.includes(to)&&Date.now()-started<10000){
+   while(ownsContext()&&epoch===referenceVisitEpoch&&current()?.id===to?.id&&model.tabs.includes(to)&&Date.now()-started<10000){
     const view=pane(to),state=view?.state();
     if(state?.loadError||state?.blocked||state?.saveError)throw Error('这张白板暂时未准备好。');
-    if(state?.boardId===target.board&&!state.loading){return frames.get(to.id).contentWindow.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>epoch===referenceVisitEpoch&&current()?.id===to.id,target.rootId)}
+    if(state?.boardId===target.board&&!state.loading){if(target.id===null){view.focus();return true}return frames.get(to.id).contentWindow.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>ownsContext()&&epoch===referenceVisitEpoch&&current()?.id===to.id,target.rootId)}
     await new Promise(resolve=>setTimeout(resolve,40));
    }
    return false;
