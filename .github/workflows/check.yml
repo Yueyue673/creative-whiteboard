@@ -124,6 +124,7 @@ jobs:
           MEDIA_TO_NEXT_MARKER_PROOF: .ci-proofs/media-to-next-marker
           MEDIA_NEXT_VIDEO_PROOF: .ci-proofs/media-next-video
           MEDIA_PLAYBACK_RATE_PROOF: .ci-proofs/media-playback-rate
+          LIBRARY_SAVE_CONTINUE_PROOF: .ci-proofs/library-save-continue
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -917,6 +918,16 @@ jobs:
           path: |
             .ci-proofs/library-escape-draft-guard/result.json
             .ci-proofs/library-escape-draft-guard/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-save-continue evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-save-continue-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-save-continue/result.json
+            .ci-proofs/library-save-continue/*.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Keep isolated import-failed-retry evidence

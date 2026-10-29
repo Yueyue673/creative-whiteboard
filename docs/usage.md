@@ -36,7 +36,7 @@
 
 白板用于编排，内容库用于保存和复用。可以在库中新建文字、导入文件、建立嵌套文件夹。选中白板内容拖进侧栏文件夹，或使用“保存到库”；原白板保留。
 
-**独立候选（尚未合入默认版本）：** 可以先在内容库[写表格](library-table-creation.md)，或[贴入已有表格文字并预览](library-table-text-intake.md)。库里已有CSV/TSV时，只选一份文件，再点“写表格”，沿[读取已选文件、核对、建表](library-csv-table-entry.md)继续；原文件保留，保存的是独立表格，之后再选白板取用。记录增多时，可在编辑原件中[在末尾加一行继续写](library-table-append-row.md)，需要新字段时也能[加一列](library-table-append-column.md)，再保存到原位置。库中表单有未保存改动时，[Esc 会保留原窗口和输入](library-escape-draft-guard.md)；明确点“取消”才退出，保存仍由自己决定。组合中编辑多块内容时，原来的下拉框会显示[序号、类型和短摘录](library-piece-recognition.md)，帮助辨认未命名或同名条目。这些入口须以所用版本为准，尚未代表网站或私人安装已更新。
+**独立候选（尚未合入默认版本）：** 可以先在内容库[写表格](library-table-creation.md)，或[贴入已有表格文字并预览](library-table-text-intake.md)。库里已有CSV/TSV时，只选一份文件，再点“写表格”，沿[读取已选文件、核对、建表](library-csv-table-entry.md)继续；原文件保留，保存的是独立表格，之后再选白板取用。记录增多时，可在编辑原件中[在末尾加一行继续写](library-table-append-row.md)，需要新字段时也能[加一列](library-table-append-column.md)，再保存到原位置。编辑已有资源或文件说明时，可以[保存并继续编辑](library-save-continue.md)，留在当前输入框接着写；原保存按钮仍会保存后退出。库中表单有未保存改动时，[Esc 会保留原窗口和输入](library-escape-draft-guard.md)；明确点“取消”才退出，保存仍由自己决定。组合中编辑多块内容时，原来的下拉框会显示[序号、类型和短摘录](library-piece-recognition.md)，帮助辨认未命名或同名条目。这些入口须以所用版本为准，尚未代表网站或私人安装已更新。
 
 多选内容后，选中内容旁的“保存到库”可以把便签、表格和内部连线一起收存。窄窗口中的对齐与分组放在同一操作条的“⋯”里；每块内容的编辑入口仍保留。
 

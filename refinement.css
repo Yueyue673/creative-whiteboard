@@ -371,6 +371,7 @@ html.listening-preview #dialogActions button{padding:2px 8px;font-size:13px;min-
 #dialog[open]:has(.library-content-form){display:flex;flex-direction:column;width:min(900px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 48px);padding:0;overflow:hidden}
 #dialog:has(.library-content-form) #dialogBody{min-width:0;min-height:0;overflow:auto;scrollbar-gutter:stable;padding:24px}
 #dialog:has(.library-content-form) #dialogActions{flex:none;gap:8px;margin:0;padding:14px 24px;border-top:1px solid var(--ui-line);background:var(--ui-panel)}
+#dialog:has(.library-edit-form) #dialogActions{flex-wrap:wrap}
 .library-content-heading h2{margin:0;font-size:20px;line-height:1.5}.library-content-heading p{margin:6px 0 22px;font-size:12px;line-height:1.7}
 .library-content-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(288px,.55fr);gap:24px;align-items:start}
 .library-content-writing,.library-content-details{min-width:0}.library-content-details{border-left:1px solid var(--ui-line);padding-left:24px}

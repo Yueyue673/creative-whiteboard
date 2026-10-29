@@ -163,13 +163,32 @@
   notice(state,state.mode==='content'&&!state.base?'先写点内容。':'请填写名称。');
   $(state.mode==='file'?'assetTitle':state.base?'libraryName':'library-body')?.focus();
  }
- function finishSave(state,result,asCopy,confirmed=false){
+ function continuationValue(value){
+  const result=clone(value);delete result.updated;
+  if(result.bundle?.nodes)for(const node of result.bundle.nodes)for(const key of ['title','body','userText','annotation'])node[key]=String(node[key]||'');
+  return result;
+ }
+ function continueEditing(state,result){
+  // Keep the actual controls and table arrays: native undo and append ownership live there.
+  state.base=clone(result);state.draft.folder=result.folder;
+  state.initialDestination={...state.destination};state.choices.clear();state.conflict.replaceChildren();state.conflict.hidden=true;
+  state.resetEscapeBaseline?.();notice(state,'已保存，可继续编辑。');state.savedInPlace=true;
+  const field=state.lastField,range=field&&[field.selectionStart,field.selectionEnd,field.selectionDirection],scroll=field&&[field.scrollTop,field.scrollLeft];
+  queueMicrotask(()=>{
+   if(!active(state)||state.busy||!field?.isConnected)return;
+   field.focus({preventScroll:true});
+   if(Number.isInteger(range[0])&&Number.isInteger(range[1]))field.setSelectionRange(...range);
+   field.scrollTop=scroll[0];field.scrollLeft=scroll[1];field.scrollIntoView({block:'nearest'});
+  });
+ }
+ function finishSave(state,result,asCopy,confirmed=false,keepOpen=false){
   if(!active(state))return;
   if(tableScopeProblem(state)){$('dialog').close();toast('已保存到原内容库。所属位置随后发生变化，已停下后续定位。');return}
   if(state.mode==='content'||asCopy){enterAssetFolder(result.folder);assetSelected=new Set([result.id]);renderAssets()}
+  if(keepOpen&&state.base&&!asCopy){continueEditing(state,result);return}
   $('dialog').close();toast(confirmed?'这次内容已保存到内容库':asCopy?'已另存你的编辑，原件保留':state.base?'已保存到内容库，白板副本保留原来的内容':'已保存');
  }
- async function save(state,asCopy=false){
+ async function save(state,asCopy=false,keepOpen=false){
   if(state.busy||!active(state))return;
   if(tableScopeProblem(state)){notice(state,tableScopeProblem(state));return}
   let tableTextIssue=state.tableTextSaveProblem?.();if(tableTextIssue){notice(state,tableTextIssue);return}
@@ -203,13 +222,17 @@
     result=clone(current);
     for(const change of changes)if(!overlap.includes(change)||choice(state,change,current)==='mine')change.set(result,change.mine);
    }
+   if(keepOpen&&state.base&&!asCopy){
+    const visible=clone(draft);if(destinationEdited(state))visible.folder=target;
+    if(!equal(continuationValue(result),continuationValue(visible))){notice(state,'库中另有更新。请用原保存按钮核对并合并后重新打开；你的输入仍保留。');return}
+   }
    const next=clone(assetIndex),at=next.assets.findIndex(a=>a.id===result.id);
    if(at<0)next.assets.push(result);else next.assets[at]=result;
    if(!state.base||asCopy||!equal(current,result)){
     result.updated=Date.now();busy(state,true,true);
     if(!await saveAssets(next)){notice(state,'没有保存成功，你的输入仍保留。再点保存会重新核对最新版本。');return}
    }
-   finishSave(state,result,asCopy);
+   finishSave(state,result,asCopy,false,keepOpen);
   }catch(error){notice(state,error.message||'暂时不能保存，你的输入仍保留。')}
   finally{busy(state,false)}
  }
@@ -219,6 +242,9 @@
   state.message=element('p','library-edit-message');state.message.hidden=true;state.message.setAttribute('role','status');
   state.conflict=element('section','library-edit-conflicts');state.conflict.hidden=true;state.conflict.setAttribute('aria-label','库中版本与我的编辑');
   state.copyButton=element('button','','另存我的编辑');state.copyButton.type='button';state.copyButton.addEventListener('click',()=>save(state,true));
+  if(state.base){const button=element('button','','保存并继续编辑');button.type='button';button.dataset.librarySaveContinue='';button.addEventListener('click',()=>save(state,false,true));$('dialogActions').insertBefore(button,$('dialogActions').lastElementChild)}
+  state.form.addEventListener('focusin',event=>{if(event.target.matches('input,textarea,select')&&!event.target.closest('.library-edit-conflicts'))state.lastField=event.target});
+  state.form.addEventListener('input',()=>{if(state.savedInPlace){notice(state,'');state.savedInPlace=false}});
   state.form.append(state.message,state.conflict);state.choices=new Map();state.buttons=[...$('dialogActions').querySelectorAll('button')].filter(button=>button.textContent!=='取消');state.frozen=[];
   state.initialDestination=libraryFolderTarget(state.base?.folder??state.draft.folder);state.destination={...state.initialDestination};watchDestination(state);
  }
@@ -229,13 +255,14 @@
    if(!destinationEdited(state))draft.folder=null;
    return draft;
   };
-  const before=snapshot(),text=()=>state.form.querySelector('[data-library-table-text]')?.value??'',initialText=text(),name=state.form.querySelector('#libraryName'),initialName=name?.value;
+  const text=()=>state.form.querySelector('[data-library-table-text]')?.value??'',name=state.form.querySelector('#libraryName');let before=snapshot(),initialText=text(),initialName=name?.value;
   const message=element('p','library-edit-explain library-escape-message','Esc 未关闭编辑，输入仍在。要退出，请点“取消”；未保存的输入会放弃。');message.hidden=true;message.setAttribute('role','status');state.form.append(message);
   const guard=event=>{
    if(event.key!=='Escape'||event.defaultPrevented||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||!active(state))return false;
    if(equal(before,snapshot())&&text()===initialText&&name?.value===initialName)return false;
    message.hidden=false;return true;
   };
+  state.resetEscapeBaseline=()=>{before=snapshot();initialText=text();initialName=name?.value;message.hidden=true};
   escapeGuard=guard;onDialogDismiss(()=>{if(escapeGuard===guard)escapeGuard=null});
  }
  function editFile(id){
