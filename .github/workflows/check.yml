@@ -123,6 +123,7 @@ jobs:
           MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
           MEDIA_TO_NEXT_MARKER_PROOF: .ci-proofs/media-to-next-marker
           MEDIA_NEXT_VIDEO_PROOF: .ci-proofs/media-next-video
+          MEDIA_PLAYBACK_RATE_PROOF: .ci-proofs/media-playback-rate
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -741,6 +742,17 @@ jobs:
           path: |
             .ci-proofs/media-next-video/result.json
             .ci-proofs/media-next-video/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-playback-rate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-playback-rate-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-playback-rate/result.json
+            .ci-proofs/media-playback-rate/*.png
           if-no-files-found: ignore
           retention-days: 3
 
