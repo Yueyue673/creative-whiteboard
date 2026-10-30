@@ -149,6 +149,7 @@ jobs:
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           EXPLORER_RENAME_PROOF: .ci-proofs/shared-explorer-rename
           INACTIVE_RENAME_PROOF: .ci-proofs/inactive-board-rename
+          OPEN_BOARD_MOVE_PROOF: .ci-proofs/open-board-move
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1222,5 +1223,15 @@ jobs:
           path: |
             .ci-proofs/inactive-board-rename/result.json
             .ci-proofs/inactive-board-rename/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated open-board-move evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-board-move-${{ github.run_id }}
+          path: |
+            .ci-proofs/open-board-move/result.json
+            .ci-proofs/open-board-move/*.png
           if-no-files-found: ignore
           retention-days: 3

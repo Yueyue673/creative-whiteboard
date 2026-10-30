@@ -37,7 +37,7 @@
  document.addEventListener('input',event=>captureEditingPlace(event.target));
  document.addEventListener('selectionchange',()=>captureEditingPlace());
 
- function state(){return {boardId,name:board?.name||'',dirty:!!dirty,blocked:!!blocked,saving:!!savePromise,loading:!!loading,pendingImports:window.whiteboardImports?.pendingCanvas()||false,contentDirty,savingContent,saveError,loadTargetId,loadError,loadErrorCode,revision:contentRevision}}
+ function state(){return {boardId,name:board?.name||'',folder:board?.folder||'',dirty:!!dirty,blocked:!!blocked,saving:!!savePromise,loading:!!loading,pendingImports:window.whiteboardImports?.pendingCanvas()||false,contentDirty,savingContent,saveError,loadTargetId,loadError,loadErrorCode,revision:contentRevision}}
  function report(){if(explorer||reporting)return;reporting=true;queueMicrotask(()=>{reporting=false;const next=state(),key=JSON.stringify(next);if(key===lastState)return;lastState=key;send('pane-state',{state:next})})}
  const initialLoad=loadBoard;loadBoard=async function(id,options){if(explorer||board&&boardId&&id!==boardId){$('boards').value=boardId;send(explorer?'explorer-open':'pane-open',{boardId:id});return false}const loaded=await initialLoad(id,options);if(explorer)await showWorkspaceTab(workspaceTab);else report();return loaded};
  // Reuse successful native catalog reads/writes. Only names, IDs and parents
@@ -46,14 +46,18 @@
  listBoards=async function(){const result=await listWithLocations();send('pane-board-locations',{boards:boardList.map(b=>({id:b.id,name:b.name,folder:b.folder,count:b.count}))});return result};
  loadFolders=async function(){const result=await loadWithLocations();send('pane-board-locations',{folders:folderData.folders.map(f=>({id:f.id,name:f.name,parent:f.parent}))});return result};
  saveFolders=async function(next){const result=await saveWithLocations(next);if(result)send('pane-board-locations',{folders:folderData.folders.map(f=>({id:f.id,name:f.name,parent:f.parent}))});return result};
- const oldChange=change,oldPersist=persist;change=function(viewOnly=false){if(explorer)return;oldChange(viewOnly);report()};persist=async function(){if(explorer)return true;const result=oldPersist();report();try{return await result}finally{report()}};
+ const oldChange=change,oldPersist=persist;let savedLocation='';change=function(viewOnly=false){if(explorer)return;oldChange(viewOnly);report()};
+ persist=async function(){
+  if(explorer)return true;const source=board,id=boardId,owner=window.whiteboardHosted||null,key=()=>JSON.stringify([window.whiteboardHosted?.account?.id,window.whiteboardHosted?.workspace,window.whiteboardHosted?.base]),scope=key(),result=oldPersist();report();
+  try{const ok=await result;if(ok&&board===source&&boardId===id&&board&&!dirty&&!blocked&&!loading&&owner===(window.whiteboardHosted||null)&&scope===key()&&!owner?.paused){const info={id,name:board.name,folder:board.folder||'',count:board.nodes.length},stamp=JSON.stringify(info);if(stamp!==savedLocation){savedLocation=stamp;send('pane-board-locations',{board:info})}}return ok}finally{report()}
+ };
  function pauseMedia(doc=document){doc.querySelectorAll('audio,video').forEach(m=>m.pause());for(const frame of doc.querySelectorAll('iframe'))try{if(frame.contentDocument)pauseMedia(frame.contentDocument)}catch{}}
  if(explorer){
   const renameBefore=renameBoardEntry;
   renameBoardEntry=function(){
    const entry=boardEntry&&{...boardEntry},host=parent.whiteboardWorkspace;
    if(entry?.type!=='board')return renameBefore();
-   const target=host.boardRenameTarget(window,entry.id);if(!target)return renameBefore();
+   const target=host.openBoardTarget(window,entry.id);if(!target)return renameBefore();
    if(target.ambiguous)return toast('这张白板有多个打开位置，请从对应标签核对后再改名。');
    if(target.loading)return toast('这张白板还在打开，请稍后再改名。');
    const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null,scopeKey=()=>JSON.stringify([window.whiteboardHosted?.account?.id,window.whiteboardHosted?.workspace,window.whiteboardHosted?.base,parent.whiteboardHosted?.account?.id,parent.whiteboardHosted?.workspace,parent.whiteboardHosted?.base]),scope=scopeKey();
@@ -74,6 +78,42 @@
    input.focus();input.select();
   };
   $('boardRenameEntry').onclick=renameBoardEntry;
+  const moveObjectBefore=moveBoardObject,moveEntryBefore=moveBoardEntry;
+  const moveScope=()=>JSON.stringify([window.whiteboardHosted?.account?.id,window.whiteboardHosted?.workspace,window.whiteboardHosted?.base,parent.whiteboardHosted?.account?.id,parent.whiteboardHosted?.workspace,parent.whiteboardHosted?.base]);
+  async function moveLiveBoard(entry,destination,target,valid){
+   const host=parent.whiteboardWorkspace,inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null,scope=moveScope(),revision=folderETag,from=folderSelected,pick=boardEntry&&{...boardEntry};
+   const owns=()=>host===parent.whiteboardWorkspace&&inner===(window.whiteboardHosted||null)&&outer===(parent.whiteboardHosted||null)&&scope===moveScope()&&!inner?.paused&&!outer?.paused&&inner?.role!=='viewer'&&outer?.role!=='viewer';
+   if(!owns()||!valid())throw Error('所属位置已有变化，请重新选择。');
+   const response=await api('/api/folders'),folders=await response.json();if(!owns()||!valid())return {saved:false,cancelled:true};
+   if(!Array.isArray(folders.folders))throw Error('暂时无法读取文件夹，请重试。');
+   if(destination&&!folders.folders.some(folder=>folder.id===destination))throw Error('目标文件夹已移除，请重新选择位置。');
+   const result=await host.moveOpenBoard(window,target,destination,()=>owns()&&valid());if(!result.saved||!owns())return result;
+   const item=boardList.find(row=>row.id===entry.id);if(item)item.folder=destination;
+   if(folderETag===revision){folderData=folders;folderETag=response.headers.get('ETag')}
+   if(valid()&&folderSelected===from&&boardEntry?.id===pick?.id&&boardEntry?.type===pick?.type&&document.hasFocus()){enterBoardFolder(destination);toast('已移到 '+(folderPath(destination)||'我的白板'))}
+   return result;
+  }
+  function moveTarget(entry){
+   if(entry?.type!=='board')return null;const target=parent.whiteboardWorkspace.openBoardTarget(window,entry.id);
+   if(target?.ambiguous)throw Error('这张白板有多个打开位置，请从对应标签核对后再移动。');if(target?.loading)throw Error('这张白板还在打开，请稍后再移动。');
+   return target&&{...target,boardId:entry.id,expectedFolder:target.folder};
+  }
+  moveBoardObject=async function(entry,destination){
+   try{const target=moveTarget(entry);if(!target)return moveObjectBefore(entry,destination);const result=await moveLiveBoard(entry,destination,target,()=>true);if(!result.saved&&!result.cancelled)toast('移动尚未保存，当前内容保留。请先处理白板上的保存提示。');return result.saved}catch(error){toast(error.message);return false}
+  };
+  moveBoardEntry=function(){
+   if(!boardEntry)return;const entry={...boardEntry};let target;try{target=moveTarget(entry)}catch(error){toast(error.message);return}if(!target)return moveEntryBefore();
+   const host=parent.whiteboardWorkspace,scope=moveScope();let busy=false;
+   showDialog('<h2>选择目标文件夹</h2><select id="entryDestination"><option value="">我的白板</option>'+folderData.folders.map(folder=>'<option value="'+esc(folder.id)+'">'+esc(folderPath(folder.id))+'</option>').join('')+'</select><p id="boardMoveError" role="status" hidden></p>',[['取消',()=>$('dialog').close()],['移动',async()=>{
+    if(busy||!active())return;busy=true;button.disabled=input.disabled=true;message.hidden=true;
+    try{if(host!==parent.whiteboardWorkspace||scope!==moveScope())throw Error('所属位置已有变化，请重新选择。');const result=await moveLiveBoard(entry,input.value,target,()=>active()&&scope===moveScope());if(result.appliedFolder!==undefined)target.expectedFolder=result.appliedFolder;if(!active())return;if(result.saved)$('dialog').close();else if(!result.cancelled){message.textContent='移动尚未保存，所选位置保留。可以重试，或查看白板上的保存提示。';message.hidden=false}}
+    catch(error){if(active()){message.textContent=error.message;message.hidden=false}}
+    finally{busy=false;if(input.isConnected)input.disabled=false;if(button.isConnected)button.disabled=false}
+   }]]);
+   const input=$('entryDestination'),message=$('boardMoveError'),button=$('dialogActions').lastElementChild,active=()=>input.isConnected&&$('entryDestination')===input&&$('dialog').open;
+   input.value=target.folder;input.focus();
+  };
+  $('boardMoveEntry').onclick=moveBoardEntry;
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Tab'&&!e.isComposing&&!document.querySelector('dialog[open]')){e.preventDefault();e.stopImmediatePropagation();send('explorer-shortcut',{reverse:e.shiftKey})}},true);
   drawNodes=()=>{}; // This document presents lists, never a second hidden canvas.
   const show=showWorkspaceTab;showWorkspaceTab=async function(panel){const pending=show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel});await pending};
@@ -100,7 +140,11 @@
   const captureAssets=renderAssets;renderAssets=function(){captureAssets();queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder}))};
   const saveCatalog=saveAssets;saveAssets=async function(next){const ok=await saveCatalog(next);if(ok)send('explorer-catalog');return ok};
   $('assetList').addEventListener('click',()=>queueMicrotask(()=>send('explorer-selection',{ids:[...assetSelected],folder:assetFolder})));
-  window.whiteboardExplorer={show:showWorkspaceTab,revealAsset:revealLibraryItem,pending:()=>window.whiteboardImports?.pending()||false,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline();window.dispatchEvent(new Event('creative-research-context'))},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
+  function updateBoardLocation(info){
+   const row=boardList.find(item=>item.id===info?.id);if(!row||typeof info.name!=='string'||typeof info.folder!=='string'||!Number.isInteger(info.count)||info.count<0)return;
+   if(row.name===info.name&&(row.folder||'')===info.folder&&row.count===info.count)return;Object.assign(row,info);if(workspaceTab==='manager')renderFolders();
+  }
+  window.whiteboardExplorer={updateBoardLocation,show:showWorkspaceTab,revealAsset:revealLibraryItem,pending:()=>window.whiteboardImports?.pending()||false,selection:()=>({ids:[...assetSelected],folder:assetFolder,panel:workspaceTab}),setBoard:snapshot=>{board=snapshot?clone(snapshot.board):{format:'creative-board',version:1,name:'',folder:'',nodes:[],edges:[],view:{x:0,y:0,z:1}};boardId=snapshot?.boardId||'';selected=new Set(snapshot?.selected||[]);if(workspaceTab==='outline')renderOutline();window.dispatchEvent(new Event('creative-research-context'))},refresh:async()=>{await loadFolders();await listBoards();await loadAssets()}};
   whiteboardExplorer.placementDestination=placementDestination;
   whiteboardExplorer.refreshLibrary=()=>loadAssets({redraw:false});
   const previewWithDestination=previewAsset;
@@ -201,7 +245,12 @@
    if(board.name!==name){undoPoint();board.name=name;change();const option=$('boards').selectedOptions[0];if(option)option.textContent=name}
    return persist();
   }
-  window.whiteboardPane={state,renameBoard,setListening,viewport:()=>({width:width||canvas.clientWidth,height:height||canvas.clientHeight}),canvasReady,selection:()=>[...selected],flush:()=>persist(),snapshot:()=>board?{board:clone(board),boardId,selected:[...selected]}:null,refreshLibrary:()=>loadAssets(),focus:()=>{if(parentHasDialog())return;if($('dialog').open){if(window.whiteboardCanvasObjects?.focusDraft?.())return;if($('dialog').classList.contains('immersive-dialog')&&!restoreEditingPlace())$('dialog').focus({preventScroll:true});return}if(restoreEditingPlace())return;const active=document.activeElement;if(active?.closest('.live-layout')&&active.matches('input,textarea,[contenteditable=true]')&&!active.readOnly){active.focus({preventScroll:true});return}canvas.tabIndex=-1;canvas.focus({preventScroll:true})},setVisible:next=>{if(visible&&!next){captureEditingPlace();captureReading();pauseMedia();persist().catch(()=>{})}visible=next},insertLibrary:async (items,position)=>{const targetId=boardId;if(!board||loading||blocked||saveError)throw Error('目标白板尚未准备好，请先处理提示。');await loadAssets();if(boardId!==targetId||loading||blocked||saveError)throw Error('目标白板状态已改变，内容尚未添加。');return commitLibraryBatch(items,position)},focusNode:id=>{const n=board?.nodes.find(n=>n.id===id);if(n){selected=new Set([id]);editorId=null;refreshSelectionUI();focusNode(n);report()}},command:async(name,extra={})=>{if(name==='sidebar')toggleSidebar();else if(name==='ai'){await loadAssets();assetSelected=new Set(extra.libraryIds||[]);$('aiWorkspace').click();if(extra.scope==='library'&&$('aiTaskScope')){$('aiTaskScope').value='library';$('aiTaskScope').dispatchEvent(new Event('change'))}}else if(name==='settings')whiteboardAppearance.open();else if(name==='board-links')return whiteboardNoteEditor.openBoardLinks();else if(name==='help')wfHelp();else if(name==='search')wfOpenSearch();else if(name==='recovery')await wfRecovery();else if(name==='rename')$('rename').click();else if(name==='group')groupSelection();else if(name==='collect'){assetFolder=extra.folder||'';askCollectSelection()}else if(name==='export')exportJSON();else if(name==='markdown')exportMarkdown()}};
+  async function moveBoard(id,destination){
+   if(typeof destination!=='string'||id!==boardId||!board||loading||blocked||whiteboardHostedRoleIsReadOnly())throw Error('当前白板尚未准备好，请先处理白板上的提示。');
+   if((board.folder||'')!==destination){undoPoint();board.folder=destination;change()}
+   return persist();
+  }
+  window.whiteboardPane={state,renameBoard,moveBoard,setListening,viewport:()=>({width:width||canvas.clientWidth,height:height||canvas.clientHeight}),canvasReady,selection:()=>[...selected],flush:()=>persist(),snapshot:()=>board?{board:clone(board),boardId,selected:[...selected]}:null,refreshLibrary:()=>loadAssets(),focus:()=>{if(parentHasDialog())return;if($('dialog').open){if(window.whiteboardCanvasObjects?.focusDraft?.())return;if($('dialog').classList.contains('immersive-dialog')&&!restoreEditingPlace())$('dialog').focus({preventScroll:true});return}if(restoreEditingPlace())return;const active=document.activeElement;if(active?.closest('.live-layout')&&active.matches('input,textarea,[contenteditable=true]')&&!active.readOnly){active.focus({preventScroll:true});return}canvas.tabIndex=-1;canvas.focus({preventScroll:true})},setVisible:next=>{if(visible&&!next){captureEditingPlace();captureReading();pauseMedia();persist().catch(()=>{})}visible=next},insertLibrary:async (items,position)=>{const targetId=boardId;if(!board||loading||blocked||saveError)throw Error('目标白板尚未准备好，请先处理提示。');await loadAssets();if(boardId!==targetId||loading||blocked||saveError)throw Error('目标白板状态已改变，内容尚未添加。');return commitLibraryBatch(items,position)},focusNode:id=>{const n=board?.nodes.find(n=>n.id===id);if(n){selected=new Set([id]);editorId=null;refreshSelectionUI();focusNode(n);report()}},command:async(name,extra={})=>{if(name==='sidebar')toggleSidebar();else if(name==='ai'){await loadAssets();assetSelected=new Set(extra.libraryIds||[]);$('aiWorkspace').click();if(extra.scope==='library'&&$('aiTaskScope')){$('aiTaskScope').value='library';$('aiTaskScope').dispatchEvent(new Event('change'))}}else if(name==='settings')whiteboardAppearance.open();else if(name==='board-links')return whiteboardNoteEditor.openBoardLinks();else if(name==='help')wfHelp();else if(name==='search')wfOpenSearch();else if(name==='recovery')await wfRecovery();else if(name==='rename')$('rename').click();else if(name==='group')groupSelection();else if(name==='collect'){assetFolder=extra.folder||'';askCollectSelection()}else if(name==='export')exportJSON();else if(name==='markdown')exportMarkdown()}};
   whiteboardPane.captureClosedView=captureClosedView;whiteboardPane.restoreClosedView=restoreClosedView;
   // Keep a fully visible selection in the same relative space when opening a
   // sidebar or a second pane. Neutral and intentionally cropped views keep

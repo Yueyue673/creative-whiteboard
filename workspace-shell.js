@@ -191,16 +191,26 @@
   }finally{for(const doc of docs)for(const type of events)doc.removeEventListener(type,cancel,true)}
  }
  const canLocateLibraryCopies=source=>source===explorerFrame?.contentWindow;
- function boardRenameTarget(source,id){
+ function openBoardTarget(source,id){
   if(source!==explorerFrame?.contentWindow)throw Error('请从白板列表重新选择。');
   const tabs=model.tabs.filter(row=>row.boardId===id);if(!tabs.length)return null;if(tabs.length!==1)return {ambiguous:true};
-  const tab=tabs[0],state=pane(tab)?.state();return {tabId:tab.id,sourceTabId:current()?.id,name:state?.name||tab.name,loading:!state||state.boardId!==id||state.loading};
+  const tab=tabs[0],state=pane(tab)?.state();return {tabId:tab.id,sourceTabId:current()?.id,name:state?.name||tab.name,folder:state?.folder||'',loading:!state||state.boardId!==id||state.loading};
+ }
+ function operationWriter(source,place,valid){
+  const from=current(),tab=model.tabs.find(row=>row.id===place?.tabId),view=tab&&pane(tab),state=view?.state(),matches=model.tabs.filter(row=>row.boardId===place?.boardId);
+  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid()||from?.id!==place?.sourceTabId||!from||matches.length!==1||tab?.boardId!==place?.boardId||state?.boardId!==place?.boardId||state.loading)throw Error('白板的打开位置已有变化，请重新核对。');
+  return {view,state};
  }
  async function renameOpenBoard(source,place,name,valid){
-  const from=current(),tab=model.tabs.find(row=>row.id===place?.tabId),view=tab&&pane(tab),state=view?.state(),matches=model.tabs.filter(row=>row.boardId===place?.boardId);
-  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid()||from?.id!==place?.sourceTabId||!from||matches.length!==1||tab?.boardId!==place?.boardId||state?.boardId!==place?.boardId||state.loading)throw Error('白板的打开位置已有变化，请保留名称并重新选择。');
+  const {view,state}=operationWriter(source,place,valid);
   if(state.name!==place.expectedName&&state.name!==name)throw Error('这张白板的名称已有变化，请保留输入并重新核对。');
   return {saved:await view.renameBoard(place.boardId,name),appliedName:name};
  }
- window.whiteboardWorkspace={boardRenameTarget,renameOpenBoard,canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
+ async function moveOpenBoard(source,place,destination,valid){
+  const {view,state}=operationWriter(source,place,valid);
+  if(state.folder!==place.expectedFolder&&state.folder!==destination)throw Error('这张白板的位置已有变化，请重新核对。');
+  return {saved:await view.moveBoard(place.boardId,destination),appliedFolder:destination};
+ }
+ const receiveBoardLocation=info=>explorer()?.updateBoardLocation?.(info);
+ window.whiteboardWorkspace={openBoardTarget,renameOpenBoard,moveOpenBoard,receiveBoardLocation,canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
 })();

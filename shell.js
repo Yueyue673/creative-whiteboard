@@ -5,6 +5,10 @@ let pickerFolders=null,tabFolderPending=false,tabFolderAttempted=false,tabFolder
 // Labels use catalog metadata only, never a canvas snapshot or a stored path.
 function receiveTabLocations(value){
  if(Array.isArray(value.boards))boards=value.boards;
+ if(value.board&&typeof value.board.id==='string'){
+  const row=boards.find(b=>b.id===value.board.id);if(row)Object.assign(row,value.board);else boards.push(value.board);
+  window.whiteboardWorkspace?.receiveBoardLocation?.(value.board);
+ }
  if(Array.isArray(value.folders)){pickerFolders=value.folders;tabFolderEpoch++}
  renderTabs();
 }
