@@ -88,6 +88,7 @@ jobs:
           PORTABILITY_PROOF: .ci-proofs/appearance-portability
           STACKED_SOURCE_PROOF: .ci-proofs/narrow-reference-stack
           PICKED_REVIEW_PROOF: .ci-proofs/library-picked-review
+          LIBRARY_SELECT_ALL_PROOF: .ci-proofs/library-select-all
           REUSE_ENTRY_PROOF: .ci-proofs/library-reuse-entry
           PAPER_TOOLS_FOLD_PROOF: .ci-proofs/paper-tools-fold
           LIBRARY_KIND_FILTER_PROOF: .ci-proofs/library-kind-filter
@@ -1189,5 +1190,15 @@ jobs:
           path: |
             .ci-proofs/appearance-preset-remove/result.json
             .ci-proofs/appearance-preset-remove/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-select-all evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-select-all-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-select-all/result.json
+            .ci-proofs/library-select-all/*.png
           if-no-files-found: ignore
           retention-days: 3

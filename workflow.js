@@ -754,6 +754,17 @@ if(board){applyTypography();syncTextTools();announce()}
    };
   }
 
+  let all=$('wfSelectAll');
+  if(!all){
+   all=document.createElement('button');all.type='button';all.id='wfSelectAll';count.after(all);
+   all.onclick=()=>{
+    if(review||placing||!assetCatalogReady||pane.hidden||all.hidden||all.disabled||document.hidden||document.querySelector('dialog[open]')||!all.isConnected||$('wfSelectAll')!==all||all.parentElement!==bar)return;
+    const list=libraryMatches();if(!list.length)return;
+    if(assetSelected.size===list.length&&list.every(a=>assetSelected.has(a.id))){assetFolderPick=null;assetSelected.clear();updateAssetSelection()}
+    else selectAllLibraryMatches();
+   };
+  }
+
   const action=$('assetPlace');
   if(action&&action.parentElement!==bar){
    const originalAction=action.onclick;action.parentElement.classList.add('wf-place-legacy');bar.append(action);action.setAttribute('aria-label','放入所选资源');
@@ -768,6 +779,13 @@ if(board){applyTypography();syncTextTools();announce()}
   const active=!!review,button=$('wfPickedReview'),hint=$('wfPickedHint'),total=picked().length;
   if(action){action.hidden=!total;action.disabled=placing||!total;action.textContent=placing?'正在放入':'放入所选';action.setAttribute('aria-busy',String(placing))}
   button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active;hint.textContent='全部已选资源；返回后保留原搜索、类型和位置。';
+  const list=active?[]:libraryMatches(),allSelected=!!list.length&&assetSelected.size===list.length&&list.every(a=>assetSelected.has(a.id));
+  const hideAll=active||!assetCatalogReady,disableAll=placing||!list.length;
+  bar.classList.toggle('wf-whole-list',!hideAll);
+  if(document.activeElement===all&&(hideAll||disableAll))(active?button:pane).focus({preventScroll:true});
+  all.hidden=hideAll;all.disabled=disableAll;all.textContent=allSelected?'取消全选':'全选'+list.length+'项';all.setAttribute('aria-pressed',String(allSelected));
+  all.setAttribute('aria-label',allSelected?'取消全选当前列表中的'+list.length+'项内容':'全选当前列表中的'+list.length+'项内容');
+  all.title='按当前文件夹、搜索和类型选择，包括尚未展开的列表项。';
   $('assetSearch').disabled=active;
   pane.querySelectorAll('.wf-library-type select,.wf-library-order select,#wfLibrarySearchContext button').forEach(el=>el.disabled=active);
   if(active){count.textContent='已选 '+total+' 项';pane.querySelectorAll('[data-asub]').forEach(el=>el.hidden=true);let empty=$('assetList').querySelector('.explorer-empty');if(!total&&!empty){empty=document.createElement('div');empty.className='explorer-empty';$('assetList').append(empty)}if(empty)empty.textContent='没有已选资源，返回原列表继续挑选。'}
