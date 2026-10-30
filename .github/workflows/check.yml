@@ -151,6 +151,7 @@ jobs:
           INACTIVE_RENAME_PROOF: .ci-proofs/inactive-board-rename
           OPEN_BOARD_MOVE_PROOF: .ci-proofs/open-board-move
           TEXT_RETRY_PROOF: .ci-proofs/text-preview-retry
+          TABLE_ENCODING_PROOF: .ci-proofs/library-table-encoding
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1244,5 +1245,15 @@ jobs:
           path: |
             .ci-proofs/text-preview-retry/result.json
             .ci-proofs/text-preview-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-encoding evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-encoding-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-encoding/result.json
+            .ci-proofs/library-table-encoding/*.png
           if-no-files-found: ignore
           retention-days: 3

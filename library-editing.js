@@ -1,6 +1,25 @@
 // Library forms preserve authored drafts and compare against the latest stored fields.
 (() => {
  'use strict';
+ function tableFileTextDecoder(){
+  let decoder=null,prefix=new Uint8Array();
+  return (chunk,final=false)=>{
+   try{
+    if(!decoder){
+     let bytes=chunk||new Uint8Array();
+     if(prefix.byteLength){const joined=new Uint8Array(prefix.byteLength+bytes.byteLength);joined.set(prefix);joined.set(bytes,prefix.byteLength);bytes=joined}
+     if(bytes.byteLength<4&&!final){prefix=bytes;return ''}
+     // Check longer BOMs first; UTF-32LE otherwise resembles UTF-16LE plus NULs.
+     if(bytes[0]===255&&bytes[1]===254&&bytes[2]===0&&bytes[3]===0||bytes[0]===0&&bytes[1]===0&&bytes[2]===254&&bytes[3]===255)throw Error('unsupported encoding');
+     const encoding=bytes[0]===255&&bytes[1]===254?'utf-16le':bytes[0]===254&&bytes[1]===255?'utf-16be':'utf-8';
+     decoder=new TextDecoder(encoding,{fatal:true});prefix=null;
+     return decoder.decode(bytes,{stream:!final});
+    }
+    return decoder.decode(chunk,{stream:!final});
+   }catch{throw Error('这份文件暂时无法按UTF-8或带编码标记的UTF-16读取，请检查文件编码；原文件与表格保留。')}
+  };
+ }
+ // End bounded table decoder.
  let escapeGuard=null;
  const copy=value=>value===undefined?undefined:clone(value);
  const text=value=>value===undefined?'（已移除）':Array.isArray(value)?value.join('，'):String(value??'');
@@ -513,7 +532,7 @@
     const file=assetSelected.size===1?assetById([...assetSelected][0]):null;
     const kind=file&&!file.archived&&file.mime!==bundleMime?(/\.tsv$/i.test(file.path||'')||file.mime==='text/tab-separated-values'?'tsv':/\.csv$/i.test(file.path||'')||file.mime==='text/csv'?'csv':null):null;
     if(!kind)return;
-    const originalFile=copy(file),section=element('section','library-table-file-source'),label=element('p','library-edit-explain','库中已选：'+(file.folder?file.folder+' / ':'')+file.title),help=element('p','library-edit-explain','可读取这份CSV/TSV的完整UTF-8文字（文件最多1MB），无需下载转抄。原文件保留，新表格独立保存。'),fileActions=element('div','library-table-text-actions'),read=element('button','','读取已选文件'),cancel=element('button','','取消读取');
+    const originalFile=copy(file),section=element('section','library-table-file-source'),label=element('p','library-edit-explain','库中已选：'+(file.folder?file.folder+' / ':'')+file.title),help=element('p','library-edit-explain','可读取完整UTF-8或带编码标记的UTF-16文字（文件最多1MiB），无需下载转抄。原文件保留，新表格独立保存。'),fileActions=element('div','library-table-text-actions'),read=element('button','','读取已选文件'),cancel=element('button','','取消读取');
     read.type=cancel.type='button';read.dataset.libraryTableFileRead='';cancel.dataset.libraryTableFileCancel='';section.dataset.libraryTableFileSource='';fileActions.append(read,cancel);section.append(label,help,fileActions);textLabel.before(section);
     const sameFile=()=>assetSelected.size===1&&assetSelected.has(file.id)&&equal(assetById(file.id),originalFile);
     updateFileControls=()=>{if(!owns())return;read.disabled=!!applied||state.busy||!!readingFile||!!tableScopeProblem(state)||!untouched()||input.value!==''||!sameFile();cancel.hidden=!readingFile;cancel.disabled=!readingFile};
@@ -530,10 +549,10 @@
       if(!response.ok)throw Error('文件暂时无法读取（'+response.status+'），原文件与当前表格保留。');
       if(response.status!==200)throw Error('这次只读到了部分文件，未用于建表；请重新读取。');
       if(Number(response.headers.get('Content-Length'))>1048576)throw Error('这份文件较大，请用原白板导入；原文件与当前表格保留。');
-      const reader=response.body.getReader(),decoder=new TextDecoder('utf-8',{fatal:true}),decode=(value,options)=>{try{return decoder.decode(value,options)}catch{throw Error('这份文件暂时无法按UTF-8文字读取，请检查文件编码；原文件与表格保留。')}};let bytes=0,value='';
+      const reader=response.body.getReader(),decode=tableFileTextDecoder();let bytes=0,value='';
       try{
-       while(true){const chunk=await reader.read();if(chunk.done)break;bytes+=chunk.value.byteLength;if(bytes>1048576)throw Error('这份文件较大，请用原白板导入；原文件与当前表格保留。');value+=decode(chunk.value,{stream:true});if(value.length>262144)throw Error('这份文件文字较长，请用原白板导入；当前表格保留。')}
-       value+=decode();if(value.length>262144)throw Error('这份文件文字较长，请用原白板导入；当前表格保留。');
+       while(true){const chunk=await reader.read();if(chunk.done)break;bytes+=chunk.value.byteLength;if(bytes>1048576)throw Error('这份文件较大，请用原白板导入；原文件与当前表格保留。');value+=decode(chunk.value);if(value.length>262144)throw Error('这份文件文字较长，请用原白板导入；当前表格保留。')}
+       value+=decode(undefined,true);if(value.length>262144)throw Error('这份文件文字较长，请用原白板导入；当前表格保留。');
       }catch(error){try{await reader.cancel()}catch{}throw error}finally{reader.releaseLock()}
       if(readingFile!==request||!owns())return;
       if(!canChange()||!sameFile()||textKey()!==request.key||!untouched()){message('已有后续输入或文件信息变化，未替换文字；当前表格保留。');return}
