@@ -84,6 +84,7 @@ jobs:
           EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
           PRESET_UPDATE_PROOF: .ci-proofs/appearance-preset-update
           PRESET_RENAME_PROOF: .ci-proofs/appearance-preset-rename
+          PRESET_REMOVE_PROOF: .ci-proofs/appearance-preset-remove
           PORTABILITY_PROOF: .ci-proofs/appearance-portability
           STACKED_SOURCE_PROOF: .ci-proofs/narrow-reference-stack
           PICKED_REVIEW_PROOF: .ci-proofs/library-picked-review
@@ -1178,5 +1179,15 @@ jobs:
           path: |
             .ci-proofs/media-read-retry/result.json
             .ci-proofs/media-read-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated appearance-preset-remove evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-preset-remove-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-preset-remove/result.json
+            .ci-proofs/appearance-preset-remove/*.png
           if-no-files-found: ignore
           retention-days: 3

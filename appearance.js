@@ -348,10 +348,29 @@ SOFTWARE.
       },'撤销更新');
      }catch{message('浏览器无法保存预设，请检查存储空间。')}
     };
+    const removalHost=window.whiteboardHosted||null,removalScope=JSON.stringify(removalHost&&[removalHost.account?.id,removalHost.workspace,removalHost.base]);
+    const ownsRemoval=()=>owns()&&(window.whiteboardHosted||null)===removalHost&&(!removalHost||!removalHost.paused&&!!removalHost.account?.id&&!!removalHost.workspace)&&removalScope===JSON.stringify(removalHost&&[removalHost.account?.id,removalHost.workspace,removalHost.base]);
+    let removeSnapshot;try{removeSnapshot=rawPreset(row.id).value}catch{}
     remove.textContent='×';remove.setAttribute('aria-label','移除预设：'+row.name);
-    remove.onclick=()=>{if(!owns())return;try{localStorage.setItem(collectionKey,JSON.stringify(savedPresets().filter(r=>r.id!==row.id)));refreshSaved();d.querySelector('#appearanceName').focus();message('已移除“'+row.name+'”，当前外观保留。',()=>{
-      try{const current=savedPresets();if(current.length>=24){message('已满 24 个预设，请先移除一个。');return}if(!current.some(r=>r.id===row.id))localStorage.setItem(collectionKey,JSON.stringify([...current,row]));refreshSaved();message('已恢复“'+row.name+'”。')}catch{message('浏览器无法保存预设，请检查存储空间。')}
-     })}catch{message('浏览器无法保存预设，请检查存储空间。')}};const rename=document.createElement('button');rename.type='button';rename.textContent='改名';rename.dataset.renamePreset=row.id;rename.setAttribute('aria-label','改名预设：'+row.name);rename.onclick=()=>{if(rename.isConnected&&list.contains(rename))beginRename(row)};item.append(choose,replacePreset,rename,remove);list.append(item);
+    remove.onclick=()=>{
+     if(!owns()||!remove.isConnected||!list.contains(remove))return;
+     if(!ownsRemoval()){message('所属账号或工作区已有变化，请关闭设置后重新打开。');return}
+     try{
+      const current=rawPreset(row.id);
+      if(!removeSnapshot||JSON.stringify(current.value)!==JSON.stringify(removeSnapshot)){refreshSaved();message('预设已有变化，未移除。请重新查看。');return}
+      const previous=current.value,index=current.index;current.rows.splice(index,1);localStorage.setItem(collectionKey,JSON.stringify(current.rows));refreshSaved();d.querySelector('#appearanceName').focus();
+      const restore=()=>{
+       if(!ownsRemoval()){message('所属账号或工作区已有变化，请关闭设置后重新打开。');return}
+       try{
+        const rows=JSON.parse(localStorage.getItem(collectionKey)||'[]');if(!Array.isArray(rows))throw Error('changed presets');
+        if(rows.some(value=>value&&(value.id===previous.id||value.name===previous.name))){refreshSaved();message('这个预设已有后续变化，未恢复。');return}
+        if(rows.length>=24){message('已满 24 个预设，请先移除一个。',restore);return}
+        rows.splice(Math.min(index,rows.length),0,previous);localStorage.setItem(collectionKey,JSON.stringify(rows));refreshSaved();message('已恢复“'+previous.name+'”。');
+       }catch{message('暂时无法保存撤销结果，可稍后重试。',restore)}
+      };
+      message('已移除“'+previous.name+'”，当前外观保留。',restore);
+     }catch{message('浏览器无法保存预设，请检查存储空间。')}
+    };const rename=document.createElement('button');rename.type='button';rename.textContent='改名';rename.dataset.renamePreset=row.id;rename.setAttribute('aria-label','改名预设：'+row.name);rename.onclick=()=>{if(rename.isConnected&&list.contains(rename))beginRename(row)};item.append(choose,replacePreset,rename,remove);list.append(item);
    }
   }
   d.querySelector('#appearanceSave').onclick=()=>{
