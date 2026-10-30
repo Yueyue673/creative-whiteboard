@@ -464,7 +464,31 @@ const filePreviews=new Map();
 function isTextAsset(a){return !!a&&(/\.(json|txt|md|csv|tsv|log|ya?ml)$/i.test(a.path||'')||a.mime==='application/json'||a.mime?.startsWith('text/'))}
 async function getTextPreview(a){if(filePreviews.has(a.id))return filePreviews.get(a.id);const task=(async()=>{try{const r=await fetch(mediaURL(a.id),{headers:{Range:'bytes=0-131071'}});if(!r.ok)throw Error('文件读取失败（'+r.status+'）');const raw=await r.text();let text=raw,summary='文本内容';const limited=(a.size||0)>131072;if(/\.json$/i.test(a.path)||a.mime==='application/json'){try{const obj=JSON.parse(raw);summary=Array.isArray(obj)?'数组 · '+obj.length+' 项':obj&&typeof obj==='object'?'对象 · '+Object.keys(obj).length+' 个字段':'JSON 值';text=JSON.stringify(obj,null,2)}catch(e){summary=limited?'大型 JSON · 显示开头':'JSON 无法解析 · 显示原文'}}return {text:text.slice(0,24000),summary,truncated:limited||text.length>24000}}catch(e){return{error:e.message}}})();filePreviews.set(a.id,task);return task}
 const oldAttachmentPreview=attachmentMarkup;attachmentMarkup=function(n){const a=n.assetId?assetById(n.assetId):null;return (isTextAsset(a)?'<div class="file-text-preview" data-text-preview="'+esc(a.id)+'"><small>正在读取文件内容…</small></div>':'')+oldAttachmentPreview(n)};
-function fillTextPreviews(root=document){root.querySelectorAll('[data-text-preview]').forEach(el=>{const a=assetById(el.dataset.textPreview);if(!a)return;getTextPreview(a).then(result=>{if(!el.isConnected)return;el.replaceChildren();const summary=document.createElement('small');summary.textContent=result.error||(el.closest('.cell-content')?'原文件预览 · ':'')+result.summary+(result.truncated?' · 仅显示前段，可打开原文件查看全部':'');el.append(summary);if(!result.error){const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre)}scheduleContentFit()})})}
+const textPreviewRuns=new WeakMap();
+function textPreviewFileIdentity(a){return a?JSON.stringify([a.id,a.path,a.mime,a.size,a.contentHash,a.contentMtime,!!a.isReference,a.isReference?a.updated:null]):null}
+function fillTextPreviews(root=document){
+ const boxes=[...(root.matches?.('[data-text-preview]')?[root]:[]),...root.querySelectorAll('[data-text-preview]')];
+ boxes.forEach(el=>{
+  const id=el.dataset.textPreview,a=assetById(id);if(!a)return;
+  const run={},identity=textPreviewFileIdentity(a),context=contentContext(el),owner=context?.node,ownerAsset=owner?.assetId,dialog=el.closest('#dialog'),scope=mediaReadRetryScope();textPreviewRuns.set(el,run);el.setAttribute('aria-busy','true');
+  const owns=()=>{const now=mediaReadRetryScope(),current=contentContext(el);return textPreviewRuns.get(el)===run&&el.isConnected&&el.dataset.textPreview===id&&(!dialog||dialog.open)&&identity===textPreviewFileIdentity(assetById(id))&&owner===current?.node&&ownerAsset===current?.node?.assetId&&context?.board===current?.board&&scope.valid&&now.valid&&scope.key===now.key&&scope.hosts.length===now.hosts.length&&scope.hosts.every((host,index)=>host===now.hosts[index])};
+  const request=getTextPreview(a),cached=filePreviews.get(id);
+  request.then(result=>{
+   if(!owns())return;el.replaceChildren();el.setAttribute('aria-busy','false');const summary=document.createElement('small');summary.setAttribute('role','status');summary.textContent=result.error||(el.closest('.cell-content')?'原文件预览 · ':'')+result.summary+(result.truncated?' · 仅显示前段，可打开原文件查看全部':'');el.append(summary);
+   if(result.error){
+    const button=document.createElement('button');button.type='button';button.className='text-read-retry inline-ui';button.textContent='重新读取文本';
+    button.onclick=()=>{
+     if(button.disabled||!button.isConnected||!el.contains(button)||document.hidden||!button.getClientRects().length)return;
+     if(!owns()){button.disabled=true;summary.textContent='查看位置、文件或所属账号已有变化，请重新打开这份资料。';return}
+     if(document.activeElement===button){el.tabIndex=-1;el.focus({preventScroll:true})}
+     button.disabled=true;summary.textContent='正在重新读取文本…';if(filePreviews.get(id)===cached)filePreviews.delete(id);fillTextPreviews(el);
+    };
+    el.append(' ',button);
+   }else{const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre)}
+   scheduleContentFit();
+  });
+ });
+}
 const beforeTextPreview=previewAsset;previewAsset=function(id){const a=assetById(id);if(!isTextAsset(a))return beforeTextPreview(id);showDialog('<div class="text-file-preview"><h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2><div class="file-text-preview" data-text-preview="'+esc(id)+'">正在读取文件内容…</div><a href="'+mediaURL(id)+'" target="_blank" rel="noopener">打开 / 下载完整文件</a></div>',[['关闭',()=>$('dialog').close()]]);fillTextPreviews($('dialog'))};
 const importBeforeJSON=importFiles;importFiles=async function(files,p=center()){for(const file of files){const at={...p,_importFile:file,_importErrors:[]},finish=p._fileImportProgress?.(file,at._importErrors);try{if(/\.json$/i.test(file.name)){let obj;try{if(file.size<12*1024*1024)obj=JSON.parse(await file.text())}catch(e){}const candidate=obj?.board||obj?.data||obj;const boardFile=Array.isArray(candidate?.nodes)&&Array.isArray(candidate?.edges);if(!boardFile){try{const added=await uploadFiles([file]);await placeAssets(added.map(a=>a.id),at)}catch(e){toast(e.message)}continue}}await importBeforeJSON([file],at)}finally{finish?.()}}};
 function mediaReadRetryScope(){

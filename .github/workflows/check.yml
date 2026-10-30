@@ -150,6 +150,7 @@ jobs:
           EXPLORER_RENAME_PROOF: .ci-proofs/shared-explorer-rename
           INACTIVE_RENAME_PROOF: .ci-proofs/inactive-board-rename
           OPEN_BOARD_MOVE_PROOF: .ci-proofs/open-board-move
+          TEXT_RETRY_PROOF: .ci-proofs/text-preview-retry
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1233,5 +1234,15 @@ jobs:
           path: |
             .ci-proofs/open-board-move/result.json
             .ci-proofs/open-board-move/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated text-preview-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-preview-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/text-preview-retry/result.json
+            .ci-proofs/text-preview-retry/*.png
           if-no-files-found: ignore
           retention-days: 3
