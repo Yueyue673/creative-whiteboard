@@ -136,7 +136,7 @@ function previewAsset(id){
  body='<h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2>'+content+'<p class="source-path">'+esc(a.path)+'</p><a href="'+url+'" target="_blank" rel="noopener">打开 / 下载文件</a>';
  showDialog(media?'<div class="media-preview">'+body+'</div>':body,[['修改说明',()=>{$('dialog').close();editAsset(id)}],['关闭',()=>$('dialog').close()]]);
  if(media){
-  const player=$('dialogBody').querySelector('audio,video');
+  const player=$('dialogBody').querySelector('audio,video');if(player)bindMediaState(player);
   onDialogDismiss(()=>{player?.pause();player?._captureReading?.()});
   // Keep this player in its original document. The workbench can make the
   // existing preview visible beside writing without restarting its source.
@@ -465,9 +465,28 @@ const oldAttachmentPreview=attachmentMarkup;attachmentMarkup=function(n){const a
 function fillTextPreviews(root=document){root.querySelectorAll('[data-text-preview]').forEach(el=>{const a=assetById(el.dataset.textPreview);if(!a)return;getTextPreview(a).then(result=>{if(!el.isConnected)return;el.replaceChildren();const summary=document.createElement('small');summary.textContent=result.error||(el.closest('.cell-content')?'原文件预览 · ':'')+result.summary+(result.truncated?' · 仅显示前段，可打开原文件查看全部':'');el.append(summary);if(!result.error){const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre)}scheduleContentFit()})})}
 const beforeTextPreview=previewAsset;previewAsset=function(id){const a=assetById(id);if(!isTextAsset(a))return beforeTextPreview(id);showDialog('<div class="text-file-preview"><h2 title="'+esc(a.title)+'">'+esc(a.title)+'</h2><div class="file-text-preview" data-text-preview="'+esc(id)+'">正在读取文件内容…</div><a href="'+mediaURL(id)+'" target="_blank" rel="noopener">打开 / 下载完整文件</a></div>',[['关闭',()=>$('dialog').close()]]);fillTextPreviews($('dialog'))};
 const importBeforeJSON=importFiles;importFiles=async function(files,p=center()){for(const file of files){const at={...p,_importFile:file,_importErrors:[]},finish=p._fileImportProgress?.(file,at._importErrors);try{if(/\.json$/i.test(file.name)){let obj;try{if(file.size<12*1024*1024)obj=JSON.parse(await file.text())}catch(e){}const candidate=obj?.board||obj?.data||obj;const boardFile=Array.isArray(candidate?.nodes)&&Array.isArray(candidate?.edges);if(!boardFile){try{const added=await uploadFiles([file]);await placeAssets(added.map(a=>a.id),at)}catch(e){toast(e.message)}continue}}await importBeforeJSON([file],at)}finally{finish?.()}}};
+function mediaReadRetryScope(){
+ const hosts=[window.whiteboardHosted||null];let accessible=true;try{if(parent!==window)hosts.push(parent.whiteboardHosted||null)}catch{accessible=false}
+ return {hosts,key:JSON.stringify(hosts.map(host=>host?[host.account?.id,host.workspace,host.base]:null)),valid:accessible&&hosts.every(host=>!host||!!host.account?.id&&!!host.workspace&&!host.paused)};
+}
+function appendMediaReadRetry(el,status){
+ if(!el.error||!el.getAttribute('src')||status.querySelector('.media-read-retry'))return;
+ const button=document.createElement('button'),area=el.parentElement,source=el.getAttribute('src'),context=contentContext(el),owner=context?.node,key=readerKey(el,'media',el.dataset.mediaReadingSource||source),scope=mediaReadRetryScope();
+ button.type='button';button.className='media-read-retry inline-ui';button.textContent='重新读取音视频';
+ button.onclick=()=>{
+  if(button.disabled||!button.isConnected||!status.contains(button)||!el.isConnected||el.parentElement!==area||!el.error||document.hidden)return;
+  const now=mediaReadRetryScope(),current=contentContext(el),owns=source===el.getAttribute('src')&&owner===current?.node&&key===readerKey(el,'media',el.dataset.mediaReadingSource||el.getAttribute('src'))&&scope.valid&&now.valid&&scope.key===now.key&&scope.hosts.length===now.hosts.length&&scope.hosts.every((host,index)=>host===now.hosts[index]);
+  if(!owns){button.disabled=true;const message=document.createElement('span');message.textContent=' 查看位置或所属账号已有变化，请重新打开这份资料。';status.append(message);return}
+  if(document.activeElement===button)(area.querySelector('.media-controls .media-play')||el).focus({preventScroll:true});
+  button.disabled=true;el._captureReading?.();el.pause();el._prepareReadingReload?.();el.load();
+ };
+ status.append(' ',button);
+}
+
 function updateMediaState(el,message){const area=el.parentElement;let status=area?.querySelector('.playback-state');if(!status&&area){status=document.createElement('small');status.className='playback-state';status.setAttribute('role','status');el.after(status)}if(status){
  const parts=message.split('打开原文件'),source=el.currentSrc||el.src,hasLink=parts.length===2&&!!el.getAttribute('src'),existingLink=status.querySelector('a');
- if(status.textContent!==message||!!existingLink!==hasLink||(hasLink&&existingLink.href!==source)){status.replaceChildren();if(hasLink){const link=document.createElement('a');link.className='inline-ui';link.href=source;link.target='_blank';link.rel='noopener';link.textContent='打开原文件';status.append(parts[0],link,parts[1])}else status.textContent=message}
+ if(status.dataset.message!==message||!!existingLink!==hasLink||(hasLink&&existingLink.href!==source)){status.replaceChildren();if(hasLink){const link=document.createElement('a');link.className='inline-ui';link.href=source;link.target='_blank';link.rel='noopener';link.textContent='打开原文件';status.append(parts[0],link,parts[1])}else status.textContent=message;status.dataset.message=message}
+ if(el.error)appendMediaReadRetry(el,status);
  status.classList.toggle('playback-problem',/无法|较慢|正在缓冲/.test(message));status.hidden=/^(已就绪|时长 |正在播放)/.test(message)
 }}
 function bindMediaState(el){

@@ -143,6 +143,7 @@ jobs:
           LIBRARY_ALTERNATIVE_LIST_PROOF: .ci-proofs/library-alternative-list
           IMAGE_PREVIEW_RETRY_PROOF: .ci-proofs/image-preview-retry
           BLANK_BOARD_CREATE_PROOF: .ci-proofs/blank-board-create-retry
+          MEDIA_READ_RETRY_PROOF: .ci-proofs/media-read-retry
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
@@ -1167,5 +1168,15 @@ jobs:
           path: |
             .ci-proofs/blank-board-create-retry/result.json
             .ci-proofs/blank-board-create-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated media-read-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-read-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-read-retry/result.json
+            .ci-proofs/media-read-retry/*.png
           if-no-files-found: ignore
           retention-days: 3
