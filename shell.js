@@ -143,13 +143,55 @@ window.whiteboardShellResources=Object.freeze({async reopen(source){
 }});
 function moveTab(id,side,before){const t=model.tabs.find(t=>t.id===id);if(!t)return;const old=t.side;if(side==='right')model.split=true;if(before&&before!==id){model.tabs=model.tabs.filter(n=>n.id!==id);model.tabs.splice(Math.max(0,model.tabs.findIndex(n=>n.id===before)),0,t)}t.side=side;if(old!==side&&model.active[old]===id)model.active[old]=model.tabs.find(n=>n.side===old)?.id||null;model.active[side]=id;model.side=side;dragTab=null;$('workspace').classList.remove('tab-dragging');renderTabs();pane(t)?.focus()}
 function toggleSplit(){if(model.split){const keep=current()?.id;for(const t of model.tabs)t.side='left';model.split=false;model.active.left=keep||model.active.left;model.side='left'}else{model.split=true;const active=current();if(model.tabs.filter(t=>t.side==='left').length>1&&active){moveTab(active.id,'right');return}}renderTabs()}
+// One picker owns one uncertain blank-board creation, including its retry ID.
+let pickerCreation=null;
+function pickerCreationScope(){const host=window.whiteboardHosted||null;return {host,key:host?JSON.stringify([host.account?.id,host.workspace,host.base]):'',valid:!host||!!host.account?.id&&!!host.workspace&&!host.paused}}
+function pickerCreationScopeCurrent(state){const now=pickerCreationScope();return state.scope.valid&&now.valid&&state.scope.host===now.host&&state.scope.key===now.key}
+function pickerCreationPanel(state){return pickerCreation===state&&pickerEpoch===state.epoch&&pickerSide===state.side&&$('boardPicker').open}
+function pickerCreationOwns(state){return pickerCreationPanel(state)&&pickerCreationScopeCurrent(state)&&!document.hidden}
+function pickerCreationMessage(state,text){if(pickerCreationPanel(state)){const status=$('boardCreateState');status.hidden=!text;status.textContent=text}}
+function pickerCreationSignature(value){return JSON.stringify(value,(_key,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item)}
+function resetPickerCreation(epoch,side){
+ pickerCreation={epoch,side,scope:pickerCreationScope(),busy:false,attempt:null,completed:false,changed:false};
+ $('createBoard').disabled=false;$('createBoard').textContent='新建并打开';$('newBoardName').disabled=false;$('newBoardName').readOnly=false;$('boardCreateState').hidden=true;$('boardCreateState').textContent='';
+}
+function completePickerCreation(state){
+ state.completed=true;if(!pickerCreationScopeCurrent(state))return;
+ const {id,value}=state.attempt;if(!boards.some(row=>row.id===id))boards.push({id,name:value.name,folder:value.folder,count:value.nodes.length});window.whiteboardBoardLifecycle?.created([id]);
+ if(pickerCreationOwns(state))finishPicker(id,state.side);else if(!document.hidden)toast('白板已创建，可在白板列表中打开。');
+}
+async function submitPickerCreation(){
+ const state=pickerCreation;if(!state||!pickerCreationPanel(state)||state.busy||state.completed||state.changed)return;
+ if(!pickerCreationOwns(state)){pickerCreationMessage(state,'所属账号或工作区尚未确认，请回到原位置后再试。');return}
+ const button=$('createBoard'),input=$('newBoardName'),checking=!!state.attempt;state.busy=true;button.disabled=input.disabled=true;pickerCreationMessage(state,checking?'正在核对这次创建…':'正在创建白板…');
+ try{
+  const host=state.scope.host;if(host&&(typeof host.checkIdentity!=='function'||!await host.checkIdentity()))throw Error('所属账号或工作区尚未确认。');
+  if(!pickerCreationOwns(state)){pickerCreationMessage(state,'所属账号、工作区或查看位置已有变化，请保留名称并核对。');return}
+  if(state.attempt){
+   const response=await fetch('/api/boards/'+state.attempt.id,{cache:'no-store'});
+   if(!pickerCreationOwns(state)){pickerCreationMessage(state,'所属账号、工作区或查看位置已有变化，本次核对已停下。');return}
+   if(response.status!==404){
+    if(!response.ok)throw Error('暂时未能核对这次创建，请稍后再试。');
+    const saved=await response.json();if(!pickerCreationOwns(state))return;
+    if(pickerCreationSignature(saved)!==state.attempt.signature){state.changed=true;pickerCreationMessage(state,'这次创建的白板已有变化。未覆盖，可关闭此窗口后从白板列表核对。');return}
+    completePickerCreation(state);return;
+   }
+  }else{
+   const value={format:'creative-board',version:1,name:input.value.trim()||'未命名白板',folder:'',nodes:[],edges:[],view:{x:80,y:80,z:1}};state.attempt={id:uid(),value,signature:pickerCreationSignature(value)};
+  }
+  if(!pickerCreationOwns(state))return;
+  await api('/api/boards/'+state.attempt.id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(state.attempt.value)});completePickerCreation(state);
+ }catch(error){const detail=error.message==='Failed to fetch'?'连接暂时中断。':error.message||'';pickerCreationMessage(state,checking?'暂时未能核对这次创建，请稍后再试。 '+detail:state.attempt?'本次创建尚未确认，可点“核对这次创建”。名称保留。 '+detail:detail||'暂时未能创建，名称保留。')}
+ finally{state.busy=false;if(pickerCreationPanel(state)){input.disabled=false;input.readOnly=!!state.attempt;button.disabled=state.completed||state.changed;button.textContent=state.changed?'已保存内容需要核对':state.completed?'已创建，所属范围待核对':state.attempt?'核对这次创建':'新建并打开'}}
+}
+
 async function picker(side=model.side,purpose=null){
  const epoch=++pickerEpoch;pickerResolve?.(null);pickerResolve=null;pickerSide=side;
  const [boardResult,folderResult]=await Promise.allSettled([api('/api/boards'),api('/api/folders')]);
  if(epoch!==pickerEpoch)return null;
  if(boardResult.status==='rejected'){toast(boardResult.reason.message);return null}
  boards=boardResult.value;pickerFolders=folderResult.status==='fulfilled'?folderResult.value.folders:null;tabFolderEpoch++;renderTabs();
- $('boardQuery').value='';$('newBoardName').value='';$('boardPicker').querySelector('h2').textContent=purpose?.title||'打开白板';
+ resetPickerCreation(epoch,side);$('boardQuery').value='';$('newBoardName').value='';$('boardPicker').querySelector('h2').textContent=purpose?.title||'打开白板';
  $('pickerHint').hidden=!purpose;$('pickerHint').textContent=purpose?.hint||'在'+(side==='right'?'右':'左')+'侧打开；已打开的白板会使用原标签。';
  const answer=purpose?new Promise(resolve=>pickerResolve=resolve):null;
  drawChoices();if(!$('boardPicker').open)$('boardPicker').showModal();$(purpose?.focusNew?'newBoardName':'boardQuery').focus();return answer;
@@ -183,7 +225,7 @@ async function createBoard(name,side,folder="",show=true){const id=uid(),data={f
 async function command(name){const t=current(),view=pane(t);if(!view||view.state().loading||view.state().boardId!==t.boardId)return toast('白板还在打开，请稍等');$('shellMore').open=false;try{await view.command(name)}catch(e){toast(e.message)}}
 function stepTab(offset){const tabs=model.tabs.filter(t=>t.side===model.side);if(!tabs.length)return;const index=tabs.findIndex(t=>t.id===model.active[model.side]);activate(tabs[(index+offset+tabs.length)%tabs.length].id)}
 window.addEventListener('message',async e=>{if(e.origin!==location.origin)return;const tab=model.tabs.find(t=>frames.get(t.id)?.contentWindow===e.source);if(!tab)return;const d=e.data;if(d?.type==='pane-board-locations'){receiveTabLocations(d)}else if(d?.type==='pane-ready'){const frame=frames.get(tab.id);frame.style.removeProperty('visibility');frame.removeAttribute('aria-busy')}else if(d?.type==='pane-state'){if(d.state?.boardId===tab.boardId){const name=d.state.name||tab.name;if(name!==tab.name){tab.name=name;renderTabs()}else updateStatus()}else if(d.state?.loadTargetId===tab.boardId)updateStatus()}else if(d?.type==='pane-active'){if(model.active[tab.side]===tab.id&&document.activeElement===frames.get(tab.id)){$('shellMore').open=false;$('tabContext').hidden=true;model.side=tab.side;document.querySelectorAll('.tab-group').forEach(el=>el.classList.toggle('active-pane',el.dataset.side===tab.side));updateStatus();saveLayout()}}else if(d?.type==='pane-open'){try{boards=await api('/api/boards');openBoard(d.boardId,tab.side)}catch(err){toast(err.message)}}else if(d?.type==='pane-shortcut'){model.side=tab.side;stepTab(d.reverse?-1:1)}else if(d?.type==='pane-split'){model.side=tab.side;toggleSplit()}else if(d?.type==='pane-import-notice')toast(d.text);else if(d?.type==='pane-picker')picker(tab.side)});
-$('openBoards').onclick=()=>current()?command('sidebar'):picker();$('boardQuery').oninput=drawChoices;document.querySelectorAll('.add-tab,.choose-board').forEach(b=>b.onclick=()=>picker(b.dataset.side));$('createBoard').onclick=async()=>{const button=$('createBoard');if(button.disabled)return;const epoch=pickerEpoch,side=pickerSide,name=$('newBoardName').value.trim();button.disabled=true;$('newBoardName').disabled=true;try{const id=await createBoard(name,side,'',false);if(epoch===pickerEpoch&&$('boardPicker').open)finishPicker(id,side);else{toast('白板已创建，可在白板列表中打开。');if($('boardPicker').open)drawChoices()}}catch(e){toast(e.message)}finally{button.disabled=false;$('newBoardName').disabled=false}};$('newBoardName').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){$('createBoard').click();e.preventDefault()}};$('splitToggle').onclick=toggleSplit;
+$('openBoards').onclick=()=>current()?command('sidebar'):picker();$('boardQuery').oninput=drawChoices;document.querySelectorAll('.add-tab,.choose-board').forEach(b=>b.onclick=()=>picker(b.dataset.side));$('createBoard').onclick=submitPickerCreation;$('newBoardName').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){$('createBoard').click();e.preventDefault()}};$('splitToggle').onclick=toggleSplit;
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>command(b.dataset.command));document.querySelectorAll('[data-tab-action]').forEach(b=>b.onclick=()=>{const id=contextTab;$('tabContext').hidden=true;if(b.dataset.tabAction==='close')closeTab(id);else{const t=model.tabs.find(t=>t.id===id);if(t)moveTab(id,t.side==='left'?'right':'left')}});document.addEventListener('pointerdown',e=>{if(!e.target.closest('#shellMore'))$('shellMore').open=false;if(!e.target.closest('#tabContext'))$('tabContext').hidden=true});
 document.querySelectorAll('.tab-group').forEach(el=>{el.addEventListener('dragover',e=>{if(dragTab)e.preventDefault()});el.addEventListener('drop',e=>{if(dragTab){e.preventDefault();moveTab(dragTab,el.dataset.side)}});el.addEventListener('pointerdown',()=>{model.side=el.dataset.side;updateStatus()})});$('rightDropTarget').ondragover=e=>e.preventDefault();$('rightDropTarget').ondrop=e=>{e.preventDefault();moveTab(dragTab,'right')};
 let resizing=false;const divider=$('splitter');divider.onpointerdown=e=>{if(e.button!==0)return;resizing=true;e.preventDefault();divider.setPointerCapture(e.pointerId);$('workspace').classList.add('resizing')};divider.onpointermove=e=>{if(!resizing)return;const r=$('workspace').getBoundingClientRect();model.ratio=Math.max(20,Math.min(80,(e.clientX-r.left)/r.width*100));renderTabs()};const endResize=()=>{resizing=false;$('workspace').classList.remove('resizing');saveLayout()};divider.onpointerup=endResize;divider.onpointercancel=endResize;divider.onlostpointercapture=endResize;divider.ondblclick=()=>{model.ratio=50;renderTabs()};divider.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home'].includes(e.key))return;e.preventDefault();model.ratio=e.key==='Home'?50:model.ratio+(e.key==='ArrowLeft'?-2:2);renderTabs()};
