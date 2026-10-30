@@ -51,17 +51,19 @@
  if(explorer){
   const renameBefore=renameBoardEntry;
   renameBoardEntry=function(){
-   const entry=boardEntry&&{...boardEntry},tab=parent.current?.(),host=parent.whiteboardWorkspace;
-   if(entry?.type!=='board'||entry.id!==tab?.boardId)return renameBefore();
-   const state=parent.pane?.(tab)?.state();if(!state||state.boardId!==entry.id||state.loading)return toast('这张白板还在打开，请稍后再改名。');
+   const entry=boardEntry&&{...boardEntry},host=parent.whiteboardWorkspace;
+   if(entry?.type!=='board')return renameBefore();
+   const target=host.boardRenameTarget(window,entry.id);if(!target)return renameBefore();
+   if(target.ambiguous)return toast('这张白板有多个打开位置，请从对应标签核对后再改名。');
+   if(target.loading)return toast('这张白板还在打开，请稍后再改名。');
    const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null,scopeKey=()=>JSON.stringify([window.whiteboardHosted?.account?.id,window.whiteboardHosted?.workspace,window.whiteboardHosted?.base,parent.whiteboardHosted?.account?.id,parent.whiteboardHosted?.workspace,parent.whiteboardHosted?.base]),scope=scopeKey();
    const owns=()=>inner===(window.whiteboardHosted||null)&&outer===(parent.whiteboardHosted||null)&&scope===scopeKey()&&!inner?.paused&&!outer?.paused&&inner?.role!=='viewer'&&outer?.role!=='viewer';
-   const place={tabId:tab.id,boardId:entry.id,expectedName:state.name};let busy=false;
-   showDialog('<h2>重命名</h2><input id="nameInput" aria-label="名称" value="'+esc(state.name)+'"><p id="boardRenameError" role="status" hidden></p>',[['取消',()=>$('dialog').close()],['确定',async()=>{
+   const place={tabId:target.tabId,sourceTabId:target.sourceTabId,boardId:entry.id,expectedName:target.name};let busy=false;
+   showDialog('<h2>重命名</h2><input id="nameInput" aria-label="名称" value="'+esc(target.name)+'"><p id="boardRenameError" role="status" hidden></p>',[['取消',()=>$('dialog').close()],['确定',async()=>{
     if(busy||!active())return;const name=input.value.trim();if(!name)return;busy=true;button.disabled=input.disabled=true;message.hidden=true;
     try{
-     if(!owns()||parent.whiteboardWorkspace!==host||typeof host?.renameCurrentBoard!=='function')throw Error('所属工作台已有变化，请保留名称并重新选择。');
-     const result=await host.renameCurrentBoard(window,place,name,()=>active()&&owns());place.expectedName=result.appliedName;
+     if(!owns()||parent.whiteboardWorkspace!==host||typeof host?.renameOpenBoard!=='function')throw Error('所属工作台已有变化，请保留名称并重新选择。');
+     const result=await host.renameOpenBoard(window,place,name,()=>active()&&owns());place.expectedName=result.appliedName;
      if(!active()||!owns())return;
      if(!result.saved){message.textContent='名称仍保留，暂时未能保存。可以重试，或查看白板上的保存提示。';message.hidden=false;return}
      const item=boardList.find(row=>row.id===entry.id);if(item)item.name=name;renderFolders();$('dialog').close();
