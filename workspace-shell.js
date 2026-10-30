@@ -191,5 +191,11 @@
   }finally{for(const doc of docs)for(const type of events)doc.removeEventListener(type,cancel,true)}
  }
  const canLocateLibraryCopies=source=>source===explorerFrame?.contentWindow;
- window.whiteboardWorkspace={canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
+ async function renameCurrentBoard(source,place,name,valid){
+  const tab=current(),view=tab&&pane(tab),state=view?.state();
+  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid()||tab?.id!==place?.tabId||tab?.boardId!==place?.boardId||state?.boardId!==place?.boardId||state.loading)throw Error('当前白板已有变化，请保留名称并重新选择。');
+  if(state.name!==place.expectedName&&state.name!==name)throw Error('这张白板的名称已有变化，请保留输入并重新核对。');
+  return {saved:await view.renameBoard(place.boardId,name),appliedName:name};
+ }
+ window.whiteboardWorkspace={renameCurrentBoard,canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
 })();

@@ -49,6 +49,29 @@
  const oldChange=change,oldPersist=persist;change=function(viewOnly=false){if(explorer)return;oldChange(viewOnly);report()};persist=async function(){if(explorer)return true;const result=oldPersist();report();try{return await result}finally{report()}};
  function pauseMedia(doc=document){doc.querySelectorAll('audio,video').forEach(m=>m.pause());for(const frame of doc.querySelectorAll('iframe'))try{if(frame.contentDocument)pauseMedia(frame.contentDocument)}catch{}}
  if(explorer){
+  const renameBefore=renameBoardEntry;
+  renameBoardEntry=function(){
+   const entry=boardEntry&&{...boardEntry},tab=parent.current?.(),host=parent.whiteboardWorkspace;
+   if(entry?.type!=='board'||entry.id!==tab?.boardId)return renameBefore();
+   const state=parent.pane?.(tab)?.state();if(!state||state.boardId!==entry.id||state.loading)return toast('这张白板还在打开，请稍后再改名。');
+   const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null,scopeKey=()=>JSON.stringify([window.whiteboardHosted?.account?.id,window.whiteboardHosted?.workspace,window.whiteboardHosted?.base,parent.whiteboardHosted?.account?.id,parent.whiteboardHosted?.workspace,parent.whiteboardHosted?.base]),scope=scopeKey();
+   const owns=()=>inner===(window.whiteboardHosted||null)&&outer===(parent.whiteboardHosted||null)&&scope===scopeKey()&&!inner?.paused&&!outer?.paused&&inner?.role!=='viewer'&&outer?.role!=='viewer';
+   const place={tabId:tab.id,boardId:entry.id,expectedName:state.name};let busy=false;
+   showDialog('<h2>重命名</h2><input id="nameInput" aria-label="名称" value="'+esc(state.name)+'"><p id="boardRenameError" role="status" hidden></p>',[['取消',()=>$('dialog').close()],['确定',async()=>{
+    if(busy||!active())return;const name=input.value.trim();if(!name)return;busy=true;button.disabled=input.disabled=true;message.hidden=true;
+    try{
+     if(!owns()||parent.whiteboardWorkspace!==host||typeof host?.renameCurrentBoard!=='function')throw Error('所属工作台已有变化，请保留名称并重新选择。');
+     const result=await host.renameCurrentBoard(window,place,name,()=>active()&&owns());place.expectedName=result.appliedName;
+     if(!active()||!owns())return;
+     if(!result.saved){message.textContent='名称仍保留，暂时未能保存。可以重试，或查看白板上的保存提示。';message.hidden=false;return}
+     const item=boardList.find(row=>row.id===entry.id);if(item)item.name=name;renderFolders();$('dialog').close();
+    }catch(error){if(active()){message.textContent=error.message;message.hidden=false}}
+    finally{busy=false;if(input.isConnected)input.disabled=false;if(button.isConnected)button.disabled=false}
+   }]]);
+   const input=$('nameInput'),message=$('boardRenameError'),button=$('dialogActions').lastElementChild,active=()=>input.isConnected&&$('nameInput')===input&&$('dialog').open;
+   input.focus();input.select();
+  };
+  $('boardRenameEntry').onclick=renameBoardEntry;
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Tab'&&!e.isComposing&&!document.querySelector('dialog[open]')){e.preventDefault();e.stopImmediatePropagation();send('explorer-shortcut',{reverse:e.shiftKey})}},true);
   drawNodes=()=>{}; // This document presents lists, never a second hidden canvas.
   const show=showWorkspaceTab;showWorkspaceTab=async function(panel){const pending=show(panel);$('workspaceSidebar').hidden=false;send('explorer-panel',{panel});await pending};
@@ -170,7 +193,13 @@
    updateButtons();return restored;
   }
   function whiteboardHostedRoleIsReadOnly(){return window.whiteboardHosted?.role==='viewer'||window.whiteboardHosted?.paused}
-  window.whiteboardPane={state,setListening,viewport:()=>({width:width||canvas.clientWidth,height:height||canvas.clientHeight}),canvasReady,selection:()=>[...selected],flush:()=>persist(),snapshot:()=>board?{board:clone(board),boardId,selected:[...selected]}:null,refreshLibrary:()=>loadAssets(),focus:()=>{if(parentHasDialog())return;if($('dialog').open){if(window.whiteboardCanvasObjects?.focusDraft?.())return;if($('dialog').classList.contains('immersive-dialog')&&!restoreEditingPlace())$('dialog').focus({preventScroll:true});return}if(restoreEditingPlace())return;const active=document.activeElement;if(active?.closest('.live-layout')&&active.matches('input,textarea,[contenteditable=true]')&&!active.readOnly){active.focus({preventScroll:true});return}canvas.tabIndex=-1;canvas.focus({preventScroll:true})},setVisible:next=>{if(visible&&!next){captureEditingPlace();captureReading();pauseMedia();persist().catch(()=>{})}visible=next},insertLibrary:async (items,position)=>{const targetId=boardId;if(!board||loading||blocked||saveError)throw Error('目标白板尚未准备好，请先处理提示。');await loadAssets();if(boardId!==targetId||loading||blocked||saveError)throw Error('目标白板状态已改变，内容尚未添加。');return commitLibraryBatch(items,position)},focusNode:id=>{const n=board?.nodes.find(n=>n.id===id);if(n){selected=new Set([id]);editorId=null;refreshSelectionUI();focusNode(n);report()}},command:async(name,extra={})=>{if(name==='sidebar')toggleSidebar();else if(name==='ai'){await loadAssets();assetSelected=new Set(extra.libraryIds||[]);$('aiWorkspace').click();if(extra.scope==='library'&&$('aiTaskScope')){$('aiTaskScope').value='library';$('aiTaskScope').dispatchEvent(new Event('change'))}}else if(name==='settings')whiteboardAppearance.open();else if(name==='board-links')return whiteboardNoteEditor.openBoardLinks();else if(name==='help')wfHelp();else if(name==='search')wfOpenSearch();else if(name==='recovery')await wfRecovery();else if(name==='rename')$('rename').click();else if(name==='group')groupSelection();else if(name==='collect'){assetFolder=extra.folder||'';askCollectSelection()}else if(name==='export')exportJSON();else if(name==='markdown')exportMarkdown()}};
+  async function renameBoard(id,value){
+   const name=typeof value==='string'?value.trim():'';
+   if(!name||id!==boardId||!board||loading||blocked||whiteboardHostedRoleIsReadOnly())throw Error('当前白板尚未准备好，请保留名称并先处理白板上的提示。');
+   if(board.name!==name){undoPoint();board.name=name;change();const option=$('boards').selectedOptions[0];if(option)option.textContent=name}
+   return persist();
+  }
+  window.whiteboardPane={state,renameBoard,setListening,viewport:()=>({width:width||canvas.clientWidth,height:height||canvas.clientHeight}),canvasReady,selection:()=>[...selected],flush:()=>persist(),snapshot:()=>board?{board:clone(board),boardId,selected:[...selected]}:null,refreshLibrary:()=>loadAssets(),focus:()=>{if(parentHasDialog())return;if($('dialog').open){if(window.whiteboardCanvasObjects?.focusDraft?.())return;if($('dialog').classList.contains('immersive-dialog')&&!restoreEditingPlace())$('dialog').focus({preventScroll:true});return}if(restoreEditingPlace())return;const active=document.activeElement;if(active?.closest('.live-layout')&&active.matches('input,textarea,[contenteditable=true]')&&!active.readOnly){active.focus({preventScroll:true});return}canvas.tabIndex=-1;canvas.focus({preventScroll:true})},setVisible:next=>{if(visible&&!next){captureEditingPlace();captureReading();pauseMedia();persist().catch(()=>{})}visible=next},insertLibrary:async (items,position)=>{const targetId=boardId;if(!board||loading||blocked||saveError)throw Error('目标白板尚未准备好，请先处理提示。');await loadAssets();if(boardId!==targetId||loading||blocked||saveError)throw Error('目标白板状态已改变，内容尚未添加。');return commitLibraryBatch(items,position)},focusNode:id=>{const n=board?.nodes.find(n=>n.id===id);if(n){selected=new Set([id]);editorId=null;refreshSelectionUI();focusNode(n);report()}},command:async(name,extra={})=>{if(name==='sidebar')toggleSidebar();else if(name==='ai'){await loadAssets();assetSelected=new Set(extra.libraryIds||[]);$('aiWorkspace').click();if(extra.scope==='library'&&$('aiTaskScope')){$('aiTaskScope').value='library';$('aiTaskScope').dispatchEvent(new Event('change'))}}else if(name==='settings')whiteboardAppearance.open();else if(name==='board-links')return whiteboardNoteEditor.openBoardLinks();else if(name==='help')wfHelp();else if(name==='search')wfOpenSearch();else if(name==='recovery')await wfRecovery();else if(name==='rename')$('rename').click();else if(name==='group')groupSelection();else if(name==='collect'){assetFolder=extra.folder||'';askCollectSelection()}else if(name==='export')exportJSON();else if(name==='markdown')exportMarkdown()}};
   whiteboardPane.captureClosedView=captureClosedView;whiteboardPane.restoreClosedView=restoreClosedView;
   // Keep a fully visible selection in the same relative space when opening a
   // sidebar or a second pane. Neutral and intentionally cropped views keep
