@@ -68,7 +68,7 @@
    finally{for(const cleanup of cleanups)cleanup();navigating=false;if(ownsPreview()){button.disabled=false;if(interrupted)explain('已停下本次打开，当前原稿保留。需要时可重试。')}}
   };
  }
- const referenceTrails=new WeakMap();
+ const referenceTrails=new WeakMap(),alternativeViews=new WeakMap();
  function referenceScopeValid(initial){
   const now=libraryPreviewEditScope();
   return !!initial&&!!now&&now.inner===initial.inner&&now.outer===initial.outer&&now.key===initial.key&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&[now.inner,now.outer].every(host=>!host||!host.paused&&host.account?.id!=null&&host.workspace!=null&&host.base!=null);
@@ -79,10 +79,10 @@
   for(const doc of docs)for(const type of ['pointerdown','keydown','input','change','wheel','touchmove']){const stop=event=>{if(event.isTrusted)cancel()};doc.addEventListener(type,stop,true);cleanups.push(()=>doc.removeEventListener(type,stop,true))}
   const end=()=>{ended=true;for(const cleanup of cleanups.splice(0))cleanup()};onDialogDismiss(()=>{cancel();end()});return {current:()=>!interrupted,end};
  }
- async function visitLibraryReference({asset,preview,button,status,targetId,scope,trail,restore=null,referenceVersion=null}){
+ async function visitLibraryReference({asset,preview,button,status,targetId,scope,trail,restore=null,referenceVersion=null,targetReferenceId=null}){
   const owns=()=>$('dialog').open&&preview.isConnected&&$('pieceList')===preview&&button.isConnected&&status.isConnected;
   const explain=message=>{if(owns()){status.textContent=message;status.hidden=false}};
-  const ownerCurrent=()=>referenceVersion===null||assetIndex.assets.filter(item=>item.id===asset.id&&!item.archived&&item.mime===bundleMime).length===1&&JSON.stringify(assetById(asset.id)?.libraryReference)===referenceVersion;
+  const ownerCurrent=()=>{const owners=assetIndex.assets.filter(item=>item.id===asset.id&&!item.archived&&item.mime===bundleMime);return (targetReferenceId===null||owners.length===1)&&(referenceVersion===null||owners.length===1&&JSON.stringify(owners[0].libraryReference)===referenceVersion)};
   if(!owns()||button.disabled)return;if(!referenceScopeValid(scope))return explain('所属账号、工作区或查看位置已有变化，请回到原位置后重试。');if(!ownerCurrent())return explain('来源记录已有变化，请重新打开这份资源后核对。');
   button.disabled=true;explain('正在核对来源资源…');const intent=referenceIntent();
   try{
@@ -90,13 +90,13 @@
    if(!owns())return;if(!intent.current())return explain('已停下来源查看，当前预览保留。');if(!referenceScopeValid(scope))return explain('所属账号、工作区或查看位置已有变化，请回到原位置后重试。');if(!ownerCurrent())return explain('来源记录已有变化，请重新打开这份资源后核对。');
    const matches=assetIndex.assets.filter(item=>item.id===targetId&&!item.archived&&item.mime===bundleMime&&Array.isArray(item.bundle?.nodes));
    if(matches.length!==1)return explain('这份资源已移出内容库或暂不可用，当前预览保留。');
-   const target=matches[0];intent.end();
+   const target=matches[0];if(targetReferenceId!==null&&target.libraryReference?.id!==targetReferenceId)return explain('这份另存内容的来源记录已有变化，请刷新列表。');intent.end();
    const pending=previewAsset(target.id),next=$('pieceList'),opened=!!next&&next!==preview&&!preview.isConnected;
    const nextOwns=()=>opened&&referenceScopeValid(scope)&&$('dialog').open&&next.isConnected&&$('pieceList')===next;
    const continuation=referenceIntent();try{
     await Promise.resolve(pending);if(!nextOwns())return;
     referenceTrails.set(next,trail);mountLibraryReferenceBack(target,next,scope,trail);
-    if(continuation.current()){if(restore)libraryPreviewContinuations.get(next)?.restore(restore,nextOwns);next.focus({preventScroll:true})}
+    if(continuation.current()){if(restore){alternativeViews.get(next)?.restore(restore.alternatives,nextOwns);libraryPreviewContinuations.get(next)?.restore(restore,nextOwns)}next.focus({preventScroll:true})}
    }finally{continuation.end()}
   }catch(error){if(owns())explain(error.message||'暂时不能读取来源资源，当前预览保留。')}
   finally{intent.end();if(owns())button.disabled=false}
@@ -104,7 +104,7 @@
  function mountLibraryReferenceBack(asset,preview,scope,trail){
   if(!trail.length)return;const previous=trail.at(-1),button=$('dialogBody').querySelector('[data-reuse-return] button'),menu=$('dialogBody').querySelector('.reuse-source-actions');if(!button||!menu)return;
   const status=document.createElement('p');status.className='wf-explain library-reference-return-status';status.setAttribute('role','status');status.hidden=true;$('dialogBody').querySelector('.reuse-heading').after(status);
-  button.textContent='返回改写';button.setAttribute('aria-label','返回这份改写：'+previous.title);
+  const source=previous.returnKind==='source';button.textContent=source?'返回来源':'返回改写';button.setAttribute('aria-label',(source?'返回来源资源：':'返回这份改写：')+previous.title);
   button.onclick=()=>visitLibraryReference({asset,preview,button,status,targetId:previous.id,scope,trail:trail.slice(0,-1),restore:previous.snapshot});
  }
  function mountLibraryReference(asset,body){
@@ -116,10 +116,54 @@
   button.type='button';button.textContent='查看来源资源';status.className='wf-explain library-reference-status';status.setAttribute('role','status');status.hidden=true;menu.append(button,status,description);
   button.onclick=()=>{
    if(button.disabled||!preview.isConnected||$('pieceList')!==preview||!$('dialog').open)return;
-   const trail=[...(referenceTrails.get(preview)||[]),{id:asset.id,title:asset.title,snapshot:libraryPreviewContinuations.get(preview)?.capture()}];
+   const history=referenceTrails.get(preview)||[],last=history.at(-1);if(last?.returnKind==='source'&&last.id===reference.id)return visitLibraryReference({asset,preview,button,status,targetId:reference.id,scope,trail:history.slice(0,-1),restore:last.snapshot,referenceVersion:version});
+   const trail=[...history,{id:asset.id,title:asset.title,snapshot:captureReferencePreview(preview)}];
    if(trail.some(entry=>entry.id===reference.id)){status.textContent='这条来源已在查看路径中，请先返回。';status.hidden=false;return}
    return visitLibraryReference({asset,preview,button,status,targetId:reference.id,scope,trail,referenceVersion:version});
   };
+ }
+ function captureReferencePreview(preview){
+  const snapshot=libraryPreviewContinuations.get(preview)?.capture()||{};snapshot.alternatives=alternativeViews.get(preview)?.capture();return snapshot;
+ }
+ function mountLibraryAlternatives(asset,body){
+  const preview=$('pieceList'),heading=body.querySelector('.reuse-heading');if(!preview||!heading)return;
+  const scope=libraryPreviewEditScope(),section=document.createElement('details'),summary=document.createElement('summary'),status=document.createElement('p'),list=document.createElement('div'),refresh=document.createElement('button'),more=document.createElement('button'),description=document.createElement('small');
+  section.className='library-copies library-alternatives';summary.textContent='基于这份资源另存的内容';status.setAttribute('role','status');list.className='library-copy-list library-alternative-items';refresh.type=more.type='button';refresh.className=more.className='library-copy-retry';refresh.textContent='刷新列表';more.textContent='显示更多';more.hidden=true;description.textContent='只列这份资源直接另存出的内容。';section.append(summary,status,list,more,refresh,description);heading.after(section);
+  let request=0,limit=40,rows=[],skipToggle=false;
+  const owns=()=>$('dialog').open&&preview.isConnected&&$('pieceList')===preview&&section.isConnected&&referenceScopeValid(scope);
+  const parentPresent=()=>assetIndex.assets.filter(item=>item.id===asset.id&&!item.archived&&item.mime===bundleMime).length===1;
+  const related=()=>{
+   const found=assetIndex.assets.filter(item=>!item.archived&&item.mime===bundleMime&&Array.isArray(item.bundle?.nodes)&&typeof item.id==='string'&&(/^[A-Za-z0-9_-]{1,100}$/).test(item.id)&&item.id!==asset.id&&item.libraryReference?.id===asset.id),counts=new Map();
+   for(const item of found)counts.set(item.id,(counts.get(item.id)||0)+1);return found.filter(item=>counts.get(item.id)===1);
+  };
+  function draw(){
+   if(!owns()||!section.open)return;list.replaceChildren();
+   for(const item of rows.slice(0,limit)){
+    const entry=document.createElement('div'),button=document.createElement('button'),name=document.createElement('strong'),where=document.createElement('small'),message=document.createElement('p');
+    button.type='button';button.className='library-copy-hit';button.dataset.alternativeResource=item.id;button.setAttribute('aria-label','查看另存内容：'+item.title);name.textContent=label(item.title)||'未命名内容';where.textContent=item.folder||'内容库根目录';button.append(name,where);message.className='library-alternative-status';message.setAttribute('role','status');message.hidden=true;entry.append(message,button);list.append(entry);
+    button.onclick=()=>{
+     if(!owns()||!section.open||!button.isConnected||button.disabled)return;
+     const trail=[...(referenceTrails.get(preview)||[]),{id:asset.id,title:asset.title,snapshot:captureReferencePreview(preview),returnKind:'source'}];
+     if(trail.some(previous=>previous.id===item.id)){message.textContent='这份资源已在查看路径中，请先返回。';message.hidden=false;return}
+     return visitLibraryReference({asset,preview,button,status:message,targetId:item.id,scope,trail,targetReferenceId:asset.id});
+    };
+   }
+   status.textContent=rows.length?'找到 '+rows.length+' 份；点击查看后可以返回。':'暂未找到有来源记录的另存内容。';more.hidden=limit>=rows.length;
+  }
+  function useCatalog(){
+   if(!owns()||!section.open)return;if(!parentPresent()){rows=[];list.replaceChildren();more.hidden=true;status.textContent='这份资源已移出内容库，当前预览保留。';return}rows=related();draw();
+  }
+  async function load(){
+   if(!owns()||!section.open)return;const token=++request;refresh.disabled=true;status.textContent='正在核对另存内容…';
+   try{await loadAssets({redraw:false});if(token!==request||!section.open||!section.isConnected||!preview.isConnected||$('pieceList')!==preview)return;if(!owns()){list.replaceChildren();more.hidden=true;status.textContent='所属账号、工作区或查看位置已有变化，请回到原位置后刷新。';return}useCatalog()}
+   catch(error){if(token===request&&owns()&&section.open)status.textContent=error.message||'暂时不能读取列表，当前预览保留。'}
+   finally{if(token===request&&section.isConnected)refresh.disabled=false}
+  }
+  section.addEventListener('toggle',()=>{if(skipToggle){skipToggle=false;return}if(section.open)load();else{request++;refresh.disabled=false}});refresh.onclick=load;more.onclick=()=>{if(owns()&&section.open){limit+=40;draw()}};
+  alternativeViews.set(preview,{capture:()=>({open:section.open,limit}),restore:(snapshot,current)=>{
+   if(!snapshot?.open||!current()||!owns())return;limit=Number.isSafeInteger(snapshot.limit)?Math.max(40,Math.min(10000,snapshot.limit)):40;skipToggle=true;section.open=true;useCatalog();
+  }});
+  onDialogDismiss(()=>request++);
  }
  const previous=previewAsset;
  previewAsset=function(id){
@@ -127,7 +171,7 @@
   Promise.resolve(result).then(()=>{
    const asset=assetById(id),body=$('dialogBody');
    if(epoch!==sequence||!$('dialog').open||body.firstElementChild===before||asset?.mime!==bundleMime||asset.archived)return;
-   mountLibraryReference(asset,body);
+   mountLibraryReference(asset,body);mountLibraryAlternatives(asset,body);
    if(parent===window||!parent.whiteboardWorkspace?.canLocateLibraryCopies?.(window))return;
    mountSourceReturn(asset,body);
    const section=document.createElement('details');section.className='library-copies';

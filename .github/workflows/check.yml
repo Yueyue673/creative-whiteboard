@@ -140,6 +140,7 @@ jobs:
           LIBRARY_COPY_SAVE_RETRY_PROOF: .ci-proofs/library-copy-save-retry
           LIBRARY_EDIT_COPY_ENTRY_PROOF: .ci-proofs/library-edit-copy-entry
           LIBRARY_ALTERNATIVE_SOURCE_PROOF: .ci-proofs/library-alternative-source
+          LIBRARY_ALTERNATIVE_LIST_PROOF: .ci-proofs/library-alternative-list
           ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
@@ -1134,5 +1135,15 @@ jobs:
           path: |
             .ci-proofs/library-alternative-source/result.json
             .ci-proofs/library-alternative-source/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-alternative-list evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-alternative-list-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-alternative-list/result.json
+            .ci-proofs/library-alternative-list/*.png
           if-no-files-found: ignore
           retention-days: 3
