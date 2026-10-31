@@ -153,6 +153,7 @@ jobs:
           TEXT_RETRY_PROOF: .ci-proofs/text-preview-retry
           TABLE_ENCODING_PROOF: .ci-proofs/library-table-encoding
           LIBRARY_TAG_RETURN_PROOF: .ci-proofs/library-tag-return
+          TABLE_HEADER_EXPORT_PROOF: .ci-proofs/table-header-export
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1266,5 +1267,15 @@ jobs:
           path: |
             .ci-proofs/library-tag-return/result.json
             .ci-proofs/library-tag-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated table-header-export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: table-header-export-${{ github.run_id }}
+          path: |
+            .ci-proofs/table-header-export/result.json
+            .ci-proofs/table-header-export/*.png
           if-no-files-found: ignore
           retention-days: 3

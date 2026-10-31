@@ -183,7 +183,7 @@ loadAssets().catch(e=>console.warn(e.message));
 
 function markdownImage(im){const a=im.assetId?assetById(im.assetId):null;const url=a?a.path.replace(/\\/g,'/'):im.data||'';return url?'!['+String(im.name||a?.title||'图片').replace(/[\[\]]/g,'')+'](<'+url+'>)':''}
 const textTableMarkdown=tableMarkdown;
-tableMarkdown=function(n){const cell=(text,r,c)=>String(text).replace(/\|/g,'\\|').replace(/\r?\n/g,'<br>')+imagesAt(n,r,c).map(im=>'<br>'+markdownImage(im)).join('');return '| '+n.columns.map(c=>String(c).replace(/\|/g,'\\|')).join(' | ')+' |\n| '+n.columns.map(()=>'---').join(' | ')+' |\n'+n.rows.map((r,ri)=>'| '+r.map((c,ci)=>cell(c,ri,ci)).join(' | ')+' |').join('\n')};
+tableMarkdown=function(n){const cell=(text,r,c)=>String(text).replace(/\|/g,'\\|').replace(/\r?\n/g,'<br>')+imagesAt(n,r,c).map(im=>'<br>'+markdownImage(im)).join('');return '| '+n.columns.map(c=>String(c).replace(/\|/g,'\\|').replace(/\r\n|\r|\n/g,'<br>')).join(' | ')+' |\n| '+n.columns.map(()=>'---').join(' | ')+' |\n'+n.rows.map((r,ri)=>'| '+r.map((c,ci)=>cell(c,ri,ci)).join(' | ')+' |').join('\n')};
 exportMarkdown=function(){const text='# '+board.name+'\n\n'+ordered().map(n=>'## '+(n.title||'未命名')+'\n\n'+(n.body||'')+'\n\n'+(n.images||[]).map(markdownImage).join('\n\n')+(n.type==='table'?'\n\n'+tableMarkdown(n):'')+(n.userText?'\n\n### 自己的补充\n\n'+n.userText:'')+(n.annotation?'\n\n### 备注\n\n'+n.annotation:'')+(n.url?'\n\n来源：'+n.url:'')+'\n\n标签：'+(n.tags||[]).join('、')+'\n').join('\n')+'\n## 连线\n\n'+board.edges.map(e=>'- '+(board.nodes.find(n=>n.id===e.from)?.title||e.from)+' → '+(board.nodes.find(n=>n.id===e.to)?.title||e.to)+'：'+(e.label||'')).join('\n');download(text,board.name+'.md','text/markdown;charset=utf-8')};
 $('markdown').onclick=exportMarkdown;
 
