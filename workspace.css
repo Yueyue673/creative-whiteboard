@@ -224,3 +224,9 @@ body #toast .collection-result{min-width:64px;min-height:44px;padding:7px 12px;b
 
 .text-file-preview.file-excerpt-review>.file-text-preview{flex:0 0 auto;min-height:0;max-height:none}
 .text-file-preview.file-excerpt-review>.file-text-preview .text-read-retry{min-height:44px}
+
+/* Identify an attached text file without leaving the resource preview. */
+.library-piece-file{grid-column:1/-1;display:grid;gap:4px;min-width:0;margin:0 0 12px 26px;padding:8px 10px;border-left:2px solid var(--ui-line,#aaa);overflow-wrap:anywhere}
+.library-piece-file small{font-size:12px;color:var(--ui-muted,#777)}
+.library-piece-file .library-file-link{display:inline-flex;align-items:center;min-height:44px;max-width:100%;width:fit-content;white-space:normal;overflow-wrap:anywhere}
+.library-piece-file .library-file-status{margin:0;font-size:13px}
