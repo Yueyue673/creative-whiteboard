@@ -152,6 +152,7 @@ jobs:
           OPEN_BOARD_MOVE_PROOF: .ci-proofs/open-board-move
           TEXT_RETRY_PROOF: .ci-proofs/text-preview-retry
           TABLE_ENCODING_PROOF: .ci-proofs/library-table-encoding
+          LIBRARY_TAG_RETURN_PROOF: .ci-proofs/library-tag-return
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1255,5 +1256,15 @@ jobs:
           path: |
             .ci-proofs/library-table-encoding/result.json
             .ci-proofs/library-table-encoding/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-tag-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-tag-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-tag-return/result.json
+            .ci-proofs/library-tag-return/*.png
           if-no-files-found: ignore
           retention-days: 3

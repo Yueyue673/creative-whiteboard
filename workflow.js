@@ -110,7 +110,26 @@ function wfPickDestination(title,description,callback){
  $('dialogBody').querySelector('.destination-toggle').click();
 }
 $('assetMove').onclick=()=>{const ids=[...assetSelected];if(!ids.length)return toast('先选择要移动的内容');wfPickDestination('移动选中的内容','将移动 '+ids.length+' 项分类位置；原文件不搬动。',folder=>{if(ids.some(id=>!assetById(id)||assetById(id).archived)){toast('选中的内容已移除，请重新选择。');return false}return moveAssetItems(ids,folder)})};
-async function wfBatchTags(){const ids=[...assetSelected];if(!ids.length)return toast('先选择内容');showDialog('<h2>给选中内容添加标签</h2><p>为 '+ids.length+' 项内容添加标签，保留各自已有的标签。</p><input id="wfTags" placeholder="用逗号分开">',[['取消',()=>$('dialog').close()],['添加',()=>wfSafe(async()=>{const tags=$('wfTags').value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);if(!tags.length)return;const next=clone(assetIndex);next.assets.filter(a=>ids.includes(a.id)).forEach(a=>a.tags=[...new Set([...(a.tags||[]),...tags])]);if(await saveAssets(next))$('dialog').close()})]])}
+async function wfBatchTags(){
+ const ids=[...assetSelected];if(!ids.length)return toast('先选择内容');let busy=false;
+ showDialog('<h2>给选中内容添加标签</h2><p>为 '+ids.length+' 项内容添加标签，保留各自已有的标签。</p><label>要添加的标签<input id="wfTags" placeholder="用逗号分开"></label><p data-batch-tag-status role="status" hidden></p>',[['取消',()=>$('dialog').close()],['添加',()=>wfSafe(async()=>{
+  if(busy||!owns())return;
+  const tags=input.value.split(/[,，]/).map(x=>x.trim()).filter(Boolean);if(!tags.length)return;
+  busy=true;add.disabled=true;input.readOnly=true;message('正在保存标签…');
+  try{
+   const loaded=await loadAssets({redraw:false});if(!owns())return;
+   if(!loaded){message('暂未读取到最新内容库，输入已保留，请重试。');return}
+   if(ids.some(id=>!assetById(id)||assetById(id).archived)){message('原选中的内容已有移除，未添加标签。请关闭后重新选择，当前输入仍保留。');return}
+   const next=clone(assetIndex);next.assets.filter(a=>ids.includes(a.id)).forEach(a=>a.tags=[...new Set([...(a.tags||[]),...tags])]);
+   const saved=await saveAssets(next);if(!owns())return;
+   if(saved)dialog.close();else message('未能保存，标签输入已保留，可以重试。');
+  }catch(error){if(owns())message('暂未能保存：'+error.message+'。标签输入已保留。')}
+  finally{busy=false;if(owns()){add.disabled=false;input.readOnly=false}}
+ })]]);
+ const dialog=$('dialog'),input=$('wfTags'),add=$('dialogActions').lastElementChild,status=$('dialogBody').querySelector('[data-batch-tag-status]');
+ const owns=()=>dialog.open&&input.isConnected&&$('wfTags')===input;
+ const message=text=>{if(!owns())return;status.textContent=text;status.hidden=!text};
+}
 
 // Provenance includes each atom's original ID, even when imported as part of a group.
 function wfOriginNode(n,a,presenceOnly=false){
