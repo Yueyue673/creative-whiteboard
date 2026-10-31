@@ -155,6 +155,7 @@ jobs:
           LIBRARY_TAG_RETURN_PROOF: .ci-proofs/library-tag-return
           TABLE_HEADER_EXPORT_PROOF: .ci-proofs/table-header-export
           TEXT_PREVIEW_ENCODING_PROOF: .ci-proofs/text-preview-encoding
+          TEXT_FILE_SELECTION_PROOF: .ci-proofs/text-file-selection
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1288,5 +1289,15 @@ jobs:
           path: |
             .ci-proofs/text-preview-encoding/result.json
             .ci-proofs/text-preview-encoding/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated text-file-selection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-file-selection-${{ github.run_id }}
+          path: |
+            .ci-proofs/text-file-selection/result.json
+            .ci-proofs/text-file-selection/*.png
           if-no-files-found: ignore
           retention-days: 3

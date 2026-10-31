@@ -466,6 +466,73 @@ async function getTextPreview(a){if(filePreviews.has(a.id))return filePreviews.g
 const oldAttachmentPreview=attachmentMarkup;attachmentMarkup=function(n){const a=n.assetId?assetById(n.assetId):null;return (isTextAsset(a)?'<div class="file-text-preview" data-text-preview="'+esc(a.id)+'"><small>正在读取文件内容…</small></div>':'')+oldAttachmentPreview(n)};
 const textPreviewRuns=new WeakMap();
 function textPreviewFileIdentity(a){return a?JSON.stringify([a.id,a.path,a.mime,a.size,a.contentHash,a.contentMtime,!!a.isReference,a.isReference?a.updated:null]):null}
+function mountFileTextExcerpt(el,asset,pre,isCurrent){
+ const surface=el.closest('.text-file-preview'),dialog=el.closest('#dialog');
+ if(!surface||!dialog||/\.json$/i.test(asset.path||'')||asset.mime==='application/json'||!pre.textContent)return;
+ if(surface._fileExcerpt){surface._fileExcerpt.update(asset,pre,isCurrent);return}
+ const context=()=>{try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}},initial=context(),identity=textPreviewFileIdentity(asset),raw=pre.textContent;
+ const scopeValid=()=>{const now=context();return !!initial&&!!now&&now.inner===initial.inner&&now.outer===initial.outer&&now.key===initial.key&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&[now.inner,now.outer].every(host=>!host||!host.paused&&host.role!=='viewer'&&host.account?.id!=null&&host.workspace!=null&&host.base!=null)};
+ let alive=true,sourcePre=pre,currentCheck=isCurrent,state=null,invalid=false;
+ const make=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node},open=make('button','所选原文存到库'),panel=make('section');open.type='button';open.className='file-excerpt-open';open.dataset.fileExcerptOpen='';open.disabled=true;panel.className='file-text-excerpt';panel.dataset.fileExcerptForm='';panel.hidden=true;el.after(open,panel);
+ const mounted=()=>alive&&dialog.open&&surface.isConnected&&panel.isConnected&&surface.contains(panel),owns=()=>mounted()&&!invalid&&scopeValid()&&currentCheck()&&sourcePre.isConnected&&sourcePre.textContent===raw&&identity===textPreviewFileIdentity(assetById(asset.id))&&!assetById(asset.id)?.archived;
+ const message=text=>{if(mounted()&&state){state.status.textContent=text;state.status.hidden=!text}};
+ const keepEscape=event=>{if(event.key!=='Escape'||event.defaultPrevented||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||!mounted()||!state||state.saved)return false;message(state.writing?'保存结果仍在确认，片段与名称保留。':'片段核对尚未保存。要返回原文件，请点“取消”。');return true};dialog._fileExcerptEscape=keepEscape;
+ function selected(){
+  if(!owns())return null;const selection=window.getSelection();if(!selection||selection.rangeCount!==1||selection.isCollapsed)return null;const range=selection.getRangeAt(0),text=sourcePre.firstChild;
+  if(text?.nodeType!==Node.TEXT_NODE||range.startContainer!==text||range.endContainer!==text)return null;
+  const value=text.data.slice(range.startOffset,range.endOffset);if(!value.trim()||value.length>24000)return null;
+  return {text:value,start:range.startOffset,end:range.endOffset,backward:selection.anchorNode===text&&selection.anchorOffset===range.endOffset,scroll:sourcePre.scrollTop};
+ }
+ function refresh(){if(!mounted()){document.removeEventListener('selectionchange',refresh);return}open.disabled=!!state||!selected()}
+ function invalidate(text){invalid=true;open.disabled=true;if(state){state.save.disabled=true;message(text||'原文件或所属位置已有变化，当前片段和名称仍保留。请关闭后重新打开核对。')}}
+ function cleanup(){alive=false;if(dialog._fileExcerptEscape===keepEscape)delete dialog._fileExcerptEscape;surface.classList.remove('file-excerpt-review');document.removeEventListener('selectionchange',refresh);open.remove();panel.remove();if(surface._fileExcerpt===controller)delete surface._fileExcerpt}
+ const controller={invalidate,update(next,nextPre,nextCheck){
+  if(!mounted())return;if(textPreviewFileIdentity(next)!==identity||nextPre.textContent!==raw||!scopeValid()){
+   if(state){invalidate();return}cleanup();mountFileTextExcerpt(el,next,nextPre,nextCheck);return;
+  }
+  const recovered=invalid;sourcePre=nextPre;currentCheck=nextCheck;sourcePre.hidden=!!state;invalid=false;if(recovered&&state&&!state.busy&&!state.reading&&!state.saved){state.save.disabled=false;message('原文件已重新读取，可继续核对保存。')}refresh();
+ }};surface._fileExcerpt=controller;onDialogDismiss(cleanup);document.addEventListener('selectionchange',refresh);
+ open.onpointerdown=event=>{if(selected())event.preventDefault()};
+ open.onclick=()=>{
+  if(state)return;const take=selected();if(!take)return;
+  panel.replaceChildren();panel.hidden=false;open.disabled=true;open.hidden=true;sourcePre.hidden=true;surface.classList.add('file-excerpt-review');
+  const heading=make('strong','把这段原文留成资源'),explain=make('p','保存独立便签并附上原文件。所选文字保持原样，不改写文件或已有记录。'),nameLabel=make('label','名称（可不填）'),name=make('input'),preview=make('pre',take.text),folderLabel=make('label','存放位置'),folder=make('select'),status=make('p'),actions=make('div'),cancel=make('button','取消'),save=make('button','保存到内容库'),retry=make('button','重试读取'),reveal=make('button','查看已存片段');
+  name.maxLength=1000;name.setAttribute('aria-label','片段名称');nameLabel.append(name);preview.dataset.fileExcerptPreview='';preview.tabIndex=0;folder.setAttribute('aria-label','片段存放位置');folder.disabled=true;folderLabel.append(folder);status.setAttribute('role','status');actions.className='file-excerpt-actions';for(const button of[cancel,save,retry,reveal])button.type='button';save.disabled=true;retry.hidden=reveal.hidden=true;save.dataset.fileExcerptSave='';cancel.dataset.fileExcerptCancel='';actions.append(cancel,save,retry,reveal);panel.append(heading,explain,nameLabel,preview,folderLabel,status,actions);
+  const draft=state={assetId:uid(),nodeId:uid(),take,name,folder,status,save,cancel,retry,reveal,target:libraryFolderTarget(asset.folder||''),reading:false,busy:false,writing:false,saved:false,submitted:null,submittedName:null};
+  const active=()=>state===draft&&owns()&&panel.contains(name),locate=()=>!draft.target.path&&!draft.target.id?'':libraryFolderLocation(draft.target)||null,label=()=>Array.from(name.value.trim()||(asset.title||'文本资料')+' · 片段').slice(0,1000).join('');
+  folder.onchange=()=>{draft.target=libraryFolderTarget(folder.value);message('')};
+  cancel.onclick=()=>{
+   if(!mounted()||state!==draft||draft.writing)return;const restore=owns();state=null;panel.hidden=true;panel.replaceChildren();open.hidden=false;sourcePre.hidden=false;surface.classList.remove('file-excerpt-review');
+   if(restore){const text=sourcePre.firstChild;if(text?.nodeType===Node.TEXT_NODE){const selection=window.getSelection();selection.setBaseAndExtent(text,take.backward?take.end:take.start,text,take.backward?take.start:take.end);sourcePre.scrollTop=take.scroll}refresh()}
+   else{open.disabled=true;open.textContent='请重新打开原文件后再收录'}
+  };
+  const finish=()=>{if(!active())return;draft.saved=true;name.disabled=folder.disabled=true;save.hidden=retry.hidden=true;reveal.hidden=false;cancel.disabled=false;cancel.textContent='继续看原文件';message('已存入内容库，原文件和其他记录保留。')};
+  reveal.onclick=()=>{if(!active()||!draft.saved)return;dialog.close();wfSafe(()=>revealLibraryItem(draft.assetId,scopeValid))};
+  async function prepare(){
+   if(!active()||draft.reading||draft.busy)return;draft.reading=true;save.disabled=true;retry.hidden=true;message('正在读取存放位置…');
+   try{await loadAssets({redraw:false});if(!active()){if(mounted()&&state===draft)invalidate();return}const path=locate();folder.innerHTML=libraryFolderOptions(path||'');
+    if(path===null){const missing=make('option','原存放位置已移除，请重新选择');missing.value='';missing.disabled=missing.selected=true;folder.prepend(missing);message('原存放位置已移除，请重新选择。')}else{folder.value=path;draft.target=libraryFolderTarget(path);message('')}
+    folder.disabled=false;save.disabled=false;
+   }catch(error){if(active()){message(error.message||'暂时不能读取位置，所选原文仍保留。');retry.hidden=false}}
+   finally{draft.reading=false}
+  }
+  retry.onclick=prepare;
+  save.onclick=async()=>{
+   if(!active()||draft.busy||draft.reading||draft.saved)return;draft.busy=true;save.disabled=true;message('正在核对库中版本…');
+   try{
+    await loadAssets({redraw:false});if(!active()){if(mounted()&&state===draft)invalidate();return}const path=locate();if(path===null){message('存放位置已移除，请重新选择，当前片段和名称仍保留。');return}
+    const found=assetIndex.assets.filter(item=>item.id===draft.assetId);
+    if(found.length){if(found.length===1&&draft.submitted&&wfEqual(found[0],draft.submitted)&&name.value===draft.submittedName&&path===draft.submitted.folder){finish();return}message('这份片段已有保存记录或后续变化，当前输入仍保留。请先从内容库核对，未重复创建。');return}
+    const title=label(),node={id:draft.nodeId,type:'note',title,body:take.text,userText:'',annotation:'',tags:[],assetId:asset.id,textFormat:'plain',color:'#fff0aa',x:0,y:0,w:340,h:220,sizeMode:'auto'},item={id:draft.assetId,title,path:'',mime:bundleMime,size:0,tags:[],notes:'',folder:path,bundle:{nodes:[node],edges:[]},updated:Date.now()},next=clone(assetIndex);next.assets.push(item);draft.submitted=clone(item);draft.submittedName=name.value;draft.writing=true;name.disabled=folder.disabled=cancel.disabled=true;
+    if(await saveAssets(next)){if(active())finish()}else if(mounted()&&state===draft)message('没有确认保存成功，片段和名称仍保留。再点保存会先核对这次结果。');
+   }catch(error){if(mounted()&&state===draft)message(error.message||'暂时不能保存，片段仍保留。')}
+   finally{draft.busy=draft.writing=false;if(active()&&!draft.saved)name.disabled=folder.disabled=cancel.disabled=save.disabled=false}
+  };
+  name.focus({preventScroll:true});panel.scrollIntoView({block:'nearest'});prepare();
+ };
+ refresh();
+}
+
 function fillTextPreviews(root=document){
  const boxes=[...(root.matches?.('[data-text-preview]')?[root]:[]),...root.querySelectorAll('[data-text-preview]')];
  boxes.forEach(el=>{
@@ -476,6 +543,7 @@ function fillTextPreviews(root=document){
   request.then(result=>{
    if(!owns())return;el.replaceChildren();el.setAttribute('aria-busy','false');const summary=document.createElement('small');summary.setAttribute('role','status');summary.textContent=result.error||(el.closest('.cell-content')?'原文件预览 · ':'')+result.summary+(result.truncated?' · 仅显示前段，可打开原文件查看全部':'');el.append(summary);
    if(result.error){
+    el.closest('.text-file-preview')?._fileExcerpt?.invalidate('原文件暂时未能读取，当前片段和名称保留。请先重新读取原文件。');
     const button=document.createElement('button');button.type='button';button.className='text-read-retry inline-ui';button.textContent='重新读取文本';
     button.onclick=()=>{
      if(button.disabled||!button.isConnected||!el.contains(button)||document.hidden||!button.getClientRects().length)return;
@@ -484,7 +552,7 @@ function fillTextPreviews(root=document){
      button.disabled=true;summary.textContent='正在重新读取文本…';if(filePreviews.get(id)===cached)filePreviews.delete(id);fillTextPreviews(el);
     };
     el.append(' ',button);
-   }else{const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre)}
+   }else{const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre);if(result.text)mountFileTextExcerpt(el,a,pre,owns)}
    scheduleContentFit();
   });
  });
