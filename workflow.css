@@ -79,3 +79,5 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 
 .wf-picked-bar #assetPlace:not([hidden]){display:inline-flex!important;align-items:center;justify-content:center}
 .wf-place-legacy{display:none!important}
+
+.wf-recovery-read-retry{min-height:44px}

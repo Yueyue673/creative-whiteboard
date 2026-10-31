@@ -127,7 +127,7 @@
   for(const button of $('wfRecoveryList').querySelectorAll('[data-archived]'))restoreAction(button,()=>restoreLibrary(token,null,button.dataset.archived));
  }
  async function loadTab(tab){
-  const token=++epoch,target=boardId,kind=tab==='board'?'boards':'library',key=tab==='board'?target:'catalog';
+  const token=++epoch,target=boardId,source=board,scope=recoveryResultScope(),kind=tab==='board'?'boards':'library',key=tab==='board'?target:'catalog';
   if(!$('wfRecoveryList'))return;
   for(const button of $('dialogBody').querySelectorAll('[data-recovery-tab]')){
    const selected=button.dataset.recoveryTab===tab;
@@ -151,7 +151,17 @@
    $('wfRecoveryInfo').textContent='自动保存修改前的版本，也可以手动留一个恢复点。取回时先查看内容；旧版本可以另存，不覆盖现在写的。';
    $('wfRecoveryList').innerHTML=rows.map((r,i)=>historyRow(wfDate(r.savedAt),r.count+' '+(tab==='board'?'块内容':'项库中内容'),'data-revision="'+i+'"','查看并取回')).join('')||'<p class="wf-empty">还没有历史记录。可以先保存一个恢复点。</p>';
    for(const button of $('wfRecoveryList').querySelectorAll('[data-revision]'))button.onclick=()=>wfSafe(()=>wfOpenRevision(kind,key,rows[Number(button.dataset.revision)]));
-  }catch(e){if(active(token)){$('wfRecoveryList').textContent='读取失败：'+e.message;toast(e.message)}}
+  }catch(e){if(active(token)){
+   const list=$('wfRecoveryList'),message=document.createElement('p'),retry=document.createElement('button');
+   message.setAttribute('role','status');message.textContent='记录暂时未读到：'+e.message;
+   retry.type='button';retry.className='wf-recovery-read-retry';retry.textContent='重新读取记录';retry.dataset.recoveryReadRetry='';
+   retry.onclick=()=>{
+    if(retry.disabled||!active(token)||$('wfRecoveryList')!==list||!retry.isConnected||!list.contains(retry))return;
+    if(boardId!==target||board!==source||!sameRecoveryResultScope(scope)||document.hidden||frameElement&&!frameElement.getClientRects().length){message.textContent='查看位置或所属账号已有变化，请重新打开恢复记录。';retry.disabled=true;return}
+    retry.disabled=true;void loadTab(tab);
+   };
+   list.replaceChildren(message,retry);
+  }}
   finally{if(active(token))$('wfRecoveryList').setAttribute('aria-busy','false')}
  }
  wfRecovery=async function(tab='board'){
