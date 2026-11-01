@@ -1092,7 +1092,7 @@ askCollectSelection=function(){
 const collectDock=document.createElement('button');collectDock.id='collectToLibrary';collectDock.textContent='收进库';collectDock.title='收录选中的内容 · Ctrl+Shift+L';collectDock.onclick=askCollectSelection;$('creationDock').append(collectDock);
 function syncCollectButton(){collectDock.hidden=!selected.size}const beforeCollectSelectionUI=refreshSelectionUI;refreshSelectionUI=function(){beforeCollectSelectionUI();syncCollectButton()};const beforeCollectDraw=drawNodes;drawNodes=function(){beforeCollectDraw();syncCollectButton()};syncCollectButton();
 function libraryPreviewEditScope(){
- try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null,tab=parent===window?null:parent.current?.();if(parent!==window&&!tab)return null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base,boardId,tab?.id,tab?.boardId])}}catch{return null}
+ try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null,tab=parent===window?null:parent.current?.();if(parent!==window&&typeof parent.current!=='function')return null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base,boardId,tab?.id,tab?.boardId])}}catch{return null}
 }
 function editFromLibraryPreview(id,preview){
  if(!$('dialog').open||!preview?.isConnected||$('pieceList')!==preview)return;
