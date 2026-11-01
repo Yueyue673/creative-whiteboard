@@ -312,12 +312,12 @@ function wfRenderLibraryDepth(){
   select.innerHTML='<option value="folder">当前文件夹</option><option value="branch">包含子文件夹</option>';
   row.append(text,select);pane.querySelector('.wf-library-type').after(row);
  }
- const select=row.querySelector('select'),folder=assetFolder,owner=libraryPreviewEditScope();
+ const select=row.querySelector('select'),folder=assetFolder,owner=mediaReadRetryScope();
  row.hidden=!!$('assetSearch').value.trim()||(!wfLibraryBranchActive()&&!allAssetFolders().some(path=>folder?path.startsWith(folder+'/'):!!path));
  select.value=wfLibraryBranchActive()?'branch':'folder';
  select.onchange=()=>{
   if(select.disabled||row.hidden||!select.isConnected||pane.hidden||document.hidden||frameElement&&!frameElement.getClientRects().length||document.querySelector('dialog[open]')||!assetCatalogReady||assetFolder!==folder||pane.querySelector('.wf-library-depth select')!==select){select.value=wfLibraryBranchActive()?'branch':'folder';return}
-  const scope=libraryPreviewEditScope();if(!owner||!scope||scope.inner!==owner.inner||scope.outer!==owner.outer||scope.key!==owner.key||[scope.inner,scope.outer].some(value=>value&&(value.paused||value.account?.id==null||value.workspace==null||value.base==null))){select.value=wfLibraryBranchActive()?'branch':'folder';return}
+  const scope=mediaReadRetryScope();if(!owner.valid||!scope.valid||scope.key!==owner.key||scope.hosts.length!==owner.hosts.length||!scope.hosts.every((host,index)=>host===owner.hosts[index])||scope.hosts.some(host=>host&&host.base==null)){select.value=wfLibraryBranchActive()?'branch':'folder';return}
   wfLibraryBranchFolder=select.value==='branch'?folder:null;assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==pane;el=el.parentElement)el.scrollTop=0;
  };
 }
