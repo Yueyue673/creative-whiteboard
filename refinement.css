@@ -300,7 +300,9 @@ html.listening-preview #dialogActions button{padding:2px 8px;font-size:13px;min-
 #appearanceDialog .navigation-settings>div input{width:100%;box-sizing:border-box}
 #appearanceDialog footer{display:flex;flex:none;justify-content:space-between;gap:10px;padding-top:18px}
 #appearanceDialog footer button{min-height:36px;font-size:13px;padding:7px 12px}
-#appearanceDone{font-weight:600}
+#appearanceDialog footer #appearanceDone{font-weight:600;background:var(--ui-text);border-color:var(--ui-text);color:var(--ui-raised)}
+#appearanceDialog footer #appearanceReset{background:transparent;border-color:transparent;color:var(--ui-muted)}
+#appearanceDialog footer #appearanceReset:hover{background:var(--ui-hover);color:var(--ui-text)}
 @media(max-width:650px){#appearanceDialog{padding:16px}}
 @media(max-width:400px){#appearanceDialog .appearance-size label{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}#appearanceDialog .appearance-size input{grid-column:1/-1;grid-row:2}#appearanceDialog .appearance-size output{grid-column:2;grid-row:1}}
 @media(max-width:300px){.appearance-colors{grid-template-columns:minmax(0,1fr)}#appearanceDialog .navigation-settings>div{grid-template-columns:minmax(0,1fr)}}
