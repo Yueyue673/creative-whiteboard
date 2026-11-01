@@ -168,6 +168,7 @@ jobs:
           REFERENCE_GROUP_CONTEXT_PROOF: .ci-proofs/reference-group-context
           REFERENCE_INSERT_GROUP_PROOF: .ci-proofs/reference-insert-group-context
           CHECKPOINT_OWNER_PROOF: .ci-proofs/manual-checkpoint-owner
+          TABLE_TEXT_EXPORT_PROOF: .ci-proofs/library-table-text-export
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1432,5 +1433,16 @@ jobs:
           path: |
             .ci-proofs/manual-checkpoint-owner/result.json
             .ci-proofs/manual-checkpoint-owner/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-text-export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-text-export-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-text-export/result.json
+            .ci-proofs/library-table-text-export/*.png
+            .ci-proofs/library-table-text-export/*.csv
           if-no-files-found: ignore
           retention-days: 3

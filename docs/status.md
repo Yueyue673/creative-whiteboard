@@ -4,9 +4,9 @@
 
 本页汇集这份源码中保留的改动。开始使用前，先按手里的版本选择入口；下面的详细记录不代表默认下载版、网站和私人安装已经一同更新。
 
-**后续公开开发批次：** [查看2d30802的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/2d30802f9e51f3597d924a750360307f73495f41) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
+**后续公开开发批次：** [查看03a5206的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/03a5206927cf48391d6bd1eca9e5626da46b6231) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
 
-截至2026-11-01，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41302001598)及8项Windows/Linux矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41301993241)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41301989413)均在既有320px相机返回断言失败，末尾6项新增浏览器任务未执行。各批本机范围与准确CI分别记录，没有宣称当前提交全量回归通过。下面历史条目中的核验说明按其时点理解；本页开头为最近公开批次。网站部署和私人安装仍分别记录。
+截至2026-11-01，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41318884354)及8项Windows/Linux矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41318513516)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41318509424)均在既有320px相机返回断言失败，日志特征与此前2d30802一致，末尾9项后续浏览器任务未执行。各批本机范围与准确CI分别记录，没有宣称当前提交全量回归通过。下面历史条目中的核验说明按其时点理解；本页开头为最近公开批次。网站部署和私人安装仍分别记录。
 
 | 你使用的版本 | 从哪里开始 | 怎样看下面的改动 |
 | --- | --- | --- |
@@ -15,6 +15,12 @@
 | 带账号的网页版本 | 使用维护者部署的网站与账号 | 以对应部署记录和实际入口为准；开发源码中的改动不会自动进入网站。 |
 
 想先了解主要用法，可从[保存一组内容 → 放到新白板 → 回看来源](reuse.md)开始。想核对某项具体变化，再看下方条目；实体设备和作者实际使用的未验范围仍按各项记录保留。
+
+## 从库中表格直接导出行列文字
+
+在内容库预览展开一张已完整显示的普通表格，即可“导出表格文字 CSV”，无需先放一份副本到白板。沿原CSV导出方式保留列名与行列文字，入口放在对应表格内；混合格里的便签、图片、音视频与来源关系不写入CSV，旁边明确说明范围。
+
+1360px/320px源码任务两场景12组通过，真实下载后用独立CSV读取器核对BOM、引号、逗号、换行与字素；相同标题的两张表按各自位置导出。覆盖无白板标签、受控只读范围、展开及筛选重绘、原选择、内容未变的目录刷新、文字变动后的拒绝与重新打开、受控内外层范围与身份变化、长文不增加该入口，以及原件、素材和白板保持。未修改的原库中表格阅读任务两场景32组通过。34项磁盘与实际服务字节一致，新任务省略Python、Git和测试根环境覆盖。本后续源码未公开、未运行准确CI；实际托管授权、实体设备、作者使用、网站与私人安装未验。
 
 ## 手动恢复点也核对原来的所属范围
 

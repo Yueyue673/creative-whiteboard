@@ -729,6 +729,18 @@ function bindLibraryPieceFileLinks(asset,preview){
  }
 }
 
+function mountLibraryTableTextExport(details,reader,node,asset,preview){
+ const scope=mediaReadRetryScope(),textIdentity=value=>JSON.stringify([value?.title||'',value?.columns,value?.rows]),original=textIdentity(node);
+ const line=document.createElement('p'),button=document.createElement('button'),hint=document.createElement('small');line.className='library-table-text-export';button.type='button';button.dataset.libraryTableTextExport=node.id;button.textContent='导出表格文字 CSV';
+ button.setAttribute('aria-label','导出表格文字 CSV：'+details.querySelector('summary').textContent.replace(/^(?:收起|查看)表格 · /,''));hint.textContent='仅含行列文字，不含格内卡片和附件。';
+ button.onclick=()=>{
+  if(!$('dialog').open||!preview.isConnected||$('pieceList')!==preview||!details.isConnected||!details.open||!reader.isConnected)return;
+  const now=mediaReadRetryScope(),current=assetById(asset.id),matches=Array.isArray(current?.bundle?.nodes)?current.bundle.nodes.filter(value=>value.id===node.id):[];
+  if(!scope.valid||!now.valid||scope.key!==now.key||scope.hosts.length!==now.hosts.length||scope.hosts.some((host,i)=>host!==now.hosts[i])||!current||current.archived||matches.length!==1||matches[0].type!=='table'||matches[0].documentMode===true||textIdentity(matches[0])!==original)return toast('这张表或查看范围已有变化，请重新打开预览后再导出。');
+  exportCSV({title:matches[0].title,columns:clone(matches[0].columns),rows:clone(matches[0].rows)});
+ };
+ line.append(button,hint);details.append(line);
+}
 const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetById(id);if(a?.mime!==bundleMime)return previewBeforePieces(id);let picked=new Set(),previewElement;const append=async selectedOnly=>{if(!$('dialog').open||!previewElement?.isConnected||$('pieceList')!==previewElement)return;try{const result=await(selectedOnly?commitLibraryBatch([{asset:a,bundle:subsetBundle(a,picked)}]):placeAssets([id]));if(Array.isArray(result)&&result.length&&$('dialog').open&&previewElement.isConnected){$('dialog').close();window.whiteboardExplorer?.revealInserted(result)}}catch(e){toast(e.message)}};
  const sourceActions=a.source?.boardId&&Array.isArray(a.source.nodeIds)&&a.source.nodeIds.length?[['更新库中版本',async()=>{if(!$('dialog').open||!previewElement?.isConnected||$('pieceList')!==previewElement)return;$('dialog').close();await refreshLibrarySource(id)}]]:[];
  const singleDocument=a.bundle.nodes.length===1&&a.bundle.nodes[0].type==='table'&&a.bundle.nodes[0].documentMode===true?a.bundle.nodes[0]:null;
@@ -798,7 +810,7 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
      const reader=details.querySelector('article');if(reader.dataset.loaded)return;
      const markup=node?libraryDocumentMarkup(node,ordinaryTable):null;
      if(markup===null)reader.textContent=ordinaryTable?'这张表暂不能完整预览，可选中后放到白板查看。':'这份内容超出这里的预览范围。原文完整保留，可先选中，再放到白板查看。';
-     else reader.innerHTML=markup;
+     else{reader.innerHTML=markup;if(ordinaryTable)mountLibraryTableTextExport(details,reader,node,a,previewElement)}
      reader.dataset.loaded='true';
     }else{
      openReadings.delete(id);

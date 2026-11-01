@@ -233,3 +233,6 @@ body #toast .collection-result{min-width:64px;min-height:44px;padding:7px 12px;b
 
 /* Keep a missing catalog reference visible without replacing its authored source. */
 .attachment-unavailable{margin:8px 0;color:var(--ui-muted,#777);font-size:13px;line-height:1.5;overflow-wrap:anywhere;user-select:text}
+.library-table-text-export{margin:12px 0 0}
+#pieceList .library-table-text-export>button{min-height:44px;padding:6px 0;border:0;background:transparent;color:var(--ui-link);font:inherit;text-decoration:underline;text-underline-offset:3px}
+.library-table-text-export>small{display:block;color:var(--ui-muted);font-size:12px}
