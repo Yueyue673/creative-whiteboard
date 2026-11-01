@@ -165,6 +165,7 @@ jobs:
           BOARD_HISTORY_OWNER_PROOF: .ci-proofs/board-history-owner
           HISTORY_COPY_RETRY_PROOF: .ci-proofs/history-copy-retry
           MISSING_ATTACHMENT_REFERENCE_PROOF: .ci-proofs/missing-attachment-reference
+          REFERENCE_GROUP_CONTEXT_PROOF: .ci-proofs/reference-group-context
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1398,5 +1399,15 @@ jobs:
           path: |
             .ci-proofs/missing-attachment-reference/result.json
             .ci-proofs/missing-attachment-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated reference-group-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-group-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/reference-group-context/result.json
+            .ci-proofs/reference-group-context/*.png
           if-no-files-found: ignore
           retention-days: 3
