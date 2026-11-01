@@ -161,6 +161,7 @@ jobs:
           HISTORY_INLINE_RETURN_PROOF: .ci-proofs/history-inline-return
           LIBRARY_DESCENDANT_VIEW_PROOF: .ci-proofs/library-descendant-view
           LIBRARY_PREVIEW_NO_BOARD_PROOF: .ci-proofs/library-preview-no-board
+          RECOVERY_LIBRARY_OWNER_PROOF: .ci-proofs/recovery-library-owner
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1354,5 +1355,15 @@ jobs:
           path: |
             .ci-proofs/library-preview-no-board/result.json
             .ci-proofs/library-preview-no-board/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated recovery-library-owner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-library-owner-${{ github.run_id }}
+          path: |
+            .ci-proofs/recovery-library-owner/result.json
+            .ci-proofs/recovery-library-owner/*.png
           if-no-files-found: ignore
           retention-days: 3

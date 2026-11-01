@@ -150,7 +150,7 @@
    const rows=await(await api('/api/history/'+kind+'/'+key)).json();if(!active(token))return;
    $('wfRecoveryInfo').textContent='自动保存修改前的版本，也可以手动留一个恢复点。取回时先查看内容；旧版本可以另存，不覆盖现在写的。';
    $('wfRecoveryList').innerHTML=rows.map((r,i)=>historyRow(wfDate(r.savedAt),r.count+' '+(tab==='board'?'块内容':'项库中内容'),'data-revision="'+i+'"','查看并取回')).join('')||'<p class="wf-empty">还没有历史记录。可以先保存一个恢复点。</p>';
-   for(const button of $('wfRecoveryList').querySelectorAll('[data-revision]'))button.onclick=()=>wfSafe(()=>wfOpenRevision(kind,key,rows[Number(button.dataset.revision)]));
+   for(const button of $('wfRecoveryList').querySelectorAll('[data-revision]'))button.onclick=()=>wfSafe(()=>wfOpenRevision(kind,key,rows[Number(button.dataset.revision)],scope));
   }catch(e){if(active(token)){
    const list=$('wfRecoveryList'),message=document.createElement('p'),retry=document.createElement('button');
    message.setAttribute('role','status');message.textContent='记录暂时未读到：'+e.message;
@@ -205,11 +205,17 @@
   return {inner,outer,key:JSON.stringify(hosts.map(host=>host?[host.account?.id,host.workspace,host.base,host.role,!!host.paused]:null)),valid:hosts.every(host=>!host||!host.paused&&host.account?.id!=null&&host.workspace!=null&&host.base!=null)};
  }
  function sameRecoveryResultScope(before){const now=recoveryResultScope();return !!(before?.valid&&now?.valid&&before.inner===now.inner&&before.outer===now.outer&&before.key===now.key)}
- async function recoverLibraryCopy(token,ids,value){
+  function ownsLibraryRecovery(token,scope,writing=true){
+   if(!active(token))return false;
+   if(sameRecoveryResultScope(scope)&&(!writing||[scope.inner,scope.outer].every(host=>!host||host.role!=='viewer'))&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length))return true;
+   toast(writing?'查看位置、账号或编辑权限已有变化，未写入内容库。所选内容仍保留。':'查看范围已有变化，请重新打开内容库历史。当前选择仍保留。');return false;
+  }
+  async function recoverLibraryCopy(token,ids,value,scope){
   if(!ids.size)return toast('先勾选内容');
+   if(!ownsLibraryRecovery(token,scope))return;
   const resultScope=recoveryResultScope(),created=[];
   // A catalog refresh must not rebuild the expanded editor beneath this history layer.
-  await loadAssets({redraw:dialog===primary});if(!active(token))return;
+   await loadAssets({redraw:dialog===primary});if(!ownsLibraryRecovery(token,scope))return;
   const next=clone(assetIndex);
   for(const original of chosenRevision(ids,value)){
    original.id=uid();original.title=(original.title||'未命名内容')+' · 恢复副本';original.updated=Date.now();
@@ -223,22 +229,24 @@
    else toast('已另存所选旧内容，当前版本保留');
   }
  }
- async function recoverLibraryReview(token,ids,value){
+  async function recoverLibraryReview(token,ids,value,scope){
   if(!ids.size)return toast('先勾选内容');
-  await loadAssets({redraw:dialog===primary});if(!active(token))return;
+   if(!ownsLibraryRecovery(token,scope))return;
+   await loadAssets({redraw:dialog===primary});if(!ownsLibraryRecovery(token,scope))return;
   const changes=chosenRevision(ids,value).map(old=>({field:old.id,label:old.title,before:clone(assetById(old.id)??null),after:old}));
   const baseline=assetETag;
   wfReview('确认要恢复的库中内容','这里会更新勾选项的当前版本。只想保留一份旧内容时，可以返回历史记录，选择另存。',changes,async chosen=>{
-   await loadAssets({redraw:dialog===primary});if(!active(token))return false;if(assetETag!==baseline)return toast('内容库已变化，请重新比较'),false;
+    if(!ownsLibraryRecovery(token,scope))return false;
+    await loadAssets({redraw:dialog===primary});if(!ownsLibraryRecovery(token,scope))return false;if(assetETag!==baseline)return toast('内容库已变化，请重新比较'),false;
    const next=clone(assetIndex);
    for(const c of chosen){next.assets=next.assets.filter(a=>a.id!==c.field);next.assets.push(clone(c.after));addFolders(next,[c.after.folder])}
    return saveAssets(next);
   },dialog===primary?undefined:{show:recoveryDialog,element:$});
   owner=$('dialogBody').firstElementChild;
  }
- function libraryRevision(token,revision){
+  function libraryRevision(token,revision,scope){
   const value=revision.value,ids=new Set();
-  recoveryDialog('<h2>从内容库历史中取回</h2><p class="wf-explain">'+wfDate(revision.savedAt)+'。勾选旧内容后，可以另存为副本；需要替换当前版本时，再查看差异。</p><input id="wfRevisionSearch" placeholder="搜索这份记录"><p id="wfRevisionCount" class="wf-explain"></p><div id="wfRevisionItems" class="wf-list"></div>',[['返回',()=>wfSafe(()=>wfRecovery('library'))],['另存勾选内容',()=>wfSafe(()=>recoverLibraryCopy(token,ids,value))],['比较并恢复',()=>wfSafe(()=>recoverLibraryReview(token,ids,value))]]);
+   recoveryDialog('<h2>从内容库历史中取回</h2><p class="wf-explain">'+wfDate(revision.savedAt)+'。勾选旧内容后，可以另存为副本；需要替换当前版本时，再查看差异。</p><input id="wfRevisionSearch" placeholder="搜索这份记录"><p id="wfRevisionCount" class="wf-explain"></p><div id="wfRevisionItems" class="wf-list"></div>',[['返回',()=>wfSafe(()=>wfRecovery('library'))],['另存勾选内容',()=>wfSafe(()=>recoverLibraryCopy(token,ids,value,scope))],['比较并恢复',()=>wfSafe(()=>recoverLibraryReview(token,ids,value,scope))]]);
   function draw(){
    const q=$('wfRevisionSearch').value.toLowerCase();
    const items=value.assets.filter(a=>!a.archived&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
@@ -249,8 +257,8 @@
   function count(){$('wfRevisionCount').textContent=ids.size?'已选 '+ids.size+' 项（搜索后仍保留所选项）':'先勾选要取回的内容'}
   $('wfRevisionSearch').oninput=draw;draw();
   const actions=$('dialogActions').querySelectorAll('button');
-  restoreAction(actions[1],()=>recoverLibraryCopy(token,ids,value));
-  restoreAction(actions[2],()=>recoverLibraryReview(token,ids,value));
+   restoreAction(actions[1],()=>recoverLibraryCopy(token,ids,value,scope));
+   restoreAction(actions[2],()=>recoverLibraryReview(token,ids,value,scope));
  }
  function boardRevision(key,revision,token){
   const value=revision.value;
@@ -270,9 +278,10 @@
    toast('已另存恢复版本，原白板保留');
   });
  }
- wfOpenRevision=async function(kind,key,row){
-  const token=++epoch,revision=await(await api('/api/history/'+kind+'/'+key+'/'+row.id)).json();
+  wfOpenRevision=async function(kind,key,row,scope=recoveryResultScope()){
+   const token=++epoch;if(kind==='library'&&!ownsLibraryRecovery(token,scope,false))return;
+   const revision=await(await api('/api/history/'+kind+'/'+key+'/'+row.id)).json();
   if(!active(token))return;
-  if(kind==='library')libraryRevision(token,revision);else boardRevision(key,revision,token);
+   if(kind==='library'){if(!ownsLibraryRecovery(token,scope,false))return;libraryRevision(token,revision,scope)}else boardRevision(key,revision,token);
  };
 })();
