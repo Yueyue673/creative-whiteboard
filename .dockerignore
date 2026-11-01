@@ -29,6 +29,7 @@
 !hosted/core/html_preview.py
 !hosted/core/identity.py
 !hosted/core/json_data.py
+!hosted/core/library_copies.py
 !hosted/core/maintenance.py
 !hosted/core/management/__init__.py
 !hosted/core/management/commands/__init__.py
@@ -144,12 +145,14 @@
 !import-session.js
 !index.html
 !library-clipboard.js
+!library-copies.js
 !library-editing.js
 !library-folders.js
 !library-spatial.css
 !library-spatial.js
 !library-transfer.js
 !library_folders.py
+!library_usage.py
 !media-controls.js
 !media-markers.js
 !navigation.js
