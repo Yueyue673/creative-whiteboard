@@ -818,7 +818,16 @@ if(board){applyTypography();syncTextTools();announce()}
    };
   }
 
+  let tags=$('wfPickedTags');
+  if(!tags){
+   tags=document.createElement('button');tags.type='button';tags.id='wfPickedTags';tags.className='wf-picked-tags';tags.textContent='添加标签';bar.append(tags);
+   tags.onclick=()=>{
+    if(placing||!assetCatalogReady||pane.hidden||document.hidden||tags.hidden||tags.disabled||!tags.isConnected||$('wfPickedTags')!==tags||tags.parentElement!==bar||picked().length<2||document.querySelector('dialog[open]'))return;
+    return wfBatchTags();
+   };
+  }
   const active=!!review,button=$('wfPickedReview'),hint=$('wfPickedHint'),items=picked(),total=items.length;
+  tags.hidden=total<2;tags.disabled=placing||!assetCatalogReady;tags.title='给选中的 '+total+' 项资源追加标签';
   if(action){action.hidden=!total;action.disabled=placing||!total;action.textContent=placing?'正在放入':'放入所选';action.setAttribute('aria-busy',String(placing))}
   const list=active?[]:libraryMatches(),shown=!active&&total&&!$('assetSearch').value.trim()?new Set(list.map(a=>a.id)):null,outside=shown?items.filter(a=>!shown.has(a.id)).length:0;
   button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active&&!outside;hint.textContent=active?'全部已选资源；返回后保留原搜索、类型和位置。':outside+'项已选资源不在当前列表，可先“查看已选”再放入。';

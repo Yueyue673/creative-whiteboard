@@ -292,5 +292,6 @@
   "tests/browser-reference-group-context.cjs",
   "tests/browser-reference-insert-group-context.cjs",
   "tests/browser-manual-checkpoint-owner.cjs",
-  "tests/browser-library-table-text-export.cjs"
+  "tests/browser-library-table-text-export.cjs",
+  "tests/browser-library-tag-entry.cjs"
 ]

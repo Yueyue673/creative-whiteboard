@@ -84,3 +84,6 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-place-legacy{display:none!important}
 
 .wf-recovery-read-retry{min-height:44px}
+
+/* A selected-resource action stays secondary to returning to creation. */
+.wf-picked-bar .wf-picked-tags{background:transparent;border-color:transparent;color:var(--ui-muted);padding-inline:8px}
