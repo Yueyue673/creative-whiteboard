@@ -137,13 +137,17 @@
   $('wfCheckpoint').textContent=tab==='library'?'保存内容库恢复点':'保存白板恢复点';
   $('wfRecoveryList').setAttribute('aria-busy','true');$('wfRecoveryList').textContent='正在读取…';
   $('wfRecoveryInfo').textContent='';
-  $('wfCheckpoint').onclick=()=>wfSafe(async()=>{
+   const checkpointHere=()=>active(token)&&sameRecoveryResultScope(scope)&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&(tab!=='board'||boardId===target&&board===source);
+   $('wfCheckpoint').onclick=()=>wfSafe(async()=>{
+    if(!ownsHistoryRecovery(token,scope,true,tab==='library'?'内容库':'白板'))return;
+    if(tab==='board'&&(boardId!==target||board!==source))return toast('当前白板已有变化，请重新打开记录后再保存恢复点。');
    const button=$('wfCheckpoint');button.disabled=true;
    try{
     await api(tab==='library'?'/api/checkpoints/library/catalog':'/api/checkpoints/'+target,{method:'PUT'});
-    toast(tab==='library'?'已保存内容库恢复点':'已保存白板恢复点');
-    if(active(token))await loadTab(tab);
-   }finally{if(button.isConnected)button.disabled=false}
+     const here=checkpointHere();
+     toast(here?(tab==='library'?'已保存内容库恢复点':'已保存白板恢复点'):(tab==='library'?'已保存原内容库恢复点；当前查看范围已有变化。':'已保存原白板恢复点；当前查看范围已有变化。'));
+     if(here)await loadTab(tab);
+    }finally{if(checkpointHere()&&button.isConnected)button.disabled=false}
   });
   try{
    if(tab==='trash'){await loadTrash(token);return}

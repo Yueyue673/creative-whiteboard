@@ -167,6 +167,7 @@ jobs:
           MISSING_ATTACHMENT_REFERENCE_PROOF: .ci-proofs/missing-attachment-reference
           REFERENCE_GROUP_CONTEXT_PROOF: .ci-proofs/reference-group-context
           REFERENCE_INSERT_GROUP_PROOF: .ci-proofs/reference-insert-group-context
+          CHECKPOINT_OWNER_PROOF: .ci-proofs/manual-checkpoint-owner
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1420,5 +1421,16 @@ jobs:
           path: |
             .ci-proofs/reference-insert-group-context/result.json
             .ci-proofs/reference-insert-group-context/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated manual-checkpoint-owner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-checkpoint-owner-${{ github.run_id }}
+          path: |
+            .ci-proofs/manual-checkpoint-owner/result.json
+            .ci-proofs/manual-checkpoint-owner/*.png
           if-no-files-found: ignore
           retention-days: 3
