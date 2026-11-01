@@ -262,6 +262,13 @@
  }
  function boardRevision(key,revision,token,scope){
   const value=revision.value;
+  let copyAttempt=null;
+  const copyNotice=message=>{
+   if(!active(token))return;
+   let status=$('dialogBody').querySelector('[data-history-copy-state]');
+   if(!status){status=document.createElement('p');status.className='wf-explain';status.dataset.historyCopyState='';status.setAttribute('role','status');$('dialogBody').append(status)}
+   status.textContent=message;
+  };
   recoveryDialog('<h2>'+esc(value.name)+' · '+wfDate(revision.savedAt)+'</h2><p class="wf-explain">把勾选内容添加回当前白板，或者把整份记录另存为白板。现在的内容不会被覆盖。</p><div class="wf-list">'+value.nodes.map(n=>'<label class="wf-history-row"><input type="checkbox" data-recover-node="'+esc(n.id)+'"><div><b>'+esc(n.title||'未命名内容')+'</b><small>'+esc((n.body||n.userText||'').slice(0,160))+'</small></div></label>').join('')+'</div>',[['返回',()=>wfSafe(()=>wfRecovery('board'))],['添加勾选内容',()=>{
    if(!ownsHistoryRecovery(token,scope,true,'白板'))return;
    if(boardId!==key)return toast('当前白板已切换，请重新打开历史记录');
@@ -271,12 +278,41 @@
   }],['整份记录另存为白板',()=>{}]]);
   const actions=$('dialogActions').querySelectorAll('button');
   restoreAction(actions[2],async()=>{
-   if(!ownsHistoryRecovery(token,scope,true,'白板'))return;
-   const id=uid(),restored=clone(value);restored.name=value.name+' · 恢复 '+new Date(revision.savedAt*1000).toLocaleDateString('zh-CN');
-   if(!folderData.folders.some(f=>f.id===restored.folder))restored.folder='';
-   await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(restored)});
-   if(active(token)){const mayOpen=boardId===key&&sameRecoveryResultScope(scope)&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length);dialog.close();if(mayOpen)await loadBoard(id)}
-   toast('已另存恢复版本，原白板保留');
+   if(!ownsHistoryRecovery(token,scope,!copyAttempt,'白板'))return;
+   const resuming=!!copyAttempt;
+   if(!copyAttempt){
+    const restored=clone(value);restored.name=value.name+' · 恢复 '+new Date(revision.savedAt*1000).toLocaleDateString('zh-CN');
+    if(!folderData.folders.some(f=>f.id===restored.folder))restored.folder='';
+    copyAttempt={id:uid(),value:restored};
+   }
+   const attempt=copyAttempt,submit=()=>api('/api/boards/'+attempt.id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(attempt.value)});
+   try{
+    if(resuming){
+     let saved,missing=false;
+     try{saved=await(await api('/api/boards/'+attempt.id,{cache:'no-store'})).json()}catch(error){if(error.code!==404)throw error;missing=true}
+     if(!ownsHistoryRecovery(token,scope,false,'白板'))return;
+     if(!missing){
+      if(!wfEqual(saved,attempt.value)){copyNotice('这份另存已有变化，未覆盖。请从白板列表核对；原勾选仍保留。');return}
+     }else{
+      const trash=await(await api('/api/trash',{cache:'no-store'})).json();
+      if(!ownsHistoryRecovery(token,scope,false,'白板'))return;
+      if(!Array.isArray(trash)||trash.some(row=>!row||!Array.isArray(row.ids)||row.ids.some(id=>typeof id!=='string')))throw Error('回收记录暂未能核对，请稍后重试。');
+      if(trash.some(row=>row.ids.includes(attempt.id))){copyNotice('这份另存已移入回收站，未重新创建。请从回收站核对；原勾选仍保留。');return}
+      if(attempt.value.folder){
+       const folders=await(await api('/api/folders',{cache:'no-store'})).json();
+       if(!ownsHistoryRecovery(token,scope,false,'白板'))return;
+       if(!Array.isArray(folders?.folders))throw Error('存放位置暂未能核对，请稍后重试。');
+       if(!folders.folders.some(folder=>folder.id===attempt.value.folder)){copyNotice('存放位置已有变化，未重新提交。请重新打开记录核对；原勾选仍保留。');return}
+      }
+      await submit();
+     }
+    }else await submit();
+   }catch(error){
+    if(active(token)){copyNotice('这次另存尚未确认。再次点击会先核对并继续这次另存，原勾选仍保留。');toast(error.code?error.message:error instanceof SyntaxError?'这次结果暂未能读完整，请核对后继续。':error instanceof TypeError?'这次结果暂未能确认，请核对后继续。':error.message||'这次结果暂未能确认。')}
+    return;
+   }
+   if(active(token)){const mayOpen=boardId===key&&sameRecoveryResultScope(scope)&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length);dialog.close();if(mayOpen)await loadBoard(attempt.id)}
+   toast(resuming?'已确认这次另存，原白板保留':'已另存恢复版本，原白板保留');
   });
  }
   wfOpenRevision=async function(kind,key,row,scope=recoveryResultScope()){

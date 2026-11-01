@@ -163,6 +163,7 @@ jobs:
           LIBRARY_PREVIEW_NO_BOARD_PROOF: .ci-proofs/library-preview-no-board
           RECOVERY_LIBRARY_OWNER_PROOF: .ci-proofs/recovery-library-owner
           BOARD_HISTORY_OWNER_PROOF: .ci-proofs/board-history-owner
+          HISTORY_COPY_RETRY_PROOF: .ci-proofs/history-copy-retry
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1376,5 +1377,15 @@ jobs:
           path: |
             .ci-proofs/board-history-owner/result.json
             .ci-proofs/board-history-owner/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated history-copy-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-copy-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/history-copy-retry/result.json
+            .ci-proofs/history-copy-retry/*.png
           if-no-files-found: ignore
           retention-days: 3
