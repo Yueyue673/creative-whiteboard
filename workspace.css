@@ -230,3 +230,6 @@ body #toast .collection-result{min-width:64px;min-height:44px;padding:7px 12px;b
 .library-piece-file small{font-size:12px;color:var(--ui-muted,#777)}
 .library-piece-file .library-file-link{display:inline-flex;align-items:center;min-height:44px;max-width:100%;width:fit-content;white-space:normal;overflow-wrap:anywhere}
 .library-piece-file .library-file-status{margin:0;font-size:13px}
+
+/* Keep a missing catalog reference visible without replacing its authored source. */
+.attachment-unavailable{margin:8px 0;color:var(--ui-muted,#777);font-size:13px;line-height:1.5;overflow-wrap:anywhere;user-select:text}

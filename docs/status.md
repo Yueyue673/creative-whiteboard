@@ -4,9 +4,9 @@
 
 本页汇集这份源码中保留的改动。开始使用前，先按手里的版本选择入口；下面的详细记录不代表默认下载版、网站和私人安装已经一同更新。
 
-**后续公开开发批次：** [查看68660dd的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/68660dd1c0d28031823e3fad2c1234da84a41f98) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
+**后续公开开发批次：** [查看2d30802的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/2d30802f9e51f3597d924a750360307f73495f41) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
 
-截至2026-11-01，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41296429329)已通过；[Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41295312728)仍在既有浏览器相机返回场景失败。本机核对、准确CI、网站部署和私人安装分别记录；下面各项仍按对应提交与未验范围理解，源码公开不会让其他入口自动更新。
+截至2026-11-01，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41302001598)及8项Windows/Linux矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41301993241)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41301989413)均在既有320px相机返回断言失败，末尾6项新增浏览器任务未执行。各批本机范围与准确CI分别记录，没有宣称当前提交全量回归通过。下面历史条目中的核验说明按其时点理解；本页开头为最近公开批次。网站部署和私人安装仍分别记录。
 
 | 你使用的版本 | 从哪里开始 | 怎样看下面的改动 |
 | --- | --- | --- |
@@ -15,6 +15,12 @@
 | 带账号的网页版本 | 使用维护者部署的网站与账号 | 以对应部署记录和实际入口为准；开发源码中的改动不会自动进入网站。 |
 
 想先了解主要用法，可从[保存一组内容 → 放到新白板 → 回看来源](reuse.md)开始。想核对某项具体变化，再看下方条目；实体设备和作者实际使用的未验范围仍按各项记录保留。
+
+## 缺失的文件附件保留可读来源
+
+本机后续候选在原本空白的音视频或文件附件处说明它未在当前内容库中找到，并保留可选择复制的原来源路径；网页来源仍用原链接。只在内容库成功读取且确实缺少对应记录时显示，不增加确认窗口，不推断磁盘文件已删除，不自动关联同名文件。图片沿用原显示和读取处理。
+
+1360px/320px合成前后图已核对。新任务两个场景10组核对通过，覆盖库读取失败时不误报、来源字面量与原链接、有效文件及普通便签、原文/补充/不透明字段/连线保留、零浏览器目录写入，以及受控目录记录重新可用后原编号的音频恢复读取。恢复目录记录由合成条件提供，不代表已实现自动修复或跨目录素材搬运。此后续候选尚未上传或运行准确CI；实体设备、私人安装、网站和作者实际使用未验，既有失败范围保留。
 
 ## 资源预览的次级入口减轻外框
 

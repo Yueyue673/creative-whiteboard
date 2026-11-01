@@ -164,6 +164,7 @@ jobs:
           RECOVERY_LIBRARY_OWNER_PROOF: .ci-proofs/recovery-library-owner
           BOARD_HISTORY_OWNER_PROOF: .ci-proofs/board-history-owner
           HISTORY_COPY_RETRY_PROOF: .ci-proofs/history-copy-retry
+          MISSING_ATTACHMENT_REFERENCE_PROOF: .ci-proofs/missing-attachment-reference
           LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
           ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
           SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
@@ -1387,5 +1388,15 @@ jobs:
           path: |
             .ci-proofs/history-copy-retry/result.json
             .ci-proofs/history-copy-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated missing-attachment-reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: missing-attachment-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/missing-attachment-reference/result.json
+            .ci-proofs/missing-attachment-reference/*.png
           if-no-files-found: ignore
           retention-days: 3
