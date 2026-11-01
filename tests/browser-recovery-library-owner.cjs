@@ -2,9 +2,9 @@ const fs = require('node:fs'), path = require('node:path'), crypto = require('no
 const assert = require('node:assert/strict');
 const { spawn, execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
-const R = process.env.CREATIVE_BOARD_TEST_ROOT;
-const O = process.env.RECOVERY_LIBRARY_OWNER_PROOF;
-const PY = process.env.PYTHON;
+const R = path.resolve(process.env.CREATIVE_BOARD_TEST_ROOT || path.join(__dirname, '..'));
+const O = process.env.RECOVERY_LIBRARY_OWNER_PROOF || path.join(R, '.test-proof-recovery-library-owner');
+const PY = process.env.PYTHON || 'python';
 assert(R && O && PY && !fs.existsSync(O));
 fs.mkdirSync(O, { recursive: true });
 const hash = b => crypto.createHash('sha256').update(b).digest('hex');
