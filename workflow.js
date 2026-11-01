@@ -302,15 +302,36 @@ function wfRenderLibraryKind(){
  if(empty&&wfLibraryKind!=='all'&&!$('assetList').querySelector('[data-asset],[data-asub]'))empty.textContent=$('assetSearch').value.trim()?'没有找到匹配的'+wfLibraryKind:'这里没有'+wfLibraryKind;
 }
 
+let wfLibraryBranchFolder=null;
+function wfLibraryBranchActive(){return wfLibraryBranchFolder===assetFolder}
+function wfRenderLibraryDepth(){
+ const pane=$('assetPane');let row=pane.querySelector('.wf-library-depth');
+ if(!row){
+  row=document.createElement('label');row.className='wf-library-depth';
+  const text=document.createElement('span'),select=document.createElement('select');text.textContent='范围';select.setAttribute('aria-label','浏览范围');
+  select.innerHTML='<option value="folder">当前文件夹</option><option value="branch">包含子文件夹</option>';
+  row.append(text,select);pane.querySelector('.wf-library-type').after(row);
+ }
+ const select=row.querySelector('select'),folder=assetFolder,owner=libraryPreviewEditScope();
+ row.hidden=!!$('assetSearch').value.trim()||(!wfLibraryBranchActive()&&!allAssetFolders().some(path=>folder?path.startsWith(folder+'/'):!!path));
+ select.value=wfLibraryBranchActive()?'branch':'folder';
+ select.onchange=()=>{
+  if(select.disabled||row.hidden||!select.isConnected||pane.hidden||document.hidden||frameElement&&!frameElement.getClientRects().length||document.querySelector('dialog[open]')||!assetCatalogReady||assetFolder!==folder||pane.querySelector('.wf-library-depth select')!==select){select.value=wfLibraryBranchActive()?'branch':'folder';return}
+  const scope=libraryPreviewEditScope();if(!owner||!scope||scope.inner!==owner.inner||scope.outer!==owner.outer||scope.key!==owner.key||[scope.inner,scope.outer].some(value=>value&&(value.paused||value.account?.id==null||value.workspace==null||value.base==null))){select.value=wfLibraryBranchActive()?'branch':'folder';return}
+  wfLibraryBranchFolder=select.value==='branch'?folder:null;assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==pane;el=el.parentElement)el.scrollTop=0;
+ };
+}
+const wfEnterLibraryDepth=enterAssetFolder;
+enterAssetFolder=function(...args){wfLibraryBranchFolder=null;return wfEnterLibraryDepth(...args)};
 const wfRenderAssets=renderAssets;
 renderAssets=function(){
  wfLibraryVisibleUses=new Map(wfLibraryUsed);
  wfRenderAssets();$('assetPane').querySelector('.manager-hint').textContent='新建或导入来积累 · F2 编辑 · 拖到白板使用副本 · Ctrl+Z 撤销库中操作';
- const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);wfRenderLibraryOrder();wfRenderLibraryKind();
- if(q)$('assetList').querySelectorAll('[data-asset]').forEach(row=>{
+ const q=$('assetSearch').value.trim();wfRenderLibrarySearch(q);wfRenderLibraryOrder();wfRenderLibraryKind();wfRenderLibraryDepth();
+ if(q||wfLibraryBranchActive())$('assetList').querySelectorAll('[data-asset]').forEach(row=>{
   const a=assetById(row.dataset.asset);if(!a)return;
   const location=row.querySelector('small');if(location){location.classList.add('wf-result-location');location.textContent=a.folder?a.folder.split('/').join(' › '):'内容库';location.title=a.folder||''}
-  const snippet=document.createElement('p');snippet.className='wf-search-snippet';snippet.innerHTML=wfMark(wfExcerpt(wfLibraryText(a),q,12),q);snippet.title=snippet.textContent;
+   if(!q)return;const snippet=document.createElement('p');snippet.className='wf-search-snippet';snippet.innerHTML=wfMark(wfExcerpt(wfLibraryText(a),q,12),q);snippet.title=snippet.textContent;
   const info=row.querySelector('div');info?.append(snippet);
  });
 };
@@ -335,7 +356,7 @@ function wfRenderLibrarySearch(q){
 }
 libraryMatches=function(){
  const q=$('assetSearch').value.trim().toLowerCase(),all=wfLibrarySearchScope()==='all';
- const list=assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):a.folder===assetFolder)&&(!q||wfLibraryText(a).toLowerCase().includes(q))&&(wfLibraryKind==='all'||libraryAssetKind(a)===wfLibraryKind));
+ const list=assetIndex.assets.filter(a=>!a.archived&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):(a.folder===assetFolder||wfLibraryBranchActive()&&(!assetFolder||a.folder?.startsWith(assetFolder+'/'))))&&(!q||wfLibraryText(a).toLowerCase().includes(q))&&(wfLibraryKind==='all'||libraryAssetKind(a)===wfLibraryKind));
  if(wfLibraryOrder==='used')return list.map((item,index)=>({item,index})).sort((a,b)=>(wfLibraryVisibleUses.get(b.item.id)||0)-(wfLibraryVisibleUses.get(a.item.id)||0)||a.index-b.index).map(row=>row.item);
  if(wfLibraryOrder!=='recent')return list;
  const savedAt=a=>Number.isFinite(Number(a.updated))&&Number(a.updated)>0?Number(a.updated):0;
@@ -795,10 +816,11 @@ if(board){applyTypography();syncTextTools();announce()}
    };
   }
 
-  const active=!!review,button=$('wfPickedReview'),hint=$('wfPickedHint'),total=picked().length;
+  const active=!!review,button=$('wfPickedReview'),hint=$('wfPickedHint'),items=picked(),total=items.length;
   if(action){action.hidden=!total;action.disabled=placing||!total;action.textContent=placing?'正在放入':'放入所选';action.setAttribute('aria-busy',String(placing))}
-  button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active;hint.textContent='全部已选资源；返回后保留原搜索、类型和位置。';
-  const list=active?[]:libraryMatches(),allSelected=!!list.length&&assetSelected.size===list.length&&list.every(a=>assetSelected.has(a.id));
+  const list=active?[]:libraryMatches(),shown=!active&&total&&!$('assetSearch').value.trim()?new Set(list.map(a=>a.id)):null,outside=shown?items.filter(a=>!shown.has(a.id)).length:0;
+  button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active&&!outside;hint.textContent=active?'全部已选资源；返回后保留原搜索、类型和位置。':outside+'项已选资源不在当前列表，可先“查看已选”再放入。';
+  const allSelected=!!list.length&&assetSelected.size===list.length&&list.every(a=>assetSelected.has(a.id));
   const hideAll=active||!assetCatalogReady,disableAll=placing||!list.length;
   bar.classList.toggle('wf-whole-list',!hideAll);
   if(document.activeElement===all&&(hideAll||disableAll))(active?button:pane).focus({preventScroll:true});
@@ -806,7 +828,7 @@ if(board){applyTypography();syncTextTools();announce()}
   all.setAttribute('aria-label',allSelected?'取消全选当前列表中的'+list.length+'项内容':'全选当前列表中的'+list.length+'项内容');
   all.title='按当前文件夹、搜索和类型选择，包括尚未展开的列表项。';
   $('assetSearch').disabled=active;
-  pane.querySelectorAll('.wf-library-type select,.wf-library-order select,#wfLibrarySearchContext button').forEach(el=>el.disabled=active);
+  pane.querySelectorAll('.wf-library-type select,.wf-library-order select,.wf-library-depth select,#wfLibrarySearchContext button').forEach(el=>el.disabled=active);
   if(active){count.textContent='已选 '+total+' 项';pane.querySelectorAll('[data-asub]').forEach(el=>el.hidden=true);let empty=$('assetList').querySelector('.explorer-empty');if(!total&&!empty){empty=document.createElement('div');empty.className='explorer-empty';$('assetList').append(empty)}if(empty)empty.textContent='没有已选资源，返回原列表继续挑选。'}
  }
  const matches=libraryMatches;
