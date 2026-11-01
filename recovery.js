@@ -164,10 +164,28 @@
   }}
   finally{if(active(token))$('wfRecoveryList').setAttribute('aria-busy','false')}
  }
+ function ordinaryHistoryReturn(){
+  const field=window.whiteboardPane?.editingField?.();
+  if(!window.whiteboardPane?.focus||primary.open||!field?.closest('.live-layout')||!field.matches('input,textarea')||field.readOnly||field.disabled)return null;
+  const source=board,key=boardId,writer=editorId,node=source?.nodes.find(n=>n.id===writer),value=field.value,scope=recoveryResultScope();
+  if(!node)return null;
+  return ()=>primary.addEventListener('close',()=>{
+   const panel=owner;if(primary.open||!panel?.isConnected||!primary.contains(panel))return;
+   requestAnimationFrame(()=>{
+    const active=document.activeElement;
+    if(primary.open||!panel.isConnected||!primary.contains(panel)||document.querySelector('dialog[open]')||!document.hasFocus()||document.hidden||frameElement&&!frameElement.getClientRects().length)return;
+    if(board!==source||boardId!==key||editorId!==writer||source.nodes.find(n=>n.id===writer)!==node||!sameRecoveryResultScope(scope)||!field.isConnected||field.closest('[hidden]')||field.readOnly||field.disabled||field.value!==value)return;
+    if(active!==field&&active?.matches('input,textarea,[contenteditable=true]'))return;
+    window.whiteboardPane.focus();
+   });
+  },{capture:true,once:true});
+ }
+
  wfRecovery=async function(tab='board'){
-  const token=++epoch;if(!await persist()||token!==epoch)return;
+  const token=++epoch,returnToWriter=ordinaryHistoryReturn();if(!await persist()||token!==epoch)return;
   layeredHistory();
   recoveryDialog('<h2>恢复与历史记录</h2><div class="wf-toolbar recovery-toolbar"><div role="tablist" aria-label="恢复范围"><button role="tab" data-recovery-tab="board">当前白板</button><button role="tab" data-recovery-tab="library">内容库历史</button><button role="tab" data-recovery-tab="trash">回收站</button></div><button id="wfCheckpoint">保存一个恢复点</button></div><p id="wfRecoveryInfo" class="wf-explain"></p><div id="wfRecoveryList" class="wf-list" role="tabpanel">正在读取…</div>',[['关闭',()=>dialog.close()]]);
+  returnToWriter?.();
   const tabs=[...$('dialogBody').querySelectorAll('[data-recovery-tab]')];
   tabs.forEach((button,i)=>{
    button.onclick=()=>wfSafe(()=>loadTab(button.dataset.recoveryTab));
