@@ -289,13 +289,15 @@ function wfRenderLibraryOrder(){
 
 
 function wfRenderLibraryKind(){
+ let filters=$('assetPane').querySelector('.wf-library-filters');
+ if(!filters){filters=document.createElement('div');filters.className='wf-library-filters';$('assetSearch').after(filters)}
  let row=$('assetPane').querySelector('.wf-library-type');
  if(!row){
   row=document.createElement('label');row.className='wf-library-type';
   const text=document.createElement('span'),select=document.createElement('select');text.textContent='内容';select.setAttribute('aria-label','内容类型');
   select.innerHTML='<option value="all">全部类型</option>'+['便签','长文','表格','组合','图片','音频','视频','网页','PDF','JSON','文件'].map(kind=>'<option>'+kind+'</option>').join('');
   select.onchange=()=>{wfLibraryKind=select.value;assetLimit=80;renderAssets();for(let el=$('assetList');el&&el!==$('assetPane');el=el.parentElement)el.scrollTop=0};
-  row.append(text,select);$('assetSearch').after(row);
+  row.append(text,select);filters.append(row);
  }
  row.querySelector('select').value=wfLibraryKind;
  const empty=$('assetList').querySelector('.explorer-empty');

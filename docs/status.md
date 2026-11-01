@@ -4,9 +4,9 @@
 
 本页汇集这份源码中保留的改动。开始使用前，先按手里的版本选择入口；下面的详细记录不代表默认下载版、网站和私人安装已经一同更新。
 
-**后续公开开发批次：** [查看691374f的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/691374f79397d56ab2f45faeb163a0890dbfc920) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
+**后续公开开发批次：** [查看68660dd的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/68660dd1c0d28031823e3fad2c1234da84a41f98) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
 
-截至2026-11-01，这个准确批次的[Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41273831783)和[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41273836435)尚未全部通过。本机核对、准确CI、网站部署和私人安装分别记录；下面各项仍按对应提交与未验范围理解，源码公开不会让其他入口自动更新。
+截至2026-11-01，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41296429329)已通过；[Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41295312728)仍在既有浏览器相机返回场景失败。本机核对、准确CI、网站部署和私人安装分别记录；下面各项仍按对应提交与未验范围理解，源码公开不会让其他入口自动更新。
 
 | 你使用的版本 | 从哪里开始 | 怎样看下面的改动 |
 | --- | --- | --- |
@@ -15,6 +15,12 @@
 | 带账号的网页版本 | 使用维护者部署的网站与账号 | 以对应部署记录和实际入口为准；开发源码中的改动不会自动进入网站。 |
 
 想先了解主要用法，可从[保存一组内容 → 放到新白板 → 回看来源](reuse.md)开始。想核对某项具体变化，再看下方条目；实体设备和作者实际使用的未验范围仍按各项记录保留。
+
+## 内容库筛选少占一行
+
+类型与浏览范围改为同一行，省去重复的可见“内容／范围”小标签；原生下拉框仍有各自的可访问名称，排序单独保留。不折叠常用筛选，也不改变已选材料、原目录、纸面内容和存放位置。没有子文件夹时，类型选择沿用整行空间。
+
+按[参考视频的界面减法方法](https://www.bilibili.com/video/BV1pbxr6REJi/)核对桌面和320px合成前后截图。实际源码上的原浏览范围任务四个场景40组核对通过；原内容类型任务两个场景通过，包含分类与排序组合、选择、媒体字节、撤销重做和保存后重新读取。两个原任务及其断言未修改，使用本机默认任务入口；上方已公开提交的CI不代表本候选。此候选尚未上传或运行准确CI，网站、私人安装、实体设备与作者实际使用未验，既有未通过范围保留。
 
 ## 历史另存的结果未确认时，先核对这一次
 
@@ -204,7 +210,7 @@ TXT、Markdown、CSV和TSV等文本预览可识别带BOM的UTF-16LE、UTF-16BE�
 | 入口 | 包含什么 | 目前状态 |
 | --- | --- | --- |
 | [默认分支 main](https://github.com/Yueyue673/creative-whiteboard/tree/main) | 原工作台：便签、媒体、表格、内容库、标签与分栏 | 本机使用入口，按仓库首页启动 |
-| [后续公开开发批次691374f](https://github.com/Yueyue673/creative-whiteboard/tree/691374f79397d56ab2f45faeb163a0890dbfc920) | 沿原工作台继续积累、挑选与复用材料，保留来源和创作上下文 | [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)；检查尚未全部通过，网站和私人安装另行记录 |
+| [后续公开开发批次68660dd](https://github.com/Yueyue673/creative-whiteboard/tree/68660dd1c0d28031823e3fad2c1234da84a41f98) | 沿原工作台继续积累、挑选与复用材料，保留来源和创作上下文 | [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)；Hosted已通过，浏览器Checks仍有未通过范围，网站和私人安装另行记录 |
 | [账号版开发基线](https://github.com/Yueyue673/creative-whiteboard/tree/codex/hosted-linux-checks) | 在同一套原工作台上集成账号、工作区、成员权限和托管服务，并继续改善创作流程 | [草稿 PR #1](https://github.com/Yueyue673/creative-whiteboard/pull/1)，尚未合并到 main |
 | 绘图选中改进（待发布） | 画完标记后，直接点击下面可见的笔记继续写；点击标记线条或文字仍可选择它 | [1500313](https://github.com/Yueyue673/creative-whiteboard/commit/150031321bdbcac16f31af548d7b0ecca59cec56) 源码检查已通过，服务器核验与发布尚未完成 |
 | 资料对照（开发版） | 从正在写的记录直接看关联资料，再返回接着写；需要编辑来源时可打开原白板 | [8c50c51](https://github.com/Yueyue673/creative-whiteboard/commit/8c50c51ee8d47f4c0e134fe8d91ea1845a8eb0c9) 已发布，尚未并入 main |
