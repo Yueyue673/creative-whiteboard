@@ -50,6 +50,7 @@ jobs:
       - run: node --check ai-workflow.js
       - run: node --check refinement.js
       - run: node --check appearance.js
+      - run: node tests/test-browser-suite-runner.cjs
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -65,6 +66,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
         env:
+          BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
           VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
@@ -1444,5 +1446,14 @@ jobs:
             .ci-proofs/library-table-text-export/result.json
             .ci-proofs/library-table-text-export/*.png
             .ci-proofs/library-table-text-export/*.csv
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep complete and interrupted browser task results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-suite-results-${{ github.run_id }}
+          path: .ci-proofs/browser-suite/result.json
           if-no-files-found: ignore
           retention-days: 3
