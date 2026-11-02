@@ -12,7 +12,7 @@ import unittest
 from urllib.request import build_opener, ProxyHandler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from local_start_fixture import write_hooks, fixture_env
+from local_start_fixture import write_hooks, fixture_env, fixture_has_failure, stop_owned_process
 
 PROJECT = Path(__file__).resolve().parents[1]
 REQUEST = build_opener(ProxyHandler({})).open
@@ -35,19 +35,14 @@ class LocalStartTests(unittest.TestCase):
         self.url = f"http://127.0.0.1:{self.port}/"
 
     def tearDown(self):
+        cleanup_errors = []
         for process in self.processes:
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=16)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=5)
-            if process.stdin:
-                process.stdin.close()
+            try:
+                stop_owned_process(process, self.log)
+            except Exception as error:
+                cleanup_errors.append(str(error))
         self.log.close()
-        result = self._outcome.result
-        failed = any(test.id().startswith(self.id()) for test, _ in result.failures + result.errors)
+        failed = fixture_has_failure(self) or bool(cleanup_errors)
         if failed:
             print("GIVEN_FIXTURE_RETAINED: " + str(self.root), file=sys.stderr)
         else:
@@ -55,6 +50,8 @@ class LocalStartTests(unittest.TestCase):
             target.relative_to(Path(tempfile.gettempdir()).resolve())
             self.assertTrue(target.name.startswith("creative-local-start-"))
             shutil.rmtree(target)
+        if cleanup_errors:
+            raise RuntimeError("Owned startup cleanup failed: " + "; ".join(cleanup_errors))
 
     def launch(self, *, open_browser=False, mode="true", deny_data=False):
         args = [sys.executable, str(PROJECT / "server.py")]
@@ -73,8 +70,13 @@ class LocalStartTests(unittest.TestCase):
             if path.exists():
                 return json.loads(path.read_bytes())
             time.sleep(0.04)
-        self.fail("Controlled startup record missing: " + str(path) + "\n" +
-                  (self.root / "process.log").read_text(encoding="utf8", errors="replace"))
+        details = ["Controlled startup record missing: " + str(path),
+                   "Owned parents: " + repr([(p.pid, p.poll()) for p in self.processes])]
+        for name in ["identity.json", "startup-progress.jsonl", "process.log"]:
+            item = self.root / name
+            if item.exists():
+                details.append(name + ":\n" + item.read_text(encoding="utf8", errors="replace")[-12000:])
+        self.fail("\n".join(details))
 
     def wait_ready(self, process):
         deadline = time.monotonic() + 10
@@ -155,8 +157,7 @@ class LocalStartTests(unittest.TestCase):
         with socket.socket() as probe:
             self.assertNotEqual(probe.connect_ex(("127.0.0.1", self.port)), 0)
 
-    @unittest.skipUnless(os.name == "nt", "Windows command entry")
-    def test_windows_entry_works_from_a_given_folder_with_spaces(self):
+    def launch_windows_entry(self):
         program = self.root / "Given app with spaces"
         program.mkdir()
         for name in ["server.py", "app_paths.py", "assets.py", "workflow_backend.py",
@@ -172,6 +173,11 @@ class LocalStartTests(unittest.TestCase):
             cwd=self.root, env=env, stdin=subprocess.PIPE, stdout=self.log, stderr=self.log,
             creationflags=subprocess.CREATE_NO_WINDOW)
         self.processes.append(process)
+        return process
+
+    @unittest.skipUnless(os.name == "nt", "Windows command entry")
+    def test_windows_entry_works_from_a_given_folder_with_spaces(self):
+        process = self.launch_windows_entry()
         row = self.wait_json(self.open_log)
         self.assertTrue(row["returned"])
         self.assertEqual(row["url"], self.url)
