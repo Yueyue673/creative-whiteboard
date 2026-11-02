@@ -165,6 +165,10 @@ class LocalStartTests(unittest.TestCase):
             shutil.copyfile(PROJECT / name, program / name)
         env = fixture_env(self.data, self.port, self.hooks, self.open_log, self.identity, lifetime=12)
         env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")
+        # A major-only py request otherwise chooses the newest registered minor.
+        env["PY_PYTHON3"] = ".".join(map(str, sys.version_info[:2]))
+        for name in ["PYLAUNCHER_ALLOW_INSTALL", "PYLAUNCHER_ALWAYS_INSTALL"]:
+            env.pop(name, None)
         cmd_exe = os.environ.get("ComSpec", r"C:\Windows\System32\cmd.exe")
         script = (program / "启动白板.cmd").resolve()
         script.relative_to(self.root.resolve())
@@ -179,6 +183,8 @@ class LocalStartTests(unittest.TestCase):
     def test_windows_entry_works_from_a_given_folder_with_spaces(self):
         process = self.launch_windows_entry()
         row = self.wait_json(self.open_log)
+        self.assertEqual(row["pythonVersion"].split()[0].split(".")[:2],
+                         list(map(str, sys.version_info[:2])))
         self.assertTrue(row["returned"])
         self.assertEqual(row["url"], self.url)
         self.assertEqual(row["healthStatus"], 200)
