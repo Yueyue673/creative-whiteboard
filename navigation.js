@@ -1,7 +1,8 @@
 // Familiar canvas navigation, with workspace preferences separate from content.
 (() => {
  'use strict';
- const key='creative-navigation-v1',defaults={snap:true,zoomSpeed:1,nudge:1,bigNudge:10,gap:32};let hand=false;
+ const key='creative-navigation-v1',defaults={snap:true,zoomSpeed:1,nudge:1,bigNudge:10,gap:32};let hand=false,rememberedArrangement=null;
+ window.addEventListener('creative-board-loading',()=>{rememberedArrangement=null});
  function read(){let p={};try{p=JSON.parse(localStorage.getItem(key)||'{}')}catch{}return{snap:p.snap!==false,zoomSpeed:Math.max(.3,Math.min(2,Number(p.zoomSpeed)||1)),nudge:Math.max(.1,Math.min(100,Number(p.nudge)||1)),bigNudge:Math.max(1,Math.min(500,Number(p.bigNudge)||10)),gap:Math.max(0,Math.min(500,Number.isFinite(Number(p.gap))?Number(p.gap):32))}}
  function write(p){localStorage.setItem(key,JSON.stringify({...defaults,...p}))}
  // Native Tab navigation can scroll the hidden canvas container. Keep that
@@ -74,7 +75,7 @@
    'y,spacing':'<rect x="7" y="2" width="10" height="4"/><rect x="7" y="10" width="10" height="4"/><rect x="7" y="18" width="10" height="4"/>'
   },button=(key,name,caption)=>'<button data-align="'+key+'" aria-label="'+name+'" title="'+name+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icons[key]+'</svg><span>'+caption+'</span></button>';
   const source=board,sourceId=boardId,nodes=board.nodes.filter(n=>selected.has(n.id)),ids=new Set(nodes.map(n=>n.id));if(nodes.length<2)return;
-  showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div class="arrange-axis"><span>水平</span>'+button('x,start','左边对齐','左对齐')+button('x,center','水平居中对齐','居中')+button('x,end','右边对齐','右对齐')+'</div><div class="arrange-axis"><span>垂直</span>'+button('y,start','顶部对齐','顶部')+button('y,center','垂直居中对齐','居中')+button('y,end','底部对齐','底部')+'</div><label for="arrangeGap">间距<input id="arrangeGap" type="number" min="0" max="500" step="any" value="'+read().gap+'"></label><div class="arrange-presets" aria-label="常用间距"><button type="button" data-gap="16">紧凑 · 16</button><button type="button" data-gap="32">常规 · 32</button><button type="button" data-gap="64">舒展 · 64</button></div><div class="arrange-spacing">'+button('x,spacing','横向等距排列','横向等距')+button('y,spacing','纵向等距排列','纵向等距')+'</div><figure class="arrange-preview"><svg viewBox="0 0 320 140" role="img" aria-label="选中内容的布局预览"></svg><figcaption id="arrangePreviewCaption">指向或按 Tab 预览，点击操作才应用。</figcaption></figure></div>',[['返回白板',()=>$('dialog').close()]]);
+  showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div class="arrange-axis"><span>水平</span>'+button('x,start','左边对齐','左对齐')+button('x,center','水平居中对齐','居中')+button('x,end','右边对齐','右对齐')+'</div><div class="arrange-axis"><span>垂直</span>'+button('y,start','顶部对齐','顶部')+button('y,center','垂直居中对齐','居中')+button('y,end','底部对齐','底部')+'</div><label for="arrangeGap">间距<input id="arrangeGap" type="number" min="0" max="500" step="any" value="'+read().gap+'"></label><div class="arrange-presets" aria-label="常用间距"><button type="button" data-gap="16">紧凑 · 16</button><button type="button" data-gap="32">常规 · 32</button><button type="button" data-gap="64">舒展 · 64</button></div><div class="arrange-spacing">'+button('x,spacing','横向等距排列','横向等距')+button('y,spacing','纵向等距排列','纵向等距')+'</div><figure class="arrange-preview"><svg viewBox="0 0 320 140" role="img" aria-label="选中内容的布局预览"></svg><figcaption id="arrangePreviewCaption">指向或按 Tab 预览，点击操作才应用。</figcaption></figure><details class="arrange-return"><summary>试摆与返回</summary><p>临时记住这组内容的位置，再试另一种摆法。返回时保留后来写的文字、尺寸和新内容；只在本次打开的白板中使用。</p><div class="arrange-return-actions"><button type="button" data-arrange-remember>记住当前摆法</button><button type="button" data-arrange-return>回到记住的摆法</button></div><p role="status" data-arrange-status></p></details></div>',[['返回白板',()=>$('dialog').close()]]);
   const options=$('dialogBody').querySelector('.arrange-options'),field=options.querySelector('#arrangeGap'),svg=options.querySelector('.arrange-preview svg'),caption=options.querySelector('figcaption'),buttons=[...options.querySelectorAll('[data-align]')];let previewMode=null,previewIds=ids,invalid=false;
   const owns=()=>options.isConnected&&$('dialog').open&&$('dialogBody').querySelector('.arrange-options')===options;
   const active=()=>!invalid&&owns()&&board===source&&boardId===sourceId&&!loading&&!blocked&&nodes.every(n=>board.nodes.includes(n))&&selected.size===ids.size&&[...selected].every(id=>ids.has(id));
@@ -100,7 +101,23 @@
   const host=$('nodes'),observer=new MutationObserver(records=>{if(records.some(r=>r.target===host||r.target.parentElement===host&&previewIds.has(r.target.dataset.id)&&r.oldValue!==r.target.getAttribute('style')))resized()});
   observer.observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['style'],attributeOldValue:true});
   window.addEventListener('resize',resized);onDialogDismiss(()=>{window.removeEventListener('resize',resized);observer.disconnect()});
-  paint();
+  const memory=options.querySelector('.arrange-return'),remember=memory.querySelector('[data-arrange-remember]'),restore=memory.querySelector('[data-arrange-return]'),status=memory.querySelector('[data-arrange-status]');
+  const sameRoots=row=>row&&row.boardId===sourceId&&row.roots.length===ids.size&&row.roots.every(id=>ids.has(id));
+  const currentRows=()=>{const counts=new Map;for(const n of board.nodes)counts.set(n.id,(counts.get(n.id)||0)+1);if(!rememberedArrangement||rememberedArrangement.positions.some(p=>counts.get(p.id)!==1))return null;const byId=new Map(board.nodes.map(n=>[n.id,n]));const rows=rememberedArrangement.positions.map(p=>({position:p,node:byId.get(p.id)}));return rows.every(({position:p,node:n})=>n.type===p.type&&[n.x,n.y,p.x,p.y].every(Number.isFinite))?rows:null};
+  const memoryState=message=>{if(!active())return;const row=rememberedArrangement,matching=sameRoots(row);remember.textContent=row?'改记当前摆法':'记住当前摆法';restore.disabled=!matching||!currentRows();status.textContent=message||(row?matching?(currentRows()?'记住了 '+row.positions.length+' 块内容的位置。':'记住的内容已有移除或类型变化，可重新记住当前摆法。'):'先选回记住的 '+row.roots.length+' 块内容，再返回原摆法。':'还没有记住摆法。')};
+  remember.onclick=()=>{
+   if(!ready())return;const members=effectiveSelection(),allIds=board.nodes.map(n=>n.id);
+   if(allIds.some(id=>typeof id!=='string'||!id)||new Set(allIds).size!==allIds.length||members.some(n=>![n.x,n.y].every(Number.isFinite))){memoryState('内容编号或位置无法准确对应，暂时不能记住；原摆法记录保留。');return}
+   rememberedArrangement={boardId:sourceId,roots:[...ids],positions:members.map(n=>({id:n.id,type:n.type,x:n.x,y:n.y}))};memoryState('记住了 '+members.length+' 块内容的位置，可以继续试摆。');
+  };
+  restore.onclick=()=>{
+   if(!ready())return;if(!sameRoots(rememberedArrangement)){memoryState('请先选回记住的内容，再返回原摆法。');return}
+   const rows=currentRows();if(!rows){memoryState('记住的内容已有移除或类型变化，原位置没有应用；可重新记住当前摆法。');return}
+   if(!rows.some(({position:p,node:n})=>p.x!==n.x||p.y!==n.y)){memoryState('已经在记住的位置。');return}
+   undoPoint();for(const {position:p,node:n}of rows){n.x=p.x;n.y=p.y}drawNodes();renderOutline();change();paint();memoryState('已回到记住的位置，后来的文字和新内容保留。');
+  };
+  memory.addEventListener('toggle',()=>memoryState());
+  paint();memoryState();
  }
  const guide=document.createElementNS('http://www.w3.org/2000/svg','svg');guide.id='alignmentGuides';guide.setAttribute('aria-hidden','true');canvas.append(guide);
  function clearGuides(){guide.replaceChildren()}

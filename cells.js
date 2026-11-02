@@ -27,7 +27,7 @@ function cellItemCopy(item,parent){const copy=clone(item),origin=cellItemOrigin(
 function cellContentMarkup(n,r,c){return '<div class="cell-contents">'+(n.cellItems?.[r]?.[c]||[]).map((item,i)=>{const a=assetById(item.mediaId||item.assetId),media=a?.mime?.startsWith('audio/')?'<audio class="inline-ui" controls preload="metadata"'+playbackSource(a)+'></audio>':a?.mime?.startsWith('video/')?'<video class="inline-ui" controls preload="metadata"'+playbackSource(a)+'></video>':'';const preview=isTextAsset(a)&&!documentKind(a)?'<div class="file-text-preview" data-text-preview="'+esc(a.id)+'"><small>正在读取原文件…</small></div>':'';const field=(key,label)=>'<textarea data-cell-note-field="'+key+'" aria-label="'+label+'">'+esc(item[key]||'')+'</textarea>';const paper=/^#[\da-f]{6}$/i.test(item.color||'')?item.color:colors[0],surface=typeof contentSurfaceClass==='function'?contentSurfaceClass(item):'';return '<section class="cell-content inline-ui'+(a?' cell-file':'')+(surface?' '+surface:'')+'" style="'+(typeof contentSurfaceStyle==='function'?contentSurfaceStyle(item):'')+'--cell-paper:'+paper+'" data-cell-item="'+i+'" data-cell-r="'+r+'" data-cell-c="'+c+'"><button type="button" data-cell-move class="cell-move-handle inline-ui" aria-label="移动内容" title="移动内容">⋮⋮</button>'+field('title','单元格内容标题')+media+preview+imageGallery(item.images||[])+(item.image?imageGallery([{data:item.image}]):'')+(item.type==='table'?'<p>内含表格 · '+(item.rows?.length||0)+' 行；取出到白板后编辑</p>':field('body','单元格内容正文'))+(item.userText?field('userText','单元格内容补充'):'')+(item.annotation?field('annotation','单元格内容备注'):'')+(a&&!media&&!a.mime?.startsWith('image/')?'<a class="inline-ui" href="'+mediaURL(a.id)+'" target="_blank" rel="noopener">打开文件</a>':'')+'</section>'}).join('')+'</div>'}
 (()=>{
 function tableAt(target){const n=board?.nodes.find(n=>n.id===target.nodeId);return n?.type==='table'&&Number.isInteger(target.r)&&Number.isInteger(target.c)&&n.rows[target.r]?.[target.c]!==undefined?n:null}
-function appendItems(nodes,target){const n=tableAt(target);if(!n)return;const items=nodes.filter(x=>x&&x.type!=='frame').map(x=>({...clone(x),id:uid()}));if(!items.length)return toast('请选中便签、表格或文件内容');undoPoint();cellItemGrid(n)[target.r][target.c].push(...items);openEditor(n.id);change();toast('已放入单元格，原内容保留')}
+function appendItems(nodes,target,edges=[]){const n=tableAt(target);if(!n)return;if(Array.isArray(edges)&&edges.length)return toast('这组内容含连线，请先放到白板保留关系。');const items=nodes.filter(x=>x&&x.type!=='frame').map(x=>({...clone(x),id:uid()}));if(!items.length)return toast('请选中便签、表格或文件内容');undoPoint();cellItemGrid(n)[target.r][target.c].push(...items);openEditor(n.id);change();toast('已放入单元格，原内容保留')}
 // Object clipboard ownership follows the cell copy, never the enclosing table selection.
 function clipboardCell(target){
  const live=target?.closest?.('.live-layout'),host=live?.closest('#nodes>.node[data-id],#immersiveSurface[data-id]');
@@ -47,7 +47,7 @@ function captureCell(target){
 function pasteCell(target){
  const context=clipboardCell(target),cell=target?.closest?.('td[data-cell]');if(!context||!cell||!context.live.contains(cell))return null;
  const [r,c]=cell.dataset.cell.split(',').map(Number),row=context.n.rowIds?.[r],column=context.n.columnIds?.[c];
- return {apply(text){if(!context.valid()||context.n.rowIds?.[r]!==row||context.n.columnIds?.[c]!==column)return false;let value;try{value=JSON.parse(text)}catch{return false}if(value?.format!=='creative-board-fragment'||!Array.isArray(value.nodes)||!Array.isArray(value.edges))return false;appendItems(value.nodes,{nodeId:context.n.id,r,c});return true}};
+ return {apply(text){if(!context.valid()||context.n.rowIds?.[r]!==row||context.n.columnIds?.[c]!==column)return false;let value;try{value=JSON.parse(text)}catch{return false}if(value?.format!=='creative-board-fragment'||!Array.isArray(value.nodes)||!Array.isArray(value.edges))return false;appendItems(value.nodes,{nodeId:context.n.id,r,c},value.edges);return true}};
 }
 window.whiteboardCellClipboard={capture:captureCell,pasteTarget:pasteCell};
 // A shortcut started on one nested card must not escape to its parent when
@@ -65,29 +65,33 @@ window.whiteboardCellClipboard={capture:captureCell,pasteTarget:pasteCell};
   event.preventDefault();event.stopImmediatePropagation();shortcutKey=key(event);if(duplicate)cell.duplicate();else cell.remove();
  },true);
 })();
-const priorAssets=attachAssets;attachAssets=function(ids,target){if(!tableAt(target))return priorAssets(ids,target);const nodes=[];for(const a of ids.map(assetById).filter(Boolean)){if(a.bundle?.nodes)nodes.push(...a.bundle.nodes.map(n=>({...clone(n),libraryOrigin:{id:a.id,nodeId:n.id,name:a.title,source:clone(a.source||{})}})));else nodes.push({id:uid(),type:'note',title:a.title,body:a.notes||'',assetId:a.id,mediaId:/^(audio|video)\//.test(a.mime)?a.id:undefined,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],tags:a.tags||[],url:a.path,x:0,y:0,w:340,h:240})}appendItems(nodes,target)};
+const priorAssets=attachAssets;attachAssets=function(ids,target){if(!tableAt(target))return priorAssets(ids,target);const assets=ids.map(assetById).filter(Boolean);if(assets.some(a=>Array.isArray(a.bundle?.edges)&&a.bundle.edges.length))return toast('这组内容含连线，请先放到白板保留关系。');const nodes=[];for(const a of assets){if(a.bundle?.nodes)nodes.push(...a.bundle.nodes.map(n=>({...clone(n),libraryOrigin:{id:a.id,nodeId:n.id,name:a.title,source:clone(a.source||{})}})));else nodes.push({id:uid(),type:'note',title:a.title,body:a.notes||'',assetId:a.id,mediaId:/^(audio|video)\//.test(a.mime)?a.id:undefined,images:a.mime?.startsWith('image/')?[{assetId:a.id,name:a.title}]:[],tags:a.tags||[],url:a.path,x:0,y:0,w:340,h:240})}appendItems(nodes,target)};
 const priorFiles=attachFiles;attachFiles=async function(files,target){if(!tableAt(target))return priorFiles(files,target);try{const added=await uploadFiles([...files]);attachAssets(added.map(a=>a.id),target)}catch(e){toast(e.message)}};
 const priorChoose=chooseImages;chooseImages=function(target){$('imageFiles').accept=tableAt(target)?'':'image/png,image/jpeg,image/webp,image/gif';priorChoose(target)};
-const priorDrop=attachDrop;attachDrop=async function(e,target){if(!tableAt(target))return priorDrop(e,target);const raw=e.dataTransfer.getData('text/plain');try{const value=JSON.parse(raw);if(value.format==='creative-board-fragment'&&Array.isArray(value.nodes))return appendItems(value.nodes,target)}catch{}if(raw&&!e.dataTransfer.files.length&&!e.dataTransfer.getData('application/x-creative-assets')){const n=tableAt(target);undoPoint();n.rows[target.r][target.c]+=(n.rows[target.r][target.c]?'\n':'')+raw;openEditor(n.id);change();return}return priorDrop(e,target)};
+const priorDrop=attachDrop;attachDrop=async function(e,target){if(!tableAt(target))return priorDrop(e,target);const raw=e.dataTransfer.getData('text/plain');try{const value=JSON.parse(raw);if(value.format==='creative-board-fragment'&&Array.isArray(value.nodes))return appendItems(value.nodes,target,value.edges)}catch{}if(raw&&!e.dataTransfer.files.length&&!e.dataTransfer.getData('application/x-creative-assets')){const n=tableAt(target);undoPoint();n.rows[target.r][target.c]+=(n.rows[target.r][target.c]?'\n':'')+raw;openEditor(n.id);change();return}return priorDrop(e,target)};
 const priorMount=mountTableEditor;
 mountTableEditor=function(n){
  priorMount(n);
  const root=$('inlineTable'),live=root.closest('.live-layout');
  const tools=document.createElement('div');tools.className='cell-tools';tools.hidden=true;
  tools.setAttribute('role','group');tools.setAttribute('aria-label','单元格内容操作');
- tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
+ tools.innerHTML='<small data-cell-caption></small><button data-cell-extract title="取出副本到白板" aria-label="取出副本到白板">取出副本到白板</button><button data-cell-origin hidden>查看库中原件</button><button data-cell-file-preview hidden>在旁查看文档</button><button data-cell-remove title="移除单元格里的内容" aria-label="移除单元格里的内容">移除这份内容</button>';
  const options=root.querySelector('.table-options');options.querySelector(':scope>div').append(tools);
- let target=null;
- const clear=()=>{target?.classList.remove('cell-target');target=null;tools.hidden=true};
+ let target=null,originContext=null,fileContext=null;const originInputs=new WeakMap(),originButton=tools.querySelector("[data-cell-origin]"),fileButton=tools.querySelector('[data-cell-file-preview]'),captureOrigin=()=>target&&window.whiteboardNoteEditor?.captureCellOriginContext(n.id,target,originInputs.get(target)),captureFile=()=>target&&window.whiteboardNoteEditor?.captureCellFileContext(n.id,target,originInputs.get(target));
+ const clear=()=>{target?.classList.remove('cell-target');target=null;originContext=fileContext=null;tools.hidden=true};
  const labelTarget=()=>{
   const title=target.querySelector('[data-cell-note-field=title]')?.value.trim()||'未命名内容';
   tools.querySelector('[data-cell-caption]').textContent='内容：'+title;
-  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
+  for(const b of tools.querySelectorAll('button')){const label=b.hasAttribute('data-cell-file-preview')?'在旁查看文档':b.hasAttribute('data-cell-origin')?'查看库中原件':b.hasAttribute('data-cell-extract')?'取出副本到白板':'移除单元格里的内容';b.title=label+'：'+title;b.setAttribute('aria-label',b.title)}
+  const item=n.cellItems?.[+target.dataset.cellR]?.[+target.dataset.cellC]?.[+target.dataset.cellItem],origin=item&&cellItemOrigin(item,n);originButton.hidden=!root.closest('#immersiveSurface')||!!n.documentMode||item?.type!=='note'||!!item.canvasObject||!!item.assetId||!!item.mediaId||!!item.image||!!item.images?.length||!origin?.id||!origin.nodeId;
+  fileButton.hidden=!root.closest('#immersiveSurface')||!!n.documentMode||item?.type!=='note'||!!item.canvasObject||!documentKind(assetById(item?.assetId||item?.mediaId));
  };
  const choose=el=>{if(target===el)return;clear();target=el;target.classList.add('cell-target');tools.hidden=false;labelTarget()};
  live.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el);else if(!e.target.closest('.cell-tools,.table-options'))clear()});
  // Keep the chosen copy while tabbing back to its toolbar actions.
- live.addEventListener('focusin',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el))choose(el)});
+ live.addEventListener('focusin',e=>{const el=e.target.closest('[data-cell-item]');if(el&&root.contains(el)){if(e.target.matches('[data-cell-note-field]'))originInputs.set(el,e.target);choose(el)}});
+ originButton.onpointerdown=()=>originContext=captureOrigin();originButton.onkeydown=event=>{if(event.key==='Enter'||event.key===' ')originContext=captureOrigin()};
+ fileButton.onpointerdown=()=>fileContext=captureFile();fileButton.onkeydown=event=>{if(event.key==='Enter'||event.key===' ')fileContext=captureFile()};
  live.addEventListener('keydown',e=>{const handle=e.target.closest('[data-cell-move]');if(!handle||!(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'))return;e.preventDefault();e.stopImmediatePropagation();choose(handle.closest('[data-cell-item]'));options.open=true;tools.querySelector('button')?.focus({preventScroll:true})});
  for(const handle of root.querySelectorAll('[data-cell-move]'))handle.setAttribute('aria-keyshortcuts','Shift+F10');
  root.querySelectorAll('[data-cell-note-field]').forEach(field=>{
@@ -98,6 +102,8 @@ mountTableEditor=function(n){
   if(!target?.isConnected||editorId!==n.id||board.nodes.find(x=>x.id===n.id)!==n)return;
   const items=n.cellItems[+target.dataset.cellR]?.[+target.dataset.cellC],index=+target.dataset.cellItem,item=items?.[index];
   if(!item)return;
+  if(button.hasAttribute('data-cell-file-preview')){const context=fileContext||captureFile();fileContext=null;if(!button.isConnected||context?.section!==target){toast('这份文档暂不能唯一对应，请保留原稿并用原文件入口查看。');options.open=false;return}if(!window.whiteboardNoteEditor?.peekCellFile(context)){if(context.fileOwns?.())context.returnToInput?.(button);toast('这份文档的所属位置已有变化，请保留原稿重新查看。')}options.open=false;return}
+  if(button.hasAttribute('data-cell-origin')){const context=originContext||captureOrigin();originContext=null;if(!button.isConnected||context?.section!==target)return;if(!window.whiteboardNoteEditor?.peekCellOrigin(context)){context.returnToInput?.(button);toast('这份原件暂不能唯一对应，请保留原稿并从内容库查看。')}options.open=false;return}
   options.open=false;
   if(button.hasAttribute('data-cell-remove')){undoPoint();items.splice(index,1);openEditor(n.id);change()}
   else{insertBundle({nodes:[cellItemCopy(item,n)],edges:[]},{x:n.x+n.w+40,y:n.y});toast('已将副本放到表格右侧')}
@@ -106,7 +112,7 @@ mountTableEditor=function(n){
   if(e.target.closest('[data-cell-item]'))return;let data;
   try{data=JSON.parse(e.clipboardData.getData('text/plain'))}catch{return}
   if(data.format!=='creative-board-fragment'||!Array.isArray(data.nodes))return;
-  e.preventDefault();e.stopImmediatePropagation();const [r,c]=td.dataset.cell.split(',').map(Number);appendItems(data.nodes,{nodeId:n.id,r,c});
+  e.preventDefault();e.stopImmediatePropagation();const [r,c]=td.dataset.cell.split(',').map(Number);appendItems(data.nodes,{nodeId:n.id,r,c},data.edges);
  },true)});
 };
 const priorMarkdown=tableMarkdown;tableMarkdown=function(n){let result=priorMarkdown(n);for(let r=0;r<n.rows.length;r++)for(let c=0;c<n.columns.length;c++)for(const item of n.cellItems?.[r]?.[c]||[]){const a=assetById(item.mediaId||item.assetId);result+='\n\n第 '+(r+1)+' 行 · '+n.columns[c]+'\n\n'+[item.title,item.body,item.userText,item.annotation].filter(Boolean).join('\n\n')+(item.type==='table'?'\n\n'+tableMarkdown(item):'')+(a?'\n\n文件：'+a.path:'');}return result};
@@ -184,6 +190,49 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
 // Create original notes and files in the selected cell from one table Add menu.
 (() => {
  const previous=mountTableEditor,places=new WeakMap();let menu=null,opener=null;
+// Reuse the current library selection; no second picker or intermediate canvas copy.
+const cellLibraryBusy=new WeakSet();
+function cellLibraryPick(){
+ try{
+  const explorer=parent!==window?parent.whiteboardWorkspace?.explorer?.():null;
+  const state=explorer?explorer.selection():{ids:[...assetSelected],folder:assetFolder,panel:workspaceTab};
+  if(state?.panel!=='assetPane'||!Array.isArray(state.ids))return null;
+  const ids=[...new Set(state.ids.filter(id=>typeof id==='string'&&id))];
+  return {explorer,ids,key:JSON.stringify([state.panel,state.folder,ids])};
+ }catch{return null}
+}
+function cellLibraryOption(n,item,target){
+ const picked=cellLibraryPick(),count=picked?.ids.length||0;
+ const disabled=!count||cellLibraryBusy.has(n)||!target();
+ item(cellLibraryBusy.has(n)?'库中所选（正在取用）':count?'库中所选 · '+count+' 项':'库中所选（未选择）',async()=>{
+  if(disabled||cellLibraryBusy.has(n)||!target())return;
+  const scope=window.whiteboardHosted||null,scopeKey=JSON.stringify(scope);
+  const samePick=()=>{const current=cellLibraryPick();return current&&current.explorer===picked.explorer&&current.key===picked.key};
+  const owns=()=>target()&&samePick()&&(window.whiteboardHosted||null)===scope&&JSON.stringify(scope)===scopeKey;
+  let interrupted=false;
+  const interrupt=event=>{if(event.isTrusted)interrupted=true};
+  for(const type of ['pointerdown','keydown','input','wheel','touchmove'])document.addEventListener(type,interrupt,true);
+  cellLibraryBusy.add(n);
+  try{
+   await loadAssets({redraw:false});
+   if(!owns()||interrupted){if(target())toast('已取消取用，当前编辑保留。');return}
+   const assets=picked.ids.map(assetById);
+   if(assets.some(a=>!a||a.archived))return toast('所选内容已有变化，请回内容库重新选择。');
+   if(assets.some(a=>Array.isArray(a.bundle?.edges)&&a.bundle.edges.length))return toast('这组内容含连线，请先放到白板保留关系。');
+   if(assets.some(a=>a.bundle&&(!Array.isArray(a.bundle.nodes)||!a.bundle.nodes.length||a.bundle.nodes.some(value=>!['note','table','image'].includes(value?.type)))))return toast('这份组合含画布对象，请先放到白板保留布局。');
+   const at=target();if(!at)return;
+   const before=new Set((n.cellItems?.[at.r]?.[at.c]||[]).map(value=>value.id));
+   attachAssets(picked.ids,{nodeId:n.id,r:at.r,c:at.c});
+   const added=(n.cellItems?.[at.r]?.[at.c]||[]).find(value=>!before.has(value.id));
+   if(!added||!document.hasFocus()||board?.nodes.find(value=>value.id===n.id)!==n||editorId!==n.id)return;
+   const host=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');
+   if(!host?.isConnected||host.closest('[inert],[hidden],[aria-hidden="true"]'))return;
+   const section=[...host.querySelectorAll('[data-cell-item]')].find(el=>n.cellItems?.[+el.dataset.cellR]?.[+el.dataset.cellC]?.[+el.dataset.cellItem]?.id===added.id);
+   const field=section?.querySelector('[data-cell-note-field="body"]')||section?.querySelector('[data-cell-note-field="title"]');field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'});
+  }catch(error){if(owns()&&!interrupted)toast('暂时无法取用，请稍后重试。')}
+  finally{cellLibraryBusy.delete(n);for(const type of ['pointerdown','keydown','input','wheel','touchmove'])document.removeEventListener(type,interrupt,true)}
+ },disabled);
+}
  const style=document.createElement('style');style.textContent='.node.table .cell-shared-original-add{display:none!important}.node.table .cell-insert-target{outline:2px solid var(--ui-accent,#9a8760);outline-offset:-2px}.cell-add-menu{position:fixed;inset:auto;margin:0;padding:6px;min-width:170px;max-width:calc(100vw - 24px);border:1px solid var(--ui-line);border-radius:6px;background:var(--ui-panel);color:var(--ui-text);box-shadow:0 8px 24px #0003}.cell-add-menu button{display:block;width:100%;min-height:44px;text-align:left;border:0;background:transparent;color:inherit}.cell-add-menu button:disabled{opacity:.5}.cell-add-menu hr{border:0;border-top:1px solid var(--ui-line);margin:4px 0}';document.head.append(style);
  function close(restore=false){const old=opener;menu?.remove();menu=null;opener=null;if(restore&&old?.isConnected)old.focus({preventScroll:true})}
  document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&event.target!==opener)close()},true);
@@ -201,7 +250,7 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
    if(!editable())return;close();opener=shared;const row=place.row,column=place.column,target=()=>{if(!editable()||place.row!==row||place.column!==column)return null;return position()};menu=document.createElement('div');menu.className='cell-add-menu inline-ui';menu.setAttribute('popover','manual');menu.setAttribute('role','menu');menu.setAttribute('aria-label','添加到单元格');
    const ownMenu=menu,item=(label,action,disabled=false)=>{const option=document.createElement('button');option.type='button';option.setAttribute('role','menuitem');option.textContent=label;option.disabled=disabled;option.onclick=()=>{if(menu!==ownMenu||!ownMenu.isConnected)return;close();action()};ownMenu.append(option)};
    item('便签',()=>{const at=target();if(!at)return;const value={id:uid(),type:'note',sizeMode:'auto',x:0,y:0,w:300,h:120,title:'',body:'',userText:'',annotation:'',tags:[],color:colors[0]};undoPoint();cellItemGrid(n)[at.r][at.c].push(value);drawNodes();change();if(board!==owner||boardId!==ownerId||!board.nodes.includes(n)||editorId!==n.id||loading||blocked||window.whiteboardHosted?.paused||window.whiteboardHosted?.role==='viewer')return;const host=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"]')||document.querySelector('#nodes>.node[data-id="'+CSS.escape(n.id)+'"]');if(!host?.isConnected||host.closest('[inert],[hidden],[aria-hidden="true"]')||!document.hasFocus())return;const section=[...(host?.querySelectorAll('[data-cell-item]')||[])].find(e=>n.cellItems?.[+e.dataset.cellR]?.[+e.dataset.cellC]?.[+e.dataset.cellItem]?.id===value.id),field=section?.querySelector('[data-cell-note-field="title"]');field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'})},!target());
-   item('文件',()=>{const at=target();if(!at)return;const original=root.querySelector('[data-add-images="'+at.r+','+at.c+'"]');original?.onclick?.call(original,event)},!target());menu.append(document.createElement('hr'));
+   item('文件',()=>{const at=target();if(!at)return;const original=root.querySelector('[data-add-images="'+at.r+','+at.c+'"]');original?.onclick?.call(original,event)},!target());cellLibraryOption(n,item,target);menu.append(document.createElement('hr'));
    item('行',()=>{if(editable())addRow.onclick?.()});item('列',()=>{if(editable())addColumn.onclick?.()});
    (shared.closest('dialog[open]')||document.body).append(menu);menu.showPopover();const bounds=shared.getBoundingClientRect();menu.style.left=Math.max(12,Math.min(bounds.left,innerWidth-menu.offsetWidth-12))+'px';menu.style.top=Math.max(12,Math.min(bounds.bottom,innerHeight-menu.offsetHeight-12))+'px';menu.querySelector('button:not(:disabled)')?.focus({preventScroll:true});event.preventDefault();event.stopPropagation();
   };

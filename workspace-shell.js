@@ -73,7 +73,7 @@
   const next=innerWidth<=680&&model.narrowView!=='split';if(next!==compact){if(next)compactLibrary=open&&document.activeElement===explorerFrame;compact=next}
   let p;try{p=JSON.parse(localStorage.getItem('creative-interface')||'{}')}catch{p={}}
   const visible=shown(),covering=compact&&visible,width=Math.min(innerWidth*.45,Math.max(260,Math.min(520,dragWidth??p.width??340)));
-  work.style.setProperty('--explorer-width',visible?width+'px':'0px');work.style.setProperty('--split-number',model.ratio/100);work.classList.toggle('explorer-overlay',covering);work.classList.toggle('listening-active',!!listening?.compact);work.classList.toggle('listening-video',!!listening?.compact&&listening.session.kind==='video');host.classList.toggle('listening-session',!!listening);host.setAttribute('aria-label',listening?(listening.session.kind==='video'?'观看资料':'试听资料'):'内容与白板');$('shellHeader').style.zoom=p.scale||1;work.style.height=(innerHeight-$('shellHeader').getBoundingClientRect().height)+'px';host.hidden=!visible&&!listening&&!explorerModal;
+  work.style.setProperty('--explorer-width',visible&&!covering?width+'px':'0px');work.style.setProperty('--split-number',model.ratio/100);work.classList.toggle('explorer-overlay',covering);work.classList.toggle('listening-active',!!listening?.compact);work.classList.toggle('listening-video',!!listening?.compact&&listening.session.kind==='video');host.classList.toggle('listening-session',!!listening);host.setAttribute('aria-label',listening?(listening.session.kind==='video'?'观看资料':'试听资料'):'内容与白板');$('shellHeader').style.zoom=p.scale||1;work.style.height=(innerHeight-$('shellHeader').getBoundingClientRect().height)+'px';host.hidden=!visible&&!listening&&!explorerModal;
   readingLayout();writingTarget();$('frameDeck').inert=covering&&!document.querySelector('.board-frame.pane-modal:not([hidden])');$('tabHeaders').inert=covering;
   const button=$('openBoards');button.setAttribute('aria-expanded',String(visible));button.setAttribute('aria-label',covering?'返回白板':'展开或收起内容与白板');button.title=covering?'返回白板':'内容与白板 · Ctrl+\\';
   if(listening?.compact){const label=listening.session.kind==='video'?'展开观看资料':'展开试听资料';button.setAttribute('aria-label',label);button.title=label}
@@ -102,7 +102,7 @@
  const beforeRender=renderTabs;renderTabs=function(){beforeRender();const b=$('splitToggle');b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>';b.title=model.split?'合并分栏':'左右分栏';b.setAttribute('aria-label',b.title);narrowLayout.hidden=!model.split;narrowLayout.textContent=model.narrowView==='split'?'小窗口聚焦当前白板':'小窗口始终并排';sizing();if(open||!current())ensure();sync()};
  $('openBoards').onclick=()=>toggle();
  const beforeCommand=command;command=async function(name){if(compact&&shown()&&name!=='settings')showCanvas();if(name==='settings'){const returning=settingsReturn();$('shellMore').open=false;whiteboardAppearance.open();const dialog=$('appearanceDialog');if(returning)dialog?.addEventListener('close',returning,{once:true});return}if(name==='sidebar')return toggle();if(name==='ai'){const selection=shown()?explorer()?.selection():null;const view=pane(current()),state=view?.state(),usable=state?.boardId===current()?.boardId&&!state?.loading&&!!state?.boardId,target=usable?view:explorer();if(!usable)toggle(panel);return target?.command('ai',{libraryIds:selection?.ids||[],scope:selection?.panel==='assetPane'&&selection.ids.length?'library':null})}if(['help','search','recovery'].includes(name)){const view=pane(current()),state=view?.state();if(state?.loadError&&!state.loading){$('shellMore').open=false;try{return await view.command(name)}catch(error){return toast(error.message)}}if(!state?.boardId||state.loading){toggle(panel);return explorer()?.command(name)}}return beforeCommand(name)};
- window.addEventListener('message',async e=>{if(e.origin!==location.origin)return;const d=e.data;if(e.source===explorerFrame?.contentWindow){try{if(d?.type==='pane-ready'){explorerFrame.style.removeProperty('visibility');explorerFrame.removeAttribute('aria-busy')}else if(d?.type==='explorer-import-state')updateStatus();else if(d?.type==='explorer-catalog'){for(const t of model.tabs)pane(t)?.refreshLibrary()?.catch(err=>toast(err.message))}else if(d?.type==='explorer-dialog'){explorerModal=!!d.open;explorerFrame.classList.toggle('explorer-modal',explorerModal);sizing()}else if(d?.type==='explorer-toggle')toggle();else if(d?.type==='explorer-panel'){panel=d.panel;localStorage.setItem('creative-sidebar-state',JSON.stringify({open,tab:panel}));sync()}else if(d?.type==='explorer-shortcut')stepTab(d.reverse?-1:1);else if(d?.type==='explorer-selection'){libraryIds=d.ids;folder=d.folder;updateStatus()}else if(d?.type==='explorer-open'){boards=await api('/api/boards');openBoard(d.boardId)}else if(d?.type==='explorer-create'){await createBoard(d.name,model.side,d.folder||'');await explorer()?.refresh()}else if(d?.type==='explorer-place')await whiteboardLibraryTransfer.place(d,e.source);else if(d?.type==='explorer-focus'){showCanvas();pane(current())?.focusNode(d.nodeId);pane(current())?.focus()}else if(d?.type==='explorer-command'){showCanvas();await pane(current())?.command(d.command,{folder})}}catch(err){toast(err.message)}return}const tab=model.tabs.find(t=>frames.get(t.id)?.contentWindow===e.source);if(!tab)return;if(d?.type==='pane-ready')trackSettingsFrame(frames.get(tab.id));else if(d?.type==='pane-dialog'){readingModes.set(frames.get(tab.id),{open:!!d.open,fullWindow:!!d.fullWindow});sizing()}else if(d?.type==='pane-listening-end'){if(current()?.id===tab.id&&listening?.compact)listening.session.close()}else if(d?.type==='pane-library-reveal'){revealLibraryAsset(d.assetId,e.source).catch(err=>toast(err.message))}else if(d?.type==='pane-sidebar'){if(d.panel)toggle(d.panel);else toggle()}else if(['pane-state','pane-active'].includes(d?.type))sync()});
+ window.addEventListener('message',async e=>{if(e.origin!==location.origin)return;const d=e.data;if(e.source===explorerFrame?.contentWindow){try{if(d?.type==='pane-board-locations'){receiveTabLocations(d)}else if(d?.type==='pane-ready'){explorerFrame.style.removeProperty('visibility');explorerFrame.removeAttribute('aria-busy')}else if(d?.type==='explorer-import-state')updateStatus();else if(d?.type==='explorer-catalog'){for(const t of model.tabs)pane(t)?.refreshLibrary()?.catch(err=>toast(err.message))}else if(d?.type==='explorer-dialog'){explorerModal=!!d.open;explorerFrame.classList.toggle('explorer-modal',explorerModal);sizing()}else if(d?.type==='explorer-toggle')toggle();else if(d?.type==='explorer-panel'){panel=d.panel;localStorage.setItem('creative-sidebar-state',JSON.stringify({open,tab:panel}));sync()}else if(d?.type==='explorer-shortcut')stepTab(d.reverse?-1:1);else if(d?.type==='explorer-selection'){libraryIds=d.ids;folder=d.folder;updateStatus()}else if(d?.type==='explorer-open'){boards=await api('/api/boards');openBoard(d.boardId)}else if(d?.type==='explorer-create'){await createBoard(d.name,model.side,d.folder||'');await explorer()?.refresh()}else if(d?.type==='explorer-place')await whiteboardLibraryTransfer.place(d,e.source);else if(d?.type==='explorer-focus'){showCanvas();pane(current())?.focusNode(d.nodeId);pane(current())?.focus()}else if(d?.type==='explorer-command'){showCanvas();await pane(current())?.command(d.command,{folder})}}catch(err){toast(err.message)}return}const tab=model.tabs.find(t=>frames.get(t.id)?.contentWindow===e.source);if(!tab)return;if(d?.type==='pane-ready')trackSettingsFrame(frames.get(tab.id));else if(d?.type==='pane-dialog'){readingModes.set(frames.get(tab.id),{open:!!d.open,fullWindow:!!d.fullWindow});sizing()}else if(d?.type==='pane-listening-end'){if(current()?.id===tab.id&&listening?.compact)listening.session.close()}else if(d?.type==='pane-library-reveal'){revealLibraryAsset(d.assetId,e.source).catch(err=>toast(err.message))}else if(d?.type==='pane-sidebar'){if(d.panel)toggle(d.panel);else toggle()}else if(['pane-state','pane-active'].includes(d?.type))sync()});
  $('splitter').onpointermove=e=>{if(!resizing)return;const r=$('frameDeck').getBoundingClientRect();model.ratio=Math.max(20,Math.min(80,(e.clientX-r.left)/r.width*100));renderTabs()};
  const grip=document.createElement('div');grip.id='explorerGrip';grip.setAttribute('role','separator');grip.setAttribute('aria-label','调整侧栏宽度');host.append(grip);
  grip.onpointerdown=e=>{if(e.button!==0)return;drag=true;dragWidth=host.getBoundingClientRect().width;grip.setPointerCapture(e.pointerId);work.classList.add('explorer-resizing');e.preventDefault()};grip.onpointermove=e=>{if(!drag)return;dragWidth=Math.max(260,Math.min(520,e.clientX));if(!sizeFrame)sizeFrame=requestAnimationFrame(()=>{sizeFrame=0;sizing()})};const stop=()=>{if(!drag)return;drag=false;cancelAnimationFrame(sizeFrame);sizeFrame=0;let p;try{p=JSON.parse(localStorage.getItem('creative-interface')||'{}')}catch{p={}}p.width=dragWidth;localStorage.setItem('creative-interface',JSON.stringify(p));dragWidth=null;work.classList.remove('explorer-resizing');sizing();sync()};grip.onpointerup=stop;grip.onpointercancel=stop;grip.onlostpointercapture=stop;
@@ -149,9 +149,68 @@
      if(!original())return false;activate(from.id);pane(from)?.focus();return true;
     }finally{for(const doc of documents)for(const type of events)doc.removeEventListener(type,cancel,true);window.removeEventListener('resize',cancel);document.removeEventListener('visibilitychange',cancel)}
    };
-   return await destination.defaultView.whiteboardNoteEditor.visitReference(target.id,target.returnName,back,active);
+   return await destination.defaultView.whiteboardNoteEditor.visitReference(target.id,target.returnName,back,active,target.rootId);
   }catch(error){if(original()&&to&&current()?.id===to.id)activate(from.id);throw error}
   finally{for(const doc of watched)for(const type of events)doc.removeEventListener(type,cancel,true)}
  }
- window.whiteboardWorkspace={openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
+ function librarySnapshot(source,target=null){
+  if(source!==explorerFrame?.contentWindow)return null;
+  const tab=target?model.tabs.find(t=>t.boardId===target):current(),view=tab&&pane(tab);
+  return view?.state()?.boardId===tab?.boardId&&!view.state().loading?view.snapshot():null;
+ }
+ async function openLibraryCopy(source,target,valid,contextValid=()=>true){
+  const ownsContext=()=>{try{return contextValid()!==false}catch{return false}};
+  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid()||!ownsContext())return false;
+  const from=current(),writer=from&&frames.get(from.id)?.contentWindow,writerDoc=writer?.document,sourceDoc=source.document;
+  let untouched=true;const events=['pointerdown','keydown','input','change','wheel','touchmove'],cancel=()=>untouched=false;
+  const docs=new Set([document,...[...frames.values()].map(frame=>frame.contentDocument).filter(Boolean)]);
+  for(const doc of docs)for(const type of events)doc.addEventListener(type,cancel,{capture:true,passive:true});
+  const original=()=>untouched&&ownsContext()&&source===explorerFrame?.contentWindow&&source.document===sourceDoc&&current()?.id===from?.id&&(!from||model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc)&&valid();
+  try{
+   if(from&&!await pane(from).flush())throw Error('原稿尚未保存，请先处理保存提示。');
+   if(!original())return false;
+   if(from){
+    if(target.board===from.boardId){
+     sourceDoc.getElementById('dialog').close();showCanvas();
+     if(target.id===null){pane(from).focus();return true}
+     return writer.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>ownsContext()&&model.tabs.includes(from)&&current()?.id===from.id&&frames.get(from.id)?.contentDocument===writerDoc,target.rootId);
+    }
+    sourceDoc.getElementById('dialog').close();showCanvas();
+    return openReference(writer,target,()=>ownsContext()&&model.tabs.includes(from)&&frames.get(from.id)?.contentDocument===writerDoc);
+   }
+   boards=await api('/api/boards');if(!original())return false;
+   sourceDoc.getElementById('dialog').close();showCanvas();openBoard(target.board);
+   const to=current(),epoch=++referenceVisitEpoch,started=Date.now();
+   while(ownsContext()&&epoch===referenceVisitEpoch&&current()?.id===to?.id&&model.tabs.includes(to)&&Date.now()-started<10000){
+    const view=pane(to),state=view?.state();
+    if(state?.loadError||state?.blocked||state?.saveError)throw Error('这张白板暂时未准备好。');
+    if(state?.boardId===target.board&&!state.loading){if(target.id===null){view.focus();return true}return frames.get(to.id).contentWindow.whiteboardNoteEditor.locateLibraryCopy(target.id,()=>ownsContext()&&epoch===referenceVisitEpoch&&current()?.id===to.id,target.rootId)}
+    await new Promise(resolve=>setTimeout(resolve,40));
+   }
+   return false;
+  }finally{for(const doc of docs)for(const type of events)doc.removeEventListener(type,cancel,true)}
+ }
+ const canLocateLibraryCopies=source=>source===explorerFrame?.contentWindow;
+ function openBoardTarget(source,id){
+  if(source!==explorerFrame?.contentWindow)throw Error('请从白板列表重新选择。');
+  const tabs=model.tabs.filter(row=>row.boardId===id);if(!tabs.length)return null;if(tabs.length!==1)return {ambiguous:true};
+  const tab=tabs[0],state=pane(tab)?.state();return {tabId:tab.id,sourceTabId:current()?.id,name:state?.name||tab.name,folder:state?.folder||'',loading:!state||state.boardId!==id||state.loading};
+ }
+ function operationWriter(source,place,valid){
+  const from=current(),tab=model.tabs.find(row=>row.id===place?.tabId),view=tab&&pane(tab),state=view?.state(),matches=model.tabs.filter(row=>row.boardId===place?.boardId);
+  if(source!==explorerFrame?.contentWindow||typeof valid!=='function'||!valid()||from?.id!==place?.sourceTabId||!from||matches.length!==1||tab?.boardId!==place?.boardId||state?.boardId!==place?.boardId||state.loading)throw Error('白板的打开位置已有变化，请重新核对。');
+  return {view,state};
+ }
+ async function renameOpenBoard(source,place,name,valid){
+  const {view,state}=operationWriter(source,place,valid);
+  if(state.name!==place.expectedName&&state.name!==name)throw Error('这张白板的名称已有变化，请保留输入并重新核对。');
+  return {saved:await view.renameBoard(place.boardId,name),appliedName:name};
+ }
+ async function moveOpenBoard(source,place,destination,valid){
+  const {view,state}=operationWriter(source,place,valid);
+  if(state.folder!==place.expectedFolder&&state.folder!==destination)throw Error('这张白板的位置已有变化，请重新核对。');
+  return {saved:await view.moveBoard(place.boardId,destination),appliedFolder:destination};
+ }
+ const receiveBoardLocation=info=>explorer()?.updateBoardLocation?.(info);
+ window.whiteboardWorkspace={openBoardTarget,renameOpenBoard,moveOpenBoard,receiveBoardLocation,canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
 })();

@@ -134,7 +134,7 @@
    },
    phase(text) {if (!this.failed) stage.textContent = text;},
    fail(text,label='未添加') {this.failed=true;this.error=text;element.classList.add('is-failed');stage.textContent=label;reason.textContent=text;reason.hidden=close.hidden=false;this.align();},
-   remove() {placements.delete(id);element.remove();watchPlacements();},
+   remove() {this.clearRetry?.();placements.delete(id);element.remove();watchPlacements();},
    complete() {
     if (this.failed) return;
     placements.delete(id);watchPlacements();
@@ -154,20 +154,40 @@
  feedback.id = 'importFeedback'; feedback.hidden = true;
  feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
  feedback.setAttribute('aria-atomic', 'true');
- const heading = document.createElement('strong'), detail = document.createElement('span'), dismiss = document.createElement('button');
+ const heading = document.createElement('strong'), detail = document.createElement('span'), dismiss = document.createElement('button'), locate = document.createElement('button'), returnView = document.createElement('button'), feedbackActions=document.createElement('div');
  dismiss.type = 'button'; dismiss.textContent = '关闭';
- feedback.append(heading, detail, dismiss); document.body.append(feedback);
- let failure = '', failurePlacement = null;
+ locate.type=returnView.type='button';locate.textContent='回到未添加位置';returnView.textContent='返回刚才位置';locate.hidden=returnView.hidden=true;
+ feedbackActions.className='import-feedback-actions';if(!explorer)feedbackActions.append(locate,returnView);feedbackActions.append(dismiss);feedback.append(heading, detail, feedbackActions); document.body.append(feedback);
+ let failure = '', failurePlacement = null, previousFailureView=null;
+ const canLocateFailure=()=>!explorer&&board&&!loading&&!blocked&&!document.hidden&&canvasInsertionReady()&&(!frameElement||!!frameElement.getClientRects().length)&&!document.querySelector('dialog[open],#imageViewer:not([hidden])');
+ const offscreenFailure=()=>[...placements.values()].reverse().find(value=>value.failed&&value.ownerId===boardId&&value.element.isConnected&&!value.visible()&&value.retryReady?.());
+ const keepFailureFocus=element=>element?.isConnected&&element!==document.body&&!feedback.contains(element)&&!!element.getClientRects().length;
+ function navigateFailureView(next,focus){board.view={...next};moveView();change(true);if(keepFailureFocus(focus))focus.focus({preventScroll:true})}
  function updateFeedback() {
   const active = [...tasks.values()].filter(task => task.label && !matchingPlacements(task).some(placement=>placement.visible())), latest = active.at(-1);
    const error=(failurePlacement?.visible()?'':failure)||[...placements.values(),...libraryUploads.values()].filter(placement=>placement.failed&&!placement.visible()).at(-1)?.error||'';
-  feedback.hidden = !latest && !error;
+  if(previousFailureView&&!previousFailureView.valid())previousFailureView=null;
+  const target=canLocateFailure()?offscreenFailure():null;locate.hidden=!!latest||!target;locate.title=target?.element.querySelector('.import-placement-name')?.textContent||'';returnView.hidden=!previousFailureView||!canLocateFailure();
+  feedback.hidden = !latest && !error && returnView.hidden;
   feedback.classList.toggle('import-failed', !!error);
-  heading.textContent = error ? '未添加' : latest?.label || '';
-  detail.textContent = error || latest?.names || '';
-  dismiss.hidden = !error || !!latest;
+  heading.textContent = error ? '未添加' : latest?.label || '已回到未添加位置';
+  detail.textContent = error || latest?.names || '查看提示后，可以返回刚才的创作位置。';
+  dismiss.hidden = !!latest || (!error&&returnView.hidden);
  }
-  dismiss.onclick = () => {failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values(),...libraryUploads.values()])if(placement.failed)placement.remove();updateFeedback();};
+ for(const button of [locate,returnView])button.onpointerdown=event=>{event.preventDefault();event.stopPropagation()};
+ locate.onclick=event=>{
+  const target=offscreenFailure();if(!canLocateFailure()||!target){updateFeedback();return}
+  finishRetryClick(event,locate);
+  const focus=document.activeElement;previousFailureView={view:{...view()},valid:target.retryReady,focus:keepFailureFocus(focus)?focus:null};
+  const rect=canvas.getBoundingClientRect(),z=1;navigateFailureView({x:rect.width/2-(target.point.x+target.frame.w/2)*z,y:rect.height/2-(target.point.y+target.frame.h/2)*z,z},previousFailureView.focus);target.align();updateFeedback();
+  if(!previousFailureView.focus&&!returnView.hidden)returnView.focus({preventScroll:true});
+ };
+ returnView.onclick=event=>{
+  const saved=previousFailureView;if(!saved||!saved.valid()||!canLocateFailure()){updateFeedback();return}
+  finishRetryClick(event,returnView);
+  previousFailureView=null;const focus=keepFailureFocus(document.activeElement)?document.activeElement:saved.focus;navigateFailureView(saved.view,focus);updateFeedback();if(!keepFailureFocus(focus)&&!locate.hidden)locate.focus({preventScroll:true});
+ };
+ dismiss.onclick = () => {previousFailureView=null;if(feedback.classList.contains('import-failed')){failure = '';failurePlacement?.remove();failurePlacement=null;for(const placement of [...placements.values(),...libraryUploads.values()])if(placement.failed)placement.remove();}updateFeedback();};
  function filesLabel(files, action) {
   return {label:action || (files.every(file=>/\.(md|txt|csv|tsv|json)$/i.test(file.name))?'读取中':'上传中'), names:files.map(file => file.name).join('、'), files};
  }
@@ -273,7 +293,8 @@
  const upload = uploadFiles;
  uploadFiles = function(files, folder = assetFolder, feedback) {
   const snapshot = [...files];
-   const canvasOwner=[...tasks.values()].some(task=>task.kind==='canvas'&&snapshot.every(file=>task.files?.includes(file)));
+   const canvasTask=[...tasks.values()].find(task=>task.kind==='canvas'&&snapshot.every(file=>task.files?.includes(file))),canvasOwner=!!canvasTask;
+   if(canvasTask?.retryValid&&!canvasTask.retryValid())return Promise.reject(Error('原白板或所属账号已有变化，请重新选择文件。'));
   return run(async () => {
    const preparation=window.whiteboardImagePreparation?.prepare(snapshot);
    try{const added=await upload(snapshot,folder);preparation?.remember(added);return added}
@@ -330,28 +351,65 @@
   }
   insertBeforeFileBatch({nodes:built,edges},at);return built.map(n=>n.id);
  }
+ // The retry owns only in-memory File references. Dismissal releases them; no
+ // hidden draft, automatic retransmission or settled-file deduplication is added.
+ const retryFilePlacement=Symbol('retryFilePlacement');
+ function fileContext(){
+  try{const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null;return{inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}
+ }
+ function finishRetryClick(event,button){
+  if(!event.detail)return;
+  const rect=button.getBoundingClientRect(),types=['mousedown','click','dblclick'],inside=e=>e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;
+  const release=()=>{for(const type of types)document.removeEventListener(type,follow,true);document.removeEventListener('keydown',release,true);window.removeEventListener('blur',release);window.removeEventListener('pagehide',release)};
+  const follow=e=>{if(e.detail<=1||!inside(e)){release();return}e.preventDefault();e.stopImmediatePropagation();if(e.type==='dblclick')release()};
+  // Removal must not pass the second half of this click through to the paper.
+  // A new action ends this guard; it owns no files, timer or persistent listener.
+  for(const type of types)document.addEventListener(type,follow,true);document.addEventListener('keydown',release,true);window.addEventListener('blur',release);window.addEventListener('pagehide',release);
+ }
+ function offerFileRetry(preview,files,owner,ownerId,scope,folder){
+  if(!preview||!files.length)return;
+  let remaining=files;const button=document.createElement('button');button.type='button';button.className='import-failed-retry';button.textContent='重试未添加文件';
+  const valid=()=>{
+   const now=fileContext();return board===owner&&boardId===ownerId&&!loading&&!blocked&&!saveError&&folder===libraryFolderIdentity(assetFolder)&&scope&&now&&now.inner===scope.inner&&now.outer===scope.outer&&now.key===scope.key&&[now.inner,now.outer].every(host=>!host||!host.paused&&host.role!=='viewer'&&host.account?.id!=null&&host.workspace!=null&&host.base!=null);
+  };
+  preview.element.classList.add('has-file-retry');preview.retryReady=valid;
+  preview.clearRetry=()=>{remaining=[];button.onclick=null;button.onpointerdown=null;button.remove();preview.element.classList.remove('has-file-retry');preview.retryReady=null;preview.clearRetry=null};
+  button.onpointerdown=event=>event.stopPropagation();
+  button.onclick=event=>{
+   event.stopPropagation();if(button.disabled||!remaining.length)return;
+   if(!valid()){preview.fail('原白板、账号或内容库位置已有变化，请回到原位置后重新选择文件。');return}
+   if(document.hidden||!preview.visible()||!button.isConnected)return;
+   finishRetryClick(event,button);button.disabled=true;const retry=remaining.slice(),at={x:preview.point.x,y:preview.point.y,[retryFilePlacement]:valid};preview.remove();updateFeedback();
+   // The original import path reports any new failure on its own placement.
+   void importFiles(retry,at).catch(()=>{});
+  };
+  preview.element.querySelector('.import-placement-copy').append(button);preview.align();
+ }
  const importBefore = importFiles;
  importFiles = function(files, position) {
   // An ordinary file selection has no chosen corner. Keep its viewport-centred
   // intent, including on a board whose other papers already occupy that view.
-  const snapshot = [...files], point = position;
+  const snapshot = [...files], point = position,owner=board,ownerId=boardId,scope=fileContext(),folder=libraryFolderIdentity(assetFolder),retryValid=position?.[retryFilePlacement];
   return run(async (anchor,preview) => {
    if(explorer||!snapshot.length)return importBefore(snapshot,anchor||point);
+   if(retryValid&&!retryValid())throw Error('原白板或所属账号已有变化，请重新选择文件。');
    const rect=canvas.getBoundingClientRect(),batch={owner:boardId,fileCount:snapshot.length,entries:[],implicit:!position,viewport:{width:rect.width,height:rect.height,z:view().z,center:worldPoint(rect.left+rect.width/2,rect.top+rect.height/2),start:worldPoint(rect.left+16,rect.top+16)}};
-   batch.touched=false;const events=['pointerdown','keydown','input','change','wheel','touchmove'],touch=()=>batch.touched=true;
+   batch.touched=!!retryValid;const events=['pointerdown','keydown','input','change','wheel','touchmove'],touch=()=>batch.touched=true;
    for(const event of events)document.addEventListener(event,touch,{capture:true,passive:true});fileBatches.set(anchor._insertion,batch);
    try{
     const failed=[];let added=0;
     // Keep the original outer preflight (including research-only policy) intact.
     // The existing per-file compatibility layer reports prepared results, rather
     // than splitting this selection above those guards or swallowing rejection.
-    const tracked={...anchor,_fileImportProgress:(file,errors)=>{const count=batch.entries.length;return()=>{if(batch.entries.length>count)added++;else failed.push({name:file.name,error:errors.join('；')||preview?.error||''})}}};
+    const tracked={...anchor,_fileImportProgress:(file,errors)=>{const count=batch.entries.length;return()=>{if(batch.entries.length>count)added++;else failed.push({file,name:file.name,error:errors.join('；')||preview?.error||''})}}};
     await importBefore(snapshot,tracked);
-    if(!canvasInsertionReady())preview?.phase('操作结束后放入');await waitForCanvasTurn();const ids=commitFileBatch(batch,anchor);
-    if(failed.length)preview?.fail('未添加：'+failed.map(file=>file.name+(file.error?'（'+file.error+'）':'')).join('、')+'。可单独重试。',added?'已添加 '+added+' 份，'+failed.length+' 份未添加':'未添加');
+    if(!canvasInsertionReady())preview?.phase('操作结束后放入');await waitForCanvasTurn();
+    if(retryValid&&!retryValid())throw Error('原白板或所属账号已有变化，这次重试尚未放入，请重新选择文件。');
+    const ids=commitFileBatch(batch,anchor);
+    if(failed.length){preview?.fail('未添加：'+failed.map(file=>file.name+(file.error?'（'+file.error+'）':'')).join('、')+'。可单独重试。',added?'已添加 '+added+' 份，'+failed.length+' 份未添加':'未添加');offerFileRetry(preview,failed.map(value=>value.file),owner,ownerId,scope,folder)}
     return ids;
    }finally{fileBatches.delete(anchor._insertion);for(const event of events)document.removeEventListener(event,touch,true)}
-  }, explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, viewportPlacement:!position, key:fileKey('import', snapshot)} : {});
+  }, explorer ? 'library' : 'canvas', snapshot.length ? {...filesLabel(snapshot), spatial:true, point, retryValid, viewportPlacement:!position, key:fileKey('import', snapshot)} : {});
  };
  const pasteBefore = pastePayload;
  pastePayload = function(text, files = [], anchor = pasteAnchor()) {

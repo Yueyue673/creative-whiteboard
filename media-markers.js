@@ -1,18 +1,32 @@
 // Authored time markers are stored with the node or its independent table item.
 (() => {
  'use strict';
- const players=new WeakMap(),restoredOwners=new Set();let active=null;
+ const players=new WeakMap(),previews=new WeakMap(),restoredOwners=new Set();let active=null;
  const stamp=s=>{const units=Math.round(Math.max(0,Number(s)||0)*100),fraction=String(units%100).padStart(2,'0').replace(/0+$/,'');return Math.floor(units/6000)+':'+String(Math.floor(units%6000/100)).padStart(2,'0')+(fraction?'.'+fraction:'')};
  function parseTime(raw){const parts=raw.trim().split(':');return parts.length<=3&&parts.every((p,i)=>(i===parts.length-1?/^\d+(?:\.\d+)?$/:/^\d+$/).test(p)&&(i===0||Number(p)<60))?parts.reduce((sum,p)=>sum*60+Number(p),0):NaN}
  function owner(el){const n=contentContext(el)?.node,cell=el.closest('[data-cell-item]');return cell?n?.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem]:n}
  const mediaKey=el=>el.dataset.mediaReadingSource||el.getAttribute('src')||el.querySelector('source')?.getAttribute('src')||'media';
  function timeline(el,create=false){const n=owner(el);if(!n)return null;if(create){n.mediaTimeline??={};n.mediaTimeline[mediaKey(el)]??={markers:[],startMarkerId:null}}return n.mediaTimeline?.[mediaKey(el)]||null}
  const sorted=el=>(timeline(el)?.markers||[]).slice().sort((a,b)=>a.time-b.time);
- function jump(el,time,play=false){if(!Number.isFinite(el.duration)||el.duration<=0)return;el.currentTime=Math.max(0,Math.min(time,el.duration));el._captureReading?.();if(play)el.play().catch(()=>toast('无法播放，请检查原文件'))}
+ function jump(el,time,play=false){if(!Number.isFinite(el.duration)||el.duration<=0)return;endPreview(el,'已改为按当前进度播放。');el.currentTime=Math.max(0,Math.min(time,el.duration));el._captureReading?.();if(play)el.play().catch(()=>toast('无法播放，请检查原文件'))}
+ const nextMarker=(el,m)=>Number.isFinite(m?.time)?sorted(el).find(item=>Number.isFinite(item.time)&&item.time>m.time):null;
+ function endPreview(el,message='',pause=false){const preview=previews.get(el);if(!preview)return;previews.delete(el);if(pause)el.pause();if(preview.status.isConnected)preview.status.textContent=message}
+ function checkPreview(el){
+  const preview=previews.get(el);if(!preview)return;const t=timeline(el);
+  if(!el.isConnected||owner(el)!==preview.owner||t!==preview.timeline||!t.markers.includes(preview.marker)||!t.markers.includes(preview.next)||preview.marker.time!==preview.start||preview.next.time!==preview.end){endPreview(el,'标记或播放对象已变化，本次播放已暂停。',true);return}
+  if(el.currentTime>=preview.end){endPreview(el,'已到 '+stamp(preview.end)+'。');el.pause();el.currentTime=preview.end;el._captureReading?.()}
+ }
+ function playToNext(s,m,owns){
+  const el=s.el,next=nextMarker(el,m),value=parseTime(s.time.value);
+  if(!owns()||!el.isConnected||window.whiteboardHosted?.paused||!next||!Number.isFinite(el.duration)||el.duration<=0||m.time<0||next.time>el.duration)return;
+  if(s.time.getAttribute('aria-invalid')==='true'||!Number.isFinite(value)||Math.abs(value-m.time)>.005001){s.previewState.textContent='请先修正标记时间，再播放。';return}
+  endPreview(el);const preview={owner:owner(el),timeline:timeline(el),marker:m,next,start:m.time,end:next.time,status:s.previewState,arming:true};jump(el,m.time);previews.set(el,preview);s.previewState.textContent='本次到 '+stamp(next.time)+' 暂停。';
+  el.play().catch(()=>{if(previews.get(el)===preview)endPreview(el,'暂时无法播放，请检查原文件。')});
+ }
  function write(el,fn,checkpoint=true){if(contentContext(el)?.readOnly)return;if(blocked)return toast('请先处理保存冲突');if(!owner(el))return;if(checkpoint)undoPoint();fn(timeline(el,true));change();update(el);if(active?.el===el)renderPanel(active);renderOutline()}
  function open(el,id=null){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};ui.querySelector('.media-time').click();decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
  function update(el){
-  const info=players.get(el);if(!info)return;const t=timeline(el),list=sorted(el),ready=Number.isFinite(el.duration)&&el.duration>0;
+  const info=players.get(el);if(!info)return;checkPreview(el);const t=timeline(el),list=sorted(el),ready=Number.isFinite(el.duration)&&el.duration>0;
   if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=contentContext(el)?.library?readerKey(el,'media',mediaKey(el)):(contentContext(el)?.board||boardId)+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
   const roots=[el.nextElementSibling];if(active?.el===el&&$('mediaPopover'))roots.push($('mediaPopover').querySelector('.media-controls'));
   for(const root of roots){if(!root?.matches('.media-controls'))continue;let ticks=root.querySelector('.media-marker-ticks');if(!ticks){ticks=document.createElement('div');ticks.className='media-marker-ticks';root.append(ticks)}
@@ -21,14 +35,23 @@
    for(const m of list){const b=document.createElement('button');b.type='button';b.className='media-marker-tick';b.title=(m.title||'时间标记')+' · '+stamp(m.time);b.setAttribute('aria-label',b.title);b.style.left=(ready?Math.min(100,m.time/el.duration*100):0)+'%';b.disabled=!ready;b.classList.toggle('replay-start',m.id===t?.startMarkerId);b.onclick=e=>{e.stopPropagation();jump(el,m.time);if(active?.el===el&&$('mediaPopover')){active.selected=m.id;renderPanel(active)}else open(el,m.id)};ticks.append(b)}
   }
   info.toggle.setAttribute('aria-label',list.length?'时间标记（'+list.length+' 个）':'时间标记');info.toggle.classList.toggle('has-markers',!!list.length);
-  if(active?.el===el&&active.add){active.add.disabled=!ready;active.replay.disabled=!ready}
+  if(active?.el===el&&active.add){active.add.disabled=!ready;active.replay.disabled=!ready;if(active.marker){const next=nextMarker(el,active.marker);active.playNext.hidden=!next;active.playNext.disabled=!ready||active.marker.time<0||!next||next.time>el.duration;active.previewBox.hidden=!next&&!active.previewState.textContent}}
  }
  function growTitle(s){const field=s.title;if(!field?.isConnected||s.editor.hidden)return;const css=getComputedStyle(field);field.style.height='auto';field.style.height=(field.scrollHeight+parseFloat(css.borderTopWidth)+parseFloat(css.borderBottomWidth))+'px'}
+ function extractMarker(s,m,owns){
+  const context=contentContext(s.el),root=context?.node,item=owner(s.el),id=item?.mediaId,asset=id&&assetById(id);
+  if(!owns()||context?.readOnly||context?.board!==boardId||!board?.nodes.includes(root)||loading||blocked||window.whiteboardHosted?.paused||window.whiteboardHosted?.role==='viewer'||!id||s.el.dataset.mediaAsset!==id||!asset||!/^(audio|video)\//.test(asset.mime||''))return;
+  if(s.time.getAttribute('aria-invalid')==='true')return toast('请先修正标记时间，再取出副本');
+  if(board.nodes.length>=5000)return toast('白板内容已满，请先整理后再取出副本');
+  const marker={...clone(m),id:uid()},node={id:uid(),type:'note',title:m.title||'',body:m.note||'',userText:'',annotation:'',tags:[],mediaId:id,assetId:id,url:asset.path||'',images:[],mediaTimeline:{[mediaKey(s.el)]:{markers:[marker],startMarkerId:marker.id}},x:0,y:0,w:340,h:300,sizeMode:'manual',color:'#ffffff'};
+  insertBundle({nodes:[node],edges:[]},{x:root.x+root.w+40,y:root.y,_keepContext:true});
+  toast('已将标记副本放到媒体右侧 · 原标记保留 · Ctrl+Z 可撤销');
+ }
  function markerEditor(s,m){
   let fields=s.editors.get(m);
   if(!fields){
    const editor=s.editorTemplate.cloneNode(true);
-   fields={editor,marker:m,title:editor.querySelector('.media-marker-title'),note:editor.querySelector('.media-marker-note'),time:editor.querySelector('.media-marker-time'),error:editor.querySelector('.media-marker-error'),start:editor.querySelector('.media-marker-start'),lastTime:m.time};
+   fields={editor,marker:m,title:editor.querySelector('.media-marker-title'),note:editor.querySelector('.media-marker-note'),time:editor.querySelector('.media-marker-time'),error:editor.querySelector('.media-marker-error'),start:editor.querySelector('.media-marker-start'),playNext:editor.querySelector('.media-play-to-next'),previewState:editor.querySelector('.media-preview-state'),previewBox:editor.querySelector('.media-marker-preview'),lastTime:m.time};
    fields.classes=[editor,...editor.querySelectorAll('[class]')].map(el=>[el,el.getAttribute('class')]);fields.time.value=String(Math.round(m.time*100)/100);s.editors.set(m,fields);
    const el=s.el,owns=()=>active===s&&s.marker===m&&s.editor===editor&&editor.isConnected&&timeline(el)?.markers.includes(m);
    for(const [field,key]of [[fields.title,'title'],[fields.note,'note']]){
@@ -44,6 +67,8 @@
     write(el,()=>m.time=value);
    };
    fields.start.onchange=()=>{if(owns())write(el,t=>t.startMarkerId=fields.start.checked?m.id:null)};
+   editor.querySelector('.media-extract-marker').onclick=()=>extractMarker(s,m,owns);
+   fields.playNext.onclick=()=>playToNext(s,m,owns);
    editor.querySelector('.media-remove-marker').onclick=()=>{if(owns())write(el,t=>{t.markers=t.markers.filter(item=>item!==m);if(t.startMarkerId===m.id)t.startMarkerId=null;s.selected=t.markers[0]?.id||null})};
    if(contentContext(el)?.readOnly){fields.title.readOnly=fields.note.readOnly=fields.time.readOnly=true;fields.start.disabled=true;editor.querySelector('.media-marker-actions').hidden=true;}
   }
@@ -63,14 +88,14 @@
   if(!all.length){const empty=document.createElement('p');empty.className='media-marker-empty';empty.textContent='在需要回看的位置添加标记，再写下它的用途或你的想法。';s.list.append(empty)}
   for(const m of all){const row=document.createElement('button');row.type='button';row.className='media-marker-row';row.dataset.markerId=m.id;row.setAttribute('role','option');row.setAttribute('aria-selected',String(m.id===s.selected));row.tabIndex=m.id===s.selected?0:-1;const time=document.createElement('span'),title=document.createElement('span'),flag=document.createElement('small');time.textContent=stamp(m.time);title.textContent=title.title=m.title||'未命名标记';flag.textContent=m.id===t?.startMarkerId?'重播起点':'';row.append(time,title,flag);row.onclick=()=>{s.selected=m.id;jump(s.el,m.time);renderPanel(s)};s.list.append(row)}
   const m=all.find(m=>m.id===s.selected);if(m)markerEditor(s,m);else s.marker=null;s.editor.hidden=!m;s.summary.textContent=t?.startMarkerId?'再次打开从选定标记开始。':'再次打开接着上次的位置。';s.resume.hidden=!!contentContext(s.el)?.readOnly||!t?.startMarkerId;
-  if(m){s.start.checked=m.id===t?.startMarkerId;growTitle(s)}
+  if(m){s.start.checked=m.id===t?.startMarkerId;const next=nextMarker(s.el,m),ready=Number.isFinite(s.el.duration)&&s.el.duration>0;s.playNext.hidden=!next;s.playNext.disabled=!ready||m.time<0||!next||next.time>s.el.duration;s.previewBox.hidden=!next&&!s.previewState.textContent;growTitle(s)}
   const row=[...s.list.children].find(row=>row.dataset.markerId===s.selected);if(row){if(keepFocus)row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'})}
   if(focus===s.resume&&s.resume.hidden)(m?s.start:s.add).focus({preventScroll:true});else if(s.editor.hidden&&s.editor.contains(focus))s.add.focus({preventScroll:true});
   whiteboardMedia.fit();
  }
  function decorate(){
   const popup=$('mediaPopover'),el=active?.el;if(!popup||!el||popup.querySelector('.media-markers'))return;
-  const section=document.createElement('section');section.className='media-markers';section.innerHTML='<div class="media-marker-heading"><strong>时间标记</strong><button class="media-add-marker">＋ 添加当前时间</button><button class="media-replay">重播</button></div><div class="media-marker-list" role="listbox" aria-label="时间标记：方向键选择，Home / End 到首尾"></div><div class="media-marker-editor" hidden><label>名称<textarea class="media-marker-title" rows="1" maxlength="200" placeholder="例如：这里接转场"></textarea></label><label>时间（秒或分:秒）<input class="media-marker-time" inputmode="decimal" aria-describedby="mediaMarkerError"></label><p class="media-marker-error" id="mediaMarkerError" role="alert" hidden></p><label class="media-marker-description">备注<textarea class="media-marker-note" rows="3" placeholder="这段用来做什么，或有哪些想法。" maxlength="20000"></textarea></label><div class="media-marker-actions"><label><input type="checkbox" class="media-marker-start">下次从这里开始</label><button class="media-remove-marker">删除标记</button></div></div><div class="media-replay-policy"><small></small><button class="media-resume">改为接着上次播放</button></div>';
+  const section=document.createElement('section');section.className='media-markers';section.innerHTML='<div class="media-marker-heading"><strong>时间标记</strong><button class="media-add-marker">＋ 添加当前时间</button><button class="media-replay">重播</button></div><div class="media-marker-list" role="listbox" aria-label="时间标记：方向键选择，Home / End 到首尾"></div><div class="media-marker-editor" hidden><label>名称<textarea class="media-marker-title" rows="1" maxlength="200" placeholder="例如：这里接转场"></textarea></label><label>时间（秒或分:秒）<input class="media-marker-time" inputmode="decimal" aria-describedby="mediaMarkerError"></label><p class="media-marker-error" id="mediaMarkerError" role="alert" hidden></p><label class="media-marker-description">备注<textarea class="media-marker-note" rows="3" placeholder="这段用来做什么，或有哪些想法。" maxlength="20000"></textarea></label><div class="media-marker-actions"><label><input type="checkbox" class="media-marker-start">下次从这里开始</label><button class="media-extract-marker">取出标记副本到白板</button><button class="media-remove-marker">删除标记</button></div><div class="media-marker-preview"><button type="button" class="media-play-to-next">播放到下个标记</button><span class="media-preview-state" role="status"></span></div></div><div class="media-replay-policy"><small></small><button class="media-resume">改为接着上次播放</button></div>';
   popup.append(section);const s=Object.assign(active,{list:section.querySelector('.media-marker-list'),editor:section.querySelector('.media-marker-editor'),title:section.querySelector('.media-marker-title'),note:section.querySelector('.media-marker-note'),time:section.querySelector('.media-marker-time'),error:section.querySelector('.media-marker-error'),start:section.querySelector('.media-marker-start'),summary:section.querySelector('.media-replay-policy small'),resume:section.querySelector('.media-resume'),add:section.querySelector('.media-add-marker'),replay:section.querySelector('.media-replay')});s.editors=new WeakMap();s.editorTemplate=s.editor.cloneNode(true);s.selected??=sorted(el)[0]?.id||null;
   s.list.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;const all=sorted(el);if(!all.length)return;e.preventDefault();e.stopPropagation();const index=all.findIndex(m=>m.id===s.selected),next=e.key==='Home'?0:e.key==='End'?all.length-1:Math.max(0,Math.min(all.length-1,index+(e.key==='ArrowDown'?1:-1)));s.selected=all[next].id;jump(el,all[next].time);renderPanel(s)});
   s.add.onclick=()=>{const id=uid();s.selected=id;write(el,t=>t.markers.push({id,time:Math.round(el.currentTime*100)/100,title:'',note:''}));s.title.focus()};
@@ -81,7 +106,7 @@
  }
  function mount(){
   for(const el of document.querySelectorAll('.node audio,.node video')){let info=players.get(el);const controls=el.nextElementSibling;if(!controls?.matches('.media-controls'))continue;
-   if(!info){const toggle=document.createElement('button');toggle.className='media-marker-toggle';toggle.type='button';toggle.textContent='⌖';toggle.title='时间标记与重播起点';toggle.onclick=()=>open(el);controls.append(toggle);info={toggle,restored:false};players.set(el,info);for(const event of ['loadedmetadata','durationchange','timeupdate','creative-media-restored'])el.addEventListener(event,()=>update(el))}
+   if(!info){const toggle=document.createElement('button');toggle.className='media-marker-toggle';toggle.type='button';toggle.textContent='⌖';toggle.title='时间标记与重播起点';toggle.onclick=()=>open(el);controls.append(toggle);info={toggle,restored:false};players.set(el,info);for(const event of ['loadedmetadata','durationchange','timeupdate','creative-media-restored'])el.addEventListener(event,()=>update(el));el.addEventListener('creative-media-seek',()=>endPreview(el,'已改为按当前进度播放。'));el.addEventListener('seeking',()=>{const preview=previews.get(el);if(preview&&!(preview.arming&&Math.abs(el.currentTime-preview.start)<.025))endPreview(el,'已改为按当前进度播放。')});el.addEventListener('seeked',()=>{const preview=previews.get(el);if(preview)preview.arming=false});el.addEventListener('pause',()=>endPreview(el,'已暂停。'));for(const event of ['ended','emptied','error'])el.addEventListener(event,()=>endPreview(el))}
    update(el);
   }
  }

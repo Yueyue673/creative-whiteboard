@@ -215,3 +215,39 @@ body #nodes .inner.live-layout>.inline-toolbar>#inlineDone{border-color:transpar
 /* The editor is bound before its mounted fields move into the expanded surface. */
 #documentSelectionResource{display:none}
 #immersiveSurface #documentSelectionResource{display:inline-flex}
+
+/* Disposable prototype: the original two mounted surfaces stack by explicit choice. */
+.source-peek-stack[hidden]{display:none!important}
+@media(max-width:820px){
+ .immersive-dialog #dialogBody.note-comparing.source-stacked{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) minmax(120px,.75fr)}
+ .note-comparing.source-stacked>#immersiveSurface{grid-column:1;grid-row:2;visibility:visible;pointer-events:auto;min-height:0}
+ .note-comparing.source-stacked>.note-source-peek{grid-column:1;grid-row:3;border-left:0;border-top:1px solid var(--ui-line);min-height:0}
+ .note-source-peek>header .source-peek-stack{font-size:12px;min-height:44px;padding:5px 8px}
+}
+
+@media(max-width:820px) and (max-height:599px){
+ .source-stacked .note-source-card :is([data-preview-id=title],.read-layout>h3){display:none}
+ #dialog .source-stacked .note-source-card .edit-scroll{padding:8px 12px}
+}
+
+
+/* Optional read-only library source selection stays in the original writer popup. */
+.note-tools>header .note-library-read-entry,.note-library-sources>header [data-library-back]{min-height:44px;width:auto;padding:5px 8px;font-size:12px}
+.note-library-sources>header b{min-width:0;overflow-wrap:anywhere}
+.note-library-source-list{display:grid;gap:6px;max-height:min(42dvh,360px);overflow:auto;overscroll-behavior:contain}
+.note-library-source-row{display:grid;gap:4px;min-height:64px;white-space:normal;text-align:left}
+.note-library-source-row strong,.note-library-source-row small{overflow-wrap:anywhere;white-space:normal}
+.note-library-source-row small:last-child{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.note-library-source-scope{display:block;font-size:12px;line-height:1.6;opacity:.8}
+
+/* The selected single-image reference fits without changing its source bytes. */
+.source-stacked>.source-image-fit .note-source-paper{container-type:size}
+.source-stacked>.source-image-fit .note-source-card .edit-scroll{padding:8px}
+.source-stacked>.source-image-fit .note-source-card :is([data-preview-id=title],.read-layout>h3){display:none}
+.source-stacked>.source-image-fit .note-source-image{margin:0}
+.source-stacked>.source-image-fit .note-source-image img{max-height:calc(100cqh - 16px);width:auto;object-fit:contain}
+
+/* The original relation choices can identify an item inside its table. */
+.note-link-row .note-link-location,.note-reference-choice .note-link-location{white-space:normal;overflow-wrap:anywhere;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+
+.note-tools .note-format-selection{margin:0 0 12px;color:var(--ui-text);font-size:12px}

@@ -49,7 +49,9 @@
 
 **1. 下载并解压。** [下载项目 ZIP](https://github.com/Yueyue673/creative-whiteboard/archive/refs/heads/main.zip)，解压到自己的文件夹。
 
-**2. 启动。** 在解压后的项目文件夹打开终端，运行：
+**2. 启动。** Windows 的项目文件夹里如果有 `启动白板.cmd`，可以双击它：服务启动成功后会请求浏览器打开页面。使用期间保留启动窗口。[入口与失败回退说明](docs/local-start-entry.md)
+
+其他平台，或文件夹里没有这个入口时，在项目文件夹打开终端，运行：
 
 ```sh
 python server.py
@@ -57,7 +59,7 @@ python server.py
 
 系统使用 `python3` 时，改为 `python3 server.py`。使用白板时保留这个终端窗口。
 
-**3. 在浏览器打开。** 访问 [http://127.0.0.1:18746/](http://127.0.0.1:18746/)，双击空白处写第一张便签。想先试试看，可以把项目里的 [examples/getting-started.json](examples/getting-started.json) 拖入画布，移动、编辑和连接其中的内容。
+**3. 写第一张便签。** 页面打开后，双击空白处开始写。浏览器没有自动打开时，按启动窗口显示的地址访问白板，默认是 [http://127.0.0.1:18746/](http://127.0.0.1:18746/)。想先试试看，可以把项目里的 [examples/getting-started.json](examples/getting-started.json) 拖入画布，移动、编辑和连接其中的内容。
 
 <details>
 <summary>习惯使用 Git？</summary>

@@ -1,6 +1,6 @@
 from pathlib import Path
 from urllib.parse import urlparse,unquote,quote
-import json,hashlib,mimetypes,os,re,threading,uuid
+import json,hashlib,mimetypes,os,re,threading,uuid,time
 from workflow_backend import snapshot
 from library_folders import read_catalog, with_folder_ids, validate_folder_ids, capture_destination, resolve_destination, import_result
 from app_paths import APP_ROOT, DATA_ROOT
@@ -10,10 +10,25 @@ FILES=ROOT/'素材文件'
 LOCK=threading.Lock()
 def data():
  return json.loads(INDEX.read_text(encoding='utf-8')) if INDEX.exists() else {'version':1,'folders':[],'assets':[]}
+def _replace_catalog(tmp,previous):
+ # Windows readers can briefly prevent an otherwise atomic replacement.
+ # Keep both files intact, wait at most 300ms, and stop if a later catalog appears.
+ delays=iter((.02,.04,.08,.16))
+ while True:
+  try:os.replace(tmp,INDEX);return
+  except PermissionError as error:
+   delay=next(delays,None)
+   if getattr(error,'winerror',None) not in (5,32):raise
+   if delay is None:raise ValueError('内容库暂时无法完成写入，请稍后再保存。') from error
+   time.sleep(delay)
+   current=INDEX.read_bytes() if INDEX.exists() else None
+   if current!=previous:raise ValueError('素材目录在等待写入时已有新内容，请刷新内容库后再操作。')
+
 def save(d):
  normalized=with_folder_ids(d,data());d.clear();d.update(normalized)
- if INDEX.exists():snapshot('library','catalog',INDEX.read_bytes())
- raw=json.dumps(d,ensure_ascii=False,indent=2).encode('utf-8');tmp=INDEX.with_suffix('.tmp');tmp.write_bytes(raw);os.replace(tmp,INDEX);return hashlib.sha256(raw).hexdigest()
+ previous=INDEX.read_bytes() if INDEX.exists() else None
+ if previous is not None:snapshot('library','catalog',previous)
+ raw=json.dumps(d,ensure_ascii=False,indent=2).encode('utf-8');tmp=INDEX.with_suffix('.tmp');tmp.write_bytes(raw);_replace_catalog(tmp,previous);return hashlib.sha256(raw).hexdigest()
 def kind(path):return mimetypes.guess_type(str(path))[0] or 'application/octet-stream'
 class AssetMixin:
  def asset_get(self,p):

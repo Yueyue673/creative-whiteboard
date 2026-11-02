@@ -206,3 +206,14 @@ def checkpoint(request, workspace_id, kind, key):
         if not DocumentRevision.objects.filter(document=doc, revision=doc.revision).exists():
             save_revision(doc);check_quota(workspace_id)
         return JsonResponse({'saved': True, 'automaticRevisionRetained': True})
+
+@data_endpoint(('GET', 'HEAD'))
+def library_copies(request, workspace_id):
+    from library_usage import copy_query
+    from .library_copies import library_copies as find_copies
+    try:
+        identity = copy_query({key: request.GET.getlist(key) for key in request.GET})
+    except ValueError as error:
+        raise APIError(str(error)) from None
+    return JsonResponse(find_copies(request.workspace_scope, request.user, identity),
+                        json_dumps_params={'ensure_ascii': False})

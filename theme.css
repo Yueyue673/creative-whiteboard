@@ -227,6 +227,8 @@ body #creationDock #textSizeTools>summary{border-radius:8px;font-size:12px}
 body #canvas #canvasTools{gap:4px;padding:4px;border-radius:8px;box-shadow:0 2px 8px #0002;font-variant-numeric:tabular-nums}
 body #canvas #canvasTools button{border:0;border-radius:5px;padding:5px 8px;font-size:12px;min-height:28px}
 body #canvas #canvasTools #zoomValue{color:var(--ui-text);font-weight:500}
+/* Defer offscreen reading surfaces; keep the paper, actions and active editor intact. */
+@supports(content-visibility:auto){body #nodes>.node:not(.frame):not(.active)>.inner.read-layout>.edit-scroll{content-visibility:auto}}
 body #nodes>.node:not(.frame){border-radius:6px;box-shadow:0 2px 5px #0002,0 8px 20px #0001}
 body #nodes>.node.paper-card{box-shadow:inset 0 0 0 1px #00000012,0 3px 5px #0002,0 12px 28px #0001}
 body #nodes .block-actions{border-radius:6px;background:var(--ui-panel);box-shadow:0 2px 8px #0003}

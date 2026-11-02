@@ -19,6 +19,7 @@ jobs:
         with:
           node-version: '22'
       - run: python -m unittest discover -s tests -v
+      - run: node --check library-copies.js
       - run: node --check note-editor.js
       - run: node --check canvas-objects.js
       - run: node --check document-paper.js
@@ -49,6 +50,7 @@ jobs:
       - run: node --check ai-workflow.js
       - run: node --check refinement.js
       - run: node --check appearance.js
+      - run: node tests/test-browser-suite-runner.cjs
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -64,6 +66,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
         env:
+          BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
+          OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
+          LIBRARY_SELECTION_ENTRY_PROOF: .ci-proofs/library-selection-entry
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
           VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
@@ -75,6 +80,227 @@ jobs:
           LIBRARY_SPATIAL_PROOF: .ci-proofs/library-spatial-preview
           SEARCH_RETURN_PROOF: .ci-proofs/search-writing-return
           SEARCH_RETURN_GUARDS_PROOF: .ci-proofs/search-writing-return-guards
+          LOCAL_START_PROOF: .ci-proofs/local-start-entry
+          CANVAS_OUTLINE_PROOF: .ci-proofs/canvas-outline-work
+          DOCUMENT_LIBRARY_MULTIPLE_PROOF: .ci-proofs/document-library-multiple
+          DOCUMENT_LIBRARY_MULTIPLE_GUARDS_PROOF: .ci-proofs/document-library-multiple-guards
+          LIBRARY_RECENT_ORDER_PROOF: .ci-proofs/library-recent-order
+          EMPTY_EXAMPLE_PROOF: .ci-proofs/empty-example-entry
+          PRESET_UPDATE_PROOF: .ci-proofs/appearance-preset-update
+          PRESET_RENAME_PROOF: .ci-proofs/appearance-preset-rename
+          PRESET_REMOVE_PROOF: .ci-proofs/appearance-preset-remove
+          PORTABILITY_PROOF: .ci-proofs/appearance-portability
+          STACKED_SOURCE_PROOF: .ci-proofs/narrow-reference-stack
+          PICKED_REVIEW_PROOF: .ci-proofs/library-picked-review
+          LIBRARY_SELECT_ALL_PROOF: .ci-proofs/library-select-all
+          REUSE_ENTRY_PROOF: .ci-proofs/library-reuse-entry
+          PAPER_TOOLS_FOLD_PROOF: .ci-proofs/paper-tools-fold
+          LIBRARY_KIND_FILTER_PROOF: .ci-proofs/library-kind-filter
+          PAPER_CONTEXT_PROOF: .ci-proofs/paper-edit-context
+          PAPER_FIND_PROOF: .ci-proofs/paper-local-find
+          PAPER_FIND_GUARDS_PROOF: .ci-proofs/paper-local-find-guards
+          COLLECT_REVIEW_PROOF: .ci-proofs/collect-content-review
+          HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
+          ARRANGEMENT_RETURN_PROOF: .ci-proofs/arrangement-return
+          LIBRARY_COPIES_PROOF: .ci-proofs/library-copies
+          LIBRARY_DOCUMENT_EDIT_OUTPUT: .ci-proofs/library-document-text-edit
+          LIBRARY_REFERENCE_PROOF: .ci-proofs/library-writing-reference
+          IMAGE_WRITING_REFERENCE_PROOF: .ci-proofs/image-writing-reference
+          LIBRARY_IMAGE_PIECES_PROOF: .ci-proofs/library-image-pieces
+          LIBRARY_TABLE_PIECES_PROOF: .ci-proofs/library-table-pieces
+          LINK_LOCATION_PROOF: .ci-proofs/link-location-choice
+          GROUP_WRITING_POINT_PROOF: .ci-proofs/group-writing-point
+          TAB_LOCATION_PROOF: .ci-proofs/tab-location-context
+          LIBRARY_USED_ORDER_PROOF: .ci-proofs/library-used-order
+          PRESET_LIBRARY_PROOF: .ci-proofs/preset-library
+          PRESET_LIBRARY_REFRESH_PROOF: .ci-proofs/preset-library-refresh
+          CELL_RELATIONS_PROOF: .ci-proofs/cell-bundle-relations
+          CELL_LIBRARY_PROOF: .ci-proofs/cell-library-selection
+          BOARD_PAIRS_PROOF: .ci-proofs/board-pairs
+          SELECTION_DOCUMENT_PROOF: .ci-proofs/selection-document
+          PAPER_BLOCK_ORIGIN_PROOF: .ci-proofs/paper-block-origin
+          FAVORITE_FOLDERS_PROOF: .ci-proofs/library-favorite-folders
+          BOARD_VARIANT_PROOF: .ci-proofs/board-variant
+          VARIANT_CONFIRMATION_PROOF: .ci-proofs/board-variant-confirmation
+          CELL_ORIGIN_PROOF: .ci-proofs/cell-item-origin
+          CELL_ORIGIN_RETURN_PROOF: .ci-proofs/cell-origin-return
+          DOCUMENT_LIBRARY_ORDER_PROOF: .ci-proofs/document-library-order
+          SELECTION_VARIANT_PROOF: .ci-proofs/selection-variant
+          RECOVERY_COPY_PROOF: .ci-proofs/recovery-copy-confirmation
+          RECOVERY_COPY_REVEAL_PROOF: .ci-proofs/recovery-copy-reveal
+          HISTORY_COMPARISON_FIELD_PROOF: .ci-proofs/history-comparison-field-return
+          MARKER_EXTRACT_PROOF: .ci-proofs/media-marker-extract
+          MEDIA_TO_NEXT_MARKER_PROOF: .ci-proofs/media-to-next-marker
+          MEDIA_NEXT_VIDEO_PROOF: .ci-proofs/media-next-video
+          MEDIA_PLAYBACK_RATE_PROOF: .ci-proofs/media-playback-rate
+          LIBRARY_SAVE_CONTINUE_PROOF: .ci-proofs/library-save-continue
+          LIBRARY_SAVE_SHORTCUT_PROOF: .ci-proofs/library-save-shortcut
+          LIBRARY_SAVED_PIECE_PROOF: .ci-proofs/library-saved-piece-label
+          LIBRARY_NOTE_APPEARANCE_PROOF: .ci-proofs/library-note-appearance
+          LIBRARY_APPEND_NOTE_PROOF: .ci-proofs/library-append-note
+          LIBRARY_MIXED_SUBSET_SOURCE_PROOF: .ci-proofs/library-mixed-subset-source
+          LIBRARY_PREVIEW_EDIT_RETURN_PROOF: .ci-proofs/library-preview-edit-return
+          LIBRARY_GENERATED_COUNT_NOTE_PROOF: .ci-proofs/library-generated-count-note
+          FOLDER_CREATE_REFRESH_PROOF: .ci-proofs/library-folder-create-refresh
+          TOOLBAR_FOLDER_DRAFT_PROOF: .ci-proofs/library-toolbar-folder-draft
+          FILE_REFERENCE_RETURN_PROOF: .ci-proofs/file-reference-dialog-return
+          LIBRARY_COPY_SAVE_RETRY_PROOF: .ci-proofs/library-copy-save-retry
+          LIBRARY_EDIT_COPY_ENTRY_PROOF: .ci-proofs/library-edit-copy-entry
+          LIBRARY_ALTERNATIVE_SOURCE_PROOF: .ci-proofs/library-alternative-source
+          LIBRARY_ALTERNATIVE_LIST_PROOF: .ci-proofs/library-alternative-list
+          IMAGE_PREVIEW_RETRY_PROOF: .ci-proofs/image-preview-retry
+          BLANK_BOARD_CREATE_PROOF: .ci-proofs/blank-board-create-retry
+          MEDIA_READ_RETRY_PROOF: .ci-proofs/media-read-retry
+          ATTACHMENT_TYPE_PROOF: .ci-proofs/attachment-type-label
+          EXPLORER_RENAME_PROOF: .ci-proofs/shared-explorer-rename
+          INACTIVE_RENAME_PROOF: .ci-proofs/inactive-board-rename
+          OPEN_BOARD_MOVE_PROOF: .ci-proofs/open-board-move
+          TEXT_RETRY_PROOF: .ci-proofs/text-preview-retry
+          TABLE_ENCODING_PROOF: .ci-proofs/library-table-encoding
+          LIBRARY_TAG_RETURN_PROOF: .ci-proofs/library-tag-return
+          TABLE_HEADER_EXPORT_PROOF: .ci-proofs/table-header-export
+          TEXT_PREVIEW_ENCODING_PROOF: .ci-proofs/text-preview-encoding
+          TEXT_FILE_SELECTION_PROOF: .ci-proofs/text-file-selection
+          LIBRARY_FILE_REFERENCE_PROOF: .ci-proofs/library-file-reference
+          RECOVERY_HISTORY_RETRY_PROOF: .ci-proofs/recovery-history-retry
+          HISTORY_INLINE_RETURN_PROOF: .ci-proofs/history-inline-return
+          LIBRARY_DESCENDANT_VIEW_PROOF: .ci-proofs/library-descendant-view
+          LIBRARY_PREVIEW_NO_BOARD_PROOF: .ci-proofs/library-preview-no-board
+          RECOVERY_LIBRARY_OWNER_PROOF: .ci-proofs/recovery-library-owner
+          BOARD_HISTORY_OWNER_PROOF: .ci-proofs/board-history-owner
+          HISTORY_COPY_RETRY_PROOF: .ci-proofs/history-copy-retry
+          MISSING_ATTACHMENT_REFERENCE_PROOF: .ci-proofs/missing-attachment-reference
+          REFERENCE_GROUP_CONTEXT_PROOF: .ci-proofs/reference-group-context
+          REFERENCE_INSERT_GROUP_PROOF: .ci-proofs/reference-insert-group-context
+          CHECKPOINT_OWNER_PROOF: .ci-proofs/manual-checkpoint-owner
+          TABLE_TEXT_EXPORT_PROOF: .ci-proofs/library-table-text-export
+          LIBRARY_REPLAY_PROOF: .ci-proofs/library-replay-cue
+          ORIGIN_REVIEW_PROOF: .ci-proofs/origin-review-ownership
+          SOURCE_REFRESH_PROOF: .ci-proofs/source-refresh-ownership
+          LIBRARY_SOURCE_RETURN_PROOF: .ci-proofs/library-source-return
+          CELL_DOCUMENT_REFERENCE_PROOF: .ci-proofs/cell-document-reference
+          LIBRARY_TABLE_TEXT_EDIT_PROOF: .ci-proofs/library-table-text-edit
+          LIBRARY_TABLE_APPEND_ROW_PROOF: .ci-proofs/library-table-append-row
+          LIBRARY_TABLE_APPEND_COLUMN_PROOF: .ci-proofs/library-table-append-column
+          LIBRARY_PIECE_RECOGNITION_PROOF: .ci-proofs/library-piece-recognition
+          LIBRARY_ESCAPE_DRAFT_PROOF: .ci-proofs/library-escape-draft-guard
+          IMPORT_FAILED_RETRY_PROOF: .ci-proofs/import-failed-retry
+          IMPORT_FAILURE_RETURN_PROOF: .ci-proofs/import-failure-return
+          LIBRARY_TABLE_CREATION_PROOF: .ci-proofs/library-table-creation
+          LIBRARY_TABLE_TEXT_INTAKE_PROOF: .ci-proofs/library-table-text-intake
+          LIBRARY_TABLE_VERSION_READING_PROOF: .ci-proofs/library-table-version-reading
+          LIBRARY_CSV_TABLE_ENTRY_PROOF: .ci-proofs/library-csv-table-entry
+          NOTE_SELECTION_COUNT_PROOF: .ci-proofs/note-selection-count
+      - name: Keep original document editing failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-document-text-edit-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-document-text-edit/result.json
+            .ci-proofs/library-document-text-edit/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated image-writing-reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-writing-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/image-writing-reference/result.json
+            .ci-proofs/image-writing-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-image-pieces evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-image-pieces-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-image-pieces/result.json
+            .ci-proofs/library-image-pieces/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-pieces evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-pieces-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-pieces/result.json
+            .ci-proofs/library-table-pieces/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated link-location-choice evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-location-choice-${{ github.run_id }}
+          path: |
+            .ci-proofs/link-location-choice/result.json
+            .ci-proofs/link-location-choice/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated cell-bundle-relations evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-bundle-relations-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-bundle-relations/result.json
+            .ci-proofs/cell-bundle-relations/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated preset-library-refresh evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preset-library-refresh-${{ github.run_id }}
+          path: |
+            .ci-proofs/preset-library-refresh/result.json
+            .ci-proofs/preset-library-refresh/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated preset-library evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preset-library-${{ github.run_id }}
+          path: |
+            .ci-proofs/preset-library/result.json
+            .ci-proofs/preset-library/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-used-order evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-used-order-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-used-order/result.json
+            .ci-proofs/library-used-order/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated tab-location-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tab-location-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/tab-location-context/result.json
+            .ci-proofs/tab-location-context/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated group-writing-point evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: group-writing-point-${{ github.run_id }}
+          path: |
+            .ci-proofs/group-writing-point/result.json
+            .ci-proofs/group-writing-point/*.png
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Keep isolated subset-resource evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -183,5 +409,1086 @@ jobs:
           path: |
             .ci-proofs/search-writing-return-guards/result.json
             .ci-proofs/search-writing-return-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated local-start-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-start-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/local-start-entry/result.json
+            .ci-proofs/local-start-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated canvas-outline-work evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canvas-outline-work-${{ github.run_id }}
+          path: |
+            .ci-proofs/canvas-outline-work/result.json
+            .ci-proofs/canvas-outline-work/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated document-library-multiple evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-multiple-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-multiple/result.json
+            .ci-proofs/document-library-multiple/source/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated document-library-multiple-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-multiple-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-multiple-guards/result.json
+            .ci-proofs/document-library-multiple-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-recent-order evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-recent-order-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-recent-order/result.json
+            .ci-proofs/library-recent-order/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated empty-example-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: empty-example-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/empty-example-entry/result.json
+            .ci-proofs/empty-example-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated help-reuse-journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: help-reuse-journey-${{ github.run_id }}
+          path: |
+            .ci-proofs/help-reuse-journey/result.json
+            .ci-proofs/help-reuse-journey/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+
+      - name: Keep isolated collect-content-review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collect-content-review-${{ github.run_id }}
+          path: |
+            .ci-proofs/collect-content-review/result.json
+            .ci-proofs/collect-content-review/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-local-find evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-local-find-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-local-find/result.json
+            .ci-proofs/paper-local-find/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-local-find-guards evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-local-find-guards-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-local-find-guards/result.json
+            .ci-proofs/paper-local-find-guards/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-edit-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-edit-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-edit-context/result.json
+            .ci-proofs/paper-edit-context/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-kind-filter evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-kind-filter-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-kind-filter/result.json
+            .ci-proofs/library-kind-filter/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated paper-tools-fold evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-tools-fold-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-tools-fold/result.json
+            .ci-proofs/paper-tools-fold/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated narrow-reference-stack evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: narrow-reference-stack-${{ github.run_id }}
+          path: |
+            .ci-proofs/narrow-reference-stack/result.json
+            .ci-proofs/narrow-reference-stack/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-writing reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-writing-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-writing-reference/result.json
+            .ci-proofs/library-writing-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-copy location evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-copies-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-copies/result.json
+            .ci-proofs/library-copies/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated arrangement-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arrangement-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/arrangement-return/result.json
+            .ci-proofs/arrangement-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated appearance-portability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-portability-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-portability/result.json
+            .ci-proofs/appearance-portability/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated appearance-preset-update evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-preset-update-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-preset-update/result.json
+            .ci-proofs/appearance-preset-update/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-picked-review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-picked-review-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-picked-review/result.json
+            .ci-proofs/library-picked-review/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-reuse-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-reuse-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-reuse-entry/result.json
+            .ci-proofs/library-reuse-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-library-selection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-library-selection-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-library-selection/result.json
+            .ci-proofs/cell-library-selection/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated board-pairs evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-pairs-${{ github.run_id }}
+          path: |
+            .ci-proofs/board-pairs/result.json
+            .ci-proofs/board-pairs/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated selection-document evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selection-document-${{ github.run_id }}
+          path: |
+            .ci-proofs/selection-document/result.json
+            .ci-proofs/selection-document/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated paper-block-origin evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-block-origin-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-block-origin/result.json
+            .ci-proofs/paper-block-origin/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-favorite-folders evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-favorite-folders-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-favorite-folders/result.json
+            .ci-proofs/library-favorite-folders/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated board-variant evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-variant-${{ github.run_id }}
+          path: |
+            .ci-proofs/board-variant/result.json
+            .ci-proofs/board-variant/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated board-variant-confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-variant-confirmation-${{ github.run_id }}
+          path: |
+            .ci-proofs/board-variant-confirmation/result.json
+            .ci-proofs/board-variant-confirmation/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-item-origin evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-item-origin-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-item-origin/result.json
+            .ci-proofs/cell-item-origin/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-origin-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-origin-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-origin-return/result.json
+            .ci-proofs/cell-origin-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated document-library-order evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: document-library-order-${{ github.run_id }}
+          path: |
+            .ci-proofs/document-library-order/result.json
+            .ci-proofs/document-library-order/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated selection-variant evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selection-variant-${{ github.run_id }}
+          path: |
+            .ci-proofs/selection-variant/result.json
+            .ci-proofs/selection-variant/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated recovery-copy-confirmation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-copy-confirmation-${{ github.run_id }}
+          path: |
+            .ci-proofs/recovery-copy-confirmation/result.json
+            .ci-proofs/recovery-copy-confirmation/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-marker-extract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-marker-extract-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-marker-extract/result.json
+            .ci-proofs/media-marker-extract/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-to-next-marker evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-to-next-marker-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-to-next-marker/result.json
+            .ci-proofs/media-to-next-marker/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-next-video evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-next-video-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-next-video/result.json
+            .ci-proofs/media-next-video/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated media-playback-rate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-playback-rate-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-playback-rate/result.json
+            .ci-proofs/media-playback-rate/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-replay-cue evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-replay-cue-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-replay-cue/result.json
+            .ci-proofs/library-replay-cue/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated origin-review-ownership evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-review-ownership-${{ github.run_id }}
+          path: |
+            .ci-proofs/origin-review-ownership/result.json
+            .ci-proofs/origin-review-ownership/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated source-refresh-ownership evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-refresh-ownership-${{ github.run_id }}
+          path: |
+            .ci-proofs/source-refresh-ownership/result.json
+            .ci-proofs/source-refresh-ownership/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-source-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-source-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-source-return/result.json
+            .ci-proofs/library-source-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated cell-document-reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cell-document-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/cell-document-reference/result.json
+            .ci-proofs/cell-document-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-table-text-edit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-text-edit-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-text-edit/result.json
+            .ci-proofs/library-table-text-edit/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-table-creation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-creation-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-creation/result.json
+            .ci-proofs/library-table-creation/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated library-table-text-intake evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-text-intake-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-text-intake/result.json
+            .ci-proofs/library-table-text-intake/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+
+      - name: Keep isolated library-table-version-reading evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-version-reading-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-version-reading/result.json
+            .ci-proofs/library-table-version-reading/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+
+      - name: Keep isolated library-csv-table-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-csv-table-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-csv-table-entry/result.json
+            .ci-proofs/library-csv-table-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+
+      - name: Keep isolated note-selection-count evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: note-selection-count-${{ github.run_id }}
+          path: |
+            .ci-proofs/note-selection-count/result.json
+            .ci-proofs/note-selection-count/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-append-row evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-append-row-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-append-row/result.json
+            .ci-proofs/library-table-append-row/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-append-column evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-append-column-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-append-column/result.json
+            .ci-proofs/library-table-append-column/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-piece-recognition evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-piece-recognition-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-piece-recognition/result.json
+            .ci-proofs/library-piece-recognition/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-escape-draft-guard evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-escape-draft-guard-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-escape-draft-guard/result.json
+            .ci-proofs/library-escape-draft-guard/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-save-continue evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-save-continue-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-save-continue/result.json
+            .ci-proofs/library-save-continue/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-save-shortcut evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-save-shortcut-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-save-shortcut/result.json
+            .ci-proofs/library-save-shortcut/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-saved-piece-label evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-saved-piece-label-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-saved-piece-label/result.json
+            .ci-proofs/library-saved-piece-label/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated attachment-type-label evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: attachment-type-label-${{ github.run_id }}
+          path: |
+            .ci-proofs/attachment-type-label/result.json
+            .ci-proofs/attachment-type-label/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated import-failed-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-failed-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/import-failed-retry/result.json
+            .ci-proofs/import-failed-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated import-failure-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: import-failure-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/import-failure-return/result.json
+            .ci-proofs/import-failure-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated appearance-preset-rename evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-preset-rename-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-preset-rename/result.json
+            .ci-proofs/appearance-preset-rename/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated recovery-copy-reveal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-copy-reveal-${{ github.run_id }}
+          path: |
+            .ci-proofs/recovery-copy-reveal/result.json
+            .ci-proofs/recovery-copy-reveal/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated history-comparison-field-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-comparison-field-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/history-comparison-field-return/result.json
+            .ci-proofs/history-comparison-field-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-note-appearance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-note-appearance-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-note-appearance/result.json
+            .ci-proofs/library-note-appearance/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-append-note evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-append-note-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-append-note/result.json
+            .ci-proofs/library-append-note/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-mixed-subset-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-mixed-subset-source-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-mixed-subset-source/result.json
+            .ci-proofs/library-mixed-subset-source/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-preview-edit-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-preview-edit-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-preview-edit-return/result.json
+            .ci-proofs/library-preview-edit-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-generated-count-note evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-generated-count-note-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-generated-count-note/result.json
+            .ci-proofs/library-generated-count-note/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-folder-create-refresh evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-folder-create-refresh-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-folder-create-refresh/result.json
+            .ci-proofs/library-folder-create-refresh/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-toolbar-folder-draft evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-toolbar-folder-draft-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-toolbar-folder-draft/result.json
+            .ci-proofs/library-toolbar-folder-draft/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated file-reference-dialog-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-reference-dialog-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/file-reference-dialog-return/result.json
+            .ci-proofs/file-reference-dialog-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-copy-save-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-copy-save-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-copy-save-retry/result.json
+            .ci-proofs/library-copy-save-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-edit-copy-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-edit-copy-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-edit-copy-entry/result.json
+            .ci-proofs/library-edit-copy-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-alternative-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-alternative-source-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-alternative-source/result.json
+            .ci-proofs/library-alternative-source/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-alternative-list evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-alternative-list-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-alternative-list/result.json
+            .ci-proofs/library-alternative-list/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated image-preview-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-preview-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/image-preview-retry/result.json
+            .ci-proofs/image-preview-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated blank-board-create-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blank-board-create-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/blank-board-create-retry/result.json
+            .ci-proofs/blank-board-create-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated media-read-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-read-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/media-read-retry/result.json
+            .ci-proofs/media-read-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated appearance-preset-remove evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-preset-remove-${{ github.run_id }}
+          path: |
+            .ci-proofs/appearance-preset-remove/result.json
+            .ci-proofs/appearance-preset-remove/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-select-all evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-select-all-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-select-all/result.json
+            .ci-proofs/library-select-all/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated shared-explorer-rename evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-explorer-rename-${{ github.run_id }}
+          path: |
+            .ci-proofs/shared-explorer-rename/result.json
+            .ci-proofs/shared-explorer-rename/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated inactive-board-rename evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inactive-board-rename-${{ github.run_id }}
+          path: |
+            .ci-proofs/inactive-board-rename/result.json
+            .ci-proofs/inactive-board-rename/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated open-board-move evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-board-move-${{ github.run_id }}
+          path: |
+            .ci-proofs/open-board-move/result.json
+            .ci-proofs/open-board-move/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated text-preview-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-preview-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/text-preview-retry/result.json
+            .ci-proofs/text-preview-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-encoding evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-encoding-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-encoding/result.json
+            .ci-proofs/library-table-encoding/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-tag-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-tag-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-tag-return/result.json
+            .ci-proofs/library-tag-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated table-header-export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: table-header-export-${{ github.run_id }}
+          path: |
+            .ci-proofs/table-header-export/result.json
+            .ci-proofs/table-header-export/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated text-preview-encoding evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-preview-encoding-${{ github.run_id }}
+          path: |
+            .ci-proofs/text-preview-encoding/result.json
+            .ci-proofs/text-preview-encoding/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated text-file-selection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-file-selection-${{ github.run_id }}
+          path: |
+            .ci-proofs/text-file-selection/result.json
+            .ci-proofs/text-file-selection/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-file-reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-file-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-file-reference/result.json
+            .ci-proofs/library-file-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated recovery-history-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-history-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/recovery-history-retry/result.json
+            .ci-proofs/recovery-history-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated history-inline-return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-inline-return-${{ github.run_id }}
+          path: |
+            .ci-proofs/history-inline-return/result.json
+            .ci-proofs/history-inline-return/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-descendant-view evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-descendant-view-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-descendant-view/result.json
+            .ci-proofs/library-descendant-view/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-preview-no-board evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-preview-no-board-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-preview-no-board/result.json
+            .ci-proofs/library-preview-no-board/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated recovery-library-owner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-library-owner-${{ github.run_id }}
+          path: |
+            .ci-proofs/recovery-library-owner/result.json
+            .ci-proofs/recovery-library-owner/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated board-history-owner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-history-owner-${{ github.run_id }}
+          path: |
+            .ci-proofs/board-history-owner/result.json
+            .ci-proofs/board-history-owner/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated history-copy-retry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-copy-retry-${{ github.run_id }}
+          path: |
+            .ci-proofs/history-copy-retry/result.json
+            .ci-proofs/history-copy-retry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated missing-attachment-reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: missing-attachment-reference-${{ github.run_id }}
+          path: |
+            .ci-proofs/missing-attachment-reference/result.json
+            .ci-proofs/missing-attachment-reference/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated reference-group-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-group-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/reference-group-context/result.json
+            .ci-proofs/reference-group-context/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated reference-insert-group-context evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-insert-group-context-${{ github.run_id }}
+          path: |
+            .ci-proofs/reference-insert-group-context/result.json
+            .ci-proofs/reference-insert-group-context/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep isolated manual-checkpoint-owner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-checkpoint-owner-${{ github.run_id }}
+          path: |
+            .ci-proofs/manual-checkpoint-owner/result.json
+            .ci-proofs/manual-checkpoint-owner/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Keep isolated library-table-text-export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-table-text-export-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-table-text-export/result.json
+            .ci-proofs/library-table-text-export/*.png
+            .ci-proofs/library-table-text-export/*.csv
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep complete and interrupted browser task results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-suite-results-${{ github.run_id }}
+          path: .ci-proofs/browser-suite/result.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep offscreen content discovery and writing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offscreen-content-${{ github.run_id }}
+          path: |
+            .ci-proofs/offscreen-content/result.json
+            .ci-proofs/offscreen-content/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep stable library selection and overlay return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-selection-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-selection-entry/result.json
+            .ci-proofs/library-selection-entry/*.png
           if-no-files-found: ignore
           retention-days: 3

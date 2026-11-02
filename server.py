@@ -92,7 +92,7 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    except (OSError,ValueError,TypeError,AttributeError):
     self.reply(400,{'error':'这份白板文件的内容有问题，暂时无法读取。原文件仍保留。'});return
    self.reply(200,raw,etag=digest(raw));return
-  if p in ['/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/clipboard-coordinator.js','/explorer-navigation.js','/recovery.js','/board-lifecycle.js','/library-transfer.js','/document-loading.js','/import-session.js','/library-folders.js','/library-editing.js','/library-spatial.js','/library-spatial.css']:
+  if p in ['/library-copies.js','/workspace.js','/workspace.css','/workflow.js','/workflow.css','/shell.js','/shell.css','/pane.js','/cells.js','/theme.css','/theme.js','/experience.js','/appearance.js','/refinement.css','/refinement.js','/ai-workflow.js','/workspace-shell.js','/workspace-shell.css','/media-controls.js','/media-markers.js','/navigation.js','/context-capture.js','/autosize.js','/library-clipboard.js','/clipboard-coordinator.js','/explorer-navigation.js','/recovery.js','/board-lifecycle.js','/library-transfer.js','/document-loading.js','/import-session.js','/library-folders.js','/library-editing.js','/library-spatial.js','/library-spatial.css']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/javascript; charset=utf-8' if p.endswith('.js') else 'text/css; charset=utf-8');return
   if p in ['/vendor/html2canvas.min.js','/vendor/markdown-it.min.js','/note-editor.js','/note-editor.css','/canvas-objects.js','/canvas-objects.css','/document-paper.js','/document-paper.css']:
    self.reply(200,(APP_ROOT/p[1:]).read_bytes(),'text/css; charset=utf-8' if p.endswith('.css') else 'text/javascript; charset=utf-8');return
@@ -183,11 +183,39 @@ class Handler(AssetMixin, BaseHTTPRequestHandler):
    self.reply(200,{'saved':True},etag=digest(raw))
   except Exception as e:self.reply(400,{'error':str(e)})
 
+def run_local(open_browser=False):
+ import errno,sys
+ try:httpd=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
+ except OSError as error:
+  if error.errno==errno.EADDRINUSE or getattr(error,"winerror",None)==10048:
+   print(f"本机地址 http://127.0.0.1:{PORT}/ 已在使用，这次没有启动新白板。请查看原来的启动窗口，或按使用说明更换端口。",file=sys.stderr,flush=True)
+  elif error.errno==errno.EACCES or getattr(error,"winerror",None)==10013:
+   print(f"本机地址 http://127.0.0.1:{PORT}/ 暂时无法使用，可能已被占用或受系统限制。请查看原来的启动窗口，或按使用说明更换端口。",file=sys.stderr,flush=True)
+  else:print(f"未能启动白板：{error}",file=sys.stderr,flush=True)
+  raise SystemExit(1)
+ with httpd:
+  DATA.mkdir(parents=True,exist_ok=True)
+  for filename,value in [("目录.json",{"folders":[]}),("素材目录.json",{"version":1,"folders":[],"assets":[]})]:
+   target=ROOT/filename
+   if not target.exists():target.write_bytes(encoded(value))
+  url=f"http://127.0.0.1:{PORT}/"
+  print(f"Creative Whiteboard: {url}",flush=True)
+  print(f"Data: {ROOT}",flush=True)
+  if open_browser:
+   def show_page():
+    import webbrowser
+    try:opened=webbrowser.open(url)
+    except Exception:opened=False
+    if not opened:print(f"未能自动打开浏览器，请在浏览器打开 {url}",flush=True)
+   threading.Thread(target=show_page,daemon=True).start()
+  httpd.serve_forever()
+
 if __name__=='__main__':
- DATA.mkdir(parents=True,exist_ok=True)
- for filename,value in [("目录.json",{"folders":[]}),("素材目录.json",{"version":1,"folders":[],"assets":[]})]:
-  target=ROOT/filename
-  if not target.exists():target.write_bytes(encoded(value))
- print(f"Creative Whiteboard: http://127.0.0.1:{PORT}/",flush=True)
- print(f"Data: {ROOT}",flush=True)
- ThreadingHTTPServer(('127.0.0.1',PORT),Handler).serve_forever()
+ import argparse,sys
+ parser=argparse.ArgumentParser(description="在本机启动创作白板")
+ parser.add_argument("--open-browser",action="store_true",help="服务启动后在浏览器打开白板")
+ args=parser.parse_args()
+ try:run_local(args.open_browser)
+ except OSError as error:
+  print(f"未能启动白板：{error}",file=sys.stderr,flush=True)
+  raise SystemExit(1)

@@ -127,7 +127,7 @@
   for(const button of $('wfRecoveryList').querySelectorAll('[data-archived]'))restoreAction(button,()=>restoreLibrary(token,null,button.dataset.archived));
  }
  async function loadTab(tab){
-  const token=++epoch,target=boardId,kind=tab==='board'?'boards':'library',key=tab==='board'?target:'catalog';
+  const token=++epoch,target=boardId,source=board,scope=recoveryResultScope(),kind=tab==='board'?'boards':'library',key=tab==='board'?target:'catalog';
   if(!$('wfRecoveryList'))return;
   for(const button of $('dialogBody').querySelectorAll('[data-recovery-tab]')){
    const selected=button.dataset.recoveryTab===tab;
@@ -137,27 +137,59 @@
   $('wfCheckpoint').textContent=tab==='library'?'保存内容库恢复点':'保存白板恢复点';
   $('wfRecoveryList').setAttribute('aria-busy','true');$('wfRecoveryList').textContent='正在读取…';
   $('wfRecoveryInfo').textContent='';
-  $('wfCheckpoint').onclick=()=>wfSafe(async()=>{
+   const checkpointHere=()=>active(token)&&sameRecoveryResultScope(scope)&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length)&&(tab!=='board'||boardId===target&&board===source);
+   $('wfCheckpoint').onclick=()=>wfSafe(async()=>{
+    if(!ownsHistoryRecovery(token,scope,true,tab==='library'?'内容库':'白板'))return;
+    if(tab==='board'&&(boardId!==target||board!==source))return toast('当前白板已有变化，请重新打开记录后再保存恢复点。');
    const button=$('wfCheckpoint');button.disabled=true;
    try{
     await api(tab==='library'?'/api/checkpoints/library/catalog':'/api/checkpoints/'+target,{method:'PUT'});
-    toast(tab==='library'?'已保存内容库恢复点':'已保存白板恢复点');
-    if(active(token))await loadTab(tab);
-   }finally{if(button.isConnected)button.disabled=false}
+     const here=checkpointHere();
+     toast(here?(tab==='library'?'已保存内容库恢复点':'已保存白板恢复点'):(tab==='library'?'已保存原内容库恢复点；当前查看范围已有变化。':'已保存原白板恢复点；当前查看范围已有变化。'));
+     if(here)await loadTab(tab);
+    }finally{if(checkpointHere()&&button.isConnected)button.disabled=false}
   });
   try{
    if(tab==='trash'){await loadTrash(token);return}
    const rows=await(await api('/api/history/'+kind+'/'+key)).json();if(!active(token))return;
    $('wfRecoveryInfo').textContent='自动保存修改前的版本，也可以手动留一个恢复点。取回时先查看内容；旧版本可以另存，不覆盖现在写的。';
    $('wfRecoveryList').innerHTML=rows.map((r,i)=>historyRow(wfDate(r.savedAt),r.count+' '+(tab==='board'?'块内容':'项库中内容'),'data-revision="'+i+'"','查看并取回')).join('')||'<p class="wf-empty">还没有历史记录。可以先保存一个恢复点。</p>';
-   for(const button of $('wfRecoveryList').querySelectorAll('[data-revision]'))button.onclick=()=>wfSafe(()=>wfOpenRevision(kind,key,rows[Number(button.dataset.revision)]));
-  }catch(e){if(active(token)){$('wfRecoveryList').textContent='读取失败：'+e.message;toast(e.message)}}
+   for(const button of $('wfRecoveryList').querySelectorAll('[data-revision]'))button.onclick=()=>wfSafe(()=>wfOpenRevision(kind,key,rows[Number(button.dataset.revision)],scope));
+  }catch(e){if(active(token)){
+   const list=$('wfRecoveryList'),message=document.createElement('p'),retry=document.createElement('button');
+   message.setAttribute('role','status');message.textContent='记录暂时未读到：'+e.message;
+   retry.type='button';retry.className='wf-recovery-read-retry';retry.textContent='重新读取记录';retry.dataset.recoveryReadRetry='';
+   retry.onclick=()=>{
+    if(retry.disabled||!active(token)||$('wfRecoveryList')!==list||!retry.isConnected||!list.contains(retry))return;
+    if(boardId!==target||board!==source||!sameRecoveryResultScope(scope)||document.hidden||frameElement&&!frameElement.getClientRects().length){message.textContent='查看位置或所属账号已有变化，请重新打开恢复记录。';retry.disabled=true;return}
+    retry.disabled=true;void loadTab(tab);
+   };
+   list.replaceChildren(message,retry);
+  }}
   finally{if(active(token))$('wfRecoveryList').setAttribute('aria-busy','false')}
  }
+ function ordinaryHistoryReturn(){
+  const field=window.whiteboardPane?.editingField?.();
+  if(!window.whiteboardPane?.focus||primary.open||!field?.closest('.live-layout')||!field.matches('input,textarea')||field.readOnly||field.disabled)return null;
+  const source=board,key=boardId,writer=editorId,node=source?.nodes.find(n=>n.id===writer),value=field.value,scope=recoveryResultScope();
+  if(!node)return null;
+  return ()=>primary.addEventListener('close',()=>{
+   const panel=owner;if(primary.open||!panel?.isConnected||!primary.contains(panel))return;
+   requestAnimationFrame(()=>{
+    const active=document.activeElement;
+    if(primary.open||!panel.isConnected||!primary.contains(panel)||document.querySelector('dialog[open]')||!document.hasFocus()||document.hidden||frameElement&&!frameElement.getClientRects().length)return;
+    if(board!==source||boardId!==key||editorId!==writer||source.nodes.find(n=>n.id===writer)!==node||!sameRecoveryResultScope(scope)||!field.isConnected||field.closest('[hidden]')||field.readOnly||field.disabled||field.value!==value)return;
+    if(active!==field&&active?.matches('input,textarea,[contenteditable=true]'))return;
+    window.whiteboardPane.focus();
+   });
+  },{capture:true,once:true});
+ }
+
  wfRecovery=async function(tab='board'){
-  const token=++epoch;if(!await persist()||token!==epoch)return;
+  const token=++epoch,returnToWriter=ordinaryHistoryReturn();if(!await persist()||token!==epoch)return;
   layeredHistory();
   recoveryDialog('<h2>恢复与历史记录</h2><div class="wf-toolbar recovery-toolbar"><div role="tablist" aria-label="恢复范围"><button role="tab" data-recovery-tab="board">当前白板</button><button role="tab" data-recovery-tab="library">内容库历史</button><button role="tab" data-recovery-tab="trash">回收站</button></div><button id="wfCheckpoint">保存一个恢复点</button></div><p id="wfRecoveryInfo" class="wf-explain"></p><div id="wfRecoveryList" class="wf-list" role="tabpanel">正在读取…</div>',[['关闭',()=>dialog.close()]]);
+  returnToWriter?.();
   const tabs=[...$('dialogBody').querySelectorAll('[data-recovery-tab]')];
   tabs.forEach((button,i)=>{
    button.onclick=()=>wfSafe(()=>loadTab(button.dataset.recoveryTab));
@@ -171,35 +203,54 @@
  };
 
  function chosenRevision(ids,value){return value.assets.filter(a=>ids.has(a.id)).map(a=>unarchive(clone(a)))}
- async function recoverLibraryCopy(token,ids,value){
+ function recoveryResultScope(){
+  let outer=null;try{if(parent!==window)outer=parent.whiteboardHosted||null}catch{return null}
+  const inner=window.whiteboardHosted||null,hosts=[inner,outer];
+  return {inner,outer,key:JSON.stringify(hosts.map(host=>host?[host.account?.id,host.workspace,host.base,host.role,!!host.paused]:null)),valid:hosts.every(host=>!host||!host.paused&&host.account?.id!=null&&host.workspace!=null&&host.base!=null)};
+ }
+ function sameRecoveryResultScope(before){const now=recoveryResultScope();return !!(before?.valid&&now?.valid&&before.inner===now.inner&&before.outer===now.outer&&before.key===now.key)}
+  function ownsHistoryRecovery(token,scope,writing=true,target='内容库'){
+   if(!active(token))return false;
+   if(sameRecoveryResultScope(scope)&&(!writing||[scope.inner,scope.outer].every(host=>!host||host.role!=='viewer'))&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length))return true;
+   toast(writing?'查看位置、账号或编辑权限已有变化，未写入'+target+'。所选内容仍保留。':'查看范围已有变化，请重新打开'+target+'历史。当前选择仍保留。');return false;
+  }
+  async function recoverLibraryCopy(token,ids,value,scope){
   if(!ids.size)return toast('先勾选内容');
-  await loadAssets();if(!active(token))return;
+   if(!ownsHistoryRecovery(token,scope))return;
+  const resultScope=recoveryResultScope(),created=[];
+  // A catalog refresh must not rebuild the expanded editor beneath this history layer.
+   await loadAssets({redraw:dialog===primary});if(!ownsHistoryRecovery(token,scope))return;
   const next=clone(assetIndex);
   for(const original of chosenRevision(ids,value)){
    original.id=uid();original.title=(original.title||'未命名内容')+' · 恢复副本';original.updated=Date.now();
    next.assets.push(original);addFolders(next,[original.folder]);
+   created.push(original.id);
   }
   if(await saveAssets(next)){
-   if(active(token))dialog.close();
-   toast('已另存所选旧内容，当前版本保留');
+   const completedHere=active(token);if(completedHere)dialog.close();
+   const canReveal=()=>token===epoch&&sameRecoveryResultScope(resultScope);
+   if(completedHere&&!primary.open&&created.length===1&&canReveal())showCollectedResource(created[0],'已另存所选旧内容，当前版本保留','查看刚另存的恢复副本',canReveal);
+   else toast('已另存所选旧内容，当前版本保留');
   }
  }
- async function recoverLibraryReview(token,ids,value){
+  async function recoverLibraryReview(token,ids,value,scope){
   if(!ids.size)return toast('先勾选内容');
-  await loadAssets();if(!active(token))return;
+   if(!ownsHistoryRecovery(token,scope))return;
+   await loadAssets({redraw:dialog===primary});if(!ownsHistoryRecovery(token,scope))return;
   const changes=chosenRevision(ids,value).map(old=>({field:old.id,label:old.title,before:clone(assetById(old.id)??null),after:old}));
   const baseline=assetETag;
   wfReview('确认要恢复的库中内容','这里会更新勾选项的当前版本。只想保留一份旧内容时，可以返回历史记录，选择另存。',changes,async chosen=>{
-   await loadAssets();if(!active(token))return false;if(assetETag!==baseline)return toast('内容库已变化，请重新比较'),false;
+    if(!ownsHistoryRecovery(token,scope))return false;
+    await loadAssets({redraw:dialog===primary});if(!ownsHistoryRecovery(token,scope))return false;if(assetETag!==baseline)return toast('内容库已变化，请重新比较'),false;
    const next=clone(assetIndex);
    for(const c of chosen){next.assets=next.assets.filter(a=>a.id!==c.field);next.assets.push(clone(c.after));addFolders(next,[c.after.folder])}
    return saveAssets(next);
   },dialog===primary?undefined:{show:recoveryDialog,element:$});
   owner=$('dialogBody').firstElementChild;
  }
- function libraryRevision(token,revision){
+  function libraryRevision(token,revision,scope){
   const value=revision.value,ids=new Set();
-  recoveryDialog('<h2>从内容库历史中取回</h2><p class="wf-explain">'+wfDate(revision.savedAt)+'。勾选旧内容后，可以另存为副本；需要替换当前版本时，再查看差异。</p><input id="wfRevisionSearch" placeholder="搜索这份记录"><p id="wfRevisionCount" class="wf-explain"></p><div id="wfRevisionItems" class="wf-list"></div>',[['返回',()=>wfSafe(()=>wfRecovery('library'))],['另存勾选内容',()=>wfSafe(()=>recoverLibraryCopy(token,ids,value))],['比较并恢复',()=>wfSafe(()=>recoverLibraryReview(token,ids,value))]]);
+   recoveryDialog('<h2>从内容库历史中取回</h2><p class="wf-explain">'+wfDate(revision.savedAt)+'。勾选旧内容后，可以另存为副本；需要替换当前版本时，再查看差异。</p><input id="wfRevisionSearch" placeholder="搜索这份记录"><p id="wfRevisionCount" class="wf-explain"></p><div id="wfRevisionItems" class="wf-list"></div>',[['返回',()=>wfSafe(()=>wfRecovery('library'))],['另存勾选内容',()=>wfSafe(()=>recoverLibraryCopy(token,ids,value,scope))],['比较并恢复',()=>wfSafe(()=>recoverLibraryReview(token,ids,value,scope))]]);
   function draw(){
    const q=$('wfRevisionSearch').value.toLowerCase();
    const items=value.assets.filter(a=>!a.archived&&(!q||wfLibraryText(a).toLowerCase().includes(q)));
@@ -210,12 +261,20 @@
   function count(){$('wfRevisionCount').textContent=ids.size?'已选 '+ids.size+' 项（搜索后仍保留所选项）':'先勾选要取回的内容'}
   $('wfRevisionSearch').oninput=draw;draw();
   const actions=$('dialogActions').querySelectorAll('button');
-  restoreAction(actions[1],()=>recoverLibraryCopy(token,ids,value));
-  restoreAction(actions[2],()=>recoverLibraryReview(token,ids,value));
+   restoreAction(actions[1],()=>recoverLibraryCopy(token,ids,value,scope));
+   restoreAction(actions[2],()=>recoverLibraryReview(token,ids,value,scope));
  }
- function boardRevision(key,revision,token){
+ function boardRevision(key,revision,token,scope){
   const value=revision.value;
+  let copyAttempt=null;
+  const copyNotice=message=>{
+   if(!active(token))return;
+   let status=$('dialogBody').querySelector('[data-history-copy-state]');
+   if(!status){status=document.createElement('p');status.className='wf-explain';status.dataset.historyCopyState='';status.setAttribute('role','status');$('dialogBody').append(status)}
+   status.textContent=message;
+  };
   recoveryDialog('<h2>'+esc(value.name)+' · '+wfDate(revision.savedAt)+'</h2><p class="wf-explain">把勾选内容添加回当前白板，或者把整份记录另存为白板。现在的内容不会被覆盖。</p><div class="wf-list">'+value.nodes.map(n=>'<label class="wf-history-row"><input type="checkbox" data-recover-node="'+esc(n.id)+'"><div><b>'+esc(n.title||'未命名内容')+'</b><small>'+esc((n.body||n.userText||'').slice(0,160))+'</small></div></label>').join('')+'</div>',[['返回',()=>wfSafe(()=>wfRecovery('board'))],['添加勾选内容',()=>{
+   if(!ownsHistoryRecovery(token,scope,true,'白板'))return;
    if(boardId!==key)return toast('当前白板已切换，请重新打开历史记录');
    const ids=new Set([...$('dialogBody').querySelectorAll('[data-recover-node]:checked')].map(e=>e.dataset.recoverNode));
    if(!ids.size)return toast('先勾选内容');
@@ -223,17 +282,48 @@
   }],['整份记录另存为白板',()=>{}]]);
   const actions=$('dialogActions').querySelectorAll('button');
   restoreAction(actions[2],async()=>{
-   if(!active(token))return;
-   const id=uid(),restored=clone(value);restored.name=value.name+' · 恢复 '+new Date(revision.savedAt*1000).toLocaleDateString('zh-CN');
-   if(!folderData.folders.some(f=>f.id===restored.folder))restored.folder='';
-   await api('/api/boards/'+id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(restored)});
-   if(active(token)&&boardId===key){dialog.close();await loadBoard(id)}
-   toast('已另存恢复版本，原白板保留');
+   if(!ownsHistoryRecovery(token,scope,!copyAttempt,'白板'))return;
+   const resuming=!!copyAttempt;
+   if(!copyAttempt){
+    const restored=clone(value);restored.name=value.name+' · 恢复 '+new Date(revision.savedAt*1000).toLocaleDateString('zh-CN');
+    if(!folderData.folders.some(f=>f.id===restored.folder))restored.folder='';
+    copyAttempt={id:uid(),value:restored};
+   }
+   const attempt=copyAttempt,submit=()=>api('/api/boards/'+attempt.id,{method:'PUT',headers:{'Content-Type':'application/json','If-Match':'new'},body:JSON.stringify(attempt.value)});
+   try{
+    if(resuming){
+     let saved,missing=false;
+     try{saved=await(await api('/api/boards/'+attempt.id,{cache:'no-store'})).json()}catch(error){if(error.code!==404)throw error;missing=true}
+     if(!ownsHistoryRecovery(token,scope,false,'白板'))return;
+     if(!missing){
+      if(!wfEqual(saved,attempt.value)){copyNotice('这份另存已有变化，未覆盖。请从白板列表核对；原勾选仍保留。');return}
+     }else{
+      const trash=await(await api('/api/trash',{cache:'no-store'})).json();
+      if(!ownsHistoryRecovery(token,scope,false,'白板'))return;
+      if(!Array.isArray(trash)||trash.some(row=>!row||!Array.isArray(row.ids)||row.ids.some(id=>typeof id!=='string')))throw Error('回收记录暂未能核对，请稍后重试。');
+      if(trash.some(row=>row.ids.includes(attempt.id))){copyNotice('这份另存已移入回收站，未重新创建。请从回收站核对；原勾选仍保留。');return}
+      if(attempt.value.folder){
+       const folders=await(await api('/api/folders',{cache:'no-store'})).json();
+       if(!ownsHistoryRecovery(token,scope,false,'白板'))return;
+       if(!Array.isArray(folders?.folders))throw Error('存放位置暂未能核对，请稍后重试。');
+       if(!folders.folders.some(folder=>folder.id===attempt.value.folder)){copyNotice('存放位置已有变化，未重新提交。请重新打开记录核对；原勾选仍保留。');return}
+      }
+      await submit();
+     }
+    }else await submit();
+   }catch(error){
+    if(active(token)){copyNotice('这次另存尚未确认。再次点击会先核对并继续这次另存，原勾选仍保留。');toast(error.code?error.message:error instanceof SyntaxError?'这次结果暂未能读完整，请核对后继续。':error instanceof TypeError?'这次结果暂未能确认，请核对后继续。':error.message||'这次结果暂未能确认。')}
+    return;
+   }
+   if(active(token)){const mayOpen=boardId===key&&sameRecoveryResultScope(scope)&&!document.hidden&&(!frameElement||!!frameElement.getClientRects().length);dialog.close();if(mayOpen)await loadBoard(attempt.id)}
+   toast(resuming?'已确认这次另存，原白板保留':'已另存恢复版本，原白板保留');
   });
  }
- wfOpenRevision=async function(kind,key,row){
-  const token=++epoch,revision=await(await api('/api/history/'+kind+'/'+key+'/'+row.id)).json();
+  wfOpenRevision=async function(kind,key,row,scope=recoveryResultScope()){
+   const token=++epoch,target=kind==='library'?'内容库':'白板';if(!ownsHistoryRecovery(token,scope,false,target))return;
+   const revision=await(await api('/api/history/'+kind+'/'+key+'/'+row.id)).json();
   if(!active(token))return;
-  if(kind==='library')libraryRevision(token,revision);else boardRevision(key,revision,token);
+   if(!ownsHistoryRecovery(token,scope,false,target))return;
+   if(kind==='library')libraryRevision(token,revision,scope);else boardRevision(key,revision,token,scope);
  };
 })();
