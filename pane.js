@@ -205,6 +205,7 @@
   const sidebarObserver=new MutationObserver(()=>{if(!$('workspaceSidebar').hidden)$('workspaceSidebar').hidden=true});sidebarObserver.observe($('workspaceSidebar'),{attributes:true,attributeFilter:['hidden']});
   function setListening(next,height=152){const measured=Number(height);document.documentElement.style.setProperty('--writing-reference-height',(Number.isFinite(measured)&&measured>0?Math.round(measured):152)+'px');if(listeningVisible===next)return;listeningVisible=next;document.documentElement.classList.toggle('listening-writing',next)}
   function canvasReady(){
+   if(!visible||frameElement?.hidden||parentHasDialog())return Promise.resolve(false);
    const deadline=performance.now()+1500;let prior='';return new Promise(resolve=>{const check=()=>{if(!visible||frameElement?.hidden||parentHasDialog())return resolve(false);if(performance.now()>deadline)return resolve(false);if(modal||frameElement?.classList.contains('pane-modal')){requestAnimationFrame(check);return}const size=canvas.clientWidth+':'+canvas.clientHeight;if(size===prior)return resolve(true);prior=size;requestAnimationFrame(check)};requestAnimationFrame(check)});
   }
   const closedViewScope=()=>window.whiteboardHosted?String(whiteboardHosted.account.id)+':'+whiteboardHosted.workspace:'local';

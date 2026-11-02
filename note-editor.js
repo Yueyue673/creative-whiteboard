@@ -105,8 +105,8 @@
   const b=referenceFields.get(field),safe=label.replace(/\|/g,'').replace(/\]\]/g,']'),raw='[[@'+row.board+(row.kind==='board'?'':'/'+row.node.id)+'|'+safe+']]',shown='[['+safe+']]',value=field.value.slice(0,start)+shown+field.value.slice(end);
   if(b){const next=projectReferences(referenceSlice(field,0,start)+raw+referenceSlice(field,end,field.value.length));rememberProjection(b,next)}
   // Use the same native text transaction as reference paste, so citation can be undone in place.
-  if(b){if(n.type!=='table')n.textFormat='markdown';field.focus({preventScroll:true});field.setSelectionRange(start,end);let inserted=false;try{inserted=document.execCommand('insertText',false,shown)}catch{}if(inserted){range={start:field.selectionStart,end:field.selectionEnd};return true}}
-  return setText(n,value,start+shown.length,start+shown.length);
+  if(b){field.focus({preventScroll:true});field.setSelectionRange(start,end);let inserted=false;try{inserted=document.execCommand('insertText',false,shown)}catch{}if(inserted){range={start:field.selectionStart,end:field.selectionEnd};return true}}
+  return setText(n,value,start+shown.length,start+shown.length,false);
  }
  function boardRecord(document,id){return {kind:'board',board:id,name:document.name,location:'整张白板 · '+(folderPath(document.folder)||'我的白板'),preview:(document.nodes||[]).filter(node=>node&&node.type!=='frame').slice(0,3).map(noteLabel).join(' · '),node:{id:'',type:'board',title:document.name||'未命名白板',body:''}}}
  function noteRecords(document,id){
@@ -276,7 +276,7 @@
  }
  function remember(el){if(el?.matches('textarea')&&(referenceFields.has(el)||['body','userText','annotation'].includes(el.id))){field=el;range={start:el.selectionStart,end:el.selectionEnd};panel?._refreshSelectionInfo?.()}}
  function ownsField(n){return !loading&&!blocked&&field?.isConnected&&editorId===n?.id&&board?.nodes.includes(n)&&field.closest('.node')?.dataset.id===n.id&&(!document.getElementById('dialog').open||Boolean(field.closest('#dialog.immersive-dialog')))}
- function setText(n,value,start,end){if(!ownsField(n))return false;checkpoint();if(n.type!=='table')n.textFormat='markdown';const binding=referenceFields.get(field),raw=serializeField(field,value);if(binding)binding.write(binding.parse(raw));else n[field.id]=raw;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();return true;}
+ function setText(n,value,start,end,markdown=true){if(!ownsField(n))return false;checkpoint();if(markdown&&n.type!=='table')n.textFormat='markdown';const binding=referenceFields.get(field),raw=serializeField(field,value);if(binding)binding.write(binding.parse(raw));else n[field.id]=raw;field.value=value;const meta=field.closest('details');if(meta)meta.open=true;field.focus({preventScroll:true});field.setSelectionRange(start,end);range={start,end};field.dispatchEvent(new Event('input',{bubbles:true}));drawEdges();renderOutline();change();return true;}
  function format(n,kind){
   if(!ownsField(n))return false;const text=field.value,{start,end}=range||{start:field.selectionStart,end:field.selectionEnd};
   const pairs={bold:'**',italic:'*',strike:'~~',highlight:'==',code:'`'};
