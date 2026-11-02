@@ -69,6 +69,7 @@ jobs:
           BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
           EXPLORER_ATTACHMENTS_PROOF: .ci-proofs/explorer-attachments
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
+          HISTORY_INLINE_IMAGES_PROOF: .ci-proofs/history-inline-images
           LIBRARY_SELECTION_ENTRY_PROOF: .ci-proofs/library-selection-entry
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
@@ -1502,5 +1503,16 @@ jobs:
           path: |
             .ci-proofs/library-selection-entry/result.json
             .ci-proofs/library-selection-entry/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep inline image history and writing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-inline-images-${{ github.run_id }}
+          path: |
+            .ci-proofs/history-inline-images/result.json
+            .ci-proofs/history-inline-images/*.png
           if-no-files-found: ignore
           retention-days: 3

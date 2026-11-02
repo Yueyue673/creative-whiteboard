@@ -297,5 +297,6 @@
   "tests/browser-library-tag-entry.cjs",
   "tests/browser-batched-layout.cjs",
   "tests/browser-offscreen-content.cjs",
-  "tests/browser-library-selection-entry.cjs"
+  "tests/browser-library-selection-entry.cjs",
+  "tests/browser-history-inline-images.cjs"
 ]
