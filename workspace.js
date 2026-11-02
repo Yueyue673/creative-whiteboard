@@ -1207,6 +1207,8 @@ function placeConnectorLabel(text,label,point,svg,set){
 drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
  const host=$('edgePaths'),lookup=new Map(board.nodes.map(n=>[n.id,n])),existing=new Map([...host.children].filter(el=>el.dataset.edge).map(el=>[el.dataset.edge,el])),alive=new Set();
  const svg=tag=>document.createElementNS('http://www.w3.org/2000/svg',tag),set=(el,key,value)=>{const text=String(value);if(el.getAttribute(key)!==text)el.setAttribute(key,text)};
+ // Read every required card size before changing any SVG path or label.
+ for(const e of board.edges){if(changedIds&&existing.has(e.id)&&!changedIds.has(e.from)&&!changedIds.has(e.to))continue;const a=lookup.get(e.from),b=lookup.get(e.to);if(a&&b){connectorBounds(a);connectorBounds(b)}}
  for(const e of board.edges){const a=lookup.get(e.from),b=lookup.get(e.to);if(!a||!b)continue;alive.add(e.id);let el=existing.get(e.id);if(changedIds&&el&&!changedIds.has(e.from)&&!changedIds.has(e.to))continue;
   const sides=naturalConnectorSides(a,b,e.portsExplicit?e.fromSide:null,e.portsExplicit?e.toSide:null),p=anchor(a,sides.from),q=anchor(b,sides.to),curve=connectorCurve(p,q,sides.from,sides.to);
   if(!el){el=svg('g');el.dataset.edge=e.id;const hit=svg('path'),line=svg('path');hit.classList.add('connector-hit');line.classList.add('connector-line');line.setAttribute('marker-end','url(#connectorArrow)');el.append(hit,line);host.append(el)}

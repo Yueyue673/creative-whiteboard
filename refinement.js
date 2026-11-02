@@ -325,8 +325,10 @@
   if(record)record.onclick=e=>{e.stopPropagation();if(record.isConnected&&board===source&&boardId===sourceId&&!loading&&!blocked&&board.nodes.includes(n))whiteboardNoteEditor.writeFrom(n.id)};
   button.onclick=e=>{e.stopPropagation();if(!button.isConnected||board!==source||boardId!==sourceId||loading||!board.nodes.includes(n))return;if(n.assetId)wfSafe(()=>previewAsset(n.assetId));else readNote(n.id)};
  }
- function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]);for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;if(n.type==='frame')mountGroupActions(el,n);const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');mountPrimaryAction(actions,n);mountCollectAction(actions,n);const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
-  for(const handle of el.querySelectorAll('.table-column-resize'))bindWidth(handle,n);
+ function mount(){const byId=new Map(board?.nodes.map(n=>[n.id,n])||[]),measuredWidths=new Map();
+ for(const handle of $('nodes').querySelectorAll('.table-column-resize')){const table=handle.closest('table'),n=byId.get(handle.closest('.node')?.dataset.id);if(n?.type!=='table'||!table||table.parentElement.closest('table')||measuredWidths.has(table))continue;measuredWidths.set(table,displayedColumnWidths(n,table))}
+ for(const el of $('nodes').children){const n=byId.get(el.dataset.id);if(!n)continue;if(n.type==='frame')mountGroupActions(el,n);const limit=String(Math.min(Number(n.w)||300,Number(n.h)||120)/40);if(el.style.getPropertyValue('--handle-limit')!==limit)el.style.setProperty('--handle-limit',limit);const actions=el.querySelector('.block-actions');mountPrimaryAction(actions,n);mountCollectAction(actions,n);const drag=actions?.querySelector('.block-transfer');if(drag&&!drag.dataset.refined){drag.dataset.refined='true';drag.title='按住拖动，把副本放到表格、内容库或另一张白板';drag.setAttribute('aria-label','拖出副本');drag.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.5"/><circle cx="16" cy="5" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="19" r="1.5"/><circle cx="16" cy="19" r="1.5"/></svg><span>拖出副本</span>'}
+  for(const handle of el.querySelectorAll('.table-column-resize'))bindWidth(handle,n,measuredWidths.get(handle.closest('table')));
  }syncSelectionTools();const toolbar=$('nodes').querySelector(':scope>.node.table>.inner.live-layout>.inline-toolbar');if(toolbar!==tableToolbar){if(tableToolbar)canvasBounds.unobserve(tableToolbar);tableToolbar=toolbar;if(tableToolbar)canvasBounds.observe(tableToolbar)}positionActions()}
  const draw=drawNodes;drawNodes=function(){cancelWidth();const position=activePosition(),group=groupPosition();draw();mount();expandEditor();if(position)restorePosition(position);restoreGroupPosition(group)};const select=refreshSelectionUI;refreshSelectionUI=function(){select();mount()};
  const previousMove=moveView;moveView=function(){previousMove();positionActions()};
@@ -339,18 +341,19 @@
  window.addEventListener('blur',()=>{widthKey=null;cancelWidth()});
  $('dialog').addEventListener('close',cancelWidth);
  $('nodes').addEventListener('toggle',e=>{if(e.target.id==='inlineMeta'&&!e.target.open)cancelWidth()},true);
- function bindWidth(handle,n){
+ function displayedColumnWidths(n,table){const heads=[...table.querySelectorAll(':scope>thead>tr>th[data-col-target]')];return n.columns.map((_,i)=>{const v=n.columnWidths?.[i];return Math.max(100,Math.min(900,typeof v==='number'&&Number.isFinite(v)&&v>0?v:heads[i]?.offsetWidth||160))})}
+ function bindWidth(handle,n,measuredWidths=null){
   const table=handle.closest('table'),column=Number(handle.dataset.widthColumn),prior=widthBindings.get(handle);if(n.type!=='table'||table.parentElement.closest('table'))return;
-  if(prior?.node===n&&prior.board===board&&prior.boardId===boardId&&prior.column===column&&prior.table===table){prior.sync();return}
+  if(prior?.node===n&&prior.board===board&&prior.boardId===boardId&&prior.column===column&&prior.table===table){prior.sync(measuredWidths);return}
   if(widthGesture?.handle===handle)cancelWidth();handle.dataset.bound='true';let start=null;
   const bounded=v=>Math.max(100,Math.min(900,v)),hasWidth=()=>Object.prototype.hasOwnProperty.call(n,'columnWidths'),signature=()=>JSON.stringify([n.columns,n.columnIds,hasWidth(),n.columnWidths]),displaySignature=()=>JSON.stringify([n.columns.length,n.columnIds,hasWidth(),n.columnWidths]);
   const supported=()=>!hasWidth()||Array.isArray(n.columnWidths)&&(n.columnWidths.length===0||n.columnWidths.length===n.columns.length)&&n.columnWidths.every(v=>typeof v==='number'&&Number.isFinite(v)&&v>0);
   const live=()=>!loading&&!blocked&&supported()&&(selected.has(n.id)||editorId===n.id)&&board?.nodes.find(v=>v.id===n.id)===n&&handle.isConnected;
   const scale=()=>handle.closest('.immersive-surface')?1:view().z*(window.whiteboardCanvasObjects?.scaleOf(n)||1);
-  const widths=()=>{const heads=[...table.querySelectorAll(':scope>thead>tr>th[data-col-target]')];return n.columns.map((_,i)=>{const v=n.columnWidths?.[i];return bounded(typeof v==='number'&&Number.isFinite(v)&&v>0?v:heads[i]?.offsetWidth||160)})};
+  const widths=()=>displayedColumnWidths(n,table);
   const applied=(preview,value)=>{const values=Array.isArray(n.columnWidths)&&n.columnWidths.length===n.columns.length?[...n.columnWidths]:[...preview];values[column]=value;return values};
   const value=v=>{handle.setAttribute('aria-valuenow',String(v));const text=(Math.round(v*10)/10)+' px';handle.setAttribute('aria-valuetext',text);handle.dataset.widthText=text};
-  handle.tabIndex=0;handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');handle.setAttribute('aria-valuemin','100');handle.setAttribute('aria-valuemax','900');handle.setAttribute('aria-label','第'+(column+1)+'列宽度');handle.title='拖动调整列宽；左右键微调，Shift加速，Home最窄、End最宽，双击恢复160 px';value(widths()[column]);
+  handle.tabIndex=0;handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');handle.setAttribute('aria-valuemin','100');handle.setAttribute('aria-valuemax','900');handle.setAttribute('aria-label','第'+(column+1)+'列宽度');handle.title='拖动调整列宽；左右键微调，Shift加速，Home最窄、End最宽，双击恢复160 px';value((measuredWidths||widths())[column]);
   handle.onfocus=()=>{if(!start)value(widths()[column])};
   const sameOwner=s=>board===s.board&&boardId===s.boardId&&board?.nodes.find(v=>v.id===n.id)===n&&table.isConnected&&handle.isConnected;
   const valid=s=>live()&&sameOwner(s)&&signature()===s.signature&&scale()===s.scale&&(!s.details||s.details.isConnected&&s.details.open===s.detailsOpen);
@@ -378,7 +381,7 @@
   };
   handle.onkeydown=e=>{if(e.isComposing)return;if(['Delete','Backspace'].includes(e.key)){e.preventDefault();e.stopPropagation();return}if(e.ctrlKey||e.metaKey||e.altKey||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();e.stopPropagation();const current=widths()[column],next=e.key==='Home'?100:e.key==='End'?900:bounded(current+(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?10:1));resize(next,e)};
   handle.ondblclick=e=>{e.preventDefault();e.stopPropagation();resize(160)};
-  widthBindings.set(handle,{node:n,board,boardId,column,table,sync:()=>{if(start&&!valid(start))finish(false);value(start?start.pending[column]:widths()[column])}});
+  widthBindings.set(handle,{node:n,board,boardId,column,table,sync:measured=>{const wasResizing=!!start;if(start&&!valid(start))finish(false);value(start?start.pending[column]:(wasResizing||!measured?widths():measured)[column])}});
  }
  const move=moveTable;moveTable=function(n,axis,from,to){const widths=clone(n.columnWidths||[]);move(n,axis,from,to);if(axis==='column'&&widths.length===n.columns.length&&from!==to){widths.splice(to,0,widths.splice(from,1)[0]);n.columnWidths=widths;drawNodes();change()}};
  for(const field of ['columnWidths'])if(!wfContentFields.includes(field))wfContentFields.push(field);
