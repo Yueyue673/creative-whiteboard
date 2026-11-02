@@ -103,6 +103,7 @@ jobs:
           HELP_JOURNEY_PROOF: .ci-proofs/help-reuse-journey
           ARRANGEMENT_RETURN_PROOF: .ci-proofs/arrangement-return
           LIBRARY_COPIES_PROOF: .ci-proofs/library-copies
+          LIBRARY_DOCUMENT_EDIT_OUTPUT: .ci-proofs/library-document-text-edit
           LIBRARY_REFERENCE_PROOF: .ci-proofs/library-writing-reference
           IMAGE_WRITING_REFERENCE_PROOF: .ci-proofs/image-writing-reference
           LIBRARY_IMAGE_PIECES_PROOF: .ci-proofs/library-image-pieces
@@ -190,6 +191,16 @@ jobs:
           LIBRARY_TABLE_VERSION_READING_PROOF: .ci-proofs/library-table-version-reading
           LIBRARY_CSV_TABLE_ENTRY_PROOF: .ci-proofs/library-csv-table-entry
           NOTE_SELECTION_COUNT_PROOF: .ci-proofs/note-selection-count
+      - name: Keep original document editing failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-document-text-edit-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-document-text-edit/result.json
+            .ci-proofs/library-document-text-edit/*.png
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Keep isolated image-writing-reference evidence
         if: always()
         uses: actions/upload-artifact@v4
