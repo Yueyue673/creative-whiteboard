@@ -4,9 +4,9 @@
 
 本页汇集这份源码中保留的改动。开始使用前，先按手里的版本选择入口；下面的详细记录不代表默认下载版、网站和私人安装已经一同更新。
 
-**后续公开开发批次：** [查看03a5206的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/03a5206927cf48391d6bd1eca9e5626da46b6231) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
+**后续公开开发批次：** [查看405f1fe的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/405f1feac669409b364864b695326bf7ec2f26a6) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
 
-截至2026-11-01，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41318884354)及8项Windows/Linux矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41318513516)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41318509424)均在既有320px相机返回断言失败，日志特征与此前2d30802一致，末尾9项后续浏览器任务未执行。各批本机范围与准确CI分别记录，没有宣称当前提交全量回归通过。下面历史条目中的核验说明按其时点理解；本页开头为最近公开批次。网站部署和私人安装仍分别记录。
+截至2026-11-03，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483343767)及8项Windows/Linux矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483321590)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483310832)各完整执行296项浏览器任务，276项通过、20项失败，没有中断或未执行项。失败任务仍需逐项归因，当前没有全量回归通过。各批本机范围与准确CI分别记录。下面历史条目中的核验说明按其时点理解；本页开头为最近公开批次。网站部署和私人安装仍分别记录。
 
 | 你使用的版本 | 从哪里开始 | 怎样看下面的改动 |
 | --- | --- | --- |
@@ -15,6 +15,14 @@
 | 带账号的网页版本 | 使用维护者部署的网站与账号 | 以对应部署记录和实际入口为准；开发源码中的改动不会自动进入网站。 |
 
 想先了解主要用法，可从[保存一组内容 → 放到新白板 → 回看来源](reuse.md)开始。想核对某项具体变化，再看下方条目；实体设备和作者实际使用的未验范围仍按各项记录保留。
+
+## 大白板的离屏阅读内容按需绘制
+
+在支持该能力的浏览器中，让未选中纸张已有的阅读滚动区域采用`content-visibility: auto`。内容、字段和原DOM保留，分组、纸面操作及活动编辑器沿用原布局；不支持时使用原样式。可以继续从目录找到远处的便签或表格，编辑后用原撤销、重做和保存。
+
+本机给定600张便签、40张表格、4个分组和200条连线，连续平移的单步中位数从约176–181ms降到约83–86ms，分别观察了阅读和保留活动编辑器两种状态。这是合成场景的本机诊断，不是帧率或手机、头显的速度保证。另一个给定布局在桌面与320px的六组画面、字段尺寸和SVG连线保持一致；宽窄原生任务核对了远处目录查找、便签与表格续写、可见撤销/重做、完整内容保存及新页读回。原800张自动尺寸便签和混合媒体平移任务通过。
+
+本项对应的新源码尚未上传或运行准确CI，服务器QA、网页版切换、私人安装、实体移动/VR设备、输入法和作者长期使用未验。原公开405f1fe的CI范围见本页开头，不能代替本项的新源码检查。
 
 ## 大白板首次打开时集中读取尺寸
 

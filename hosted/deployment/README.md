@@ -8,7 +8,7 @@ DNS/TLS, operational backup schedules and offsite copies require independent
 operator acceptance. It never imports desktop data automatically.
 
 The image uses the reviewed Python manifest digest and Gunicorn 26.2.0. Its exact
-170 runtime files are declared in `program_files.json` and mirrored by literal
+runtime files are declared in `program_files.json` and mirrored by literal
 file exceptions in `.dockerignore`. Do not unignore parent directories: their
 children can become build inputs too. The contract includes current portal
 assets and migrations, while excluding desktop `server.py`, local data, keys,
@@ -130,7 +130,7 @@ The workflow result, not this document, determines whether these checks passed.
 Before the application build, actual Docker exports a minimal parent-exception
 baseline and an independent full program context to tar inventories. The baseline
 uses synthetic extras only; it is not evidence of a private-file exposure. The
-corrected context must contain exactly all116 runtime files and omit twelve
+corrected context must contain exactly all listed runtime files and omit twelve
 unlisted synthetic inputs placed in root/runtime/asset/vendor subdirectories.
 The resulting application image is separately inventoried against that same
 manifest. The real HTTPS/backup/restore fixture then runs from this independently

@@ -294,5 +294,6 @@
   "tests/browser-manual-checkpoint-owner.cjs",
   "tests/browser-library-table-text-export.cjs",
   "tests/browser-library-tag-entry.cjs",
-  "tests/browser-batched-layout.cjs"
+  "tests/browser-batched-layout.cjs",
+  "tests/browser-offscreen-content.cjs"
 ]

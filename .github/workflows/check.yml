@@ -67,6 +67,7 @@ jobs:
       - run: npm run test:browser
         env:
           BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
+          OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
           VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
@@ -1455,5 +1456,16 @@ jobs:
         with:
           name: browser-suite-results-${{ github.run_id }}
           path: .ci-proofs/browser-suite/result.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep offscreen content discovery and writing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offscreen-content-${{ github.run_id }}
+          path: |
+            .ci-proofs/offscreen-content/result.json
+            .ci-proofs/offscreen-content/*.png
           if-no-files-found: ignore
           retention-days: 3
