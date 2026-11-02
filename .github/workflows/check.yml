@@ -68,6 +68,7 @@ jobs:
         env:
           BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
+          LIBRARY_SELECTION_ENTRY_PROOF: .ci-proofs/library-selection-entry
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
           VIDEO_WRITING_PROOF: .ci-proofs/video-writing-reference
@@ -1467,5 +1468,16 @@ jobs:
           path: |
             .ci-proofs/offscreen-content/result.json
             .ci-proofs/offscreen-content/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep stable library selection and overlay return evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-selection-entry-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-selection-entry/result.json
+            .ci-proofs/library-selection-entry/*.png
           if-no-files-found: ignore
           retention-days: 3

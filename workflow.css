@@ -78,6 +78,8 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-picked-bar #assetCount{flex:1;min-width:0;margin:0}
 .wf-picked-bar.wf-whole-list #assetCount{min-width:140px}
 .wf-picked-bar button{flex:none;min-height:44px}
+/* Reserve contextual controls so selecting a resource does not move the next pointer target. */
+#wfPickedBar button[hidden]{display:inline-flex!important;visibility:hidden;pointer-events:none}
 .wf-picked-hint{font-size:11px;line-height:1.6;color:var(--ui-muted);margin:4px 3px}
 
 .wf-picked-bar #assetPlace:not([hidden]){display:inline-flex!important;align-items:center;justify-content:center}
