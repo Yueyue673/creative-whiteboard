@@ -70,6 +70,7 @@ jobs:
           EXPLORER_ATTACHMENTS_PROOF: .ci-proofs/explorer-attachments
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
           HISTORY_INLINE_IMAGES_PROOF: .ci-proofs/history-inline-images
+          LIBRARY_THUMBNAILS_PROOF: .ci-proofs/library-thumbnails
           LIBRARY_SELECTION_ENTRY_PROOF: .ci-proofs/library-selection-entry
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
           DOCUMENT_TEXT_PROOF: .ci-proofs/document-paragraph-text-resource
@@ -1514,5 +1515,16 @@ jobs:
           path: |
             .ci-proofs/history-inline-images/result.json
             .ci-proofs/history-inline-images/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep scoped library thumbnail loading evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-thumbnails-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-thumbnails/result.json
+            .ci-proofs/library-thumbnails/*.png
           if-no-files-found: ignore
           retention-days: 3
