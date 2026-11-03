@@ -889,6 +889,22 @@ if(board){applyTypography();syncTextTools();announce()}
 // Files added while writing remain available without filling the resource shelf.
 // Old files have no marker and remain where the author previously left them.
 (()=>{
+ function syncOrigins(){
+  if($('assetPane').hidden)return;
+  const rows=[...$('assetList').querySelectorAll('[data-asset]')];if(!rows.length)return;
+  const wanted=new Set(rows.map(row=>row.dataset.asset)),items=new Map();
+  for(const item of assetIndex.assets){if(wanted.delete(item.id))items.set(item.id,item);if(!wanted.size)break}
+  // The board list already owns these names. Do not fetch board contents or guess by title.
+  const names=new Map();for(const item of boardList)names.set(item.id,names.has(item.id)?null:item.name);
+  const showFolder=!!$('assetSearch').value.trim()||wfLibraryBranchActive();
+  for(const row of rows){
+   const item=items.get(row.dataset.asset);if(!item?.attachmentBoard)continue;
+   const name=names.get(item.attachmentBoard),label=typeof name==='string'&&name.trim()?name:'来源白板暂不可用',meta=row.querySelector('small'),kind=row.querySelector('.file-kind');
+   row.dataset.attachmentOrigin='';
+   if(showFolder){let hint=row.querySelector('.attachment-origin-caption');if(!hint){hint=document.createElement('p');hint.className='attachment-origin-caption';row.querySelector('div')?.append(hint)}hint.textContent='来自：'+label;hint.title=hint.textContent}
+   else{if(kind)kind.textContent='来自';if(meta){meta.textContent=label;meta.title='来自白板：'+label+' · '+assetSizeLabel(item.size)}}
+  }
+ }
  function collectAttachments(){
   const ids=[...assetSelected].filter(id=>assetById(id)?.attachmentBoard);if(!ids.length)return;
   wfPickDestination('收进内容库','原图片和白板里的位置保持不变。',async folder=>{
@@ -906,12 +922,15 @@ if(board){applyTypography();syncTextTools();announce()}
   }
   const count=assetIndex.assets.filter(item=>!item.archived&&item.attachmentBoard).length;
   shelf.hidden=!count&&wfLibraryShelf!=='attachments';for(const button of shelf.children){button.setAttribute('aria-pressed',String(button.dataset.libraryShelf===wfLibraryShelf));button.textContent=button.dataset.libraryShelf==='attachments'?'白板附件'+(count?' '+count:''):'资源'}
-  let collect=$('collectAttachments');if(!collect){collect=document.createElement('button');collect.id='collectAttachments';collect.type='button';collect.textContent='收进内容库';collect.onclick=collectAttachments;$('wfPickedBar').after(collect)}
-  collect.hidden=![...assetSelected].some(id=>assetById(id)?.attachmentBoard);
+  const attachedSelected=[...assetSelected].some(id=>assetById(id)?.attachmentBoard),attachmentActions=wfLibraryShelf==='attachments'||attachedSelected,bar=$('wfPickedBar');
+  let collect=$('collectAttachments');if(!collect){collect=document.createElement('button');collect.id='collectAttachments';collect.type='button';collect.textContent='收进库';collect.setAttribute('aria-label','收进内容库');collect.onclick=collectAttachments;bar.append(collect)}
+  bar.classList.toggle('wf-attachment-actions',attachmentActions);collect.hidden=!attachmentActions;collect.disabled=!attachedSelected||!assetCatalogReady;
   const empty=$('assetList').querySelector('.explorer-empty');if(empty&&!$('assetSearch').value.trim()&&wfLibraryShelf==='attachments')empty.textContent='放进白板的图片等文件会留在这里。需要反复使用的，可以收进内容库。';
+  syncOrigins();
  }
  const render=renderAssets;renderAssets=function(){render();sync()};
  const update=updateAssetSelection;updateAssetSelection=function(){update();sync()};
+ const folders=renderFolders;renderFolders=function(){folders();syncOrigins()};
 
  sync();
 })();

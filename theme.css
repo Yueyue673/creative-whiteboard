@@ -345,3 +345,9 @@ body #shellHeader #splitToggle .shell-action-label{font-size:12px;white-space:no
 /* Keep the three selection actions on one row in a 260px sidebar. */
 body #workspaceSidebar #wfPickedBar{gap:6px}
 body #workspaceSidebar #wfPickedBar button{font-size:12px;padding-inline:6px;min-height:44px}
+/* Distinguish same-named attachments in the existing metadata line. */
+body #workspaceSidebar .asset-row[data-attachment-origin] .file-kind{background:transparent!important;color:var(--ui-muted)!important;padding:0}
+body #workspaceSidebar .asset-row[data-attachment-origin]>div small,body #workspaceSidebar .attachment-origin-caption{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ui-muted);font-size:11px}
+/* Attachment collection uses the existing third action slot, keeping rows still. */
+body #workspaceSidebar #wfPickedBar.wf-attachment-actions #wfPickedTags,body #workspaceSidebar #wfPickedBar:not(.wf-attachment-actions) #collectAttachments{display:none!important}
+body #workspaceSidebar #wfPickedBar #collectAttachments{align-self:auto;margin:0;min-height:44px;padding:6px}
