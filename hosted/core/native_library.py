@@ -21,6 +21,8 @@ def validate_entries(value):
         if not isinstance(identity, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', identity) or identity in ids:
             raise ValueError('内容库项目编号无效或重复')
         ids.add(identity)
+        if 'attachmentBoard' in entry and (not isinstance(entry['attachmentBoard'], str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', entry['attachmentBoard'])):
+            raise ValueError('附件来源编号无效')
         if not isinstance(entry.get('title'), str) or not entry['title'].strip() or len(entry['title']) > 1000:
             raise ValueError('内容库名称无效')
         folder = entry.get('folder', '')

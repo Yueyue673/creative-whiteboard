@@ -67,6 +67,7 @@ jobs:
       - run: npm run test:browser
         env:
           BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
+          EXPLORER_ATTACHMENTS_PROOF: .ci-proofs/explorer-attachments
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
           LIBRARY_SELECTION_ENTRY_PROOF: .ci-proofs/library-selection-entry
           SUBSET_RESOURCE_PROOF: .ci-proofs/library-subset-resource
@@ -1468,6 +1469,17 @@ jobs:
         with:
           name: browser-suite-results-${{ github.run_id }}
           path: .ci-proofs/browser-suite/result.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep file movement and attachment shelf evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: explorer-attachments-${{ github.run_id }}
+          path: |
+            .ci-proofs/explorer-attachments/result.json
+            .ci-proofs/explorer-attachments/*.png
           if-no-files-found: ignore
           retention-days: 3
 

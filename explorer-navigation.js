@@ -24,6 +24,17 @@
  }
  function sync(panel){
   const root=list(panel),items=rows(panel);
+  const up=$(panel==='manager'?'boardUp':'assetUp');
+  up.textContent='↑';up.title='上一级';up.setAttribute('aria-label','上一级');
+  if(panel==='manager'){
+   $('boardCrumbs').querySelectorAll('[data-bcrumb]').forEach(el=>wireBoardDrop(el,()=>el.dataset.bcrumb));
+   wireBoardDrop($('boardUp'),()=>folderData.folders.find(f=>f.id===folderSelected)?.parent||'');
+   $('boardLocationHint').setAttribute('aria-live','polite');
+  }
+  if(panel==='assetPane'){
+   $('assetBreadcrumbs').querySelectorAll('[data-acrumb]').forEach(el=>bindAssetFolderDrop(el,()=>el.dataset.acrumb));
+   bindAssetFolderDrop($('assetUp'),()=>assetFolder.includes('/')?assetFolder.slice(0,assetFolder.lastIndexOf('/')):'');
+  }
   root.tabIndex=items.length?-1:0;root.setAttribute('role','listbox');
   root.setAttribute('aria-label',panel==='manager'?'白板与文件夹':'内容与文件夹');
   root.setAttribute('aria-multiselectable',String(panel==='assetPane'));
@@ -33,6 +44,13 @@
    row.setAttribute('role','option');row.setAttribute('aria-selected',String(chosen(row,panel)));
    row.tabIndex=row===tabStop?0:-1;
    row.querySelectorAll('button,input[type=checkbox]').forEach(el=>el.tabIndex=-1);
+   if(row.dataset.asset&&!row.querySelector('.explorer-more')){const more=document.createElement('button');more.type='button';more.className='explorer-more';more.textContent='⋯';more.title='更多操作';more.setAttribute('aria-label',(assetById(row.dataset.asset)?.title||'内容')+'的更多操作');row.append(more)}
+   const more=row.querySelector('.explorer-more');if(more){more.tabIndex=-1;more.onpointerdown=e=>e.stopPropagation();more.ondblclick=e=>e.stopPropagation();more.onclick=e=>{e.stopPropagation();const r=more.getBoundingClientRect();row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.right,clientY:r.bottom}))}}
+   if(panel==='assetPane'){
+    const folder=row.dataset.asub,mark=row.querySelector(folder?':scope > span':'.asset-icon');
+    if(mark){const kind=folder?'folder':({便签:'note',表格:'table',组合:'bundle',图片:'image',音频:'audio',视频:'video',网页:'link',PDF:'file',JSON:'file'})[row.dataset.kind]||'file';mark.innerHTML=explorerIcon(kind)}
+    const preview=row.querySelector('[data-asset-preview]');if(preview){preview.innerHTML='<svg class="explorer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';preview.setAttribute('aria-label','预览 '+(assetById(row.dataset.asset)?.title||'内容'))}
+   }
   }
  }
  function selection(panel,row,{range=false,toggle=false,additive=false}={}){

@@ -293,11 +293,12 @@
  const upload = uploadFiles;
  uploadFiles = function(files, folder = assetFolder, feedback) {
   const snapshot = [...files];
-   const canvasTask=[...tasks.values()].find(task=>task.kind==='canvas'&&snapshot.every(file=>task.files?.includes(file))),canvasOwner=!!canvasTask;
+   const canvasTask=[...tasks.values()].find(task=>task.kind==='canvas'&&snapshot.every(file=>task.files?.includes(file))),canvasOwner=!!canvasTask,attachmentBoard=canvasOwner?boardId:'';
+   if(!canvasOwner&&wfLibraryShelf==='attachments'){wfLibraryShelf='resources';renderAssets()}
    if(canvasTask?.retryValid&&!canvasTask.retryValid())return Promise.reject(Error('原白板或所属账号已有变化，请重新选择文件。'));
   return run(async () => {
    const preparation=window.whiteboardImagePreparation?.prepare(snapshot);
-   try{const added=await upload(snapshot,folder);preparation?.remember(added);return added}
+   try{const added=await upload(snapshot,attachmentBoard?'':folder,{attachmentBoard});preparation?.remember(added);return added}
    finally{preparation?.dispose()}
    }, 'library', snapshot.length ? {...filesLabel(snapshot,'上传中'), libraryUpload:!canvasOwner, folder, ...(feedback&&libraryUploads.get(feedback.id)===feedback?{placement:feedback,borrowed:true}:{}), key:fileKey('upload', snapshot, libraryFolderIdentity(folder),canvasOwner?boardId:'library')} : {});
  };

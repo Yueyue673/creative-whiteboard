@@ -101,6 +101,7 @@ class AssetMixin:
     if not isinstance(a,dict) or not re.fullmatch(r'[a-zA-Z0-9_-]+',a.get('id','')) or a['id'] in ids or not all(isinstance(a.get(k),str) for k in ['title','path','folder']):raise ValueError('素材信息无效')
     ids.add(a['id'])
    if any(not isinstance(f,str) for f in d['folders']):raise ValueError('文件夹格式无效')
+   if any('attachmentBoard' in a and (not isinstance(a['attachmentBoard'],str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',a['attachmentBoard'])) for a in d['assets']):raise ValueError('附件来源编号无效')
    validate_folder_ids(d)
    with LOCK:
     etag=hashlib.sha256(INDEX.read_bytes()).hexdigest() if INDEX.exists() else 'new'
@@ -154,6 +155,8 @@ class AssetMixin:
    if not 0<length<=256*1024*1024:raise ValueError('直接上传最多256MB；更大的素材请使用“导入 → 引用本地文件”')
    name=Path(unquote(self.headers.get('X-File-Name','文件'))).name
    folder=unquote(self.headers.get('X-Folder',''))
+   attachment_board=self.headers.get('X-Attachment-Board','')
+   if attachment_board and not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',attachment_board):raise ValueError('附件来源编号无效')
    with LOCK:target=capture_destination(data(),folder,self.headers.get('X-Folder-Id'))
    ident=uuid.uuid4().hex;ext=Path(name).suffix[:20];FILES.mkdir(exist_ok=True);f=FILES/(ident+ext)
    content_hash=hashlib.sha256()
@@ -164,6 +167,7 @@ class AssetMixin:
      if not chunk:raise ValueError('上传未完成')
      stream.write(chunk);content_hash.update(chunk);remaining-=len(chunk)
    item={'id':ident,'title':name,'path':str(f),'folder':folder,'mime':kind(f),'notes':'','tags':[],'size':length,'contentHash':content_hash.hexdigest(),'contentMtime':f.stat().st_mtime_ns}
+   if attachment_board:item['attachmentBoard']=attachment_board
    with LOCK:
     d=data();folder,missing=resolve_destination(d,target);item['folder']=folder;match=None
     for a in d['assets']:
@@ -172,7 +176,7 @@ class AssetMixin:
      if old.parent.resolve()==FILES.resolve() and old.is_file() and old.stat().st_size==length and a.get('contentMtime')==old.stat().st_mtime_ns:match=a;break
     if match:
      f.unlink()
-     same=next((a for a in d['assets'] if not a.get('archived') and a.get('path')==match['path'] and a.get('title')==name and a.get('folder')==folder),None)
+     same=next((a for a in d['assets'] if not a.get('archived') and a.get('path')==match['path'] and a.get('title')==name and a.get('folder')==folder and a.get('attachmentBoard','')==attachment_board),None)
      if same:self.reply(200,import_result(same,d,missing));return
      item['path']=match['path'];item['contentMtime']=match['contentMtime']
     d['assets'].append(item)

@@ -32,7 +32,7 @@ def snapshot(scope, account):
         item = asset_json(record, account)
         item['path'] = item['mediaURL'] + '&filename=' + quote(record.filename)
         item['updated'] = record.updated_at.timestamp() * 1000
-        for field in ('archiveBatch', 'archivedAt'):
+        for field in ('archiveBatch', 'archivedAt', 'attachmentBoard'):
             if field in stored.get(str(record.pk), {}):
                 item[field] = stored[str(record.pk)][field]
         if record.archived and str(record.pk) in stored:
@@ -99,7 +99,7 @@ def library(request, workspace_id):
                 if changed:
                     record.byte_size = metadata_size(record);record.revision_token = uuid.uuid4();record.save()
                 saved = {'id': identity, 'mime': FILE_REFERENCE, 'title': title, 'notes': notes, 'tags': tags, 'folder': folder, 'folderId': target_id, 'archived': archived}
-                for field in ('archiveBatch', 'archivedAt'):
+                for field in ('archiveBatch', 'archivedAt', 'attachmentBoard'):
                     if field in item:
                         saved[field] = copy.deepcopy(item[field])
                 canonical['assets'].append(saved)
@@ -172,7 +172,7 @@ def historical_library(value, scope, account):
             continue
         row = files[item['id']]; result = asset_json(row, account)
         result['path'] = result['mediaURL'] + '&filename=' + quote(row.filename)
-        for field in ('title', 'notes', 'tags', 'folder', 'folderId', 'archived', 'archiveBatch', 'archivedAt'):
+        for field in ('title', 'notes', 'tags', 'folder', 'folderId', 'archived', 'archiveBatch', 'archivedAt', 'attachmentBoard'):
             if field in item:
                 result[field] = copy.deepcopy(item[field])
         value['assets'][index] = result

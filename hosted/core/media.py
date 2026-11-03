@@ -1,5 +1,6 @@
 """Server-owned media identifiers, bounded transfers and explicit scope."""
 import hashlib
+import copy
 import os
 import re
 import shutil
@@ -178,7 +179,11 @@ def cancel_upload(scope, reservation_id):
         row.delete()
 
 
-def upload_stream(scope, account, request, size, filename, folder_id):
+def upload_stream(scope, account, request, size, filename, folder_id, *, attachment_board=''):
+    if attachment_board:
+        valid_key(attachment_board)
+        if find_document(scope.workspace.pk, 'board', attachment_board) is None:
+            raise APIError('原白板已不在这个工作区，请重新打开后添加图片。', 409)
     row = reserve_upload(scope, account, size, filename, folder_id)
     try:
         target = checked_storage(scope, "incoming", row.pk, create=True)
@@ -214,6 +219,21 @@ def upload_stream(scope, account, request, size, filename, folder_id):
             )
             asset.byte_size = metadata_size(asset)
             asset.save(force_insert=True)
+            if attachment_board:
+                # The media and its attachment classification commit together.
+                # Existing catalog entries and original bytes are retained.
+                from .documents import document_etag, put_document
+                from .native_library import FILE_REFERENCE
+                if find_document(workspace.pk, 'board', attachment_board) is None:
+                    raise APIError('原白板已移除，这次附件未保存。', 409)
+                doc = find_document(workspace.pk, 'library', 'catalog')
+                catalog = copy.deepcopy(doc.value) if doc else {'version': 1, 'folders': [], 'assets': []}
+                catalog['assets'].append({'id': str(asset.pk), 'mime': FILE_REFERENCE, 'title': filename,
+                                         'folder': folder_location(workspace.pk, row.folder_id),
+                                         'notes': '', 'tags': [], 'attachmentBoard': attachment_board})
+                result, _ = put_document(scope, account, 'library', 'catalog', catalog, document_etag(doc) if doc else 'new')
+                if not result['saved']:
+                    raise APIError('附件目录已有变化，这次上传未保存，请重试。', 409)
             UploadReservation.objects.filter(pk=row.pk).delete()
             check_quota(workspace.pk)
             return asset

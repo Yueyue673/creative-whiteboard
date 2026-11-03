@@ -31,11 +31,15 @@ def upload(request, workspace_id):
         raise APIError("文件为空或超过单次上传限制，本次未保存", 413)
     filename = original_filename(request.headers.get("X-File-Name", ""))
     folder_id = request.headers.get("X-Folder-Id", "")
+    attachment_board = request.headers.get("X-Attachment-Board", "")
     try:
-        asset = upload_stream(request.workspace_scope, request.user, request, length, filename, folder_id)
+        asset = upload_stream(request.workspace_scope, request.user, request, length, filename, folder_id, attachment_board=attachment_board)
     except OSError:
         raise APIError("上传存储暂时不可用，本次未完成，请保留原文件后重试", 503) from None
-    response = JsonResponse(asset_json(asset, request.user), status=201)
+    value = asset_json(asset, request.user)
+    if attachment_board:
+        value['attachmentBoard'] = attachment_board
+    response = JsonResponse(value, status=201)
     response["ETag"] = asset_etag(asset)
     return response
 

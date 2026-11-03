@@ -1,4 +1,5 @@
 [
+  "tests/browser-explorer-attachments.cjs",
   "tests/browser-port-safety.cjs",
   "tests/browser-appearance-preset-update.cjs",
   "tests/browser-appearance-preset-rename.cjs",

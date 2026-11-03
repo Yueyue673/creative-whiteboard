@@ -214,6 +214,35 @@ body #workspaceSidebar .workspace-tabs button.current{background:var(--ui-raised
 body #workspaceSidebar .clear-location{padding:9px 12px 12px}
 body #workspaceSidebar #boardSearch,body #workspaceSidebar #assetSearch,body #workspaceSidebar #search{border-radius:6px;padding:10px 12px;line-height:1.5;font-size:13px}
 body #workspaceSidebar .explorer-item,body #workspaceSidebar .asset-row,body #workspaceSidebar .asset-subfolder,body #items button{border-radius:5px}
+/* Compact navigation: keep the title, count and explicit action on one row. */
+body #workspaceSidebar .explorer-item{min-height:38px;padding:3px 5px 3px 8px;gap:8px;margin:1px 0;user-select:none}
+body #workspaceSidebar .explorer-item>div{line-height:1.45}
+body #workspaceSidebar .explorer-item b{font-size:13px;line-height:1.45}
+body #workspaceSidebar .explorer-symbol,body #workspaceSidebar .asset-subfolder>span{display:inline-flex;flex-shrink:0;color:var(--ui-muted)!important}
+.explorer-icon{width:19px;height:19px;display:block;flex-shrink:0;pointer-events:none}
+.explorer-count{font-size:11px;color:var(--ui-muted);font-variant-numeric:tabular-nums}
+#libraryShelf{display:flex;gap:14px;margin:6px 0 0;flex-shrink:0;border-bottom:1px solid var(--ui-line)}
+#libraryShelf[hidden],#collectAttachments[hidden]{display:none}
+body #workspaceSidebar .explorer-location.clear-location nav{flex:1;min-width:0}
+@media(max-width:400px){
+ body #workspaceSidebar .explorer-location.clear-location:has(>button[id$=Up]:not(:disabled)){display:flex!important;align-items:center;gap:4px}
+ body #workspaceSidebar :is(#boardUp,#assetUp):not(:disabled){display:block!important;flex:none;width:36px;min-height:36px;padding:4px;font-size:18px}
+}
+#libraryShelf button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:7px 2px;background:transparent;color:var(--ui-muted);font-size:12px;min-height:36px}
+#libraryShelf button[aria-pressed=true]{border-bottom-color:var(--ui-text);color:var(--ui-text)}
+#collectAttachments{align-self:flex-start;font-size:12px;padding:6px 9px;margin:0 0 6px;min-height:36px;background:var(--ui-raised);border:1px solid var(--ui-line)}
+body #workspaceSidebar .explorer-item em{font-size:10px;color:var(--ui-muted)}
+body #workspaceSidebar .explorer-more{border:0;background:transparent;padding:0;width:30px;min-width:30px;height:32px;font-size:20px;color:var(--ui-muted);line-height:1}
+body #workspaceSidebar .explorer-more:hover{background:var(--ui-hover);color:var(--ui-text)}
+body #workspaceSidebar .folder-drop{outline:2px solid var(--ui-focus,var(--ui-accent))!important;outline-offset:-2px;background:var(--ui-selected)!important;color:var(--ui-text)!important}
+body #workspaceSidebar .asset-row .asset-icon{display:flex;align-items:center;justify-content:center;width:36px;flex-shrink:0;color:var(--ui-muted)}
+body #workspaceSidebar .asset-row{position:relative;gap:7px;padding:6px 5px 6px 8px;min-height:52px}
+body #workspaceSidebar .asset-row>input[type=checkbox]{position:absolute;left:8px;top:8px;z-index:1;margin:0}
+body #workspaceSidebar .asset-row img{width:40px;height:40px;flex-shrink:0;object-fit:contain}
+body #workspaceSidebar .asset-row [data-asset-preview]{display:flex;align-items:center;justify-content:center;width:28px;min-width:28px;height:36px;padding:0}
+body #workspaceSidebar .asset-row .explorer-more{width:28px;min-width:28px;height:36px}
+body #workspaceSidebar .asset-row .explorer-icon{width:18px;height:18px}
+@media(max-width:680px),(any-pointer:coarse){body #workspaceSidebar .explorer-item{min-height:44px}body #workspaceSidebar .explorer-more{min-width:36px;height:38px}}
 body #workspaceSidebar .explorer-item.selected,body #workspaceSidebar .asset-row.selected,body #items button.active{box-shadow:inset 2px 0 var(--ui-focus,var(--ui-accent))}
 body #workspaceSidebar .library-bottom-actions{gap:6px;padding-top:12px}
 body #workspaceSidebar .library-bottom-actions button{border-radius:7px;background:var(--ui-raised);font-size:12px}
