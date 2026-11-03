@@ -34,6 +34,11 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),asse
    await p.screenshot({path:path.join(O,width+'-native-relocation.png')});await p.close();const q=await ctx.newPage();await q.goto(base+'/index.html?board='+key);await q.waitForFunction(()=>board&&!loading&&assetCatalogReady);const fresh=q.locator('#nodes>[data-id="'+ref.id+'"] img').first();await fresh.evaluate(el=>el.decode());assert.deepEqual(await fresh.evaluate(el=>[el.naturalWidth,el.naturalHeight]),[320,640]);assert.deepEqual(await q.evaluate(()=>clone(board.nodes)),saved.nodes);assert.deepEqual(await q.evaluate(()=>clone(board.edges)),saved.edges);row.savedNewPageExact=true;row.phase='complete';save();await ctx.close();
   }
   assert.deepEqual(proof.errors,[]);proof.complete=true;
- }catch(e){proof.failure=e.stack;if(row)row.failure=e.stack;if(p)await p.screenshot({path:path.join(O,'failure.png')}).catch(()=>{});throw e}
+ }catch(e){proof.failure=e.stack;if(row)row.failure=e.stack;
+  if(p){
+   proof.failureSurface=await p.evaluate(()=>{const list=document.querySelector('#assetList'),status=document.querySelector('#assetReadStatus'),preview=document.querySelector('#viewerImage'),image=im=>({source:im.getAttribute('src')?.startsWith('data:')?'inline-image':im.getAttribute('src'),complete:im.complete,width:im.naturalWidth,height:im.naturalHeight,connected:im.isConnected});return{library:{busy:list?.getAttribute('aria-busy'),statusHidden:status?.hidden,rowCount:list?.querySelectorAll('[data-asset]').length,images:[...(list?.querySelectorAll('img')||[])].slice(0,8).map(image)},preview:preview?image(preview):null}}).catch(error=>({captureError:String(error).split('Call log:')[0]}));
+   await p.screenshot({path:path.join(O,'failure.png')}).catch(()=>{});
+  }
+  throw e}
  finally{if(browser)await browser.close();server.kill();if(server.exitCode===null)await new Promise(r=>server.once('exit',r));proof.ownedServiceStopped=true;save();console.log(JSON.stringify(proof))}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -67,6 +67,7 @@ jobs:
       - run: npm run test:browser
         env:
           BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
+          RELOCATED_IMAGE_OUTPUT: .ci-proofs/relocated-image-preview
           EXPLORER_ATTACHMENTS_PROOF: .ci-proofs/explorer-attachments
           LIBRARY_FOLDER_MOVE_PROOF: .ci-proofs/library-folder-move
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
@@ -1538,5 +1539,16 @@ jobs:
           path: |
             .ci-proofs/library-folder-move/result.json
             .ci-proofs/library-folder-move/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep relocated image preview failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relocated-image-preview-${{ github.run_id }}
+          path: |
+            .ci-proofs/relocated-image-preview/result.json
+            .ci-proofs/relocated-image-preview/*.png
           if-no-files-found: ignore
           retention-days: 3
