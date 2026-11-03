@@ -44,7 +44,7 @@
    row.setAttribute('role','option');row.setAttribute('aria-selected',String(chosen(row,panel)));
    row.tabIndex=row===tabStop?0:-1;
    row.querySelectorAll('button,input[type=checkbox]').forEach(el=>el.tabIndex=-1);
-   if(row.dataset.asset&&!row.querySelector('.explorer-more')){const more=document.createElement('button');more.type='button';more.className='explorer-more';more.textContent='⋯';more.title='更多操作';more.setAttribute('aria-label',(assetById(row.dataset.asset)?.title||'内容')+'的更多操作');row.append(more)}
+   if((row.dataset.asset||row.dataset.asub)&&!row.querySelector('.explorer-more')){const more=document.createElement('button');more.type='button';more.className='explorer-more';more.textContent='⋯';more.title='更多操作';more.setAttribute('aria-label',(row.dataset.asub?.split('/').at(-1)||assetById(row.dataset.asset)?.title||'内容')+'的更多操作');row.append(more)}
    const more=row.querySelector('.explorer-more');if(more){more.tabIndex=-1;more.onpointerdown=e=>e.stopPropagation();more.ondblclick=e=>e.stopPropagation();more.onclick=e=>{e.stopPropagation();const r=more.getBoundingClientRect();row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.right,clientY:r.bottom}))}}
    if(panel==='assetPane'){
     const folder=row.dataset.asub,mark=row.querySelector(folder?':scope > span':'.asset-icon');

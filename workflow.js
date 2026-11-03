@@ -109,6 +109,17 @@ function wfPickDestination(title,description,callback){
  $('dialogBody').querySelector('.destination-done').addEventListener('click',()=>{target=libraryFolderTarget(destination.value)});
  $('dialogBody').querySelector('.destination-toggle').click();
 }
+function wfMoveLibraryFolder(folder){
+ const source=libraryFolderTarget(folder),owner=mediaReadRetryScope();
+ const owns=()=>{const current=mediaReadRetryScope();return owner.valid&&current.valid&&owner.key===current.key&&owner.hosts.length===current.hosts.length&&owner.hosts.every((host,index)=>host===current.hosts[index])&&current.hosts.every(host=>!host||host.role!=='viewer'&&host.base!=null)};
+ if(!folder||!owns())return toast('账号或工作区已有变化，请重新选择文件夹。');
+ wfPickDestination('移动文件夹','文件夹内的分类一起移动，原文件不搬动。',async parent=>{
+  if(!owns()){toast('账号或工作区已有变化，请重新选择文件夹。');return false}
+  const location=libraryFolderLocation(source);if(!location){toast('原文件夹已移除，请重新选择。');return false}
+  const previous=location.includes('/')?location.slice(0,location.lastIndexOf('/')):'';if(parent===previous)return true;
+  return await moveAssetFolder(location,parent)===true;
+ });
+}
 $('assetMove').onclick=()=>{const ids=[...assetSelected];if(!ids.length)return toast('先选择要移动的内容');wfPickDestination('移动选中的内容','将移动 '+ids.length+' 项分类位置；原文件不搬动。',folder=>{if(ids.some(id=>!assetById(id)||assetById(id).archived)){toast('选中的内容已移除，请重新选择。');return false}return moveAssetItems(ids,folder)})};
 async function wfBatchTags(){
  const ids=[...assetSelected];if(!ids.length)return toast('先选择内容');let busy=false;

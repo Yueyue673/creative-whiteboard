@@ -68,6 +68,7 @@ jobs:
         env:
           BROWSER_SUITE_PROOF: .ci-proofs/browser-suite/result.json
           EXPLORER_ATTACHMENTS_PROOF: .ci-proofs/explorer-attachments
+          LIBRARY_FOLDER_MOVE_PROOF: .ci-proofs/library-folder-move
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
           HISTORY_INLINE_IMAGES_PROOF: .ci-proofs/history-inline-images
           LIBRARY_THUMBNAILS_PROOF: .ci-proofs/library-thumbnails
@@ -1526,5 +1527,16 @@ jobs:
           path: |
             .ci-proofs/library-thumbnails/result.json
             .ci-proofs/library-thumbnails/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep library folder movement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-folder-move-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-folder-move/result.json
+            .ci-proofs/library-folder-move/*.png
           if-no-files-found: ignore
           retention-days: 3
