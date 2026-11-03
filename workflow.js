@@ -246,7 +246,7 @@ refreshLibrarySource=async function(id){
 };
 function wfMountOrigins(){const lookup=new Map(board.nodes.map(n=>[n.id,n]));for(const el of $('nodes').children){const n=lookup.get(el.dataset.id),id=n?.libraryOrigin?.id||n?.assetId,a=assetById(id),meta=el.querySelector('#inlineMeta,[data-preview-id=inlineMeta]');let b=el.querySelector('.wf-origin');if(!a||!meta){b?.remove();continue}if(!b){b=document.createElement('button');b.className='wf-origin inline-ui';b.onclick=e=>{e.stopPropagation();wfOriginReview(n.id)}}b.textContent=(a.archived?'原件已移出库：':'库中原件：')+a.title;b.title='查看原件与版本';meta.querySelector('.meta-heading').after(b)}}
 const wfDrawNodes=drawNodes;drawNodes=function(){wfDrawNodes();wfMountOrigins()};
-const wfFileMenu=fileMenu;fileMenu=function(e,items){const n=board?.nodes.find(n=>n.id===e.target.closest?.('.node')?.dataset.id);if(n&&(n.libraryOrigin||n.assetId))items.push(['来源与版本…',()=>wfOriginReview(n.id)]);if(e.target.closest?.('#assetPane')&&assetSelected.size>1)items.push(['给选中内容添加标签…',wfBatchTags]);return wfFileMenu(e,items)};
+const wfFileMenu=fileMenu;fileMenu=function(e,items){const n=board?.nodes.find(n=>n.id===e.target.closest?.('.node')?.dataset.id);if(n&&(n.libraryOrigin||n.assetId))items.push(['来源与版本…',()=>wfOriginReview(n.id)]);if(e.target.closest?.('#assetPane')){if(wfLibraryUndo.length)items=items.map(([label,action])=>[label==='撤销删除  Ctrl+Z'?'撤销内容库操作  Ctrl+Z':label,action]);if(wfLibraryRedo.length)items.push(['重做内容库操作  Ctrl+Shift+Z',wfRedoLibrary]);if(assetSelected.size>1)items.push(['给选中内容添加标签…',wfBatchTags])}return wfFileMenu(e,items)};
 
 // Drag an existing selection directly into a library folder; the board originals stay put.
 let wfDropFolder=null;
