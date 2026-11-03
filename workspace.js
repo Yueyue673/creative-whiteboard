@@ -4,7 +4,29 @@ $('toast').setAttribute('role','status');$('toast').setAttribute('aria-live','po
 function wfLibraryText(a){return [a.title,a.notes,a.folder,a.path,...(a.tags||[]),...(a.bundle?.nodes||[]).map(n=>[n.title,n.body,n.userText,n.annotation,...(n.tags||[]),...(n.rows||[]).flat()].join(' '))].filter(Boolean).join(' ')}
 let assetIndex={assets:[],folders:[]},assetETag='new',assetFolder='',assetSelected=new Set(),assetLimit=80,pickTarget=null,tableDrag=null;
 const mediaURL=id=>'/api/media/'+encodeURIComponent(id);
-function assetById(id){if(!id)return;return assetIndex.assets.find(a=>a.id===id)}
+let drawingAssetLookup=null;
+function assetById(id){
+ if(!id)return;
+ const assets=assetIndex.assets;
+ const lookup=drawingAssetLookup;
+ if(lookup?.assets===assets&&typeof id==='string'){
+  // Most draws use few assets. Build the index only when repeated scans accumulate.
+  if(!lookup.byId&&++lookup.requests===12){
+   lookup.byId=new Map();
+   for(const asset of assets)if(!lookup.byId.has(asset.id))lookup.byId.set(asset.id,asset);
+  }
+  if(lookup.byId)return lookup.byId.get(id);
+ }
+ return assets.find(asset=>asset.id===id);
+}
+const drawBeforeAssetLookup=drawNodes;
+drawNodes=function(){
+ const assets=assetIndex.assets;
+ if(assets.length<1000||!board||board.nodes.length<40)return drawBeforeAssetLookup();
+ const previous=drawingAssetLookup;
+ drawingAssetLookup={assets,requests:0,byId:null};
+ try{return drawBeforeAssetLookup()}finally{drawingAssetLookup=previous}
+};
 function contentContext(el){const source=window.whiteboardNoteEditor?.sourceContext?.(el);if(source)return source;const node=board?.nodes.find(n=>n.id===el?.closest?.('.node')?.dataset.id);return node?{board:boardId,node,readOnly:false}:null}
 function imagesAt(n,r,c){return r===undefined?(n.images||[]):(n.cellImages?.[r]?.[c]||[])}
 // A relocated file keeps its resource ID, but must get a fresh decoded image.
