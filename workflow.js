@@ -106,8 +106,11 @@ function wfPickDestination(title,description,callback){
  destination=$('wfDestination');moveButton=$('dialogActions').lastElementChild;target=libraryFolderTarget(destination.value);
  destination.addEventListener('change',()=>{target=libraryFolderTarget(destination.value)});
  mountLibraryDestination('wfDestination');
- $('dialogBody').querySelector('.destination-done').addEventListener('click',()=>{target=libraryFolderTarget(destination.value)});
- $('dialogBody').querySelector('.destination-toggle').click();
+ const picker=destination.closest('.destination-picker'),toggle=picker.querySelector('.destination-toggle'),done=picker.querySelector('.destination-done');
+ picker.classList.add('destination-direct');done.textContent='收起文件夹';
+ done.addEventListener('click',()=>{target=libraryFolderTarget(destination.value)});
+ toggle.addEventListener('click',()=>{if(toggle.getAttribute('aria-expanded')==='true')picker.querySelector('.destination-crumbs button')?.focus({preventScroll:true})});
+ toggle.click();
 }
 function wfMoveLibraryFolder(folder){
  const source=libraryFolderTarget(folder),owner=mediaReadRetryScope();
