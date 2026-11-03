@@ -532,8 +532,8 @@
     const file=assetSelected.size===1?assetById([...assetSelected][0]):null;
     const kind=file&&!file.archived&&file.mime!==bundleMime?(/\.tsv$/i.test(file.path||'')||file.mime==='text/tab-separated-values'?'tsv':/\.csv$/i.test(file.path||'')||file.mime==='text/csv'?'csv':null):null;
     if(!kind)return;
-    const originalFile=copy(file),section=element('section','library-table-file-source'),label=element('p','library-edit-explain','库中已选：'+(file.folder?file.folder+' / ':'')+file.title),help=element('p','library-edit-explain','可读取完整UTF-8或带编码标记的UTF-16文字（文件最多1MiB），无需下载转抄。原文件保留，新表格独立保存。'),fileActions=element('div','library-table-text-actions'),read=element('button','','读取已选文件'),cancel=element('button','','取消读取');
-    read.type=cancel.type='button';read.dataset.libraryTableFileRead='';cancel.dataset.libraryTableFileCancel='';section.dataset.libraryTableFileSource='';fileActions.append(read,cancel);section.append(label,help,fileActions);textLabel.before(section);
+    const originalFile=copy(file),section=element('section','library-table-file-source'),label=element('p','library-edit-explain','库中已选：'+(file.folder?file.folder+' / ':'')+file.title),help=element('p','library-edit-explain','原文件保留，新表格单独保存。'),fileActions=element('div','library-table-text-actions'),read=element('button','','读取已选文件'),cancel=element('button','','取消读取');
+    read.type=cancel.type='button';read.dataset.libraryTableFileRead='';cancel.dataset.libraryTableFileCancel='';section.dataset.libraryTableFileSource='';fileActions.append(read,cancel);section.append(label,help,fileActions);panel.before(section);
     const sameFile=()=>assetSelected.size===1&&assetSelected.has(file.id)&&equal(assetById(file.id),originalFile);
     updateFileControls=()=>{if(!owns())return;read.disabled=!!applied||state.busy||!!readingFile||!!tableScopeProblem(state)||!untouched()||input.value!==''||!sameFile();cancel.hidden=!readingFile;cancel.disabled=!readingFile};
     const stop=show=>{const request=readingFile;if(!request)return;readingFile=null;request.controller.abort();if(show&&owns())message('已停止读取，当前文字与格子保留。');controls()};
@@ -542,6 +542,7 @@
     onDialogDismiss(()=>stop(false));
     read.onclick=async()=>{
      if(!canChange()||readingFile||applied||input.value!==''||!untouched()||!sameFile())return;
+     panel.open=true;
      if(Number(file.size)>1048576){message('这份文件较大，请用原白板导入；原文件与当前表格保留。');return}
      const request={controller:new AbortController(),key:textKey(),timedOut:false};readingFile=request;controls();message('正在读取已选文件，当前表格保留。');const timer=setTimeout(()=>{request.timedOut=true;request.controller.abort()},15000);
      try{
