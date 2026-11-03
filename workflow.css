@@ -80,6 +80,8 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-picked-bar button{flex:none;min-height:44px}
 /* Reserve contextual controls so selecting a resource does not move the next pointer target. */
 #wfPickedBar button[hidden]{display:inline-flex!important;visibility:hidden;pointer-events:none}
+/* No resource can be selected in an empty list, so it needs no reserved action row. */
+#wfPickedBar.wf-empty-list button[hidden]{display:none!important}
 .wf-picked-hint{font-size:11px;line-height:1.6;color:var(--ui-muted);margin:4px 3px}
 
 .wf-picked-bar #assetPlace:not([hidden]){display:inline-flex!important;align-items:center;justify-content:center}

@@ -845,6 +845,7 @@ if(board){applyTypography();syncTextTools();announce()}
   if(action){action.hidden=!total;action.disabled=placing||!total;action.textContent=placing?'正在放入':'放入所选';action.setAttribute('aria-busy',String(placing))}
   const list=active?[]:libraryMatches(),shown=!active&&total&&!$('assetSearch').value.trim()?new Set(list.map(a=>a.id)):null,outside=shown?items.filter(a=>!shown.has(a.id)).length:0;
   button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active&&!outside;hint.textContent=active?'全部已选资源；返回后保留原搜索、类型和位置。':outside+'项已选资源不在当前列表，可先“查看已选”再放入。';
+  bar.classList.toggle('wf-empty-list',assetCatalogReady&&!active&&!placing&&!total&&!list.length);
   const allSelected=!!list.length&&assetSelected.size===list.length&&list.every(a=>assetSelected.has(a.id));
   const hideAll=active||!assetCatalogReady,disableAll=placing||!list.length;
   bar.classList.toggle('wf-whole-list',!hideAll);
