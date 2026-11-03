@@ -337,3 +337,11 @@ body>header:not(#shellHeader)>button,body>header:not(#shellHeader)>details>summa
 .node.table:not(.theme-surface):not(.document-paper) .edit-table>thead>tr>th>:is(.table-grip,.col-remove),.node.table:not(.theme-surface):not(.document-paper) .edit-table>tbody>tr>.row-number>:is(.table-grip,.col-remove){color:var(--paper-caption,#555)}
 
 .note-reference-choices{display:grid;gap:6px;max-height:min(380px,55dvh);overflow:auto}.note-reference-choice{display:grid;text-align:left;gap:3px;width:100%;padding:10px 12px}.note-reference-choice small{color:var(--ui-muted,#666)}.note-reference-choice strong,.note-reference-choice span{overflow-wrap:anywhere}.note-reference-choice span{font-size:12px;max-height:3em;overflow:hidden}
+
+/* Separate the split action from the sidebar glyph without crowding small headers. */
+body #shellHeader #splitToggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:auto;min-width:32px;padding:0 6px}
+body #shellHeader #splitToggle .shell-action-label{font-size:12px;white-space:nowrap}
+@media(max-width:680px){body #shellHeader #splitToggle .shell-action-label{display:none}}
+/* Keep the three selection actions on one row in a 260px sidebar. */
+body #workspaceSidebar #wfPickedBar{gap:6px}
+body #workspaceSidebar #wfPickedBar button{font-size:12px;padding-inline:6px;min-height:44px}
