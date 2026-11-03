@@ -1,0 +1,53 @@
+name: Isolated Linux paper-origin diagnostic
+on:
+  push:
+    branches: [codex/paper-origin-linux-diagnostic-fe76256]
+permissions:
+  contents: read
+jobs:
+  paper-origin-only:
+    name: Paper origin only (not release checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify test-only scope and record execution identity
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib, platform, subprocess, sys
+          root = pathlib.Path.cwd()
+          base = 'd6e97e172c62b1d34faa076006763255ff9191a8'
+          changes = subprocess.check_output(['git', 'diff', '--name-only', base, 'HEAD'], text=True).splitlines()
+          assert set(changes) == {'.github/workflows/check.yml', '.github/workflows/paper-origin-linux-probe.yml', 'tests/browser-paper-block-origin.cjs'}, changes
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          out = root / '.ci-proofs' / 'paper-origin-identity.json'
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps({'head': head, 'runtimeBase': base, 'scope': 'one synthetic paper-origin browser task; not release acceptance', 'changedFiles': changes, 'python': sys.version, 'platform': platform.platform(), 'node': subprocess.check_output(['node', '--version'], text=True).strip(), 'taskSHA256': hashlib.sha256((root / 'tests/browser-paper-block-origin.cjs').read_bytes()).hexdigest()}, indent=2) + '\n')
+          PY
+      - name: Run only the paper-origin browser task
+        timeout-minutes: 4
+        run: node tests/browser-paper-block-origin.cjs
+        env:
+          PAPER_BLOCK_ORIGIN_PROOF: .ci-proofs/paper-block-origin
+      - name: Keep scoped diagnostic evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-paper-origin-${{ github.run_id }}
+          path: |
+            .ci-proofs/paper-origin-identity.json
+            .ci-proofs/paper-block-origin/result.json
+            .ci-proofs/paper-block-origin/*.png
+          if-no-files-found: warn
+          retention-days: 3
