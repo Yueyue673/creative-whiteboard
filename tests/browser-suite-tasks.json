@@ -300,5 +300,6 @@
   "tests/browser-offscreen-content.cjs",
   "tests/browser-library-selection-entry.cjs",
   "tests/browser-history-inline-images.cjs",
-  "tests/browser-library-thumbnails.cjs"
+  "tests/browser-library-thumbnails.cjs",
+  "tests/browser-library-folder-shelf.cjs"
 ]

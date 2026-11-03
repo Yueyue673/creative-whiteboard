@@ -70,6 +70,7 @@ jobs:
           RELOCATED_IMAGE_OUTPUT: .ci-proofs/relocated-image-preview
           EXPLORER_ATTACHMENTS_PROOF: .ci-proofs/explorer-attachments
           LIBRARY_FOLDER_MOVE_PROOF: .ci-proofs/library-folder-move
+          FOLDER_SHELF_PROOF: .ci-proofs/library-folder-shelf
           OFFSCREEN_CONTENT_PROOF: .ci-proofs/offscreen-content
           HISTORY_INLINE_IMAGES_PROOF: .ci-proofs/history-inline-images
           LIBRARY_THUMBNAILS_PROOF: .ci-proofs/library-thumbnails
@@ -1550,5 +1551,16 @@ jobs:
           path: |
             .ci-proofs/relocated-image-preview/result.json
             .ci-proofs/relocated-image-preview/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Keep library folder shelf scope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: library-folder-shelf-${{ github.run_id }}
+          path: |
+            .ci-proofs/library-folder-shelf/result.json
+            .ci-proofs/library-folder-shelf/*.png
           if-no-files-found: ignore
           retention-days: 3

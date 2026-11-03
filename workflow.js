@@ -370,9 +370,12 @@ function wfRenderLibrarySearch(q){
  const empty=$('assetList').querySelector('.explorer-empty');if(q&&empty)empty.textContent=all?'整个内容库没有找到':'这里没有找到';
  for(const button of context.querySelectorAll('button'))button.setAttribute('aria-pressed',String((button.dataset.librarySearch==='all')===all));
 }
+function wfLibraryShelfContains(a){return wfLibraryShelf==='attachments'?!!a.attachmentBoard:!a.attachmentBoard}
+// Whole-folder reuse follows the active shelf, including nested folder batches.
+folderContentIds=function(path,recursive=false){return assetIndex.assets.filter(a=>!a.archived&&wfLibraryShelfContains(a)&&(a.folder===path||(recursive&&(!path||a.folder.startsWith(path+'/'))))).map(a=>a.id)};
 libraryMatches=function(){
  const q=$('assetSearch').value.trim().toLowerCase(),all=wfLibrarySearchScope()==='all';
- const list=assetIndex.assets.filter(a=>!a.archived&&(wfLibraryShelf==='attachments'?!!a.attachmentBoard:!a.attachmentBoard)&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):(a.folder===assetFolder||wfLibraryBranchActive()&&(!assetFolder||a.folder?.startsWith(assetFolder+'/'))))&&(!q||wfLibraryText(a).toLowerCase().includes(q))&&(wfLibraryKind==='all'||libraryAssetKind(a)===wfLibraryKind));
+ const list=assetIndex.assets.filter(a=>!a.archived&&wfLibraryShelfContains(a)&&(q?(all||a.folder===assetFolder||a.folder?.startsWith(assetFolder+'/')):(a.folder===assetFolder||wfLibraryBranchActive()&&(!assetFolder||a.folder?.startsWith(assetFolder+'/'))))&&(!q||wfLibraryText(a).toLowerCase().includes(q))&&(wfLibraryKind==='all'||libraryAssetKind(a)===wfLibraryKind));
  if(wfLibraryOrder==='used')return list.map((item,index)=>({item,index})).sort((a,b)=>(wfLibraryVisibleUses.get(b.item.id)||0)-(wfLibraryVisibleUses.get(a.item.id)||0)||a.index-b.index).map(row=>row.item);
  if(wfLibraryOrder!=='recent')return list;
  const savedAt=a=>Number.isFinite(Number(a.updated))&&Number(a.updated)>0?Number(a.updated):0;
