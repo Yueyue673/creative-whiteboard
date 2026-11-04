@@ -19,14 +19,15 @@ function assetById(id){
  }
  return assets.find(asset=>asset.id===id);
 }
-const drawBeforeAssetLookup=drawNodes;
-drawNodes=function(){
+function withDrawingAssetLookup(draw){
  const assets=assetIndex.assets;
- if(assets.length<1000||!board||board.nodes.length<40)return drawBeforeAssetLookup();
+ if(assets.length<1000||!board||board.nodes.length<40)return draw();
  const previous=drawingAssetLookup;
  drawingAssetLookup={assets,requests:0,byId:null};
- try{return drawBeforeAssetLookup()}finally{drawingAssetLookup=previous}
-};
+ try{return draw()}finally{drawingAssetLookup=previous}
+}
+const drawBeforeAssetLookup=drawNodes;
+drawNodes=function(){return withDrawingAssetLookup(drawBeforeAssetLookup)};
 function contentContext(el){const source=window.whiteboardNoteEditor?.sourceContext?.(el);if(source)return source;const node=board?.nodes.find(n=>n.id===el?.closest?.('.node')?.dataset.id);return node?{board:boardId,node,readOnly:false}:null}
 function imagesAt(n,r,c){return r===undefined?(n.images||[]):(n.cellImages?.[r]?.[c]||[])}
 // A relocated file keeps its resource ID, but must get a fresh decoded image.
