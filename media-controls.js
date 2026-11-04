@@ -31,7 +31,13 @@
  const previousSelection=refreshSelectionUI;refreshSelectionUI=function(){previousSelection();mount()};
  document.addEventListener('pointerdown',e=>{if(expanded&&!expanded.root.contains(e.target)&&!expanded.anchor.contains(e.target))close()},true);
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&expanded){e.preventDefault();e.stopImmediatePropagation();close()}},true);
- window.addEventListener('resize',close);document.addEventListener('visibilitychange',()=>{if(document.hidden)close()});
+ window.addEventListener('resize',()=>{
+  if(!expanded)return;
+  // Resizing the viewport should keep the current marker editor and its text selection.
+  if(expanded.root.isConnected&&expanded.info.el.isConnected&&expanded.anchor.getClientRects().length)fit();
+  else close();
+ });
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)close()});
  for(const event of ['pointerup','pointercancel'])window.addEventListener(event,finishSeeking,true);window.addEventListener('blur',()=>finishSeeking());
  window.whiteboardMedia={mount,close,fit,openControls(el,returnFocus){const info=players.get(el);if(info)open(info,info.inline.clock,returnFocus)}};if(board)mount();
 })();
