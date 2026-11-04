@@ -292,9 +292,17 @@
  function composePreview(session){
   if(!session.valid())return toast('所选内容或当前白板已变化，请重新选择。');
   if(!session.ids.length||session.nodes.some(n=>!composable(n)))return toast('请选便签、图片、文件卡片或不含格内材料的普通表格；这一批尚未创建长文。');
-  const order=session.ids.slice(),perPage=20;let page=0,root;
+  const order=session.ids.slice(),perPage=20,actions=$('dialogActions');let page=0,root;
   const owns=()=>root?.isConnected&&$('dialog').open&&$('dialogBody').contains(root);
-  const ready=()=>{if(!owns())return false;if(session.valid())return true;root.querySelector('[data-compose-status]').textContent='所选内容或当前白板已变化。请取消后重新选择。';root.querySelectorAll('button').forEach(b=>b.disabled=true);return false};
+  const ready=()=>{
+   if(!owns())return false;
+   if(session.valid())return true;
+   root.querySelector('[data-compose-status]').textContent='所选内容或当前白板已变化。请取消后重新选择。';
+   root.querySelectorAll('button').forEach(button=>{button.disabled=true});
+   actions.lastElementChild.disabled=true;
+   actions.firstElementChild.focus({preventScroll:true});
+   return false;
+  };
   showDialog('<h2>用所选新建长文</h2><p>按下面的顺序放入独立副本，可先调整。原内容与连线留在白板；长文副本不复制画布连线。</p><div data-compose-preview><p data-compose-status role="status"></p><ol data-compose-order></ol><div data-compose-pages></div></div>',[['取消',()=>{if(owns())$('dialog').close()}],['创建长文副本',()=>{
    if(!ready())return;const copies=order.map(id=>({...clone(session.nodes[session.ids.indexOf(id)]),id:uid()}));$('dialog').close();const n=createPaper(copies);if(!n)return;const owner=board,ownerId=boardId,focusOwner=document.activeElement,scope=window.whiteboardHosted||null;
    requestAnimationFrame(()=>{if(board!==owner||boardId!==ownerId||!live(n)||editorId!==n.id||document.activeElement!==focusOwner||(window.whiteboardHosted||null)!==scope||!canCompose())return;const field=document.querySelector('#immersiveSurface[data-id="'+CSS.escape(n.id)+'"] [data-cell-item="'+copies.length+'"] [data-cell-note-field="body"]');field?.focus({preventScroll:true});field?.scrollIntoView({block:'nearest'})});
