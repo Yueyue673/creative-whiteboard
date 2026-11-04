@@ -320,7 +320,12 @@
   },{capture:true,signal:events.signal});
   const endView=e=>{touches.delete(e.pointerId);if(pinch||pan?.id===e.pointerId){pinch=null;pan=null;stage.classList.remove('panning');try{if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId)}catch{}stop(e)}};
   for(const type of ['pointerup','pointercancel','lostpointercapture'])stage.addEventListener(type,endView,{capture:true,signal:events.signal});
-  document.querySelectorAll('[data-image-tool]').forEach(b=>b.onclick=()=>{if(busy())return;finishField();tool=b.dataset.imageTool;selectedMark=-1;syncFields();paint()});
+  document.querySelectorAll('[data-image-tool]').forEach(b=>b.onclick=()=>{
+   if(busy())return;
+   finishField();tool=b.dataset.imageTool;selectedMark=-1;syncFields();paint();
+   // The tool can change the stage height. Fit before the next pointer event.
+   fitPaper();
+  });
   paper.onpointerdown=e=>{
    if(busy()){if(e.pointerId!==(moving||cropStart||drawing).pointer)cancelPreview();return}if(e.button!==0||e.isPrimary===false||!same(session))return;stop(e);finishField();const p=local(e);paper.focus({preventScroll:true});
    // A visible grip wins; its larger touch margin must not hide another mark.
