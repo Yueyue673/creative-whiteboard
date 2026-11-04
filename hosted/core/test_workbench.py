@@ -108,6 +108,29 @@ class OriginalWorkbenchTests(TestCase):
         self.assertEqual(self.call(self.base+'native/assets','PUT',value,read['ETag']).status_code,409)
         self.assertFalse(WorkspaceDocument.objects.filter(workspace=self.space,kind='library').exists())
 
+    def test_file_acknowledgement_matches_committed_revision_without_content_payload(self):
+        for filename in ('changed.txt', 'untouched.txt'):
+            upload_stream(self.scope,self.owner,io.BytesIO(b'given bytes'),11,filename,'')
+        initial=self.read();value=initial.json()
+        original=next(item for item in value['assets'] if item['filename']=='changed.txt')
+        old_revision=original['etag'];original['title']='Given renamed file'
+        original['updated']=1  # A browser timestamp is not the committed timestamp.
+        saved=self.call(self.base+'native/assets','PUT',value,initial['ETag'])
+        self.assertEqual(saved.status_code,200,saved.content)
+        current=self.read();self.assertEqual(saved['ETag'],current['ETag'])
+        states=saved.json()['fileStates']
+        self.assertEqual(len(states),2)
+        self.assertEqual({item['id'] for item in states},{item['id'] for item in current.json()['assets']})
+        for state in states:
+            self.assertEqual(set(state),{'id','etag','updated','folderId'})
+            row=next(item for item in current.json()['assets'] if item['id']==state['id'])
+            self.assertEqual(state,{key:row[key] for key in state})
+        confirmed=next(item for item in states if item['id']==original['id'])
+        self.assertNotEqual(confirmed['etag'],old_revision);self.assertNotEqual(confirmed['updated'],1)
+        stale=self.call(self.base+'native/assets','PUT',value,initial['ETag'])
+        self.assertEqual(stale.status_code,409);self.assertNotIn('fileStates',stale.json())
+        self.assertEqual(self.read().json(),current.json())
+
     def test_original_folder_save_acknowledgement_can_immediately_target_an_upload(self):
         current=self.read();value=current.json()
         value['folders']=['Incoming'];value['folderIds']={'Incoming':'original-folder'}

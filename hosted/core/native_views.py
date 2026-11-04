@@ -114,7 +114,12 @@ def library(request, workspace_id):
             committed, tag, _, _ = snapshot(scope, request.user)
             # The original workbench uses the acknowledgement for its next
             # upload or folder rename without requiring a catalog reload.
-            response = JsonResponse({**saved, 'folderIds': committed.get('folderIds', {})})
+            # File revisions/timestamps are assigned here, not by the browser.
+            # Return only those authoritative fields; do not duplicate bundles
+            # or original file content in the acknowledgement.
+            file_states = [{key: item[key] for key in ('id', 'etag', 'updated', 'folderId')}
+                           for item in committed['assets'] if item['id'] in files]
+            response = JsonResponse({**saved, 'folderIds': committed.get('folderIds', {}), 'fileStates': file_states})
         response['ETag'] = tag
         return response
 

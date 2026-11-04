@@ -159,6 +159,12 @@ async function saveAssets(next){
   prepareLibraryFolderIds(next);
   const r=await api('/api/assets',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':expected},body:JSON.stringify(next)});
   const result=await r.json();next.folderIds=result.folderIds;
+  // Hosted saves assign file revisions and timestamps. Keep their confirmed
+  // values in this same snapshot without replacing content or catalog order.
+  if(Array.isArray(result.fileStates)){
+   const states=new Map(result.fileStates.map(item=>[item.id,item]));
+   for(const item of next.assets){const saved=states.get(item.id);if(saved){item.etag=saved.etag;item.updated=saved.updated;item.folderId=saved.folderId}}
+  }
   syncLibraryFolderNavigation(assetIndex,next);assetIndex=next;assetCatalogReady=true;assetReadError='';
   assetETag=r.headers.get('ETag');renderAssets();return true;
  }catch(e){toast(e.message);return false}
