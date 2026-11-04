@@ -270,7 +270,7 @@
  }
  documentButton.onclick=()=>createPaper();
  const startDocument=document.createElement('button');startDocument.id='emptyDocument';startDocument.textContent='写长文';startDocument.onclick=()=>documentButton.click();$('empty')?.querySelector('.empty-actions')?.append(startDocument);
- const canCompose=()=>board&&!loading&&!blocked&&!saveError&&!window.whiteboardHosted?.paused&&window.whiteboardHosted?.role!=='viewer';
+ const canCompose=()=>board&&!frameElement?.hidden&&!loading&&!blocked&&!saveError&&!window.whiteboardHosted?.paused&&window.whiteboardHosted?.role!=='viewer';
  const emptyAttachments=grid=>grid===undefined||Array.isArray(grid)&&grid.every(row=>Array.isArray(row)&&row.every(items=>Array.isArray(items)&&items.length===0));
  const composable=n=>n&&(['note','image'].includes(n.type)||n.type==='table'&&!n.documentMode&&Array.isArray(n.columns)&&Array.isArray(n.rows)&&n.rows.every(row=>Array.isArray(row))&&emptyAttachments(n.cellItems)&&emptyAttachments(n.cellImages));
  function composeSession(ids){
