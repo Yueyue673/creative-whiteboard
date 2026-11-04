@@ -29,6 +29,8 @@
 #workspace.explorer-overlay #explorerGrip{display:none}
 
 #workspace>#closedTabNotice{position:absolute;top:calc(var(--tab-header-height) + 8px);left:calc(var(--explorer-width) + 12px)}
+/* The full-window library dialog takes precedence over the tab notice. */
+#workspace:has(>#closedTabNotice) #globalExplorer:has(>iframe.explorer-modal){z-index:121}
 @media(max-width:680px){
  #workspace>#closedTabNotice{top:calc(var(--tab-header-height) + 64px)}
  /* Give the undo notice its own row above the full-width explorer. */

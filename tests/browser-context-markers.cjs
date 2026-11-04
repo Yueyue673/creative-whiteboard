@@ -291,7 +291,11 @@ async function verifyPopoverBounds(page,audioId){
   // Browsing several markers must stay compact while their authored names are
   // still available in the complete field and native title hint.
   for(const [time,title]of [[3.25,'另一处观察'],[5.6,'继续回看']]){await sound.locator('audio').evaluate((el,time)=>el.currentTime=time,time);await page.locator('.media-add-marker').click();await page.locator('.media-marker-title').fill(title)}
-  const readingView=await page.evaluate(()=>clone(board.view));await resizeViewport({width:360,height:760});await page.evaluate(()=>whiteboardMedia.open(document.querySelector('[data-id="bounded-sound"] audio')));await bounded();
+  const readingView=await page.evaluate(()=>clone(board.view));
+  const openMarkerPanel=await page.locator('#mediaPopover').elementHandle();
+  await resizeViewport({width:360,height:760});
+  assert(await openMarkerPanel.evaluate(el=>el===document.getElementById('mediaPopover')),'Resizing keeps the existing marker editor open');
+  await bounded();
   const rowLayout=await page.locator('.media-marker-list').evaluate(list=>{const box=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom,height:r.height}};return {list:box(list),client:list.clientHeight,scroll:list.scrollHeight,rows:[...list.querySelectorAll('.media-marker-row')].map(row=>({row:box(row),time:box(row.children[0]),name:box(row.children[1]),flag:box(row.children[2]),hint:row.children[1].title}))}});
   assert.equal(rowLayout.rows.length,3);assert(rowLayout.scroll<=rowLayout.client+2,'Three markers remain browsable together with a long first name');
   for(const row of rowLayout.rows){assert(row.row.height>=44&&row.name.x>row.time.right&&row.name.right<=row.row.right,'Time and title have distinct readable columns')}
