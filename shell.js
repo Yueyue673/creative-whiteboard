@@ -30,14 +30,13 @@ function tabLocations(){
 let closedTab=null,pendingClosedView=null,closedIntent=0;
 function clearPendingClosedView(){if(pendingClosedView)clearTimeout(pendingClosedView.timer);pendingClosedView=null}
 function discardClosedTab(){const saved=closedTab;if(!saved)return;closedTab=null;clearTimeout(saved.timer);const focused=saved.notice.contains(document.activeElement);saved.notice.remove();if(focused&&!document.hidden)pane(current())?.focus()}
-function positionClosedNotice(){if(closedTab)closedTab.notice.style.top=($('tabHeaders').getBoundingClientRect().bottom+(innerWidth<680?64:8))+'px'}
 function rememberClosedTab(tab,index,view){
  discardClosedTab();clearPendingClosedView();
  const context=view?.captureClosedView?.()||null,notice=document.createElement('div');notice.id='closedTabNotice';notice.setAttribute('role','status');
  const label=document.createElement('span');label.textContent='已关闭：'+tab.name;label.title=label.textContent;
  const undo=document.createElement('button');undo.type='button';undo.textContent='撤销关闭';
- const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','收起关闭提示');notice.append(label,undo,dismiss);document.body.append(notice);
- const saved={tab:{...tab},index,context,notice};closedTab=saved;positionClosedNotice();saved.timer=setTimeout(discardClosedTab,20000);
+ const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','收起关闭提示');notice.append(label,undo,dismiss);$('workspace').append(notice);
+ const saved={tab:{...tab},index,context,notice};closedTab=saved;saved.timer=setTimeout(discardClosedTab,20000);
  dismiss.onclick=()=>{discardClosedTab();pane(current())?.focus()};undo.onclick=()=>{
   if(closedTab!==saved)return;discardClosedTab();clearPendingClosedView();
   const existing=model.tabs.find(t=>t.boardId===saved.tab.boardId);if(existing){activate(existing.id);return}
@@ -59,7 +58,7 @@ async function applyClosedView(tab){
 function cancelClosedViewIntent(){if(pendingClosedView){closedIntent++;clearPendingClosedView()}}
 for(const type of ['pointerdown','keydown'])document.addEventListener(type,cancelClosedViewIntent,true);
 window.addEventListener('message',e=>{if(pendingClosedView&&e.origin===location.origin&&e.data?.type==='pane-active'&&model.tabs.some(t=>frames.get(t.id)?.contentWindow===e.source))cancelClosedViewIntent()});
-window.addEventListener('resize',positionClosedNotice);window.addEventListener('pagehide',()=>{discardClosedTab();clearPendingClosedView()});document.addEventListener('visibilitychange',()=>{if(document.hidden){discardClosedTab();clearPendingClosedView()}});
+window.addEventListener('pagehide',()=>{discardClosedTab();clearPendingClosedView()});document.addEventListener('visibilitychange',()=>{if(document.hidden){discardClosedTab();clearPendingClosedView()}});
 function toast(text){$('shellToast').textContent=text;$('shellToast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('shellToast').hidden=true,4500)}
 async function api(path,options){const r=await fetch(path,options);if(!r.ok){let value;try{value=await r.json()}catch{}throw Error(value?.error||'读取失败，请稍后再试')}return r.json()}
 function addressTab(layout=model){const side=layout.side||'left',active=layout.active||{};return layout.tabs.find(t=>t.id===active[side])||layout.tabs.find(t=>t.id===active[side==='right'?'left':'right'])}

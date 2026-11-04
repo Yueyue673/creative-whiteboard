@@ -28,6 +28,14 @@
 #workspace.explorer-overlay #globalExplorer{width:100%;max-width:none;border-right:0}
 #workspace.explorer-overlay #explorerGrip{display:none}
 
+#workspace>#closedTabNotice{position:absolute;top:calc(var(--tab-header-height) + 8px);left:calc(var(--explorer-width) + 12px)}
+@media(max-width:680px){
+ #workspace>#closedTabNotice{top:calc(var(--tab-header-height) + 64px)}
+ /* Give the undo notice its own row above the full-width explorer. */
+ #workspace.explorer-overlay:not(.listening-active):has(>#closedTabNotice) #globalExplorer{top:54px}
+ #workspace.explorer-overlay:not(.listening-active)>#closedTabNotice{top:4px;height:46px}
+}
+
 /* The original explorer keeps its player and document throughout a session. */
 #globalExplorer.listening-session{z-index:2001}
 #workspace.listening-active #globalExplorer{position:fixed;inset:auto 12px 12px auto;width:min(410px,calc(100vw - 24px));height:152px;max-width:none;border:1px solid var(--ui-line);border-radius:8px;box-shadow:0 4px 24px #0004;overflow:hidden}
