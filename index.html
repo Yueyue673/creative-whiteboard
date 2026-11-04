@@ -196,8 +196,20 @@ async function saveCopy(){
 function confirmReload(){if(!dirty&&!blocked)return loadBoard(boardId).catch(e=>toast(e.message));showDialog('<h2>重新读取文件？</h2><p>当前未保存的修改会被放弃。你可以先导出备份。</p>',[['取消',()=>$('dialog').close()],['重新读取',()=>{$('dialog').close();loadBoard(boardId,{discardCurrent:true}).catch(e=>toast(e.message))}]])}
 function worldPoint(x,y){const r=$('canvas').getBoundingClientRect();return{x:(x-r.left-view().x)/view().z,y:(y-r.top-view().y)/view().z}}
 function center(){const r=$('canvas').getBoundingClientRect();return worldPoint(r.left+r.width/2,r.top+r.height/2)}
-function groupOf(n){if(n.type==='frame')return null;return board.nodes.filter(f=>f.type==='frame'&&n.x>=f.x&&n.x<f.x+f.w&&n.y>=f.y&&n.y<f.y+f.h).sort((a,b)=>a.w*a.h-b.w*b.h)[0]}
-function ordered(){const frames=board.nodes.filter(n=>n.type==='frame').sort((a,b)=>a.x-b.x||a.y-b.y);return frames.flatMap(f=>[f,...board.nodes.filter(n=>groupOf(n)?.id===f.id).sort((a,b)=>a.y-b.y||a.x-b.x)]).concat(board.nodes.filter(n=>n.type!=='frame'&&!groupOf(n)).sort((a,b)=>a.y-b.y||a.x-b.x))}
+function groupOf(n, candidates=board.nodes){if(n.type==='frame')return null;return candidates.filter(f=>f.type==='frame'&&n.x>=f.x&&n.x<f.x+f.w&&n.y>=f.y&&n.y<f.y+f.h).sort((a,b)=>a.w*a.h-b.w*b.h)[0]}
+function ordered(){
+ const frames=board.nodes.filter(n=>n.type==='frame');
+ const byPosition=(a,b)=>a.y-b.y||a.x-b.x;
+ if(!frames.length)return [...board.nodes].sort(byPosition);
+ const members=new Map(frames.filter(frame=>!Number.isNaN(frame.id)).map(frame=>[frame.id,[]])),loose=[];
+ for(const node of board.nodes){
+  const owner=groupOf(node,frames);
+  if(!owner&&node.type!=='frame')loose.push(node);
+  members.get(owner?.id)?.push(node);
+ }
+ for(const items of members.values())items.sort(byPosition);
+ return frames.sort((a,b)=>a.x-b.x||a.y-b.y).flatMap(frame=>[frame,...(members.get(frame.id)||[])]).concat(loose.sort(byPosition));
+}
 function noteMarkup(n){const image=n.type==='image'&&/^data:image\/(png|jpeg|webp|gif);base64,/.test(n.image||'')?'<img src="'+esc(n.image)+'" alt="'+esc(n.title)+'">':'';return '<div class="node '+n.type+(selected.has(n.id)?' active':'')+'" data-id="'+esc(n.id)+'" style="left:'+n.x+'px;top:'+n.y+'px;width:'+n.w+'px;height:'+n.h+'px;'+(n.type!=='frame'?'background:'+(/^#[0-9a-f]{6}$/i.test(n.color||'')?n.color:colors[0]):'')+'"><div class="inner"><h3>'+esc(n.title||'未命名')+'</h3>'+(n.type==='frame'?'':(n.type==='table'?tablePreview(n):image)+'<div class="body">'+esc(n.body)+'</div>'+(n.userText?'<div class="personal">'+esc(n.userText)+'</div>':'')+'<div class="tags">'+esc((n.tags||[]).join(' · '))+'</div>')+'</div>'+['left','right','top','bottom'].map(side=>'<span class="port '+side+'" data-port="'+side+'"></span>').join('')+'<span class="resize"></span></div>'}
 // Typed text already lives in these original fields. Reusing that same editor
 // preserves the browser's text undo; a changed model or presentation still redraws.
