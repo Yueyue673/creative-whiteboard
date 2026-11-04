@@ -4,8 +4,19 @@
  let scheduled=0,layoutVersion=0;
  const measured=new WeakMap();
  const automatic=n=>n?.type==='note'&&n.sizeMode==='auto';
- function measure(n,el){
+ // Persist the readable Markdown geometry, independent of an open text field.
+ // Only plain text notes use this projection; media retain their mounted load state.
+ function readableHeight(n,el){
+  const template=document.createElement('template');template.innerHTML=noteMarkup(n,true);
+  const probe=template.content.firstElementChild;if(!probe)return null;
+  probe.removeAttribute('data-id');probe.setAttribute('aria-hidden','true');probe.inert=true;
+  Object.assign(probe.style,{position:'absolute',left:'-100000px',top:'0',visibility:'hidden',pointerEvents:'none'});
+  el.parentElement.append(probe);
+  try{growContentFields(probe);return measure(n,probe,true)}finally{probe.remove()}
+ }
+ function measure(n,el,readProjection=false){
   const area=el?.querySelector('.edit-scroll');if(!area||el.closest('#immersiveSurface')||!el.isConnected||area.clientWidth<1||!area.getClientRects().length)return null;
+  if(!readProjection&&n.type==="note"&&!n.image&&n.textFormat==='markdown'&&!n.assetId&&!n.mediaId&&!n.images?.length&&!n.canvasObject&&el.querySelector(':scope>.inner.live-layout'))return readableHeight(n,el);
   const style=getComputedStyle(area),width=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
   let height=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)+2;
   for(const child of area.children){

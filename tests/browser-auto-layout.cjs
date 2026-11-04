@@ -27,6 +27,26 @@ const {chromium}=require('playwright');
   const text=await(await fetch(base+'/api/assets/upload',{method:'POST',headers:{'X-File-Name':'observations.txt'},body:'由作者保存的长篇观察。'.repeat(300)})).json();let releaseText;const textGate=new Promise(r=>releaseText=r);await p.route('**/api/media/'+text.id,async route=>{await textGate;await route.continue()});const textRequest=p.waitForRequest(r=>new URL(r.url()).pathname==='/api/media/'+text.id);await p.evaluate(async id=>{await loadAssets();Object.assign(board.nodes[0],{images:[],assetId:id});drawNodes()},text.id);await textRequest;await settle();const pendingText=await p.evaluate(()=>board.nodes[0].h);releaseText();await p.waitForFunction(()=>document.querySelector('[data-id=auto] .file-text-preview pre')?.textContent.includes('由作者保存'));await p.waitForFunction(h=>board.nodes[0].h>h+80,pendingText);await settle();
   const stability=await p.evaluate(async()=>{const revision=contentRevision,h=board.nodes[0].h;await new Promise(r=>setTimeout(r,250));return{sameRevision:revision===contentRevision,sameHeight:h===board.nodes[0].h}});assert(stability.sameRevision&&stability.sameHeight,'Settled layout does not repeatedly resize or save');const dimensions=await p.evaluate(()=>board.nodes.map(n=>({w:n.w,h:n.h,sizeMode:n.sizeMode})));await p.evaluate(()=>persist());await p.reload();await p.waitForFunction(()=>board&&!loading&&window.whiteboardSizing);await settle();assert.deepEqual(await p.evaluate(()=>board.nodes.map(n=>({w:n.w,h:n.h,sizeMode:n.sizeMode}))),dimensions,'Reload keeps all automatic and fixed sizes');assert.deepEqual(errors,[]);console.log('尺寸缓存：字号/重置、原位编辑、宽度变化、长文上限、延迟图片与文本、固定尺寸、保存重开，通过');
 
+  // Opening unchanged Markdown must not save editor-only textarea geometry.
+  await p.evaluate(()=>{board.nodes=[{id:'markdown-height',type:'note',sizeMode:'auto',textFormat:'markdown',x:410,y:80,w:300,h:120,title:'Given reception note',body:'Given original text',tags:[]}];board.edges=[];board.view={x:0,y:0,z:1};editorId=null;selected.clear();render()});
+  await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));assert(await p.evaluate(()=>persist()));
+  const markdownBefore=await p.evaluate(()=>({node:clone(board.nodes[0]),history:clone(history),future:clone(future)}));let editorOnlyPuts=0;
+  const countEditorPut=request=>{if(request.method()==='PUT'&&new URL(request.url()).pathname.startsWith('/api/boards/'))editorOnlyPuts++};p.on('request',countEditorPut);
+  await p.locator('[data-id="markdown-height"]').dblclick({position:{x:80,y:25}});await p.locator('#body').focus();
+  await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));assert(await p.evaluate(()=>persist()));
+  assert.deepEqual(await p.evaluate(()=>clone(board.nodes[0])),markdownBefore.node,'An unchanged Markdown editor keeps the saved readable geometry');
+  assert.equal(await p.locator('#body').inputValue(),'Given original text');assert.equal(await p.locator('#nodes>.node').count(),1,'Measurement projections are removed synchronously');
+  await p.locator('#inlineDone').click();await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));assert(await p.evaluate(()=>persist()));
+  assert.equal(editorOnlyPuts,0,'Opening and leaving unchanged Markdown sends no geometry-only PUT');p.off('request',countEditorPut);
+  assert.deepEqual(await p.evaluate(()=>({node:clone(board.nodes[0]),history:clone(history),future:clone(future)})),markdownBefore,'Opening and leaving preserves original Undo/Redo');
+  await p.locator('[data-id="markdown-height"]').dblclick({position:{x:80,y:25}});
+  const authoredMarkdown='## Given heading\n\n'+('Given exact words with **emphasis** and a separate paragraph.\n\n'.repeat(20));await p.locator('#body').fill(authoredMarkdown);
+  await p.waitForFunction(h=>board.nodes[0].h>h+100,markdownBefore.node.h);assert(await p.evaluate(()=>persist()));
+  const authoredHeight=await p.evaluate(()=>board.nodes[0].h);await p.locator('#inlineDone').click();await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  assert.equal(await p.evaluate(()=>board.nodes[0].h),authoredHeight,'Authored Markdown grows to the same readable geometry while editing and after return');assert(await p.evaluate(()=>persist()));
+  await p.reload();await p.waitForFunction(()=>!loading&&board?.nodes[0]?.id==='markdown-height');assert.equal(await p.evaluate(()=>board.nodes[0].body),authoredMarkdown);assert.equal(await p.evaluate(()=>board.nodes[0].h),authoredHeight);
+  console.log('Markdown opening/return has no geometry-only save; original history, authored growth and fresh readback passed');
+
   // Original shell tabs retain their mounted documents while hidden. A missing
   // layout must not become a new authored height or poison its cached measure.
   const sourceId=await p.evaluate(()=>boardId),otherId='autosize-other';
