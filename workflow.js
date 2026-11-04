@@ -949,9 +949,11 @@ if(board){applyTypography();syncTextTools();announce()}
   }
  }
  function collectAttachments(){
-  const ids=[...assetSelected].filter(id=>assetById(id)?.attachmentBoard);if(!ids.length)return;
+  const origins=new Map();
+  for(const id of assetSelected){const origin=assetById(id)?.attachmentBoard;if(origin)origins.set(id,origin)}
+  const ids=[...origins.keys()];if(!ids.length)return;
   wfPickDestination('收进内容库','原图片和白板里的位置保持不变。',async folder=>{
-   if(ids.some(id=>!assetById(id)||assetById(id).archived)){toast('所选附件已有变化，请重新选择。');return false}
+   if(ids.some(id=>{const item=assetById(id);return item?.attachmentBoard!==origins.get(id)||item.archived})){toast('所选附件已有变化，请重新选择。');return false}
    const next=clone(assetIndex);for(const item of next.assets)if(ids.includes(item.id)){delete item.attachmentBoard;item.folder=folder}
    if(!await saveAssets(next))return false;
    wfLibraryShelf='resources';enterAssetFolder(folder);assetSelected=new Set(ids);renderAssets();toast('已收进内容库 · 可撤销');return true;
