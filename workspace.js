@@ -1423,6 +1423,7 @@ async function revealLibraryItem(id,canReveal=()=>true){
   await showWorkspaceTab('assetPane');
   if(!untouched||!canReveal()||workspaceTab!=='assetPane'||$('dialog').open||assetReadState!=='ready')return false;
   const a=assetById(id);if(!a||a.archived){toast('这项内容已不在内容库');return false}
+  if(wfLibraryKind!=='all'&&wfLibraryKind!==libraryAssetKind(a))wfLibraryKind='all';
   enterAssetFolder(a.folder);wfLibraryShelf=a.attachmentBoard?'attachments':'resources';assetFolderPick=null;assetSelected=new Set([a.id]);assetLimit=Math.max(assetLimit,libraryMatches().findIndex(item=>item.id===a.id)+1);renderAssets();
   const row=[...$('assetList').querySelectorAll('[data-asset]')].find(el=>el.dataset.asset===a.id);
   row?.scrollIntoView({block:'center'});row?.focus({preventScroll:true});return !!row;
