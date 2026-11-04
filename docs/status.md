@@ -4,9 +4,11 @@
 
 本页汇集这份源码中保留的改动。开始使用前，先按手里的版本选择入口；下面的详细记录不代表默认下载版、网站和私人安装已经一同更新。
 
-**后续公开开发批次：** [查看405f1fe的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/405f1feac669409b364864b695326bf7ec2f26a6) · [草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)。
+**已验证的开发源码：** [查看584e7c4的完整源码](https://github.com/Yueyue673/creative-whiteboard/tree/584e7c4535ff2a7b01a0bcc6642ff4bbe52119e0)。[草稿 PR #50](https://github.com/Yueyue673/creative-whiteboard/pull/50)仍保留，尚未合入默认分支；默认下载版、网站和私人安装需分别确认版本。
 
-截至2026-11-03，这个准确批次的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483343767)及8项Windows/Linux矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483321590)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483310832)各完整执行296项浏览器任务，276项通过、20项失败，没有中断或未执行项。失败任务仍需逐项归因，当前没有全量回归通过。各批本机范围与准确CI分别记录。下面历史条目中的核验说明按其时点理解；本页开头为最近公开批次。网站部署和私人安装仍分别记录。
+截至2026-11-04，准确提交584e7c4的[Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41765297586)中，4项Windows/Linux矩阵作业及完整305项浏览器任务全部通过；报告未中断，任务名称和顺序与该提交的清单一致。[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41765336840)也通过。这些结果证明该提交的开发检查范围，网站与私人安装尚未随此次验证更新；实际部署和实体设备体验仍需分别核对。
+
+**历史基线：** 原[405f1fe源码](https://github.com/Yueyue673/creative-whiteboard/tree/405f1feac669409b364864b695326bf7ec2f26a6)的[Hosted Linux](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483343767)及8项矩阵作业通过；[PR Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483321590)与[Push Checks](https://github.com/Yueyue673/creative-whiteboard/actions/runs/41483310832)各完整执行296项浏览器任务，276项通过、20项失败，没有中断或未执行项。这些原始失败记录保留，后续修复与当前提交的通过结果分别记录。下方历史条目中的“本机通过”“尚未上传”或“准确CI待验证”按条目时点理解，当前整提交结果以上方明确链接的版本为准。
 
 | 你使用的版本 | 从哪里开始 | 怎样看下面的改动 |
 | --- | --- | --- |
