@@ -626,13 +626,21 @@ function fillTextPreviews(root=document){
  boxes.forEach(el=>{
   const id=el.dataset.textPreview,a=assetById(id);if(!a)return;
   const previous=textPreviewRuns.get(el);
-  if(previous?.pre?.parentElement===el&&previous.cached===filePreviews.get(id)&&previous.owns())return;
+  const reusable=previous?.pre?.parentElement===el&&previous.owns()?previous:null;
+  if(reusable&&reusable.cached===filePreviews.get(id))return;
   const run={},identity=textPreviewFileIdentity(a),context=contentContext(el),owner=context?.node,ownerAsset=owner?.assetId,dialog=el.closest('#dialog'),scope=mediaReadRetryScope();textPreviewRuns.set(el,run);el.setAttribute('aria-busy','true');
   const owns=()=>{const now=mediaReadRetryScope(),current=contentContext(el);return textPreviewRuns.get(el)===run&&el.isConnected&&el.dataset.textPreview===id&&(!dialog||dialog.open)&&identity===textPreviewFileIdentity(assetById(id))&&owner===current?.node&&ownerAsset===current?.node?.assetId&&context?.board===current?.board&&scope.valid&&now.valid&&scope.key===now.key&&scope.hosts.length===now.hosts.length&&scope.hosts.every((host,index)=>host===now.hosts[index])};
   const request=getTextPreview(a),cached=filePreviews.get(id);
   Object.assign(run,{cached,owns});
   request.then(result=>{
-   if(!owns())return;el.replaceChildren();el.setAttribute('aria-busy','false');const summary=document.createElement('small');summary.setAttribute('role','status');summary.textContent=result.error||(el.closest('.cell-content')?'原文件预览 · ':'')+result.summary+(result.truncated?' · 仅显示前段，可打开原文件查看全部':'');el.append(summary);
+   if(!owns())return;
+   el.setAttribute('aria-busy','false');
+   if(reusable&&reusable.pre.parentElement===el&&!result.error&&result.text===reusable.result.text&&result.summary===reusable.result.summary&&result.truncated===reusable.result.truncated){
+    run.pre=reusable.pre;run.result=result;
+    if(result.text)mountFileTextExcerpt(el,a,run.pre,owns);
+    return;
+   }
+   el.replaceChildren();const summary=document.createElement('small');summary.setAttribute('role','status');summary.textContent=result.error||(el.closest('.cell-content')?'原文件预览 · ':'')+result.summary+(result.truncated?' · 仅显示前段，可打开原文件查看全部':'');el.append(summary);
    if(result.error){
     el.closest('.text-file-preview')?._fileExcerpt?.invalidate('原文件暂时未能读取，当前片段和名称保留。请先重新读取原文件。');
     const button=document.createElement('button');button.type='button';button.className='text-read-retry inline-ui';button.textContent='重新读取文本';
@@ -643,7 +651,7 @@ function fillTextPreviews(root=document){
      button.disabled=true;summary.textContent='正在重新读取文本…';if(filePreviews.get(id)===cached)filePreviews.delete(id);fillTextPreviews(el);
     };
     el.append(' ',button);
-   }else{const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre);run.pre=pre;if(result.text)mountFileTextExcerpt(el,a,pre,owns)}
+   }else{const pre=document.createElement('pre');pre.textContent=result.text||'文件为空';el.append(pre);run.pre=pre;run.result=result;if(result.text)mountFileTextExcerpt(el,a,pre,owns)}
    scheduleContentFit();
   });
  });
