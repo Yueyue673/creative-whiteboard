@@ -1263,7 +1263,19 @@ let connectorReadPass=null;
 function withConnectorGeometry(fn){if(connectorReadPass)return fn();connectorReadPass={elements:new Map([...$('nodes').children].map(el=>[el.dataset.id,el])),bounds:new Map()};try{return fn()}finally{connectorReadPass=null}}
 function connectorBounds(n){if(connectorReadPass?.bounds.has(n.id))return connectorReadPass.bounds.get(n.id);const el=connectorReadPass?connectorReadPass.elements.get(n.id):[...$('nodes').children].find(e=>e.dataset.id===n.id),bounds={x:n.x,y:n.y,w:el?.offsetWidth||n.w,h:el?.offsetHeight||n.h};connectorReadPass?.bounds.set(n.id,bounds);return bounds}
 anchor=function(n,side){const b=connectorBounds(n);return side==='left'?{x:b.x,y:b.y+b.h/2}:side==='top'?{x:b.x+b.w/2,y:b.y}:side==='bottom'?{x:b.x+b.w/2,y:b.y+b.h}:{x:b.x+b.w,y:b.y+b.h/2}};
-function naturalConnectorSides(a,b,from=null,to=null){let best=null;for(const sa of from?[from]:connectorSides)for(const sb of to?[to]:connectorSides){const p=anchor(a,sa),q=anchor(b,sb),dx=q.x-p.x,dy=q.y-p.y,len=Math.hypot(dx,dy),va=connectorVectors[sa],vb=connectorVectors[sb];const penalty=Math.max(0,-dx*va.x-dy*va.y)+Math.max(0,dx*vb.x+dy*vb.y),score=len+penalty*2;if(!best||score<best.score)best={from:sa,to:sb,score}}return best}
+function naturalConnectorSides(a,b,from=null,to=null){
+ let best=null,targets;
+ for(const sa of from?[from]:connectorSides){
+  const p=anchor(a,sa);
+  targets??=(to?[to]:connectorSides).map(side=>({side,point:anchor(b,side)}));
+  for(const {side:sb,point:q} of targets){
+   const dx=q.x-p.x,dy=q.y-p.y,len=Math.hypot(dx,dy),va=connectorVectors[sa],vb=connectorVectors[sb];
+   const penalty=Math.max(0,-dx*va.x-dy*va.y)+Math.max(0,dx*vb.x+dy*vb.y),score=len+penalty*2;
+   if(!best||score<best.score)best={from:sa,to:sb,score,p,q};
+  }
+ }
+ return best;
+}
 function connectorCurve(p,q,from,to){const va=connectorVectors[from],vb=connectorVectors[to],distance=Math.hypot(q.x-p.x,q.y-p.y),pull=Math.min(150,Math.max(24,distance*.42));const c1={x:p.x+va.x*pull,y:p.y+va.y*pull},c2={x:q.x+vb.x*pull,y:q.y+vb.y*pull};return {path:'M '+p.x+' '+p.y+' C '+c1.x+' '+c1.y+', '+c2.x+' '+c2.y+', '+q.x+' '+q.y,mid:{x:(p.x+3*c1.x+3*c2.x+q.x)/8,y:(p.y+3*c1.y+3*c2.y+q.y)/8}}}
 function connectorTarget(point,sourceId){return withConnectorGeometry(()=>{const radius=20/view().z;let best=null;for(const n of board.nodes){if(n.id===sourceId)continue;const b=connectorBounds(n),inside=point.x>=b.x&&point.x<=b.x+b.w&&point.y>=b.y&&point.y<=b.y+b.h;for(const side of connectorSides){const p=anchor(n,side),distance=Math.hypot(point.x-p.x,point.y-p.y);if(distance>radius&&!inside)continue;const score=distance+(n.type==='frame'?10000:0);if(!best||score<best.score)best={id:n.id,side,point:p,score}}}return best})}
 function clearConnectorHints(){document.querySelectorAll('.connector-target,.connector-snap').forEach(el=>el.classList.remove('connector-target','connector-snap'))}
@@ -1293,7 +1305,7 @@ drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
  // Read every required card size before changing any SVG path or label.
  for(const e of board.edges){if(changedIds&&existing.has(e.id)&&!changedIds.has(e.from)&&!changedIds.has(e.to))continue;const a=lookup.get(e.from),b=lookup.get(e.to);if(a&&b){connectorBounds(a);connectorBounds(b)}}
  for(const e of board.edges){const a=lookup.get(e.from),b=lookup.get(e.to);if(!a||!b)continue;alive.add(e.id);let el=existing.get(e.id);if(changedIds&&el&&!changedIds.has(e.from)&&!changedIds.has(e.to))continue;
-  const sides=naturalConnectorSides(a,b,e.portsExplicit?e.fromSide:null,e.portsExplicit?e.toSide:null),p=anchor(a,sides.from),q=anchor(b,sides.to),curve=connectorCurve(p,q,sides.from,sides.to);
+  const sides=naturalConnectorSides(a,b,e.portsExplicit?e.fromSide:null,e.portsExplicit?e.toSide:null),curve=connectorCurve(sides.p,sides.q,sides.from,sides.to);
   if(!el){el=svg('g');el.dataset.edge=e.id;const hit=svg('path'),line=svg('path');hit.classList.add('connector-hit');line.classList.add('connector-line');line.setAttribute('marker-end','url(#connectorArrow)');el.append(hit,line);host.append(el)}
   el.classList.add('connector');el.classList.toggle('selected',edgeId===e.id);for(const path of el.querySelectorAll('path'))set(path,'d',curve.path);
   let text=el.querySelector('text'),title=el.querySelector('title');if(e.label){if(!text){text=svg('text');text.setAttribute('text-anchor','middle');el.append(text)}if(!title){title=svg('title');el.prepend(title)}if(title.textContent!==e.label)title.textContent=e.label;placeConnectorLabel(text,e.label,curve.mid,svg,set)}else{text?.remove();title?.remove()}
