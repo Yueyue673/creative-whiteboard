@@ -494,7 +494,14 @@ const beforeMediaFit=fitContentLayouts;fitContentLayouts=function(){beforeMediaF
 
 // Content library accepts both files and reusable groups of board objects.
 const bundleMime='application/x-creative-bundle';
-function selectionBundle(){const ids=new Set(selected);for(const f of board.nodes.filter(n=>ids.has(n.id)&&n.type==='frame'))for(const n of board.nodes)if(groupOf(n)?.id===f.id)ids.add(n.id);return {nodes:clone(board.nodes.filter(n=>ids.has(n.id))),edges:clone(board.edges.filter(e=>ids.has(e.from)&&ids.has(e.to)))}}
+function selectionBundle(){
+ const ids=new Set(selected),frames=board.nodes.filter(node=>node.type==='frame');
+ const selectedFrames=new Set(frames.filter(frame=>selected.has(frame.id)&&!Number.isNaN(frame.id)).map(frame=>frame.id));
+ if(selectedFrames.size)for(const node of board.nodes){
+  if(!ids.has(node.id)&&selectedFrames.has(groupOf(node,frames)?.id))ids.add(node.id);
+ }
+ return {nodes:clone(board.nodes.filter(node=>ids.has(node.id))),edges:clone(board.edges.filter(edge=>ids.has(edge.from)&&ids.has(edge.to)))};
+}
 async function collectSelection(name){const bundle=selectionBundle();if(!bundle.nodes.length)return toast('先选择一块内容或一组内容');if(!await persist())return;await loadAssets();const next=clone(assetIndex),id=uid();next.assets.push({id,title:name,path:'',folder:assetFolder||'我的内容',mime:bundleMime,size:0,notes:bundle.nodes.length+' 块内容，可重新摆放和编辑',tags:[],bundle,source:{boardId,nodeIds:bundle.nodes.map(n=>n.id)},updated:Date.now()});const folder=assetFolder||'我的内容';if(!next.folders.includes(folder))next.folders.push(folder);if(await saveAssets(next)){await revealLibraryItem(id);toast('已收进内容库，原白板保留')}}
 function askCollectSelection(){const b=selectionBundle();if(!b.nodes.length)return toast('先选择内容');askName('收进内容库',b.nodes.length===1?(b.nodes[0].title||'未命名内容'):'内容组合',collectSelection)}
 const filesPlaceAssets=placeAssets;placeAssets=async function(ids,p=center()){const groups=ids.map(assetById).filter(a=>a?.mime===bundleMime),files=ids.filter(id=>assetById(id)?.mime!==bundleMime);if(files.length)await filesPlaceAssets(files,p);for(const a of groups){const bundle=clone(a.bundle);bundle.nodes.forEach(n=>n.libraryOrigin={id:a.id,name:a.title,source:clone(a.source||{})});insertBundle(bundle,p);p={x:p.x+80,y:p.y+80}}};
