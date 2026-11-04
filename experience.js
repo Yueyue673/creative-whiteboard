@@ -128,7 +128,7 @@
   const images=n.type==='image'&&!n.assetId&&!window.whiteboardCanvasObjects?.isObject(n)?el.querySelectorAll(':scope>.inner img'):[];
   const image=images.length===1?images[0]:null,source=image?.getAttribute('src');
   const openOriginal=()=>{
-   if(!source||board!==sourceBoard||boardId!==sourceId||loading||editorId||$('dialog').open||!el.isConnected||!el.contains(image)||image.getAttribute('src')!==source||selected.size!==1||!selected.has(id)||!board.nodes.includes(n))return;
+   if(!source||!document.hasFocus()||document.hidden||frameElement&&(frameElement.hidden||!frameElement.getClientRects().length)||board!==sourceBoard||boardId!==sourceId||loading||editorId||$('dialog').open||!el.isConnected||!el.contains(image)||image.getAttribute('src')!==source||selected.size!==1||!selected.has(id)||!board.nodes.includes(n))return;
    trigger?.focus({preventScroll:true});openImageView(source,image.alt||n.title||'图片');
   };
   fileMenu({target:el,clientX:r.right-210,clientY:r.bottom+4,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},
