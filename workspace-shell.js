@@ -153,10 +153,16 @@
   }catch(error){if(original()&&to&&current()?.id===to.id)activate(from.id);throw error}
   finally{for(const doc of watched)for(const type of events)doc.removeEventListener(type,cancel,true)}
  }
- function librarySnapshot(source,target=null){
+ function readyLibraryBoard(source,target){
   if(source!==explorerFrame?.contentWindow)return null;
   const tab=target?model.tabs.find(t=>t.boardId===target):current(),view=tab&&pane(tab);
-  return view?.state()?.boardId===tab?.boardId&&!view.state().loading?view.snapshot():null;
+  const state=view?.state();
+  return state&&state.boardId===tab.boardId&&!state.loading?{view,state}:null;
+ }
+ const librarySnapshot=(source,target=null)=>readyLibraryBoard(source,target)?.view.snapshot()??null;
+ function libraryBoardSummary(source,target=null){
+  const ready=readyLibraryBoard(source,target);
+  return ready?{boardId:ready.state.boardId,name:ready.state.name}:null;
  }
  async function openLibraryCopy(source,target,valid,contextValid=()=>true){
   const ownsContext=()=>{try{return contextValid()!==false}catch{return false}};
@@ -212,5 +218,5 @@
   return {saved:await view.moveBoard(place.boardId,destination),appliedFolder:destination};
  }
  const receiveBoardLocation=info=>explorer()?.updateBoardLocation?.(info);
- window.whiteboardWorkspace={openBoardTarget,renameOpenBoard,moveOpenBoard,receiveBoardLocation,canLocateLibraryCopies,librarySnapshot,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
+ window.whiteboardWorkspace={openBoardTarget,renameOpenBoard,moveOpenBoard,receiveBoardLocation,canLocateLibraryCopies,librarySnapshot,libraryBoardSummary,openLibraryCopy,openReference,toggle,explorer,sync,showCanvas,captureInsertionReturn,returnFromInsertion,revealAsset:revealLibraryAsset,canListen,setListening,resumeWriting,endListening};
 })();

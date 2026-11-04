@@ -31,6 +31,18 @@
   catch{return null}
   return board&&!loading&&(!target||target===boardId)?{boardId,board:clone(board)}:null;
  };
+ const liveBoardSummary=target=>{
+  try{
+   const workspace=parent!==window&&parent.whiteboardWorkspace;
+   if(workspace?.libraryBoardSummary)return workspace.libraryBoardSummary(window,target);
+   if(workspace?.librarySnapshot){
+    const snapshot=workspace.librarySnapshot(window,target);
+    return snapshot?{boardId:snapshot.boardId,name:snapshot.board.name}:null;
+   }
+  }
+  catch{return null}
+  return board&&!loading&&(!target||target===boardId)?{boardId,name:board.name}:null;
+ };
  function sourceContext(){
   try{const inner=window.whiteboardHosted||null,outer=parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}
  }
@@ -58,11 +70,11 @@
    try{
     // The recorded board is the destination. A group never chooses one child
     // as a substitute for the whole source board.
-    const live=liveSnapshot(source.boardId);
+    const live=liveBoardSummary(source.boardId);
     if(!live)await(await api('/api/boards/'+encodeURIComponent(source.boardId),{signal:controller.signal})).json();
     if(!active()){if(!interrupted&&ownsPreview())explain('来源或所属位置已有变化，未打开其他白板。当前原稿保留。');return}
     for(const cleanup of cleanups.splice(0))cleanup();
-    const opened=await parent.whiteboardWorkspace.openLibraryCopy(window,{board:source.boardId,id:null,returnName:label(liveSnapshot()?.board?.name)||'原稿'},active,scopeValid);
+    const opened=await parent.whiteboardWorkspace.openLibraryCopy(window,{board:source.boardId,id:null,returnName:label(liveBoardSummary()?.name)||'原稿'},active,scopeValid);
     if(opened===false&&owns())explain('暂未打开来源白板，当前原稿保留。请处理提示后再试。');
    }catch(error){if(!interrupted&&owns()&&error.name!=='AbortError')explain(error.message||'暂时不能打开来源白板，当前原稿保留。')}
    finally{for(const cleanup of cleanups)cleanup();navigating=false;if(ownsPreview()){button.disabled=false;if(interrupted)explain('已停下本次打开，当前原稿保留。需要时可重试。')}}
@@ -216,7 +228,7 @@
         if(!active()||token!==request)return;
         const checked=scan(latest,id);
         if(checked.interrupted||!checked.items.some(row=>row.rootId===hit.rootId&&row.nodeId===hit.nodeId))throw Error('这处副本已有变化，请重新查找。');
-        const opened=await parent.whiteboardWorkspace.openLibraryCopy(window,{board:hit.boardId,id:hit.nodeId,rootId:hit.rootId,returnName:label(liveSnapshot()?.board?.name)||'原稿'},()=>active()&&token===request);
+        const opened=await parent.whiteboardWorkspace.openLibraryCopy(window,{board:hit.boardId,id:hit.nodeId,rootId:hit.rootId,returnName:label(liveBoardSummary()?.name)||'原稿'},()=>active()&&token===request);
         if(opened===false&&active())throw Error('没有打开这处副本，原稿仍保留。');
        }catch(error){if(active()&&token===request&&error.name!=='AbortError'){status.textContent=error.message||'暂时没有打开，原稿仍保留。';retry.hidden=false}}
        finally{navigating=false;if(active()&&token===request)for(const b of list.querySelectorAll('button'))b.disabled=false}
