@@ -180,7 +180,21 @@ function wfOriginNode(n,a,presenceOnly=false){
  const exact=a.bundle.nodes.filter(x=>x.type===n.type&&x.title===n.title);return exact.length===1?exact[0]:a.bundle.nodes.length===1?a.bundle.nodes[0]:null;
 }
 async function wfLocateOriginal(n){const a=assetById(n.libraryOrigin?.id||n.assetId);if(!a)return toast('库中的原件已不存在');return revealLibraryItem(a.id)}
-function wfOriginReview(nodeId){const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);if(!n||!a)return toast('找不到库中的原件');const original=wfOriginNode(n,a);showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">来自内容库 / '+esc(a.folder||'根目录')+'。白板上是独立副本；更新前会展示差异。</p><p>'+esc(original?'可以比较并选择更新方向。':n.libraryOrigin?.rootNodeId?'暂时不能唯一对应到库中原件；可以定位组合或另存当前内容。':'这项内容是原文件引用，或旧组合尚未能精确匹配到单块。可以定位原件或另存当前内容。')+'</p>',[['关闭',()=>$('dialog').close()],['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])])}
+function wfOriginReview(nodeId){
+ const n=board.nodes.find(n=>n.id===nodeId),a=assetById(n?.libraryOrigin?.id||n?.assetId);
+ if(!n||!a)return toast('找不到库中的原件');
+ const original=wfOriginNode(n,a);
+ let relationship='暂时无法确认单块原件。可定位库中条目或另存当前内容。';
+ if(original)relationship='这是白板上的独立副本。更新前可比较差异。';
+ else if(n.libraryOrigin?.rootNodeId!==undefined)relationship='暂时无法确认组合中的单块原件。可定位组合或另存当前内容。';
+ else if(n.assetId===a.id&&typeof a.path==='string'&&a.path&&!Array.isArray(a.bundle?.nodes))relationship='这块内容引用库中的文件。可定位原文件或另存当前内容。';
+ showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">内容库 / '+esc(a.folder||'根目录')+'<br>'+esc(relationship)+'</p>',[
+  ['关闭',()=>$('dialog').close()],
+  ['定位库中原件',()=>{$('dialog').close();wfSafe(()=>wfLocateOriginal(n))}],
+  ['另存为新内容',()=>{selected=new Set([n.id]);askCollectSelection()}],
+  ...(original?[['查看库中更新',()=>wfCompareOrigin(n,a,original,'pull')],['用这块内容更新原件',()=>wfCompareOrigin(n,a,original,'push')]]:[])
+ ]);
+}
 function wfCompareOrigin(n,a,original,direction){
  const source=board,currentBoard=boardId,nodeId=n.id,copyVersion=JSON.stringify([n.type,n.libraryOrigin,wfContentFields.map(key=>n[key])]);
  const context=()=>{try{const inner=window.whiteboardHosted||null,outer=parent===window?inner:parent.whiteboardHosted||null;return {inner,outer,key:JSON.stringify([inner?.account?.id,inner?.workspace,inner?.base,outer?.account?.id,outer?.workspace,outer?.base])}}catch{return null}},scope=context();
