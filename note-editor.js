@@ -377,10 +377,11 @@
   preview=!preview;trigger.setAttribute('aria-pressed',String(preview));trigger.textContent=preview?'继续编辑':'预览';
   root.querySelectorAll('textarea#body,textarea#userText,textarea#annotation').forEach(el=>{el.hidden=preview;let view=el.nextElementSibling;if(!view?.classList.contains('note-editor-preview')){view=document.createElement('div');view.className='note-markdown note-editor-preview';el.after(view)}view.hidden=!preview;view.style.color=getComputedStyle(el).color;view.innerHTML=n.textFormat==='markdown'?rendered(serializeField(el,el.value)):'<p>'+linkedText(serializeField(el,el.value))+'</p>'});if(!preview)growContentFields(root);window.whiteboardSizing?.invalidate(root);
  }
+ const explicitNoteReference=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/;
  function references(n){const refs=[];for(const key of ['body','userText','annotation'])for(const token of wikiMatches(String(n[key]||'')))refs.push(token.content.split('|')[0]);if(n.type==='table'){for(const text of [...(n.columns||[]),...(n.rows||[]).flat()])for(const token of wikiMatches(String(text||'')))refs.push(token.content.split('|')[0])}return refs}
  function referenceCandidates(value,records,sourceBoard=boardId){
   const boardLink=/^@([a-zA-Z0-9_-]+)$/.exec(value);if(boardLink)return records.filter(row=>row.kind==='board'&&row.board===boardLink[1]);
-  const explicit=/^@([a-zA-Z0-9_-]+)\/([^\]|]+)$/.exec(value);
+  const explicit=explicitNoteReference.exec(value);
   if(explicit)return records.filter(row=>row.kind!=='board'&&row.board===explicit[1]&&row.node.id===explicit[2]);
   const available=records.filter(row=>!row.unavailable),ids=available.filter(row=>row.board===sourceBoard&&row.node.id===value);if(ids.length)return ids;
   const matches=row=>row.node.title===value||noteLabel(row.node)===value.trim(),local=available.filter(row=>(row.board===sourceBoard||row.kind==='board')&&matches(row));
@@ -584,7 +585,19 @@
   const rows=new Map(),add=row=>{if(row&&(row.board!==boardId||row.node.id!==n.id))rows.set(row.board+'/'+row.node.id,row)};
   for(const e of board.edges){const id=e.from===n.id?e.to:e.to===n.id?e.from:null;if(id)add(records.find(r=>r.board===boardId&&r.node.id===id))}
   for(const ref of references(n))add(resolveReference(ref,records));
-  if(incoming)for(const row of records)if(references(row.node).some(ref=>{const target=resolveReference(ref,records,row.board);return target?.board===boardId&&target.node.id===n.id}))add(row);
+  if(incoming){
+   let exactIncoming;
+   for(const row of records)if(references(row.node).some(ref=>{
+    const explicit=explicitNoteReference.exec(ref);
+    if(explicit){
+     if(explicit[1]!==boardId||explicit[2]!==n.id)return false;
+     exactIncoming??=resolveReference(ref,records,row.board)!==null;
+     return exactIncoming;
+    }
+    const target=resolveReference(ref,records,row.board);
+    return target?.board===boardId&&target.node.id===n.id;
+   }))add(row);
+  }
   return [...rows.values()];
  }
  function mountLibraryOrigin(n,root){
@@ -604,10 +617,11 @@
   mountLibraryOrigin(n,root);
   if(!n||n.type!=='note'||!root)return;
   const host=root.querySelector('.inner.live-layout .note-edit-tools'),trigger=host?.querySelector('#noteLinks');if(!host||!trigger)return;
-  const rows=relatedRows(n),signature=JSON.stringify([boardId,n.id,...rows.map(r=>[r.board,r.node.id,noteLabel(r.node)])]);let links=host.querySelector('.note-related-links');
-  const direct=rows.length===1&&root.classList.contains('immersive-surface');
+  let links=host.querySelector('.note-related-links');
+  const rows=root.classList.contains('immersive-surface')?relatedRows(n):null;
   trigger.textContent='关联';
-  if(!direct){if(links){links.before(trigger);links.remove()}return}
+  if(rows?.length!==1){if(links){links.before(trigger);links.remove()}return}
+  const signature=JSON.stringify([boardId,n.id,...rows.map(r=>[r.board,r.node.id,noteLabel(r.node)])]);
   if(!links){links=document.createElement('div');links.className='note-related-links inline-ui';links.setAttribute('role','group');links.setAttribute('aria-label','关联内容');trigger.before(links);links.addEventListener('pointerdown',e=>e.stopPropagation())}
   if(links.dataset.signature===signature)return;links.dataset.signature=signature;
   const row=rows[0],button=document.createElement('button');button.type='button';button.dataset.noteLink='@'+row.board+'/'+row.node.id;button.textContent=noteLabel(row.node);button.title='查看：'+button.textContent;links.replaceChildren(button,trigger);
@@ -689,7 +703,16 @@
  }
 
  async function openLinks(trigger,n){
-  const box=popup(trigger,n,'links');if(!box)return;box.setAttribute('aria-label','关联内容');box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><p role="status">正在读取可关联的内容…</p>';box.querySelector('button').onclick=closePanel;mountLibrarySourceEntry(box,trigger,n);show(trigger);
+  const box=popup(trigger,n,'links');if(!box)return;box.setAttribute('aria-label','关联内容');box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><p role="status">正在读取可关联的内容…</p>';const dismiss=()=>{if(panel===box)dismissPanel()};
+  const place=captureReferencePlace(n.id),root=trigger.closest('.node'),input=place?.field&&referenceFieldAt(place,root);
+  const ownerBoard=board,ownerId=boardId;
+  box._returnToWriting=()=>{
+   if(board!==ownerBoard||boardId!==ownerId||editorId!==n.id||!board.nodes.includes(n)||loading||blocked||!trigger.isConnected||!document.hasFocus())return;
+   if(!input?.isConnected||!root.contains(input)||input.value!==place.field.value||input.readOnly||input.disabled||!input.getClientRects().length){trigger.focus({preventScroll:true});return}
+   whiteboardNavigation.focusPreservingView(input);input.setSelectionRange(place.field.start,place.field.end,place.field.direction);
+   input.scrollTop=place.field.top;input.scrollLeft=place.field.left;remember(input);
+  };
+  box.querySelector('button').onclick=dismiss;mountLibrarySourceEntry(box,trigger,n);show(trigger);
   const sourceBoard=boardId,source=board;let result;try{result=await allNotes(()=>panel===box&&board===source&&boardId===sourceBoard&&board.nodes.includes(n))}catch(error){if(panel===box)box.querySelector('p').textContent='暂时无法读取：'+error.message;return}if(panel!==box||board!==source||boardId!==sourceBoard||!board.nodes.includes(n))return;
   const records=[...result.records];
   // Keep explicit relationships legible even when their target cannot be read.
@@ -699,7 +722,7 @@
    records.push({...(match[2]?{}:{kind:'board'}),board:match[1],name:'暂时无法查看',unavailable:true,node:{id:match[2]||'',type:match[2]?'note':'board',title:alias.join('|')||'未命名资料',body:''}});
   }
   const backlinks=relatedRows(n,records);
-  box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><label class="note-link-search">查找内容<input type="search" placeholder="搜索便签与白板" aria-label="搜索关联内容"></label><div class="note-link-results"></div><div class="note-backlinks"><b>已关联 · '+backlinks.length+'</b><div></div></div>'+(result.incomplete?'<p role="status">部分白板暂时无法读取，引用列表可能不完整。</p>':'');box.querySelector('header button').onclick=closePanel;
+  box.innerHTML='<header><b>关联内容</b><button type="button" aria-label="关闭关联内容">×</button></header><label class="note-link-search">查找内容<input type="search" placeholder="搜索便签与白板" aria-label="搜索关联内容"></label><div class="note-link-results"></div><div class="note-backlinks"><b>已关联 · '+backlinks.length+'</b><div></div></div>'+(result.incomplete?'<p role="status">部分白板暂时无法读取，引用列表可能不完整。</p>':'');box.querySelector('header button').onclick=dismiss;
   const groupKey=row=>JSON.stringify([row.board,noteLabel(row.node),referenceLocation(row)]),groupLabels=new Map();
   for(const row of records)if(row.kind!=='board'&&!row.unavailable&&(row.board!==sourceBoard||row.node.id!==n.id)){const key=groupKey(row);if(!groupLabels.has(key))groupLabels.set(key,new Set());groupLabels.get(key).add(row.groupName||'')}
   const rowButton=(row,insert)=>{const b=document.createElement('button');b.type='button';b.className='note-link-row';const title=document.createElement('span'),location=document.createElement('small');title.textContent=noteLabel(row.node);location.textContent=row.kind==='board'?(row.location||'整张白板'):row.name;b.append(title,location);const group=groupLabels.get(groupKey(row))?.size>1&&row.groupName?'分组：'+row.groupName:'',context=[group,referenceLocation(row)].filter(Boolean).join(' · ');if(context){const position=document.createElement('small');position.className='note-link-location';position.textContent=context;position.title=context;b.append(position)}if(row.kind==='board'&&row.preview){const preview=document.createElement('small');preview.textContent=row.preview;b.append(preview)}if(insert){b.className='note-link-cite';b.replaceChildren(document.createTextNode('引用'));b.setAttribute('aria-label','引用：'+noteLabel(row.node)+(context?' · '+row.name+' · '+context:''))}else b.title='查看：'+noteLabel(row.node)+(context?' · '+context:'');b.onclick=async()=>{const active=()=>panel===box&&board===source&&boardId===sourceBoard&&board.nodes.includes(n)&&editorId===n.id&&!loading&&!blocked&&(!document.getElementById('dialog').open||!!trigger.closest('#dialog.immersive-dialog'));if(!active())return;

@@ -93,7 +93,7 @@
  }
  function capture(panel){const active=document.activeElement;return {active:!!active?.closest('#'+panels[panel]),key:key(active?.closest(selector)),location:list(panel)._navigationLocation,scroll:rememberScroll(panel)}}
  const renderAssetsBefore=renderAssets;
- renderAssets=function(){const previous=capture('assetPane');renderAssetsBefore();restoreAfterRender('assetPane',previous)};
+ renderAssets=function(){return withAssetLookup(()=>{const previous=capture('assetPane');renderAssetsBefore();restoreAfterRender('assetPane',previous)})};
  const renderFoldersBefore=renderFolders;
  renderFolders=function(){const previous=capture('manager');renderFoldersBefore();restoreAfterRender('manager',previous)};
  const enterAssetsBefore=enterAssetFolder;
