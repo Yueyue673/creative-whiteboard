@@ -186,7 +186,7 @@ function wfOriginReview(nodeId){
  const original=wfOriginNode(n,a);
  let relationship='暂时无法确认单块原件。可定位库中条目或另存当前内容。';
  if(original)relationship='这是白板上的独立副本。更新前可比较差异。';
- else if(n.libraryOrigin?.rootNodeId!==undefined)relationship='暂时无法确认组合中的单块原件。可定位组合或另存当前内容。';
+ else if(n.libraryOrigin?.rootNodeId!==undefined)relationship='暂时不能唯一对应到组合中的单块原件。可定位组合或另存当前内容。';
  else if(n.assetId===a.id&&typeof a.path==='string'&&a.path&&!Array.isArray(a.bundle?.nodes))relationship='这块内容引用库中的文件。可定位原文件或另存当前内容。';
  showDialog('<h2>'+esc(a.title)+'</h2><p class="wf-explain">内容库 / '+esc(a.folder||'根目录')+'<br>'+esc(relationship)+'</p>',[
   ['关闭',()=>$('dialog').close()],
