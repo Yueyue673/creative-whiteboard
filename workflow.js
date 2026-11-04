@@ -927,17 +927,34 @@ let wfOpenPickedResources;
 // Make an explicitly saved replay point visible while choosing a single-media resource.
 (()=>{
  const stamp=value=>{const units=Math.round(value*100),fraction=String(units%100).padStart(2,'0').replace(/0+$/,'');return Math.floor(units/6000)+':'+String(Math.floor(units%6000/100)).padStart(2,'0')+(fraction?'.'+fraction:'')};
- function cue(asset,files){
+ function replayPoint(asset){
   if(asset?.mime!==bundleMime||!Array.isArray(asset.bundle?.nodes)||asset.bundle.nodes.length!==1)return null;
-  const node=asset.bundle.nodes[0],file=files.get(node?.mediaId);if(node?.type!=='note'||!file||file.archived||!(typeof file.mime==='string'&&(file.mime.startsWith('audio/')||file.mime.startsWith('video/'))))return null;
-  const timeline=node.mediaTimeline?.[mediaURL(file.id)];if(!timeline||typeof timeline.startMarkerId!=='string'||!timeline.startMarkerId||!Array.isArray(timeline.markers))return null;
+  const node=asset.bundle.nodes[0];if(node?.type!=='note')return null;
+  const timeline=node.mediaTimeline?.[mediaURL(node.mediaId)];if(!timeline||typeof timeline.startMarkerId!=='string'||!timeline.startMarkerId||!Array.isArray(timeline.markers))return null;
   const matches=timeline.markers.filter(marker=>marker?.id===timeline.startMarkerId),marker=matches.length===1?matches[0]:null;if(!marker||!Number.isFinite(marker.time)||marker.time<0||!Number.isSafeInteger(Math.round(marker.time*100)))return null;
-  return {text:(file.mime.startsWith('audio/')?'音频':'视频')+' · 重播起点 '+stamp(marker.time),file:file.title||''};
+  return {fileId:node.mediaId,time:marker.time};
+ }
+ function uniqueEntries(ids){
+  const entries=new Map();
+  for(const asset of assetIndex.assets)if(ids.has(asset.id))entries.set(asset.id,entries.has(asset.id)?null:asset);
+  return entries;
  }
  const previous=renderAssets;
  renderAssets=function(){
-  previous();const files=new Map();for(const asset of assetIndex.assets)files.set(asset.id,files.has(asset.id)?null:asset);
-  for(const row of $('assetList').querySelectorAll('[data-asset]')){const hint=cue(files.get(row.dataset.asset),files);if(!hint)continue;const text=document.createElement('p');text.className='library-note-excerpt library-replay-cue';text.textContent=hint.text;text.title=hint.file?hint.file+' · '+hint.text:hint.text;row.querySelector('div')?.append(text)}
+  previous();
+  const rows=[...$('assetList').querySelectorAll('[data-asset]')];if(!rows.length)return;
+  // Only retain entries needed by rendered rows. A duplicate ID stays ambiguous even when its other entry is hidden.
+  const visible=uniqueEntries(new Set(rows.map(row=>row.dataset.asset)));
+  const points=new Map();
+  for(const [id,asset] of visible){const point=replayPoint(asset);if(point)points.set(id,point)}
+  if(!points.size)return;
+  const files=uniqueEntries(new Set([...points.values()].map(point=>point.fileId)));
+  for(const row of rows){
+   const point=points.get(row.dataset.asset);if(!point)continue;
+   const file=files.get(point.fileId);if(!file||file.archived||typeof file.mime!=='string'||!/^(audio|video)\//.test(file.mime))continue;
+   const label=(file.mime.startsWith('audio/')?'音频':'视频')+' · 重播起点 '+stamp(point.time),text=document.createElement('p');
+   text.className='library-note-excerpt library-replay-cue';text.textContent=label;text.title=file.title?file.title+' · '+label:label;row.querySelector('div')?.append(text);
+  }
  };
 })();
 
