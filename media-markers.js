@@ -83,13 +83,47 @@
   // A marker owns its original text controls; switching never replays its text.
   if(fields.lastTime!==m.time){fields.lastTime=m.time;s.lastTime=m.time;fields.time.value=String(Math.round(m.time*100)/100);fields.time.setCustomValidity('');fields.time.setAttribute('aria-invalid','false');fields.error.hidden=true;fields.error.textContent='';}
  }
+ function syncMarkerRows(s,markers,startMarkerId){
+  // Selection can reuse the rows while their order, content and bound markers match.
+  const sameRows=s.rowMarkers?.length===markers.length&&s.rowStart===startMarkerId&&markers.every((marker,index)=>{
+   const previous=s.rowMarkers[index];
+   return previous.marker===marker&&previous.id===marker.id&&Object.is(previous.time,marker.time)&&previous.title===marker.title;
+  });
+  if(!sameRows){
+   s.rowMarkers=markers.map(marker=>({marker,id:marker.id,time:marker.time,title:marker.title}));
+   s.rowStart=startMarkerId;
+   s.list.replaceChildren();
+   if(!markers.length){
+    const empty=document.createElement('p');empty.className='media-marker-empty';
+    empty.textContent='在需要回看的位置添加标记，再写下它的用途或你的想法。';s.list.append(empty);
+   }
+   for(const marker of markers){
+    const row=document.createElement('button');
+    row.type='button';row.className='media-marker-row';row.dataset.markerId=marker.id;row.setAttribute('role','option');
+    const time=document.createElement('span'),title=document.createElement('span'),flag=document.createElement('small');
+    time.textContent=stamp(marker.time);title.textContent=title.title=marker.title||'未命名标记';
+    flag.textContent=marker.id===startMarkerId?'重播起点':'';
+    row.append(time,title,flag);
+    row.onclick=()=>{s.selected=marker.id;jump(s.el,marker.time);renderPanel(s)};
+    s.list.append(row);
+   }
+  }
+  let selectedRow=null;
+  for(const [index,marker] of markers.entries()){
+   const row=s.list.children[index],selected=marker.id===s.selected;
+   if(row.getAttribute('aria-selected')!==String(selected)){
+    row.setAttribute('aria-selected',String(selected));row.tabIndex=selected?0:-1;
+   }
+   if(selected&&!selectedRow)selectedRow=row;
+  }
+  return selectedRow;
+ }
  function renderPanel(s){
-  if(!s.list?.isConnected)return;const focus=document.activeElement,keepFocus=s.list.contains(focus),all=sorted(s.el),t=timeline(s.el);s.list.replaceChildren();
-  if(!all.length){const empty=document.createElement('p');empty.className='media-marker-empty';empty.textContent='在需要回看的位置添加标记，再写下它的用途或你的想法。';s.list.append(empty)}
-  for(const m of all){const row=document.createElement('button');row.type='button';row.className='media-marker-row';row.dataset.markerId=m.id;row.setAttribute('role','option');row.setAttribute('aria-selected',String(m.id===s.selected));row.tabIndex=m.id===s.selected?0:-1;const time=document.createElement('span'),title=document.createElement('span'),flag=document.createElement('small');time.textContent=stamp(m.time);title.textContent=title.title=m.title||'未命名标记';flag.textContent=m.id===t?.startMarkerId?'重播起点':'';row.append(time,title,flag);row.onclick=()=>{s.selected=m.id;jump(s.el,m.time);renderPanel(s)};s.list.append(row)}
+  if(!s.list?.isConnected)return;const focus=document.activeElement,keepFocus=s.list.contains(focus),all=sorted(s.el),t=timeline(s.el);
+  const row=syncMarkerRows(s,all,t?.startMarkerId);
   const m=all.find(m=>m.id===s.selected);if(m)markerEditor(s,m);else s.marker=null;s.editor.hidden=!m;s.summary.textContent=t?.startMarkerId?'再次打开从选定标记开始。':'再次打开接着上次的位置。';s.resume.hidden=!!contentContext(s.el)?.readOnly||!t?.startMarkerId;
   if(m){s.start.checked=m.id===t?.startMarkerId;const next=nextMarker(s.el,m),ready=Number.isFinite(s.el.duration)&&s.el.duration>0;s.playNext.hidden=!next;s.playNext.disabled=!ready||m.time<0||!next||next.time>s.el.duration;s.previewBox.hidden=!next&&!s.previewState.textContent;growTitle(s)}
-  const row=[...s.list.children].find(row=>row.dataset.markerId===s.selected);if(row){if(keepFocus)row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'})}
+  if(row){if(keepFocus)row.focus({preventScroll:true});row.scrollIntoView({block:'nearest'})}
   if(focus===s.resume&&s.resume.hidden)(m?s.start:s.add).focus({preventScroll:true});else if(s.editor.hidden&&s.editor.contains(focus))s.add.focus({preventScroll:true});
   whiteboardMedia.fit();
  }
