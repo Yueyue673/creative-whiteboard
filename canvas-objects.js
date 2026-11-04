@@ -218,9 +218,15 @@
   const trim=()=>{if(edits.length>100)edits.shift()},save=()=>{edits.push(snapshot());redo=[]};
   const finishField=()=>{if(fieldGroup?.saved&&JSON.stringify(draft)===JSON.stringify(fieldGroup.before.object)&&edits.at(-1)===fieldGroup.before){edits.pop();redo=fieldGroup.redo}else if(fieldGroup?.saved)trim();fieldGroup=null};
   const markBounds=index=>{try{const box=svg.querySelector('[data-image-mark="'+index+'"]')?.getBBox();return box&&box.width+box.height>0?{x:box.x,y:box.y,w:box.width,h:box.height}:null}catch{return null}};
+  let paintedMarks=[];
   function paint(){
    const c=draft.crop,m=draft.marks[selectedMark],held=busy();Object.assign(cropBox.style,{left:c.x+'%',top:c.y+'%',width:c.w+'%',height:c.h+'%'});
-   svg.innerHTML=draft.marks.slice(0,500).map((mark,i)=>'<g data-image-mark="'+i+'">'+marksSVG([mark])+'</g>').join('');
+   const visibleMarks=draft.marks.slice(0,500);
+   // The active new stroke grows in place. Edits to existing marks replace them.
+   if(drawing||visibleMarks.length!==paintedMarks.length||visibleMarks.some((mark,i)=>mark!==paintedMarks[i])){
+    svg.innerHTML=visibleMarks.map((mark,i)=>'<g data-image-mark="'+i+'">'+marksSVG([mark])+'</g>').join('');
+    paintedMarks=visibleMarks;
+   }
    const box=tool==='select'&&m?markBounds(selectedMark):null;selectionBox.hidden=!box;if(box)Object.assign(selectionBox.style,{left:box.x+'%',top:box.y+'%',width:box.w+'%',height:box.h+'%'});
    $('imageEditUndo').disabled=held||!edits.length;$('imageEditRedo').disabled=held||!redo.length;$('imageEditApply').disabled=held;$('imageEditRestore').disabled=held;$('imageMarkDelete').disabled=held||tool!=='select'||!m;
    textField.disabled=held||!(tool==='text'||tool==='select'&&m?.kind==='text');colourField.disabled=held||tool==='crop'||tool==='pan'||tool==='select'&&!m;
