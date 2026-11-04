@@ -8,7 +8,7 @@ from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 
 from .document_views import data_endpoint, value_payload
-from .documents import check_quota, document_etag, find_document, put_document, require_current_editor, require_precondition, validate_document, save_revision
+from .documents import check_quota, document_etag, find_document, put_document, require_current_editor, require_precondition, validate_document, save_revision, valid_key
 from .json_data import document_bytes
 from .media import asset_etag, asset_json, locked_budget, metadata_size
 from .models import MediaAsset, DocumentRevision
@@ -28,8 +28,18 @@ def snapshot(scope, account):
     records = list(MediaAsset.objects.filter(workspace_id=scope.workspace.pk).order_by('id'))
     stored = {row['id']: row for row in value['assets'] if row.get('mime') == FILE_REFERENCE}
     value['assets'] = [row for row in value['assets'] if row.get('mime') != FILE_REFERENCE]
+    folder_locations = None
     for record in records:
-        item = asset_json(record, account)
+        if record.folder_id:
+            valid_key(record.folder_id)
+            if folder_locations is None:
+                folder_locations = {}
+                for folder_path, identity in value.get('folderIds', {}).items():
+                    if isinstance(identity, str):
+                        folder_locations.setdefault(identity, folder_path)
+            if record.folder_id not in folder_locations:
+                raise APIError("原资料库文件夹已不存在，未把素材放入其他位置", 409)
+        item = asset_json(record, account, folder_map=folder_locations or {})
         item['path'] = item['mediaURL'] + '&filename=' + quote(record.filename)
         item['updated'] = record.updated_at.timestamp() * 1000
         for field in ('archiveBatch', 'archivedAt', 'attachmentBoard'):

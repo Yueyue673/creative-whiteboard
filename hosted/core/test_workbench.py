@@ -30,6 +30,45 @@ class OriginalWorkbenchTests(TestCase):
 
     def read(self):return self.call(self.base+'native/assets')
 
+    def test_native_catalog_resolves_file_folders_once_without_hiding_orphans(self):
+        from .native_views import snapshot
+        from .documents import find_document
+        from .models import MediaAsset
+        from .services import APIError
+
+        files=[upload_stream(self.scope,self.owner,io.BytesIO(b'given'),5,f'given-{i}.txt','') for i in range(12)]
+        initial=self.read();value=initial.json()
+        value['folders']=['Given A','Given B']
+        value['folderIds']={'Given A':'given-a','Given B':'given-b'}
+        for index,item in enumerate(value['assets']):
+            item['folder']='Given A' if index<6 else 'Given B'
+        saved=self.call(self.base+'native/assets','PUT',value,initial['ETag'])
+        self.assertEqual(saved.status_code,200,saved.content)
+        expected=self.read()
+        with self.assertNumQueries(2):
+            actual,tag,_,_=snapshot(self.scope,self.owner)
+        self.assertEqual(actual,expected.json());self.assertEqual(tag,expected['ETag'])
+
+        # Reuse is limited to one snapshot; the next read must see a rename.
+        doc=find_document(self.space.pk,'library','catalog')
+        doc.value['folders']=['Given renamed','Given B']
+        doc.value['folderIds']={'Given renamed':'given-a','Given B':'given-b'}
+        doc.save(update_fields=['value'])
+        with self.assertNumQueries(2):
+            renamed,_,_,_=snapshot(self.scope,self.owner)
+        self.assertEqual(sum(row['folder']=='Given renamed' for row in renamed['assets']),6)
+
+        identifier=files[0].pk
+        MediaAsset.objects.filter(pk=identifier).update(folder_id='')
+        rooted,_,_,_=snapshot(self.scope,self.owner)
+        self.assertEqual(next(row for row in rooted['assets'] if row['id']==str(identifier))['folder'],'')
+        for folder_id,archived,status in [('missing-folder',False,409),('missing-folder',True,409),('../invalid',False,400)]:
+            with self.subTest(folder_id=folder_id,archived=archived):
+                MediaAsset.objects.filter(pk=identifier).update(folder_id=folder_id,archived=archived)
+                with self.assertRaises(APIError) as refusal:
+                    snapshot(self.scope,self.owner)
+                self.assertEqual(refusal.exception.status,status)
+
     def test_actual_original_shell_and_canvas_program_are_used(self):
         shell=self.client.get(self.app)
         self.assertEqual(shell.status_code,200);text=shell.content.decode()
