@@ -833,7 +833,7 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
  subsetActions.onkeydown=e=>{if(e.key==='Escape'&&subsetActions.open){e.preventDefault();e.stopImmediatePropagation();subsetActions.open=false;subsetSummary.focus({preventScroll:true})}};
  subsetButton.onclick=()=>{if(!$('dialog').open||!previewElement.isConnected||$('pieceList')!==previewElement||!picked.size)return;subsetActions.open=false;saveLibrarySubset(a,picked,subsetSummary)};
  const matched=()=>{const q=$('pieceSearch').value.toLowerCase();return a.bundle.nodes.filter(n=>[n.title,n.body,n.userText,n.annotation].join(' ').toLowerCase().includes(q))};
- const update=()=>{const enabled=!!picked.size;subsetSummary.setAttribute('aria-disabled',String(!enabled));subsetSummary.tabIndex=enabled?0:-1;subsetSummary.title=enabled?'将勾选的内容另存为独立资源':'先勾选要保留的内容';subsetButton.disabled=!enabled;if(!enabled)subsetActions.open=false;const count=picked.size?librarySubsetIds(a,picked).size:a.bundle.nodes.length;place.textContent=(picked.size?'放入所选':'放入整组')+' · '+count+' 块';$('pieceCount').textContent=picked.size?'已选 '+picked.size+' 块':a.bundle.nodes.length+' 块内容';const list=matched();$('pieceAll').checked=!!list.length&&list.every(n=>picked.has(n.id));$('pieceAll').indeterminate=list.some(n=>picked.has(n.id))&&!$('pieceAll').checked};
+ const update=(list=matched())=>{const enabled=!!picked.size;subsetSummary.setAttribute('aria-disabled',String(!enabled));subsetSummary.tabIndex=enabled?0:-1;subsetSummary.title=enabled?'将勾选的内容另存为独立资源':'先勾选要保留的内容';subsetButton.disabled=!enabled;if(!enabled)subsetActions.open=false;const count=picked.size?librarySubsetIds(a,picked).size:a.bundle.nodes.length;place.textContent=(picked.size?'放入所选':'放入整组')+' · '+count+' 块';$('pieceCount').textContent=picked.size?'已选 '+picked.size+' 块':a.bundle.nodes.length+' 块内容';$('pieceAll').checked=!!list.length&&list.every(n=>picked.has(n.id));$('pieceAll').indeterminate=list.some(n=>picked.has(n.id))&&!$('pieceAll').checked};
  const openReadings=new Set(),openImages=new Set(),piecePositions=new Map(a.bundle.nodes.map((n,i)=>[n.id,i+1]));
  const draw=()=>{
   // Native toggle is queued; preserve the live state before replacing a filtered list.
@@ -893,7 +893,17 @@ const previewBeforePieces=previewAsset;previewAsset=function(id){const a=assetBy
   });
   update();
  };
- $('pieceSearch').oninput=draw;$('pieceAll').onchange=e=>{matched().forEach(n=>e.target.checked?picked.add(n.id):picked.delete(n.id));draw()};draw();
+ const selectResults=$('pieceAll');
+ $('pieceSearch').oninput=draw;
+ selectResults.onchange=()=>{
+  if(!$('dialog').open||!previewElement.isConnected||$('pieceList')!==previewElement||$('pieceAll')!==selectResults)return;
+  const list=matched(),checked=selectResults.checked;
+  for(const node of list)if(checked)picked.add(node.id);else picked.delete(node.id);
+  for(const input of previewElement.querySelectorAll('input[data-piece]'))input.checked=picked.has(input.dataset.piece);
+  update(list);
+  previewElement.dispatchEvent(new Event('library-piece-selection-change'));
+ };
+ draw();
  libraryPreviewContinuations.set(previewElement,{
   capture:()=>({picked:[...picked],search:$('pieceSearch').value,readings:[...previewElement.querySelectorAll('[data-library-piece-reading][open]')].map(el=>el.dataset.libraryPieceReading),images:[...previewElement.querySelectorAll('[data-library-piece-image][open]')].map(el=>el.dataset.libraryPieceImage),spatial:!!previewElement.querySelector('.library-spatial')?.open,scroll:previewElement.scrollTop,bodyScroll:$('dialogBody').scrollTop,dialogScroll:$('dialog').scrollTop}),
   restore:(snapshot,current)=>{

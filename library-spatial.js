@@ -59,8 +59,8 @@
    description.textContent=layout.nodes.length+' 块 · '+layout.edges.length+' 条连线。布局示意，点块对应下方勾选。'+(needsList?'较小或重叠的块请在下方选择。':'');
   }
   observer=new MutationObserver(sync);observer.observe(preview,{childList:true});
-  resize=new ResizeObserver(sync);resize.observe(map);preview.addEventListener('change',sync);details.addEventListener('toggle',sync);
-  onDialogDismiss(()=>{alive=false;observer.disconnect();resize.disconnect();preview.removeEventListener('change',sync);details.removeEventListener('toggle',sync);details.remove()});
+  resize=new ResizeObserver(sync);resize.observe(map);preview.addEventListener('change',sync);preview.addEventListener('library-piece-selection-change',sync);details.addEventListener('toggle',sync);
+  onDialogDismiss(()=>{alive=false;observer.disconnect();resize.disconnect();preview.removeEventListener('change',sync);preview.removeEventListener('library-piece-selection-change',sync);details.removeEventListener('toggle',sync);details.remove()});
   sync();
  }
  previewAsset=async function(id){
