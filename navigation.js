@@ -75,8 +75,9 @@
    'y,spacing':'<rect x="7" y="2" width="10" height="4"/><rect x="7" y="10" width="10" height="4"/><rect x="7" y="18" width="10" height="4"/>'
   },button=(key,name,caption)=>'<button data-align="'+key+'" aria-label="'+name+'" title="'+name+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+icons[key]+'</svg><span>'+caption+'</span></button>';
   const source=board,sourceId=boardId,nodes=board.nodes.filter(n=>selected.has(n.id)),ids=new Set(nodes.map(n=>n.id));if(nodes.length<2)return;
-  showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div class="arrange-axis"><span>水平</span>'+button('x,start','左边对齐','左对齐')+button('x,center','水平居中对齐','居中')+button('x,end','右边对齐','右对齐')+'</div><div class="arrange-axis"><span>垂直</span>'+button('y,start','顶部对齐','顶部')+button('y,center','垂直居中对齐','居中')+button('y,end','底部对齐','底部')+'</div><label for="arrangeGap">间距<input id="arrangeGap" type="number" min="0" max="500" step="any" value="'+read().gap+'"></label><div class="arrange-presets" aria-label="常用间距"><button type="button" data-gap="16">紧凑 · 16</button><button type="button" data-gap="32">常规 · 32</button><button type="button" data-gap="64">舒展 · 64</button></div><div class="arrange-spacing">'+button('x,spacing','横向等距排列','横向等距')+button('y,spacing','纵向等距排列','纵向等距')+'</div><figure class="arrange-preview"><svg viewBox="0 0 320 140" role="img" aria-label="选中内容的布局预览"></svg><figcaption id="arrangePreviewCaption">指向或按 Tab 预览，点击操作才应用。</figcaption></figure><details class="arrange-return"><summary>试摆与返回</summary><p>临时记住这组内容的位置，再试另一种摆法。返回时保留后来写的文字、尺寸和新内容；只在本次打开的白板中使用。</p><div class="arrange-return-actions"><button type="button" data-arrange-remember>记住当前摆法</button><button type="button" data-arrange-return>回到记住的摆法</button></div><p role="status" data-arrange-status></p></details></div>',[['返回白板',()=>$('dialog').close()]]);
+  showDialog('<h2>对齐与间距</h2><div class="arrange-options"><div class="arrange-axis"><span>水平</span>'+button('x,start','左边对齐','左对齐')+button('x,center','水平居中对齐','居中')+button('x,end','右边对齐','右对齐')+'</div><div class="arrange-axis"><span>垂直</span>'+button('y,start','顶部对齐','顶部')+button('y,center','垂直居中对齐','居中')+button('y,end','底部对齐','底部')+'</div><label for="arrangeGap">间距<input id="arrangeGap" type="number" min="0" max="500" step="any" value="'+read().gap+'"></label><div class="arrange-presets" aria-label="常用间距"><button type="button" data-gap="16">紧凑 · 16</button><button type="button" data-gap="32">常规 · 32</button><button type="button" data-gap="64">舒展 · 64</button></div><div class="arrange-spacing">'+button('x,spacing','横向等距排列','横向等距')+button('y,spacing','纵向等距排列','纵向等距')+'</div><figure class="arrange-preview"><div class="arrange-preview-controls"><label><input type="checkbox" id="arrangePreviewOnly">先预览</label><button type="button" id="arrangeApplyPreview" hidden>应用预览</button></div><svg viewBox="0 0 320 140" role="img" aria-label="选中内容的布局预览"></svg><figcaption id="arrangePreviewCaption">指向或按 Tab 预览，点击操作才应用。</figcaption></figure><details class="arrange-return"><summary>试摆与返回</summary><p>临时记住这组内容的位置，再试另一种摆法。返回时保留后来写的文字、尺寸和新内容；只在本次打开的白板中使用。</p><div class="arrange-return-actions"><button type="button" data-arrange-remember>记住当前摆法</button><button type="button" data-arrange-return>回到记住的摆法</button></div><p role="status" data-arrange-status></p></details></div>',[['返回白板',()=>$('dialog').close()]]);
   const options=$('dialogBody').querySelector('.arrange-options'),field=options.querySelector('#arrangeGap'),svg=options.querySelector('.arrange-preview svg'),caption=options.querySelector('figcaption'),buttons=[...options.querySelectorAll('[data-align]')];let previewMode=null,previewIds=ids,invalid=false;
+  const previewOnly=options.querySelector('#arrangePreviewOnly'),applyPreview=options.querySelector('#arrangeApplyPreview');
   const owns=()=>options.isConnected&&$('dialog').open&&$('dialogBody').querySelector('.arrange-options')===options;
   const active=()=>!invalid&&owns()&&board===source&&boardId===sourceId&&!loading&&!blocked&&nodes.every(n=>board.nodes.includes(n))&&selected.size===ids.size&&[...selected].every(id=>ids.has(id));
   const gap=()=>field.value.trim()!==''&&Number.isFinite(field.valueAsNumber)&&field.valueAsNumber>=0&&field.valueAsNumber<=500?field.valueAsNumber:null;
@@ -85,18 +86,35 @@
    if(!ready())return;previewMode=mode;const value=gap();for(const b of options.querySelectorAll('[data-gap]'))b.setAttribute('aria-pressed',String(value===Number(b.dataset.gap)));
    for(const b of buttons){b.disabled=b.dataset.align.endsWith(',spacing')&&value===null;b.classList.toggle('previewing',b.dataset.align===mode)}
    const command=buttons.find(b=>b.dataset.align===mode),spacing=mode?.endsWith(',spacing'),moves=mode&&(!spacing||value!==null)?arrangementMoves(...mode.split(','),value??read().gap):[];
+   applyPreview.disabled=!previewOnly.checked||!command||command.disabled;
    const positions=new Map(nodes.map(n=>[n,{node:n,x:n.x,y:n.y}]));for(const m of moves){const item=positions.get(m.node)||{node:m.node,x:m.node.x,y:m.node.y};item[m.axis]=m.value;positions.set(m.node,item)}
    const all=[...positions.values()],left=Math.min(...all.map(p=>p.x)),top=Math.min(...all.map(p=>p.y)),width=Math.max(...all.map(p=>p.x+p.node.w))-left,height=Math.max(...all.map(p=>p.y+p.node.h))-top,boxWidth=Math.max(80,svg.clientWidth),boxHeight=Math.max(60,svg.clientHeight),scale=Math.min((boxWidth-24)/Math.max(1,width),(boxHeight-24)/Math.max(1,height)),ox=(boxWidth-width*scale)/2,oy=(boxHeight-height*scale)/2;
    svg.setAttribute('viewBox','0 0 '+boxWidth+' '+boxHeight);
    previewIds=new Set(all.map(p=>p.node.id));
    svg.replaceChildren();const element=(tag,attrs,text)=>{const el=document.createElementNS(svg.namespaceURI,tag);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,String(v));if(text!==undefined)el.textContent=text;return el};
    for(const p of all.slice(0,120)){const n=p.node,x=ox+(p.x-left)*scale,y=oy+(p.y-top)*scale,w=n.w*scale,h=n.h*scale,g=element('g',{'class':n.type==='frame'?'preview-frame':ids.has(n.id)?'preview-selected':'preview-member'});g.append(element('title',{},n.title||'未命名'),element('rect',{x,y,width:w,height:h,rx:n.type==='frame'?2:3}));if(w>=38&&h>=19){const label=Array.from(n.title||'未命名').slice(0,Math.min(18,Math.floor((w-8)/12))).join('');if(label)g.append(element('text',{x:x+5,y:y+Math.min(h/2+4,17)},label))}svg.append(g)}
-   caption.textContent=(spacing&&value===null?'间距请填 0 到 500 之间的数值，当前内容保持原位。':command?command.getAttribute('aria-label')+' · 点击应用':'指向或按 Tab 预览，点击操作才应用。')+(all.length>120?' · 共 '+all.length+' 块，仅预览前 120 块':'');
+   caption.textContent=(spacing&&value===null?'间距请填 0 到 500 之间的数值，当前内容保持原位。':command?command.getAttribute('aria-label')+(previewOnly.checked?' · 点“应用预览”确认':' · 点击应用'):previewOnly.checked?'点一种摆法查看预览。':'指向或按 Tab 预览，点击操作才应用。')+(all.length>120?' · 共 '+all.length+' 块，仅预览前 120 块':'');
   }
   field.oninput=()=>paint(previewMode||'x,spacing');
   for(const b of options.querySelectorAll('[data-gap]'))b.onclick=()=>{if(!ready())return;field.value=b.dataset.gap;paint(previewMode?.endsWith(',spacing')?previewMode:'x,spacing')};
-  for(const b of buttons){b.onpointerenter=b.onfocus=()=>paint(b.dataset.align);b.onclick=()=>{if(!ready())return;const value=gap(),[axis,mode]=b.dataset.align.split(',');if(mode==='spacing'&&value===null)return paint(b.dataset.align);if(value!==null)write({...read(),gap:value});const changed=arrange(axis,mode,value??read().gap);paint();caption.textContent=(changed?'已应用：':'位置已是：')+b.getAttribute('aria-label')}}
-  options.onpointerleave=()=>paint(buttons.includes(document.activeElement)?document.activeElement.dataset.align:null);
+  function applyArrangement(button){
+   if(!ready())return;
+   const value=gap(),[axis,mode]=button.dataset.align.split(',');
+   if(mode==='spacing'&&value===null)return paint(button.dataset.align);
+   if(value!==null)write({...read(),gap:value});
+   const changed=arrange(axis,mode,value??read().gap);
+   paint();caption.textContent=(changed?'已应用：':'位置已是：')+button.getAttribute('aria-label');
+  }
+  for(const button of buttons){
+   button.onpointerenter=button.onfocus=()=>{if(!previewOnly.checked)paint(button.dataset.align)};
+   button.onclick=()=>{if(previewOnly.checked)paint(button.dataset.align);else applyArrangement(button)};
+  }
+  previewOnly.onchange=()=>{applyPreview.hidden=!previewOnly.checked;paint()};
+  applyPreview.onclick=()=>{
+   const command=buttons.find(button=>button.dataset.align===previewMode);
+   if(previewOnly.checked&&command&&!command.disabled)applyArrangement(command);
+  };
+  options.onpointerleave=()=>{if(!previewOnly.checked)paint(buttons.includes(document.activeElement)?document.activeElement.dataset.align:null)};
   const resized=()=>{const message=caption.textContent;paint(previewMode);if(active()&&!previewMode&&/^(已应用：|位置已是：)/.test(message))caption.textContent=message};
   const host=$('nodes'),observer=new MutationObserver(records=>{if(records.some(r=>r.target===host||r.target.parentElement===host&&previewIds.has(r.target.dataset.id)&&r.oldValue!==r.target.getAttribute('style')))resized()});
   observer.observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['style'],attributeOldValue:true});
