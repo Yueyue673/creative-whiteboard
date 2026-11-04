@@ -282,6 +282,9 @@ function wfRevealCollectedResource(id,folder){
  wfLibraryShelf='resources';
  if(wfLibraryKind!=='all'&&wfLibraryKind!==libraryAssetKind(assetById(id)))wfLibraryKind='all';
  enterAssetFolder(folder);assetSelected=new Set([id]);renderAssets();
+ const row=$('assetList').querySelector('[data-asset="'+id+'"]');
+ if(row)row.scrollIntoView({block:'nearest'});
+ else wfOpenPickedResources();
 }
 async function wfCollectAt(folder){const bundle=selectionBundle();if(!bundle.nodes.length)return;if(!await persist())return;const next=clone(assetIndex),id=uid(),title=bundle.nodes.length===1?(bundle.nodes[0].title||'未命名内容'):'组合 · '+(bundle.nodes[0].title||'新内容');next.assets.push({id,title,path:'',folder,mime:bundleMime,notes:'',size:0,tags:[],bundle,source:{boardId,nodeIds:bundle.nodes.map(n=>n.id)},updated:Date.now()});if(await saveAssets(next)){wfRevealCollectedResource(id,folder);toast('已收进 '+(folder||'内容库根目录')+'，白板原件保留 · Ctrl+Z 撤销')}}
 
@@ -825,12 +828,17 @@ if(board){applyTypography();syncTextTools();announce()}
  };
 })();
 
+let wfOpenPickedResources;
 // Review the current pick set without replacing the original library query or destination.
 (()=>{
  let review=null,placing=false;
  const picked=()=>assetIndex.assets.filter(a=>!a.archived&&assetSelected.has(a.id));
  const scrolls=()=>{const rows=[];for(let el=$('assetList');el;el=el.parentElement){rows.push({el,top:el.scrollTop,left:el.scrollLeft});if(el===$('assetPane'))break}return rows};
  const restoreScroll=rows=>{for(const row of rows)if(row.el.isConnected){row.el.scrollTop=row.top;row.el.scrollLeft=row.left}};
+ wfOpenPickedResources=()=>{
+  if(review||$('assetPane').hidden||!picked().length)return;
+  review={folder:assetFolder,limit:assetLimit,scrolls:scrolls()};assetLimit=80;renderAssets();for(const row of scrolls())row.el.scrollTop=0;
+ };
  function sync(matches){
   const pane=$('assetPane'),count=$('assetCount');if(!pane||!count)return;
   let bar=$('wfPickedBar');
@@ -838,8 +846,7 @@ if(board){applyTypography();syncTextTools();announce()}
    button.onclick=()=>{
     if(!button.isConnected||$('wfPickedReview')!==button||pane.hidden)return;
     if(review){const previous=review;review=null;assetLimit=previous.limit;renderAssets();restoreScroll(previous.scrolls);return}
-    if(!picked().length)return;
-    review={folder:assetFolder,limit:assetLimit,scrolls:scrolls()};assetLimit=80;renderAssets();for(const row of scrolls())row.el.scrollTop=0;
+    wfOpenPickedResources();
    };
   }
 
