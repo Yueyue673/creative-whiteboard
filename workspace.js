@@ -1299,6 +1299,10 @@ function placeConnectorLabel(text,label,point,svg,set){
  set(text,'x',point.x);set(text,'y',point.y-9);[...text.children].forEach((span,i)=>{set(span,'x',point.x);set(span,'y',point.y-9-(layout.lines.length-1-i)*16)});
 }
 
+const connectorActions=document.createElement('button');
+connectorActions.type='button';connectorActions.id='connectorActions';connectorActions.textContent='连线操作';connectorActions.hidden=true;
+connectorActions.setAttribute('aria-haspopup','dialog');dock.append(connectorActions);
+
 drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
  const host=$('edgePaths'),lookup=new Map(board.nodes.map(n=>[n.id,n])),existing=new Map([...host.children].filter(el=>el.dataset.edge).map(el=>[el.dataset.edge,el])),alive=new Set();
  const svg=tag=>document.createElementNS('http://www.w3.org/2000/svg',tag),set=(el,key,value)=>{const text=String(value);if(el.getAttribute(key)!==text)el.setAttribute(key,text)};
@@ -1311,6 +1315,7 @@ drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
   let text=el.querySelector('text'),title=el.querySelector('title');if(e.label){if(!text){text=svg('text');text.setAttribute('text-anchor','middle');el.append(text)}if(!title){title=svg('title');el.prepend(title)}if(title.textContent!==e.label)title.textContent=e.label;placeConnectorLabel(text,e.label,curve.mid,svg,set)}else{text?.remove();title?.remove()}
  }
  for(const [id,el] of existing)if(!alive.has(id))el.remove();
+ connectorActions.hidden=!!selected.size||!alive.has(edgeId);
  let preview=host.querySelector('.connector-preview');if(gesture?.type==='link'){
   clearConnectorHints();const g=gesture,source=lookup.get(g.id),snap=connectorTarget(g.current,g.id),start=source?anchor(source,g.side):g.start;g.snap=snap;
   const endpoint=snap?.point||g.current,side=snap?.side||({left:'right',right:'left',top:'bottom',bottom:'top'}[g.side]),curve=connectorCurve(start,endpoint,g.side,side);
@@ -1324,7 +1329,32 @@ if(board)drawEdges();
 
 // One click selects a connector; naming is an explicit double-click action.
 const editConnectorLabel=openEdge;
-openEdge=function(id){if(!board?.edges.some(e=>e.id===id))return;edgeId=id;selected.clear();editorId=null;render();canvas.focus();toast('已选中连线 · Delete 删除 · 双击编辑说明')};
+openEdge=function(id){if(!board?.edges.some(e=>e.id===id))return;edgeId=id;selected.clear();editorId=null;render();canvas.focus()};
+connectorActions.onclick=()=>{
+ const source=board,sourceId=boardId,edge=source?.edges.find(item=>item.id===edgeId);
+ const dialog=$('dialog'),body=$('dialogBody');
+ const editable=()=>board===source&&boardId===sourceId&&edgeId===edge.id&&!selected.size&&!loading&&!blocked
+  &&source.edges.includes(edge)&&!document.hidden&&(!frameElement||frameElement.getClientRects().length);
+ if(!edge||connectorActions.hidden||dialog.open||!document.hasFocus()||!editable())return;
+ let field;
+ const ownsDialog=()=>dialog.open&&field?.isConnected&&body.contains(field);
+ const close=()=>{dialog.close();connectorActions.focus({preventScroll:true})};
+ showDialog('<h2 tabindex="-1" autofocus>连线操作</h2><label>说明<input id="connectorLabelInput" value="'+esc(edge.label||'')+'"></label>',[
+  ['删除连线',()=>{if(!ownsDialog()||!editable()||!document.hasFocus())return;dialog.close();removeSelected();canvas.focus({preventScroll:true})}],
+  ['取消',()=>{if(ownsDialog())close()}],
+  ['保存说明',()=>{
+   if(!ownsDialog()||!editable()||!document.hasFocus())return;
+   const label=field.value.trim();
+   close();
+   if(label===(edge.label||''))return;
+   undoPoint();edge.label=label;render();change();
+  }]
+ ]);
+ field=$('connectorLabelInput');
+ const save=$('dialogActions').lastElementChild;
+ const syncSave=()=>{save.disabled=field.value.trim()===(edge.label||'')};
+ field.addEventListener('input',syncSave);syncSave();
+};
 canvas.addEventListener('dblclick',e=>{const edge=e.target.closest('[data-edge]');if(!edge)return;e.preventDefault();e.stopImmediatePropagation();editConnectorLabel(edge.dataset.edge)},true);
 canvas.addEventListener('contextmenu',e=>{const edge=e.target.closest('[data-edge]');if(!edge)return;if(contextDown&&Math.hypot(e.clientX-contextDown.x,e.clientY-contextDown.y)>5)return;edgeId=edge.dataset.edge;selected.clear();editorId=null;drawEdges();fileMenu(e,[['删除连线  Delete',()=>removeSelected()],['编辑说明',()=>editConnectorLabel(edge.dataset.edge)]])},true);
 
