@@ -92,5 +92,8 @@
 
 /* Keep the current object identity visible inside the existing image workspace. */
 .image-edit-heading h2.image-edit-named-heading{display:grid;gap:2px;min-width:0}
+@media(max-width:600px) and (min-height:401px){
+ .image-edit-tools:has(:is([data-image-tool=crop],[data-image-tool=pan])[aria-pressed=true])>.image-edit-properties{display:none}
+}
 .image-edit-named-heading .image-edit-kind{font-size:11px;font-weight:400;line-height:1.4;color:var(--ui-muted)}
 .image-edit-named-heading .image-edit-name{font-size:16px;line-height:1.35;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
