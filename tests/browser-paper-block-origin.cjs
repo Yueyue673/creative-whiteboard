@@ -7,6 +7,13 @@ function waitForIntercept(promise, stage) {
  });
  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
+function waitForCompletion(promise, stage, timeoutMs=9000) {
+ let timer;
+ const deadline = new Promise((_, reject) => {
+  timer = setTimeout(() => reject(new Error('Timed out waiting for '+stage)), timeoutMs);
+ });
+ return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
 (async()=>{try{
 proof.head=execFileSync('git',['-C',R,'rev-parse','HEAD'],{encoding:'utf8'}).trim();proof.taskSHA256=hash(fs.readFileSync(__filename));proof.serverSHA256=hash(fs.readFileSync(R+'/server.py'));proof.fixtureSHA256=hash(fs.readFileSync(R+'/tests/local_start_fixture.py'));proof.hostedDockerfileSHA256=hash(fs.readFileSync(R+'/hosted/Dockerfile'));proof.defaultVariablesOmitted=Object.fromEntries(['PYTHON','GIT_EXE','CREATIVE_BOARD_TEST_ROOT'].map(k=>[k,!process.env[k]]));proof.runtimeFiles={};for(const name of ["cells.js", "appearance.js", "document-paper.js", "document-paper.css", "note-editor.js", "note-editor.css", "refinement.js", "refinement.css", "workflow.js", "workflow.css", "pane.js", "workspace.js", "workspace.css", "workspace-shell.js", "workspace-shell.css", "shell.js", "shell.css", "index.html", "navigation.js", "library-copies.js", "canvas-objects.js", "canvas-objects.css", "theme.js", "theme.css", "library-spatial.js", "library-spatial.css"])proof.runtimeFiles[name]=hash(fs.readFileSync(R+'/'+name));save();const hooks=O+'/hooks',data=O+'/given-data';fs.mkdirSync(data);execFileSync(PY,[R+'/tests/local_start_fixture.py','--write-hooks',hooks],{windowsHide:true});const port=await require(R+'/tests/browser-port.cjs')();base='http://127.0.0.1:'+port;const env={...process.env,CREATIVE_BOARD_PORT:String(port),CREATIVE_BOARD_DATA_DIR:data,PYTHONPATH:hooks,PYTHONNOUSERSITE:'1',PYTHONDONTWRITEBYTECODE:'1',START_FIXTURE_DATA_DENIED:'0',START_FIXTURE_LIFETIME:'240'};for(const k of Object.keys(env))if(k.startsWith('CREATIVE_BOARD_HOSTED_'))delete env[k];fd=fs.openSync(O+'/server.log','w');proc=spawn(PY,[R+'/server.py'],{cwd:R,env,windowsHide:true,stdio:['ignore',fd,fd]});exit=new Promise((res,rej)=>{proc.once('exit',(code,signal)=>res({code,signal}));proc.once('error',rej)});proof.ownedServer={pid:proc.pid,port,data};save();let ready=false;for(let i=0;i<150;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,100))}assert(ready);for(const[n,h]of Object.entries(proof.runtimeFiles))assert.equal(hash(Buffer.from(await(await fetch(base+'/'+n)).arrayBuffer())),h);proof.servedRuntimeExact=true;save();
 
@@ -22,6 +29,7 @@ const note=(id,title,body)=>({id,type:'note',title,body,x:20,y:20,w:340,h:220,ta
 browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 for(const width of [1360,320]){
  const row={width,phase:'setup',guards:[]};proof.cases.push(row);const pass=name=>{row.guards.push({name,passed:true});save()};
+ const step=async(name,action)=>{row.phase=name;save();const value=await waitForCompletion(Promise.resolve().then(action),name+' at '+width+'px');row.lastCompletedPhase=name;save();return value};
  const id='given-paper-origin-'+width,paragraph={...note('given-body','',Array.from({length:18},(_,i)=>'给定自己的第'+(i+1)+'行原话').join('\n')),documentParagraph:true},copy={...note('given-copy','给定已改名副本','给定自己改编后的副本，和库中原文不同。'),libraryOrigin:{id:'given-origin',nodeId:original.id,name:'给定同名资源',source:{}}},plain=note('given-plain','给定无来源便签','没有原件记录，不猜标题。'),paper={id:'given-paper',type:'table',documentMode:true,title:'给定连续写作',body:'',tags:[],color:'#fffefa',x:20,y:20,w:640,h:720,columns:['正文'],rows:[['']],cellItems:[[[paragraph,copy,plain]]],sizeMode:'manual'};await req('/api/boards/'+id,'PUT',{format:'creative-board',version:1,name:'给定文中原件回访',nodes:[paper],edges:[],view:{x:0,y:0,z:1}},'new');
  let networkMode='normal',entered=null,release=null;const c=await browser.newContext({viewport:{width,height:900}});await c.route('**/*',async r=>{const url=new URL(r.request().url());if(url.origin!==base)return r.abort();if(url.pathname==='/api/assets'&&r.request().method()==='GET'){
  if(networkMode==='duplicate'){const bad=structuredClone(savedCatalog);bad.assets.push({...bad.assets[0]});return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(bad)})}
@@ -38,9 +46,41 @@ for(const width of [1360,320]){
  await p.keyboard.insertText('给定接续');await p.keyboard.press('Control+z');assert.equal(await field.inputValue(),selection.value);await p.keyboard.press('Control+Shift+z');assert((await field.inputValue()).includes('给定接续'));assert(await f.evaluate(()=>whiteboardPane.flush()));await f.waitForFunction(()=>!dirty&&!savePromise);assert.deepEqual((await req('/api/assets')).value,savedCatalog);pass('continued native writing undo redo and save leave both same-title library originals exact');
  const currentSnapshot=()=>f.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)})),guardBefore=await currentSnapshot();
  for(const mode of ['duplicate','duplicateRoot','missing','typeChanged','failure']){networkMode=mode;await f.locator('[data-paper-origin=given-copy]').click();await f.locator('.note-source-status').filter({hasText:mode==='failure'?'读取暂时失败':mode==='typeChanged'?'类型':'唯一对应'}).waitFor();assert.equal(await f.locator('.note-source-peek .note-source-card').count(),0);assert.deepEqual(await currentSnapshot(),guardBefore);await f.locator(width===320?'#immersiveReturn':'.source-peek-return').click();await f.locator('.note-source-peek').waitFor({state:'detached'});assert(await field.evaluate(el=>document.activeElement===el));}networkMode='normal';pass('controlled duplicate resource or root identity missing or changed original and read failure show an explanation without guessing or changing authored content');
- let reached;const reachedPromise=new Promise(resolve=>reached=resolve);entered=reached;networkMode='delayed';await f.locator('[data-paper-origin=given-copy]').click();await waitForIntercept(reachedPromise,'cancel during read at '+width+'px');await f.locator(width===320?'#immersiveReturn':'.source-peek-return').click();await f.locator('.note-source-peek').waitFor({state:'detached'});await field.focus();await p.keyboard.insertText('给定取消后继续写');const afterCancel=await currentSnapshot(),activeField=await field.evaluate(el=>({value:el.value,start:el.selectionStart,end:el.selectionEnd}));const late=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/assets');release();await(await late).finished();await f.waitForTimeout(50);assert.equal(await f.locator('.note-source-peek').count(),0);assert.deepEqual(await currentSnapshot(),afterCancel);assert(await field.evaluate(el=>document.activeElement===el));assert.deepEqual(await field.evaluate(el=>({value:el.value,start:el.selectionStart,end:el.selectionEnd})),activeField);pass('cancel during a controlled read delay then write keeps late completion from reopening or stealing the writer');
- let ownerReached;const ownerPromise=new Promise(resolve=>ownerReached=resolve);entered=ownerReached;networkMode='delayed';await f.locator('[data-paper-origin=given-copy]').click();await waitForIntercept(ownerPromise,'owner change during read at '+width+'px');const ownerBefore=await currentSnapshot();await f.evaluate(()=>{board.nodes.find(n=>n.id==='given-paper').cellItems[0][0].find(n=>n.id==='given-copy').libraryOrigin.id='given-other-origin'});release();await f.locator('.note-source-peek').waitFor({state:'detached'});await f.evaluate(()=>{board.nodes.find(n=>n.id==='given-paper').cellItems[0][0].find(n=>n.id==='given-copy').libraryOrigin.id='given-origin'});assert.deepEqual(await currentSnapshot(),ownerBefore);pass('a controlled owner-origin change while reading invalidates the response without guessing another same-title source or editing draft text');
- assert(await f.evaluate(()=>whiteboardPane.flush()));await f.waitForFunction(()=>!dirty&&!savePromise);const saved=(await req('/api/boards/'+id)).value;await p.reload();await p.waitForFunction(id=>pane(current())?.state()?.boardId===id&&!pane(current()).state().loading,id);const fresh=await(await p.evaluateHandle(()=>frames.get(current().id))).asElement().contentFrame();assert.deepEqual(await fresh.evaluate(()=>board.nodes),saved.nodes);assert.deepEqual((await req('/api/assets')).value,savedCatalog);pass('fresh saved readback retains authored text and exact origin with both library originals unchanged');
+ let reached;const reachedPromise=new Promise(resolve=>reached=resolve);entered=reached;networkMode='delayed';
+ await step('cancel-read: open source',()=>f.locator('[data-paper-origin=given-copy]').click());
+ await step('cancel-read: request intercepted',()=>waitForIntercept(reachedPromise,'cancel during read at '+width+'px'));
+ await step('cancel-read: return to writer',()=>f.locator(width===320?'#immersiveReturn':'.source-peek-return').click());
+ await step('cancel-read: source viewer detached',()=>f.locator('.note-source-peek').waitFor({state:'detached'}));
+ await step('cancel-read: focus writer',()=>field.focus());
+ await step('cancel-read: continue writing',()=>p.keyboard.insertText('给定取消后继续写'));
+ const afterCancel=await step('cancel-read: authored snapshot',currentSnapshot),activeField=await step('cancel-read: active field',()=>field.evaluate(el=>({value:el.value,start:el.selectionStart,end:el.selectionEnd})));
+ const late=p.waitForResponse(r=>new URL(r.url()).pathname==='/api/assets');late.catch(()=>{});
+ release();
+ const response=await step('cancel-read: response received',()=>late);
+ row.lateResponse={status:response.status(),path:new URL(response.url()).pathname};save();
+ const responseError=await step('cancel-read: response body complete',()=>response.finished());
+ assert.equal(responseError,null,'the delayed original response must finish successfully');
+ await step('cancel-read: settled writer retained',async()=>{
+  await f.waitForTimeout(50);assert.equal(await f.locator('.note-source-peek').count(),0);assert.deepEqual(await currentSnapshot(),afterCancel);assert(await field.evaluate(el=>document.activeElement===el));assert.deepEqual(await field.evaluate(el=>({value:el.value,start:el.selectionStart,end:el.selectionEnd})),activeField);
+ });
+ pass('cancel during a controlled read delay then write keeps late completion from reopening or stealing the writer');
+ let ownerReached;const ownerPromise=new Promise(resolve=>ownerReached=resolve);entered=ownerReached;networkMode='delayed';
+ await step('owner-read: open source',()=>f.locator('[data-paper-origin=given-copy]').click());
+ await step('owner-read: request intercepted',()=>waitForIntercept(ownerPromise,'owner change during read at '+width+'px'));
+ const ownerBefore=await step('owner-read: original snapshot',currentSnapshot);
+ await step('owner-read: change controlled owner',()=>f.evaluate(()=>{board.nodes.find(n=>n.id==='given-paper').cellItems[0][0].find(n=>n.id==='given-copy').libraryOrigin.id='given-other-origin'}));release();
+ await step('owner-read: invalidated viewer detached',()=>f.locator('.note-source-peek').waitFor({state:'detached'}));
+ await step('owner-read: restore controlled owner',()=>f.evaluate(()=>{board.nodes.find(n=>n.id==='given-paper').cellItems[0][0].find(n=>n.id==='given-copy').libraryOrigin.id='given-origin'}));
+ assert.deepEqual(await step('owner-read: protected snapshot',currentSnapshot),ownerBefore);
+ pass('a controlled owner-origin change while reading invalidates the response without guessing another same-title source or editing draft text');
+ await step('readback: save authored content',async()=>{assert(await f.evaluate(()=>whiteboardPane.flush()));await f.waitForFunction(()=>!dirty&&!savePromise)});
+ const saved=(await step('readback: saved board',()=>req('/api/boards/'+id))).value;
+ await step('readback: fresh page',()=>p.reload());
+ await step('readback: fresh board ready',()=>p.waitForFunction(id=>pane(current())?.state()?.boardId===id&&!pane(current()).state().loading,id));
+ const fresh=await step('readback: fresh frame',async()=>await(await p.evaluateHandle(()=>frames.get(current().id))).asElement().contentFrame());
+ assert.deepEqual(await step('readback: exact nodes',()=>fresh.evaluate(()=>board.nodes)),saved.nodes);
+ assert.deepEqual((await step('readback: exact original catalog',()=>req('/api/assets'))).value,savedCatalog);
+ pass('fresh saved readback retains authored text and exact origin with both library originals unchanged');
  row.phase='complete';save();await c.close();
 }
 assert.deepEqual(proof.errors,[]);proof.complete=true;
