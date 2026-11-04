@@ -50,7 +50,12 @@
     const folder=row.dataset.asub,mark=row.querySelector(folder?':scope > span':'.asset-icon');
     // Selection changes retain the existing icons as well as rows and images.
     if(mark){const kind=folder?'folder':({便签:'note',表格:'table',组合:'bundle',图片:'image',音频:'audio',视频:'video',网页:'link',PDF:'file',JSON:'file'})[row.dataset.kind]||'file';if(mark.dataset.explorerIcon!==kind){mark.innerHTML=explorerIcon(kind);mark.dataset.explorerIcon=kind}}
-    const preview=row.querySelector('[data-asset-preview]');if(preview){if(!preview.dataset.explorerIcon){preview.innerHTML='<svg class="explorer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';preview.dataset.explorerIcon='preview'}preview.setAttribute('aria-label','预览 '+(assetById(row.dataset.asset)?.title||'内容'))}
+    const preview=row.querySelector('[data-asset-preview]');
+    if(preview&&!preview.dataset.explorerIcon){
+     preview.innerHTML='<svg class="explorer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+     preview.setAttribute('aria-label','预览 '+(assetById(row.dataset.asset)?.title||'内容'));
+     preview.dataset.explorerIcon='preview';
+    }
    }
   }
  }
