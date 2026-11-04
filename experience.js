@@ -124,8 +124,15 @@
   const n=board.nodes.find(n=>n.id===id);if(!n)return;
   if(!selected.has(id)){selected=new Set([id]);refreshSelectionUI()}
   const el=document.querySelector('.node[data-id="'+CSS.escape(id)+'"]'),r=e.currentTarget?.getBoundingClientRect?.()||el.getBoundingClientRect();
+  const trigger=e.currentTarget,sourceBoard=board,sourceId=boardId;
+  const images=n.type==='image'&&!n.assetId&&!window.whiteboardCanvasObjects?.isObject(n)?el.querySelectorAll(':scope>.inner img'):[];
+  const image=images.length===1?images[0]:null,source=image?.getAttribute('src');
+  const openOriginal=()=>{
+   if(!source||board!==sourceBoard||boardId!==sourceId||loading||editorId||$('dialog').open||!el.isConnected||!el.contains(image)||image.getAttribute('src')!==source||selected.size!==1||!selected.has(id)||!board.nodes.includes(n))return;
+   trigger?.focus({preventScroll:true});openImageView(source,image.alt||n.title||'图片');
+  };
   fileMenu({target:el,clientX:r.right-210,clientY:r.bottom+4,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()},
-   [...(n.assetId?[['打开查看  Enter',()=>openBlock(id)]]:[]),['按内容调整大小',()=>fitBlock(id)],...(n.assetId?[['重新定位原文件…',()=>referenceDialog({replaceId:n.assetId})]]:[])]);
+   [...(source?[['查看原图',openOriginal]]:[]),...(n.assetId?[['打开查看  Enter',()=>openBlock(id)]]:[]),['按内容调整大小',()=>fitBlock(id)],...(n.assetId?[['重新定位原文件…',()=>referenceDialog({replaceId:n.assetId})]]:[])]);
  }
  function mountBlocks(){
   if(!board)return;
