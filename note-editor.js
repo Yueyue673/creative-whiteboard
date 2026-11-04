@@ -1115,7 +1115,7 @@
   finally{clearTimeout(timer);j.metrics.totalMs=performance.now()-start;if(job===j)job=null;if(lastMetrics===j.metrics)lastMetrics={...j.metrics};}
  }
  const previousLoad=loadBoard;loadBoard=async function(...args){cancel();opening=null;bar.hidden=true;mount(null);const ok=await previousLoad(...args);if(ok)discover();return ok;};
- document.addEventListener('pointerdown',event=>{if(!bar.contains(event.target)&&board){dismissed=board;cancel();bar.hidden=true;}},true);document.addEventListener('keydown',event=>{if(!bar.contains(event.target)&&board){dismissed=board;cancel();bar.hidden=true;}},true);
+ document.addEventListener('pointerdown',event=>{if(!bar.contains(event.target)&&board){dismissed=board;cancel();bar.hidden=true;}},true);document.addEventListener('keydown',event=>{if(event.key!=='Tab'&&event.key!=='Shift'&&!bar.contains(event.target)&&board){dismissed=board;cancel();bar.hidden=true;}},true);
  bar.addEventListener('pointerdown',event=>event.stopPropagation());bar.addEventListener('dblclick',event=>event.stopPropagation());
  const previousView=moveView;moveView=function(){previousView();position();};new ResizeObserver(position).observe(canvas);new MutationObserver(position).observe($('dialog'),{attributes:true,attributeFilter:['open']});
  window.addEventListener('creative-board-loading',()=>{if(loading){cancel();opening=null;bar.hidden=true;}});
