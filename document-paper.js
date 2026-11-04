@@ -274,8 +274,20 @@
  const emptyAttachments=grid=>grid===undefined||Array.isArray(grid)&&grid.every(row=>Array.isArray(row)&&row.every(items=>Array.isArray(items)&&items.length===0));
  const composable=n=>n&&(['note','image'].includes(n.type)||n.type==='table'&&!n.documentMode&&Array.isArray(n.columns)&&Array.isArray(n.rows)&&n.rows.every(row=>Array.isArray(row))&&emptyAttachments(n.cellItems)&&emptyAttachments(n.cellImages));
  function composeSession(ids){
-  const owner=board,ownerId=boardId,scope=window.whiteboardHosted||null,scopeKey=JSON.stringify([scope?.account?.id,scope?.workspace]),key=JSON.stringify([...ids].sort()),nodes=ids.map(id=>owner?.nodes.find(n=>n.id===id)),initial=JSON.stringify(nodes);
-  return {ids,nodes,valid:()=>canCompose()&&board===owner&&boardId===ownerId&&(window.whiteboardHosted||null)===scope&&JSON.stringify([scope?.account?.id,scope?.workspace])===scopeKey&&JSON.stringify([...selected].sort())===key&&JSON.stringify(ids.map(id=>board.nodes.find(n=>n.id===id)))===initial};
+  const requested=ids.length>8?new Set(ids):null;
+  function findNodes(source){
+   const rows=source?.nodes;
+   if(!rows||!requested)return ids.map(id=>rows?.find(node=>node.id===id));
+   const matches=new Map();
+   for(const node of rows){
+    if(!requested.has(node.id)||matches.has(node.id))continue;
+    matches.set(node.id,node);
+    if(matches.size===requested.size)break;
+   }
+   return ids.map(id=>matches.get(id));
+  }
+  const owner=board,ownerId=boardId,scope=window.whiteboardHosted||null,scopeKey=JSON.stringify([scope?.account?.id,scope?.workspace]),key=JSON.stringify([...ids].sort()),nodes=findNodes(owner),initial=JSON.stringify(nodes);
+  return {ids,nodes,valid:()=>canCompose()&&board===owner&&boardId===ownerId&&(window.whiteboardHosted||null)===scope&&JSON.stringify([scope?.account?.id,scope?.workspace])===scopeKey&&JSON.stringify([...selected].sort())===key&&JSON.stringify(findNodes(board))===initial};
  }
  function composePreview(session){
   if(!session.valid())return toast('所选内容或当前白板已变化，请重新选择。');
