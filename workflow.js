@@ -826,7 +826,7 @@ if(board){applyTypography();syncTextTools();announce()}
  const picked=()=>assetIndex.assets.filter(a=>!a.archived&&assetSelected.has(a.id));
  const scrolls=()=>{const rows=[];for(let el=$('assetList');el;el=el.parentElement){rows.push({el,top:el.scrollTop,left:el.scrollLeft});if(el===$('assetPane'))break}return rows};
  const restoreScroll=rows=>{for(const row of rows)if(row.el.isConnected){row.el.scrollTop=row.top;row.el.scrollLeft=row.left}};
- function sync(){
+ function sync(matches){
   const pane=$('assetPane'),count=$('assetCount');if(!pane||!count)return;
   let bar=$('wfPickedBar');
   if(!bar){bar=document.createElement('div');bar.id='wfPickedBar';bar.className='wf-picked-bar';count.before(bar);bar.append(count);const button=document.createElement('button');button.type='button';button.id='wfPickedReview';bar.append(button);const hint=document.createElement('p');hint.id='wfPickedHint';hint.className='wf-picked-hint';bar.after(hint);
@@ -871,7 +871,7 @@ if(board){applyTypography();syncTextTools();announce()}
   const active=!!review,button=$('wfPickedReview'),hint=$('wfPickedHint'),items=picked(),total=items.length;
   tags.hidden=total<2;tags.disabled=placing||!assetCatalogReady;tags.title='给选中的 '+total+' 项资源追加标签';
   if(action){action.hidden=!total;action.disabled=placing||!total;action.textContent=placing?'正在放入':'放入所选';action.setAttribute('aria-busy',String(placing))}
-  const list=active?[]:libraryMatches(),shown=!active&&total&&!$('assetSearch').value.trim()?new Set(list.map(a=>a.id)):null,outside=shown?items.filter(a=>!shown.has(a.id)).length:0;
+  const list=active?[]:(matches??libraryMatches()),shown=!active&&total&&!$('assetSearch').value.trim()?new Set(list.map(a=>a.id)):null,outside=shown?items.filter(a=>!shown.has(a.id)).length:0;
   button.hidden=!active&&!total;button.textContent=active?'返回原列表':'查看已选';button.setAttribute('aria-pressed',String(active));hint.hidden=!active&&!outside;hint.textContent=active?'全部已选资源；返回后保留原搜索、类型和位置。':outside+'项已选资源不在当前列表，可先“查看已选”再放入。';
   bar.classList.toggle('wf-empty-list',assetCatalogReady&&!active&&!placing&&!total&&!list.length);
   const allSelected=!!list.length&&assetSelected.size===list.length&&list.every(a=>assetSelected.has(a.id));
@@ -899,14 +899,14 @@ if(board){applyTypography();syncTextTools();announce()}
  const selection=updateAssetSelection;
  updateAssetSelection=function(){
   const list=$('assetList'),focused=document.activeElement,row=focused?.closest?.('[data-asset]'),before=list?[...list.querySelectorAll('[data-asset]')]:[],at=before.indexOf(row),positions=review?scrolls():[];
-  selection();
+  const matches=selection();
   if(review){
-   const expected=libraryMatches().slice(0,assetLimit).map(a=>a.id);
+   const expected=(matches??libraryMatches()).slice(0,assetLimit).map(a=>a.id);
    if(before.length!==expected.length||before.some((el,i)=>el.dataset.asset!==expected[i])){
     const focusId=row?.dataset.asset,checkbox=focused?.type==='checkbox';renderAssets();restoreScroll(positions);
     if(at>=0){const rows=[...$('assetList').querySelectorAll('[data-asset]')],target=rows.find(el=>el.dataset.asset===focusId)||rows[Math.min(at,rows.length-1)];(checkbox?target?.querySelector('input'):target)?.focus({preventScroll:true})}
    }else sync();
-  }else sync();
+  }else sync(matches);
  };
  $('assetPane')?.addEventListener('contextmenu',()=>queueMicrotask(sync));
  sync();

@@ -357,7 +357,9 @@ function updateAssetSelection(){
  const list=$('assetList');if(!list)return;
  for(const row of list.querySelectorAll('[data-asset]')){const selected=assetSelected.has(row.dataset.asset);row.classList.toggle('selected',selected);row.setAttribute('aria-selected',String(selected));row.querySelector('input[type=checkbox]').checked=selected}
  const folders=$('assetSearch').value.trim()?0:assetChildren(assetFolder).length;
- $('assetCount').textContent=(folders?folders+' 个文件夹 · ':'')+libraryMatches().length+' 项'+(assetSelected.size?' · 已选 '+assetSelected.size+' 项':'');
+ const matches=libraryMatches();
+ $('assetCount').textContent=(folders?folders+' 个文件夹 · ':'')+matches.length+' 项'+(assetSelected.size?' · 已选 '+assetSelected.size+' 项':'');
+ return matches;
 }
 renderAssets=function(){if(!$('assetTree'))return;const q=$('assetSearch').value.trim().toLowerCase(),folderPaths=allAssetFolders();$('assetBreadcrumbs').innerHTML='<button data-acrumb="">素材库</button>'+assetAncestors(assetFolder).map(path=>'<span>›</span><button data-acrumb="'+esc(path)+'">'+esc(path.split('/').at(-1))+'</button>').join('');$('assetUp').disabled=!assetFolder;$('assetFolderRename').disabled=!assetFolder;$('assetTree').innerHTML='<div class="explorer-tree-row '+(!assetFolder?'current':'')+'" data-afolder=""><span>▱ 素材库</span></div>'+assetFolderTree('',0,null,folderPaths);
  const folders=q?[]:assetChildren(assetFolder,folderPaths);const list=libraryMatches();$('assetCount').textContent=(folders.length?folders.length+' 个文件夹 · ':'')+list.length+' 项'+(assetSelected.size?' · 已选 '+assetSelected.size+' 项':'');$('assetFolder').innerHTML='<option value="">素材库</option>'+folderPaths.map(f=>'<option value="'+esc(f)+'">'+esc(f)+'</option>').join('');$('assetFolder').value=assetFolder;
