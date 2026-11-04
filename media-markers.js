@@ -24,7 +24,7 @@
   el.play().catch(()=>{if(previews.get(el)===preview)endPreview(el,'暂时无法播放，请检查原文件。')});
  }
  function write(el,fn,checkpoint=true){if(contentContext(el)?.readOnly)return;if(blocked)return toast('请先处理保存冲突');if(!owner(el))return;if(checkpoint)undoPoint();fn(timeline(el,true));change();update(el);if(active?.el===el)renderPanel(active);renderOutline()}
- function open(el,id=null){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};ui.querySelector('.media-time').click();decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
+ function open(el,id=null,returnFocus){const ui=el.nextElementSibling;if(!ui?.matches('.media-controls'))return;active={el,selected:id};whiteboardMedia.openControls(el,returnFocus);decorate();const panel=$('mediaPopover');if(id&&panel)renderPanel(active)}
  function update(el){
   const info=players.get(el);if(!info)return;checkPreview(el);const t=timeline(el),list=sorted(el),ready=Number.isFinite(el.duration)&&el.duration>0;
   if(!info.restored&&el.readyState>=1&&el._readingRestored){info.restored=true;const key=contentContext(el)?.library?readerKey(el,'media',mediaKey(el)):(contentContext(el)?.board||boardId)+'|'+owner(el)?.id+'|'+mediaKey(el),m=t?.markers.find(m=>m.id===t.startMarkerId);if(!restoredOwners.has(key)&&m)jump(el,m.time);restoredOwners.add(key)}
@@ -106,7 +106,7 @@
  }
  function mount(){
   for(const el of document.querySelectorAll('.node audio,.node video')){let info=players.get(el);const controls=el.nextElementSibling;if(!controls?.matches('.media-controls'))continue;
-   if(!info){const toggle=document.createElement('button');toggle.className='media-marker-toggle';toggle.type='button';toggle.textContent='选项';toggle.title='播放选项与时间标记';toggle.setAttribute('aria-label',toggle.title);toggle.onclick=()=>open(el);controls.append(toggle);info={toggle,restored:false};players.set(el,info);for(const event of ['loadedmetadata','durationchange','timeupdate','creative-media-restored'])el.addEventListener(event,()=>update(el));el.addEventListener('creative-media-seek',()=>endPreview(el,'已改为按当前进度播放。'));el.addEventListener('seeking',()=>{const preview=previews.get(el);if(preview&&!(preview.arming&&Math.abs(el.currentTime-preview.start)<.025))endPreview(el,'已改为按当前进度播放。')});el.addEventListener('seeked',()=>{const preview=previews.get(el);if(preview)preview.arming=false});el.addEventListener('pause',()=>endPreview(el,'已暂停。'));for(const event of ['ended','emptied','error'])el.addEventListener(event,()=>endPreview(el))}
+   if(!info){const toggle=document.createElement('button');toggle.className='media-marker-toggle';toggle.type='button';toggle.textContent='选项';toggle.title='播放选项与时间标记';toggle.setAttribute('aria-label',toggle.title);toggle.onclick=()=>open(el,null,toggle);controls.append(toggle);info={toggle,restored:false};players.set(el,info);for(const event of ['loadedmetadata','durationchange','timeupdate','creative-media-restored'])el.addEventListener(event,()=>update(el));el.addEventListener('creative-media-seek',()=>endPreview(el,'已改为按当前进度播放。'));el.addEventListener('seeking',()=>{const preview=previews.get(el);if(preview&&!(preview.arming&&Math.abs(el.currentTime-preview.start)<.025))endPreview(el,'已改为按当前进度播放。')});el.addEventListener('seeked',()=>{const preview=previews.get(el);if(preview)preview.arming=false});el.addEventListener('pause',()=>endPreview(el,'已暂停。'));for(const event of ['ended','emptied','error'])el.addEventListener(event,()=>endPreview(el))}
    update(el);
   }
  }
