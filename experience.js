@@ -183,7 +183,7 @@
    if(!bundle.nodes.length)return;await loadAssets();const next=clone(assetIndex),id=uid();
    next.assets.push({id,title:bundle.nodes.length===1?bundle.nodes[0].title||'未命名内容':'内容组合',path:'',folder,mime:bundleMime,size:0,notes:'',tags:[],bundle,source:value.source||{},updated:Date.now()});
    if(folder&&!next.folders.includes(folder))next.folders.push(folder);
-   if(await saveAssets(next)){enterAssetFolder(folder);assetSelected=new Set([id]);renderAssets();toast('已保存到内容库，原内容保留')}
+   if(await saveAssets(next)){wfLibraryShelf='resources';enterAssetFolder(folder);assetSelected=new Set([id]);renderAssets();toast('已保存到内容库，原内容保留')}
   });
  },true);
  window.addEventListener('keydown',e=>{
