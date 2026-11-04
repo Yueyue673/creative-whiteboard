@@ -353,7 +353,8 @@ function wfRenderLibraryDepth(){
   row.append(text,select);pane.querySelector('.wf-library-type').after(row);
  }
  const select=row.querySelector('select'),folder=assetFolder,owner=mediaReadRetryScope();
- row.hidden=!!$('assetSearch').value.trim()||(!wfLibraryBranchActive()&&!allAssetFolders().some(path=>folder?path.startsWith(folder+'/'):!!path));
+ const prefix=folder+'/',descends=path=>folder?path.startsWith(prefix):Boolean(path);
+ row.hidden=!!$('assetSearch').value.trim()||(!wfLibraryBranchActive()&&!assetIndex.folders.some(descends)&&!assetIndex.assets.some(a=>!a.archived&&descends(a.folder)));
  select.value=wfLibraryBranchActive()?'branch':'folder';
  select.onchange=()=>{
   if(select.disabled||row.hidden||!select.isConnected||pane.hidden||document.hidden||frameElement&&!frameElement.getClientRects().length||document.querySelector('dialog[open]')||!assetCatalogReady||assetFolder!==folder||pane.querySelector('.wf-library-depth select')!==select){select.value=wfLibraryBranchActive()?'branch':'folder';return}
