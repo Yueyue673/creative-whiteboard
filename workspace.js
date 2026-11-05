@@ -1323,8 +1323,15 @@ const connectorActions=document.createElement('button');
 connectorActions.type='button';connectorActions.id='connectorActions';connectorActions.textContent='连线操作';connectorActions.hidden=true;
 connectorActions.setAttribute('aria-haspopup','dialog');dock.append(connectorActions);
 
-drawEdges=function(changedIds=null){if(!board)return;withConnectorGeometry(()=>{
- const host=$('edgePaths'),lookup=new Map(board.nodes.map(n=>[n.id,n])),existing=new Map([...host.children].filter(el=>el.dataset.edge).map(el=>[el.dataset.edge,el])),alive=new Set();
+drawEdges=function(changedIds=null){
+ if(!board)return;
+ const host=$('edgePaths');
+ if(!board.edges.length&&!host.firstElementChild&&gesture?.type!=='link'){
+  connectorActions.hidden=true;
+  return;
+ }
+ withConnectorGeometry(()=>{
+ const lookup=new Map(board.nodes.map(n=>[n.id,n])),existing=new Map([...host.children].filter(el=>el.dataset.edge).map(el=>[el.dataset.edge,el])),alive=new Set();
  const svg=tag=>document.createElementNS('http://www.w3.org/2000/svg',tag),set=(el,key,value)=>{const text=String(value);if(el.getAttribute(key)!==text)el.setAttribute(key,text)};
  // Read every required card size before changing any SVG path or label.
  for(const e of board.edges){if(changedIds&&existing.has(e.id)&&!changedIds.has(e.from)&&!changedIds.has(e.to))continue;const a=lookup.get(e.from),b=lookup.get(e.to);if(a&&b){connectorBounds(a);connectorBounds(b)}}
