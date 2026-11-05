@@ -289,9 +289,9 @@
     const visible=clone(draft);if(destinationEdited(state))visible.folder=target;
     if(!equal(continuationValue(result),continuationValue(visible))){notice(state,'库中另有更新。请用原保存按钮核对并合并后重新打开；你的输入仍保留。');return}
    }
-   const next=clone(assetIndex),at=next.assets.findIndex(a=>a.id===result.id);
-   if(at<0)next.assets.push(result);else next.assets[at]=result;
    if(!state.base||asCopy||!equal(current,result)){
+    const next=clone(assetIndex),at=next.assets.findIndex(a=>a.id===result.id);
+    if(at<0)next.assets.push(result);else next.assets[at]=result;
     if(asCopy)state.copyAttempt.value=copyValue(result);
     result.updated=Date.now();busy(state,true,true);
     if(!await saveAssets(next)){notice(state,'没有保存成功，你的输入仍保留。再点保存会重新核对最新版本。');return}
