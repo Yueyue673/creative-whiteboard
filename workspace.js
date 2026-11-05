@@ -955,7 +955,7 @@ previewAsset=async function(id){const a=assetById(id);if(!a)return;const html=/\
 };
 window.addEventListener('message',e=>{if(e.data?.type==='creative-preview-close'&&e.source===$('htmlDocument')?.contentWindow&&$('dialog').open)$('dialog').close()});
 // File links inside a card use the same reader as the library.
-document.addEventListener('click',e=>{const a=e.target.closest('a[data-file-link]');if(!a)return;const n=board?.nodes.find(n=>n.id===a.closest('.node')?.dataset.id),file=n?.assetId?assetById(n.assetId):null;if(file&&/\.(json|html?)$/i.test(file.path)){e.preventDefault();e.stopPropagation();previewAsset(file.id)}},true);
+document.addEventListener('click',e=>{const a=e.target.closest('a[data-file-link]');if(!a)return;const n=board?.nodes.find(n=>n.id===a.closest('.node')?.dataset.id),file=n?.assetId?assetById(n.assetId):null;if(file&&(file.mime==='application/json'||/\.(json|html?)$/i.test(file.path))){e.preventDefault();e.stopPropagation();previewAsset(file.id)}},true);
 function libraryBundleKind(a){
  if(singleTextLibraryNote(a))return '便签';
  const nodes=a?.bundle?.nodes;
