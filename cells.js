@@ -134,7 +134,16 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
  const writable=()=>board&&!loading&&!blocked&&!window.whiteboardHosted?.paused&&window.whiteboardHosted?.role!=='viewer';
  const tableFor=el=>{const root=el.closest('.node[data-id],#immersiveSurface[data-id]');if(!root||!root.matches('#nodes>.node')&&root.id!=='immersiveSurface')return null;return board?.nodes.find(n=>n.id===root.dataset.id&&n.type==='table')};
  const signature=n=>JSON.stringify([n.columns,n.rows,n.rowIds,n.columnIds,n.cellItems]);
- function sourceFor(handle){const section=handle.closest('[data-cell-item]'),table=tableFor(handle);if(!section||!table||handle.closest('.note-source-card'))return null;const r=+section.dataset.cellR,c=+section.dataset.cellC,index=+section.dataset.cellItem,item=table.cellItems?.[r]?.[c]?.[index];return item?{board,table,r,c,index,item,signature:signature(table)}:null}
+ function locateCellItem(handle){
+  const section=handle.closest('[data-cell-item]'),table=tableFor(handle);
+  if(!section||!table||handle.closest('.note-source-card'))return null;
+  const r=+section.dataset.cellR,c=+section.dataset.cellC,index=+section.dataset.cellItem,item=table.cellItems?.[r]?.[c]?.[index];
+  return item?{table,r,c,index,item}:null;
+ }
+ function sourceFor(handle){
+  const source=locateCellItem(handle);
+  return source?{board,...source,signature:signature(source.table)}:null;
+ }
  function valid(source){return writable()&&source.board===board&&board.nodes.includes(source.table)&&signature(source.table)===source.signature&&source.table.cellItems?.[source.r]?.[source.c]?.[source.index]===source.item}
  function closeMenu(){menu?.remove();menu=null}
  function move(source,target){
@@ -182,7 +191,7 @@ for(const name of ['input','keyup','click','compositionend'])document.addEventLi
  document.addEventListener('pointerup',event=>{const session=drag;if(!session||event.pointerId!==session.pointer)return;event.preventDefault();event.stopImmediatePropagation();if(session.moving)destination(session);const target=session.target,moving=session.moving;clearDrag();if(moving){if(target)move(session.source,target)}else showMenu(session.handle,session.source)},true);
  document.addEventListener('pointercancel',event=>{if(drag?.pointer===event.pointerId)clearDrag()},true);document.addEventListener('lostpointercapture',event=>{if(drag?.pointer===event.pointerId)clearDrag()},true);
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(drag||menu)){event.preventDefault();event.stopImmediatePropagation();clearDrag();closeMenu();return}const handle=event.target.closest?.('[data-cell-move]');if(!handle)return;const source=sourceFor(handle);if(!source||!valid(source))return;if(['Enter',' '].includes(event.key)){event.preventDefault();event.stopImmediatePropagation();showMenu(handle,source);return}if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;event.preventDefault();event.stopImmediatePropagation();const target={table:source.table,r:source.r,c:source.c,index:0};if((event.ctrlKey||event.metaKey)&&['ArrowUp','ArrowDown'].includes(event.key))target.index=source.index+(event.key==='ArrowUp'?-1:2);else{target.r+=event.key==='ArrowUp'?-1:event.key==='ArrowDown'?1:0;target.c+=event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:0;target.index=source.table.cellItems?.[target.r]?.[target.c]?.length||0}move(source,target)},true);
- const oldDraw=drawNodes;drawNodes=function(){oldDraw();if(!board||window.whiteboardHosted?.paused||window.whiteboardHosted?.role==='viewer')return;for(const handle of document.querySelectorAll('#nodes>.node [data-cell-move],#immersiveSurface[data-id] [data-cell-move]'))if(!handle.closest('.note-source-card')){handle.disabled=false;handle.tabIndex=0;handle.setAttribute('aria-label','移动内容：'+(sourceFor(handle)?.item.title||'未命名内容'));handle.title='拖动移动；回车选择位置'}};
+ const oldDraw=drawNodes;drawNodes=function(){oldDraw();if(!board||window.whiteboardHosted?.paused||window.whiteboardHosted?.role==='viewer')return;for(const handle of document.querySelectorAll('#nodes>.node [data-cell-move],#immersiveSurface[data-id] [data-cell-move]'))if(!handle.closest('.note-source-card')){handle.disabled=false;handle.tabIndex=0;handle.setAttribute('aria-label','移动内容：'+(locateCellItem(handle)?.item.title||'未命名内容'));handle.title='拖动移动；回车选择位置'}};
  window.whiteboardCellMovement={active:()=>!!drag||!!menu};$('dialog').addEventListener('close',()=>{clearDrag();closeMenu()});
  window.addEventListener('creative-board-loading',()=>{clearDrag();closeMenu()});window.addEventListener('blur',clearDrag);
 })();
