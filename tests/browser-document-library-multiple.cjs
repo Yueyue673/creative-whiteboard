@@ -34,7 +34,14 @@ try{
      await expand();const body=f.locator('#immersiveSurface [data-cell-item="1"] [data-cell-note-field=body]'),capture=e=>({value:e.value,start:e.selectionStart,end:e.selectionEnd,direction:e.selectionDirection,top:e.scrollTop,left:e.scrollLeft});
      await body.click();await page.keyboard.press('Control+End');for(let i=0;i<4;i++)await page.keyboard.press('Shift+ArrowLeft');const place=await body.evaluate(capture),before=await model(),originalField=await body.elementHandle(),historyBefore=await f.evaluate(()=>history.length);
      const open=async()=>{await step('打开段后添加菜单',()=>f.locator('#immersiveSurface .document-after summary').click());await step('打开内容库查找',()=>f.locator('#immersiveSurface .document-after').getByRole('button',{name:'从内容库取用…',exact:true}).click());row.pickerOpenings++;await f.locator('[data-document-library-search]').waitFor();await f.locator('[data-document-library-search]').waitFor({state:'visible'})};
-     const choose=async resource=>{const query=resource.id==='resource-a'?'给定原话':'给定对照';await step('查找 '+query,()=>f.locator('[data-document-library-search]').fill(query));const entry=f.locator('[data-document-library-asset="'+resource.id+'"][data-document-library-piece="'+resource.bundle.nodes[0].id+'"]');await step('选择 '+resource.bundle.nodes[0].title,()=>entry.locator('[data-document-library-place]').click())};
+     const choose=async resource=>{const query=resource.id==='resource-a'?'给定原话':'给定对照';await step('查找 '+query,()=>f.locator('[data-document-library-search]').fill(query));const entry=f.locator('[data-document-library-asset="'+resource.id+'"][data-document-library-piece="'+resource.bundle.nodes[0].id+'"]');await step('选择 '+resource.bundle.nodes[0].title,async()=>{
+      const button=entry.locator('[data-document-library-place]');
+      if(single){await button.click();return}
+      const control=await button.elementHandle();
+      await button.click();
+      assert(await control.evaluate(el=>el.isConnected&&document.activeElement===el),'Selecting a result retains the focused control');
+      await control.dispose();
+     })};
      await open();if(!single)await step('选择一次取多块',()=>f.locator('[data-document-library-multiple]').check());await choose(resources[0]);
      if(single){
       await f.locator('.document-library').waitFor({state:'detached'});row.defaultSinglePieceWithoutModeSwitch=true;

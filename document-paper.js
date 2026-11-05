@@ -121,6 +121,14 @@
   let entries=[];const chosen=new Map(),tray=document.createElement('section');tray.className='document-library-chosen';tray.setAttribute('aria-label','本次取用');tray.innerHTML='<b>本次取用</b><p>可先调整顺序，再接到原段后，各取一份副本。</p><div data-document-library-chosen></div><button type="button" data-document-library-commit disabled>请先选择内容</button>';panel.append(tray);
   const modeLabel=document.createElement('label'),multiple=document.createElement('input');modeLabel.className='document-library-mode';multiple.type='checkbox';multiple.dataset.documentLibraryMultiple='';modeLabel.append(multiple,document.createTextNode('一次取多块'));search.closest('label').after(modeLabel);tray.hidden=true;
   const commit=tray.querySelector('[data-document-library-commit]');
+  const resultButtons=new Map();
+  function setResultPicked(button,picked){
+   button.textContent=picked?'已选，点此移除':'选这一块';
+   button.setAttribute('aria-pressed',String(picked));
+  }
+  function syncResultPick(key){
+   for(const button of resultButtons.get(key)||[])setResultPicked(button,chosen.has(key));
+  }
   function showChosen(focusKey,direction){
    tray.hidden=!multiple.checked;
    const list=tray.querySelector('[data-document-library-chosen]');list.replaceChildren();let index=0;
@@ -130,7 +138,7 @@
     const text=String(item.piece.body||item.piece.userText||item.piece.annotation||(item.piece.type==='table'?[(item.piece.columns||[]).join(' · '),...(item.piece.rows||[]).slice(0,2).map(row=>row.join(' · '))].join('\n'):'')||'');excerpt.textContent=text.slice(0,140)+(text.length>140?'…':'');if(text)label.append(excerpt);
     controls.className='document-library-order';up.type=down.type=remove.type='button';up.textContent='上移';down.textContent='下移';up.dataset.documentLibraryMove='up';down.dataset.documentLibraryMove='down';up.setAttribute('aria-label','上移第 '+index+' 块');down.setAttribute('aria-label','下移第 '+index+' 块');up.disabled=session.pending||index===1;down.disabled=session.pending||index===chosen.size;up.hidden=down.hidden=chosen.size<2;
     const move=(delta,direction)=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending||!multiple.checked)return;const order=[...chosen],at=order.findIndex(([id])=>id===key),to=at+delta;if(at<0||to<0||to>=order.length)return;[order[at],order[to]]=[order[to],order[at]];chosen.clear();for(const [id,choice]of order)chosen.set(id,choice);showChosen(key,direction)};
-    up.onclick=()=>move(-1,'up');down.onclick=()=>move(1,'down');remove.textContent='移除';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;remove.onclick=()=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending)return;chosen.delete(key);paint();showChosen()};controls.append(up,down,remove);row.append(label,controls);list.append(row);
+    up.onclick=()=>move(-1,'up');down.onclick=()=>move(1,'down');remove.textContent='移除';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;remove.onclick=()=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending)return;chosen.delete(key);syncResultPick(key);showChosen()};controls.append(up,down,remove);row.append(label,controls);list.append(row);
    }
    commit.disabled=session.pending||!chosen.size;commit.textContent=chosen.size?'将选中的 '+chosen.size+' 块接在原段后':'请先选择内容';
    if(focusKey){const row=[...list.children].find(row=>row.dataset.documentLibraryChoice===focusKey),button=row?.querySelector('[data-document-library-move="'+direction+'"]');(button&&!button.disabled?button:row?.querySelector('[data-document-library-move]:not(:disabled)'))?.focus({preventScroll:true});row?.scrollIntoView({block:'nearest'})}
@@ -155,13 +163,19 @@
   };
   commit.onclick=()=>applyChosen(chosen);multiple.onchange=()=>{chosen.clear();paint();showChosen()};
   const paint=()=>{
-   results.replaceChildren();const query=search.value.trim().toLowerCase(),matches=entries.filter(entry=>entry.commonText.includes(query)||entry.pieceText.includes(query));
+   results.replaceChildren();resultButtons.clear();const query=search.value.trim().toLowerCase(),matches=entries.filter(entry=>entry.commonText.includes(query)||entry.pieceText.includes(query));
    for(const {asset:a,piece} of matches.slice(0,40)){
     const shown=libraryChoiceSnapshot(a,piece),section=document.createElement('section'),heading=document.createElement('b'),location=document.createElement('small'),preview=document.createElement('p'),button=document.createElement('button'),group=a.bundle.nodes.length>1;
     section.dataset.documentLibraryAsset=a.id;section.dataset.documentLibraryPiece=piece.id;heading.textContent=(group?piece.title:a.title)||piece.title||'未命名内容';location.textContent=(group?(a.title||'未命名组合')+' · ':'')+(a.folder||'内容库根目录')+' · '+(piece.type==='table'?(piece.documentMode?'长文':'表格 · '+(piece.rows?.length||0)+' 行'):'便签')+(group?' · 取用 1 块':'');
     const previewText=String(piece.body||piece.userText||piece.annotation||(piece.type==='table'?[(piece.columns||[]).join(' · '),...(piece.rows||[]).slice(0,3).map(row=>row.join(' · '))].join('\n'):piece.title)||'');preview.textContent=previewText.slice(0,500)+(previewText.length>500?'…':'');
-    const choiceKey=JSON.stringify([shown.id,shown.piece.id]);button.type='button';button.textContent=multiple.checked?(chosen.has(choiceKey)?'已选，点此移除':'选这一块'):'将副本接在原段后';if(multiple.checked)button.setAttribute('aria-pressed',String(chosen.has(choiceKey)));button.dataset.documentLibraryPlace='';section.append(heading,location,preview,button);results.append(section);
-    button.onclick=()=>{if(!validLibraryPicker(session)||session.pending)return;if(!multiple.checked)return applyChosen(new Map([[choiceKey,shown]]));if(chosen.has(choiceKey))chosen.delete(choiceKey);else chosen.set(choiceKey,shown);paint();showChosen()};
+    const choiceKey=JSON.stringify([shown.id,shown.piece.id]);button.type='button';
+    if(multiple.checked){
+     const buttons=resultButtons.get(choiceKey)||[];
+     buttons.push(button);resultButtons.set(choiceKey,buttons);
+     setResultPicked(button,chosen.has(choiceKey));
+    }else button.textContent='将副本接在原段后';
+    button.dataset.documentLibraryPlace='';section.append(heading,location,preview,button);results.append(section);
+    button.onclick=()=>{if(!button.isConnected||!validLibraryPicker(session)||session.pending)return;if(!multiple.checked)return applyChosen(new Map([[choiceKey,shown]]));if(chosen.has(choiceKey))chosen.delete(choiceKey);else chosen.set(choiceKey,shown);syncResultPick(choiceKey);showChosen()};
    }
    status.textContent=matches.length?'找到 '+matches.length+' 块内容'+(matches.length>40?'，请继续输入以缩小范围。':''):(query?'没有匹配的便签或表格。':'还没有可取用的便签或表格资源。');
   };
