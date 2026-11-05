@@ -511,7 +511,11 @@ renderJSONReader=function(box,data){
  if(saved){box._setJSONZoom?.(saved.zoom||1,false);let steps=0;while(box.querySelectorAll('.json-readable-record').length<(saved.records||0)&&steps++<500){const more=[...box.querySelectorAll('button')].find(b=>b.textContent==='继续显示后面的记录');if(!more)break;more.click()} }
 
  function restoreDetails(){for(const path of saved?.open||[]){let scope=box;for(const index of path){const details=[...scope.querySelectorAll('details')].filter(d=>!d.parentElement.closest('details')||d.parentElement.closest('details')===scope);const d=details[index];if(!d)break;d.open=true;scope=d}}}
- let rounds=0;const restore=()=>{restoreDetails();viewport.scrollTop=saved?.top||0;viewport.scrollLeft=saved?.left||0;if(++rounds<5)setTimeout(restore,20);else restoring=false};if(saved)setTimeout(restore,0);else restoring=false;
+ let rounds=0;const restore=()=>{if(!restoring)return;restoreDetails();viewport.scrollTop=saved?.top||0;viewport.scrollLeft=saved?.left||0;if(++rounds<5)setTimeout(restore,20);else restoring=false};if(saved)setTimeout(restore,0);else restoring=false;
+ // A reader who has started scrolling owns the position even if restoration is still queued.
+ const keepReaderPosition=event=>{if(restoring&&event.isTrusted){restoring=false;capture()}};
+ viewport.addEventListener('wheel',keepReaderPosition,{passive:true});
+ viewport.addEventListener('touchmove',keepReaderPosition,{passive:true});
  viewport.addEventListener('scroll',capture,{passive:true});box.addEventListener('click',()=>setTimeout(capture,30));box.addEventListener('toggle',capture,true);box._captureReading=capture;
  // A closed dialog has no viewport; restore its last real position after moving back to the canvas.
  box._restoreReading=()=>{const position=sessionRead(key);if(position){viewport.scrollTop=position.top||0;viewport.scrollLeft=position.left||0}};
