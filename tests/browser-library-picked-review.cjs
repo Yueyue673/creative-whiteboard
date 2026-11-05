@@ -41,7 +41,16 @@ try{
    const bounds=await f.getByRole('button',{name:'返回原列表',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return{x:r.x,right:r.right,width:innerWidth,height:r.height}});assert(bounds.x>=0&&bounds.right<=bounds.width&&bounds.height>=44);row.returnControlBounds=bounds;
    await f.locator('[data-asset-preview="given-item-110"]').click();await f.locator('#dialog').waitFor();await p.keyboard.press('Escape');await f.locator('#dialog').waitFor({state:'hidden'});assert.equal(await visible(),3);assert.equal(await f.getByRole('button',{name:'返回原列表',exact:true}).getAttribute('aria-pressed'),'true');row.nativePreviewReturnsToPickSet=true;
    await leaveReview();assert.deepEqual(await f.evaluate(()=>({folder:assetFolder,query:$('assetSearch').value,kind:wfLibraryKind,order:wfLibraryOrder,limit:assetLimit,searchAll:wfLibrarySearchAll})),prior);assert(!(await kind.isDisabled())&&!(await order.isDisabled())&&!(await query.isDisabled()));row.queryTypeOrderAndScopeRetained=true;
-   await kind.selectOption('all');await order.selectOption('original');await query.fill('');while(await f.locator('#assetMore').count())await f.locator('#assetMore').click();assert.equal(await visible(),239);
+   await kind.selectOption('all');await order.selectOption('original');await query.fill('');
+   const more=f.locator('#assetMore'),picksBeforeMore=await ids();
+   for(const [key,count,first] of [['Enter',160,'given-item-80'],['Space',239,'given-item-160']]){
+    await more.focus();await p.keyboard.press(key);
+    assert.equal(await visible(),count);
+    assert.equal(await f.evaluate(()=>document.activeElement.dataset.asset),first);
+    assert.deepEqual(await ids(),picksBeforeMore);
+    assert.equal(await f.locator('#dialog').evaluate(el=>el.open),false);
+   }
+   assert.equal(await more.count(),0);
    await f.locator('[data-asset="given-item-210"]').scrollIntoViewIfNeeded();
    const reading=()=>f.evaluate(()=>{const rows=[];for(let el=$('assetList');el;el=el.parentElement){rows.push({id:el.id,className:el.className,top:el.scrollTop,left:el.scrollLeft});if(el===$('assetPane'))break}return rows});
    const beforeReading=await reading(),beforeLimit=await f.evaluate(()=>assetLimit);assert(beforeReading.some(x=>x.top>0));await enterReview();await leaveReview();assert.equal(await visible(),239);assert.equal(await f.evaluate(()=>assetLimit),beforeLimit);assert.deepEqual(await reading(),beforeReading);row.paginationAndAncestorReadingPositionsRestored=true;

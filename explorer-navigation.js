@@ -98,7 +98,18 @@
  }
  function capture(panel){const active=document.activeElement;return {active:!!active?.closest('#'+panels[panel]),key:key(active?.closest(selector)),location:list(panel)._navigationLocation,scroll:rememberScroll(panel)}}
  const renderAssetsBefore=renderAssets;
- renderAssets=function(){return withAssetLookup(()=>{const previous=capture('assetPane');renderAssetsBefore();restoreAfterRender('assetPane',previous)})};
+ renderAssets=function(){return withAssetLookup(()=>{
+  const previous=capture('assetPane');
+  renderAssetsBefore();
+  restoreAfterRender('assetPane',previous);
+  const more=$('assetMore'),showMore=more?.onclick;
+  if(showMore)more.onclick=function(event){
+   if(event.detail!==0||document.activeElement!==more)return showMore.call(this,event);
+   const root=list('assetPane'),firstNew=root.querySelectorAll('[data-asset]').length;
+   showMore.call(this,event);
+   focus(root.querySelectorAll('[data-asset]')[firstNew]);
+  };
+ })};
  const renderFoldersBefore=renderFolders;
  renderFolders=function(){const previous=capture('manager');renderFoldersBefore();restoreAfterRender('manager',previous)};
  const enterAssetsBefore=enterAssetFolder;
@@ -121,6 +132,7 @@
    return true;
   }
   if(e.altKey)return false;
+  if(e.target.id==='assetMore'&&(e.key==='Enter'||e.key===' '))return false;
   if(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'){
    const row=currentRow(panel,e);if(!row)return false;
    e.preventDefault();e.stopImmediatePropagation();
