@@ -27,7 +27,7 @@ try{
     const parts=[paragraph('p1','给定前文，保持。'),paragraph('p2','给定正在写的原段落，准备在这里接两块材料。'),paragraph('p3','给定后文，保持。')],doc={id:'document',type:'table',documentMode:true,title:'给定连续取用',body:'',x:30,y:20,w:640,h:720,sizeMode:'manual',columns:['正文'],rows:[['']],rowIds:['flow'],columnIds:['text'],columnWidths:[640],cellItems:[[parts]],cellImages:[[[]]],opaque:{given:true}};
     const given={format:'creative-board',version:1,name:'给定两块接续 '+width,nodes:[doc,{id:'neighbor',type:'note',title:'给定相邻内容',body:'保持原文。',x:950,y:40,w:260,h:190,sizeMode:'manual'}],edges:[{id:'given-relation',from:doc.id,to:'neighbor',label:'给定关联'}],view:{x:16,y:48,z:.35}};
     const id='given-'+mode+'-'+width+'-'+(single?'single':'multiple');await req('/api/boards/'+id,'PUT',given,'new');
-    const context=await browser.newContext({viewport:{width,height:940},reducedMotion:'reduce'});try{
+    const context=await browser.newContext({viewport:{width,height:940},hasTouch:width===320,reducedMotion:'reduce'});try{
      page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',error=>{proof.errors.push(error.message);save()});await page.goto(base+'/?board='+id);await page.waitForFunction(id=>pane(current())?.state().boardId===id&&!pane(current()).state().loading,id);
      const f=await(await page.evaluateHandle(()=>frames.get(current().id))).asElement().contentFrame(),model=()=>f.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges)}));
      const expand=async()=>{await f.locator('#nodes>[data-id=document]').click({button:'right',position:{x:4,y:4}});await f.locator('#fileContext').getByRole('menuitem',{name:'展开编辑',exact:true}).click()};
@@ -48,8 +48,24 @@ try{
      }else{
       await choose(resources[1]);const tray=f.locator('.document-library-chosen');await tray.waitFor();assert.equal(await tray.locator('[data-document-library-chosen]>div').count(),2);
       const titleText=await tray.innerText();assert(titleText.includes('给定原话材料')&&titleText.includes('给定对照表'));assert(titleText.indexOf('给定原话材料')<titleText.indexOf('给定对照表'));row.chosenOrderVisible=true;
-      const remove=tray.getByRole('button',{name:'移除第 2 块',exact:true});await step('验证：移除第二块选择',()=>remove.click());assert.equal(await tray.locator('[data-document-library-chosen]>div').count(),1);assert.deepEqual(await model(),before);
-      const again=f.locator('[data-document-library-asset="resource-b"][data-document-library-piece="given-b"] [data-document-library-place]');await step('验证：重新选择第二块',()=>again.click());assert.equal(await tray.locator('[data-document-library-chosen]>div').count(),2);row.removableSelectionLeavesDocumentExact=true;
+      const remove=tray.getByRole('button',{name:'移除第 2 块',exact:true});
+      await step('移除第二块后焦点留在上一块',async()=>{if(width===320)await remove.tap();else await remove.press('Enter')});
+      const remaining=tray.getByRole('button',{name:'移除第 1 块',exact:true});
+      assert.equal(await tray.locator('[data-document-library-chosen]>div').count(),1);
+      row.removeFocusAfterSecond=await remaining.evaluate(el=>document.activeElement===el);save();
+      assert(row.removeFocusAfterSecond,'Removing the last chosen row focuses the previous row');
+      await step('移除仅剩一块后返回查找区域',()=>width===320?remaining.tap():remaining.press('Enter'));
+      assert.equal(await tray.locator('[data-document-library-chosen]>div').count(),0);
+      assert(await f.locator('[data-document-library-multiple]').evaluate(el=>document.activeElement===el));
+      row.removeFocusWithoutVisibleResult=true;
+      assert.deepEqual(await model(),before);
+      await choose(resources[0]);
+      await step('移除当前搜索结果后焦点回到该结果',()=>width===320?remaining.tap():remaining.press('Enter'));
+      const resultA=f.locator('[data-document-library-asset="resource-a"] [data-document-library-place]');
+      assert(await resultA.evaluate(el=>document.activeElement===el));row.removeFocusWithVisibleResult=true;
+      await choose(resources[0]);await choose(resources[1]);
+      assert.equal(await tray.locator('[data-document-library-chosen]>div').count(),2);
+      row.removableSelectionLeavesDocumentExact=true;
       const overflow=await f.locator('.document-library').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));assert(overflow.scroll<=overflow.client+1);row.pickerHorizontalOverflowAbsent=true;
       await page.screenshot({path:out+'/'+width+'-chosen.png'});await step('一次接入两块副本',()=>tray.locator('[data-document-library-commit]').click());await f.locator('.document-library').waitFor({state:'detached'});
      }

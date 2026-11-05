@@ -138,7 +138,19 @@
     const text=String(item.piece.body||item.piece.userText||item.piece.annotation||(item.piece.type==='table'?[(item.piece.columns||[]).join(' · '),...(item.piece.rows||[]).slice(0,2).map(row=>row.join(' · '))].join('\n'):'')||'');excerpt.textContent=text.slice(0,140)+(text.length>140?'…':'');if(text)label.append(excerpt);
     controls.className='document-library-order';up.type=down.type=remove.type='button';up.textContent='上移';down.textContent='下移';up.dataset.documentLibraryMove='up';down.dataset.documentLibraryMove='down';up.setAttribute('aria-label','上移第 '+index+' 块');down.setAttribute('aria-label','下移第 '+index+' 块');up.disabled=session.pending||index===1;down.disabled=session.pending||index===chosen.size;up.hidden=down.hidden=chosen.size<2;
     const move=(delta,direction)=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending||!multiple.checked)return;const order=[...chosen],at=order.findIndex(([id])=>id===key),to=at+delta;if(at<0||to<0||to>=order.length)return;[order[at],order[to]]=[order[to],order[at]];chosen.clear();for(const [id,choice]of order)chosen.set(id,choice);showChosen(key,direction)};
-    up.onclick=()=>move(-1,'up');down.onclick=()=>move(1,'down');remove.textContent='移除';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;remove.onclick=()=>{if(!row.isConnected||!validLibraryPicker(session)||session.pending)return;chosen.delete(key);syncResultPick(key);showChosen()};controls.append(up,down,remove);row.append(label,controls);list.append(row);
+    up.onclick=()=>move(-1,'up');down.onclick=()=>move(1,'down');remove.textContent='移除';remove.dataset.documentLibraryRemove='';remove.setAttribute('aria-label','移除第 '+index+' 块');remove.disabled=session.pending;
+    remove.onclick=()=>{
+     if(!row.isConnected||!validLibraryPicker(session)||session.pending)return;
+     const rowIndex=[...list.children].indexOf(row);
+     const hadFocus=document.activeElement===remove;
+     chosen.delete(key);syncResultPick(key);showChosen();
+     if(hadFocus){
+      const remaining=list.querySelectorAll('[data-document-library-remove]');
+      const nextRemove=remaining[Math.min(rowIndex,remaining.length-1)];
+      (nextRemove||resultButtons.get(key)?.[0]||multiple).focus();
+     }
+    };
+    controls.append(up,down,remove);row.append(label,controls);list.append(row);
    }
    commit.disabled=session.pending||!chosen.size;commit.textContent=chosen.size?'将选中的 '+chosen.size+' 块接在原段后':'请先选择内容';
    if(focusKey){const row=[...list.children].find(row=>row.dataset.documentLibraryChoice===focusKey),button=row?.querySelector('[data-document-library-move="'+direction+'"]');(button&&!button.disabled?button:row?.querySelector('[data-document-library-move]:not(:disabled)'))?.focus({preventScroll:true});row?.scrollIntoView({block:'nearest'})}
