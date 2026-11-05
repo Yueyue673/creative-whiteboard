@@ -25,7 +25,7 @@
  function sync(panel){
   const root=list(panel),items=rows(panel);
   const up=$(panel==='manager'?'boardUp':'assetUp');
-  up.textContent='↑';up.title='上一级';up.setAttribute('aria-label','上一级');
+  up.textContent='上一级';up.title='上一级';up.setAttribute('aria-label','上一级');
   if(panel==='manager'){
    $('boardCrumbs').querySelectorAll('[data-bcrumb]').forEach(el=>wireBoardDrop(el,()=>el.dataset.bcrumb));
    wireBoardDrop($('boardUp'),()=>folderData.folders.find(f=>f.id===folderSelected)?.parent||'');

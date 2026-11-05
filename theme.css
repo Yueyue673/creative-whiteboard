@@ -230,7 +230,7 @@ body #workspaceSidebar .explorer-symbol,body #workspaceSidebar .asset-subfolder>
 body #workspaceSidebar .explorer-location.clear-location nav{flex:1;min-width:0}
 @media(max-width:400px){
  body #workspaceSidebar .explorer-location.clear-location:has(>button[id$=Up]:not(:disabled)){display:flex!important;align-items:center;gap:4px}
- body #workspaceSidebar :is(#boardUp,#assetUp):not(:disabled){display:block!important;flex:none;width:36px;min-height:36px;padding:4px;font-size:18px}
+ body #workspaceSidebar :is(#boardUp,#assetUp):not(:disabled){display:block!important;flex:none;min-width:50px;min-height:36px;padding:4px 6px;font-size:12px;white-space:nowrap}
 }
 #libraryShelf button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:7px 2px;background:transparent;color:var(--ui-muted);font-size:12px;min-height:36px}
 #libraryShelf button[aria-pressed=true]{border-bottom-color:var(--ui-text);color:var(--ui-text)}
