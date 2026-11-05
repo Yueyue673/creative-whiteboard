@@ -82,9 +82,9 @@ header,#canvasTools,#creationDock{zoom:var(--interface-scale,1)}
 .wf-picked-bar.wf-whole-list #assetCount{min-width:140px}
 .wf-picked-bar button{flex:none;min-height:44px}
 @media(min-width:320px) and (max-width:520px){
- #wfPickedBar.wf-whole-list{display:grid;grid-template-columns:minmax(0,1.25fr) repeat(3,minmax(0,1fr));align-items:stretch}
- #wfPickedBar.wf-whole-list #assetCount{grid-column:1/-1;min-width:0;padding-block:2px}
- #wfPickedBar.wf-whole-list button{min-width:0}
+ #wfPickedBar.wf-whole-list:not(.wf-empty-list){display:grid;grid-template-columns:minmax(0,1.25fr) repeat(3,minmax(0,1fr));align-items:stretch}
+ #wfPickedBar.wf-whole-list:not(.wf-empty-list) #assetCount{grid-column:1/-1;min-width:0;padding-block:2px}
+ #wfPickedBar.wf-whole-list:not(.wf-empty-list) button{min-width:0}
 }
 /* Reserve contextual controls so selecting a resource does not move the next pointer target. */
 #wfPickedBar button[hidden]{display:inline-flex!important;visibility:hidden;pointer-events:none}
