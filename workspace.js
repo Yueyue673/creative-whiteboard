@@ -950,7 +950,7 @@ previewAsset=async function(id){const a=assetById(id);if(!a)return;const html=/\
  const documentView=$('documentView'),documentState=$('documentState'),current=()=>requestNumber===documentReadSerial&&$('dialog').open&&documentView.isConnected;
  onDialogDismiss(()=>documentView.querySelectorAll('iframe').forEach(f=>f.remove()));
  if(html){const f=document.createElement('iframe');f.id='htmlDocument';f.title=a.title;f.setAttribute('sandbox','allow-scripts');f.src='/api/preview/'+encodeURIComponent(id);const host=document.createElement('div');host.className='web-frame-host inline-ui';host.append(f);documentView.append(host);f.onload=()=>{if(current())documentState.textContent='网页预览 · 支持页面内的样式与交互'};return}
- try{const data=await readJSONDocument(a);if(!current())return;documentState.textContent=data.invalid?'无法按 JSON 解析，保留原文供查看':'完整 JSON · 默认展示内容，可切换结构或原文';documentView.dataset.readerAsset=id;renderJSONReader(documentView,data)}catch(e){if(current())documentState.textContent='无法读取：'+e.message}
+ try{const data=await readJSONDocument(a);if(!current())return;documentState.textContent=data.invalid?'无法按 JSON 解析，保留原文供查看':'JSON · '+assetSizeLabel(a.size);documentView.dataset.readerAsset=id;renderJSONReader(documentView,data)}catch(e){if(current())documentState.textContent='无法读取：'+e.message}
 
 };
 window.addEventListener('message',e=>{if(e.data?.type==='creative-preview-close'&&e.source===$('htmlDocument')?.contentWindow&&$('dialog').open)$('dialog').close()});
