@@ -37,13 +37,7 @@ for(const width of [1360,320]){
  if(networkMode==='typeChanged'){const bad=structuredClone(savedCatalog);bad.assets[0].bundle.nodes[0]={...bad.assets[0].bundle.nodes[0],type:'table',columns:['给定列'],rows:[['给定值']]};return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(bad)})}
  if(networkMode==='missing'){const bad=structuredClone(savedCatalog);bad.assets=bad.assets.filter(a=>a.id!=='given-origin');return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(bad)})}
  if(networkMode==='failure')return r.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'给定读取暂时失败'})});
- if(networkMode==='delayed'){
-  networkMode='normal';const original=await r.fetch();assert.equal(original.status(),200);
-  const body=await original.body();assert.deepEqual(JSON.parse(body.toString('utf8')),savedCatalog);
-  (row.delayedResponses??=[]).push({status:original.status(),bodySHA256:hash(body),bytes:body.length,realServerResponse:true});save();
-  await new Promise(resolve=>{const timer=setTimeout(resolve,5000);release=()=>{clearTimeout(timer);resolve()};entered?.(r.request())});
-  return r.fulfill({response:original,body});
- }
+ if(networkMode==='delayed'){networkMode='normal';await new Promise(resolve=>{const timer=setTimeout(resolve,5000);release=()=>{clearTimeout(timer);resolve()};entered?.(r.request())})}
  }return r.continue()});const p=await c.newPage();p.setDefaultTimeout(9000);p.on('pageerror',e=>proof.errors.push(e.message));await p.goto(base+'/?board='+id);await p.waitForFunction(id=>pane(current())?.state()?.boardId===id&&!pane(current()).state().loading,id);const f=await(await p.evaluateHandle(()=>frames.get(current().id))).asElement().contentFrame();await f.waitForFunction(()=>assetCatalogReady&&assetById('given-origin'));await f.locator('#fit').click();await f.locator('#nodes>[data-id=given-paper]').click({position:{x:6,y:6}});await f.locator('#nodes>[data-id=given-paper] .block-read').click();await f.locator('#immersiveSurface [data-document-paper]').waitFor();assert.equal(await f.locator('[data-paper-origin]').count(),1);const before=await f.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)}));pass('the native expanded paper exposes one existing origin without changing the original draft model');
  assert.equal(await f.locator('[data-paper-origin]').count(),1);assert.equal(await f.locator('[data-paper-origin]').getAttribute('data-paper-origin'),'given-copy');pass('the optional control appears only on a text block with a recorded original and never guesses from same-title resources');
  const field=f.locator('#immersiveSurface [data-cell-item="1"] [data-cell-note-field=body]');await field.focus();await field.evaluate(el=>{el.setSelectionRange(3,9);el.scrollTop=4});const selection=await field.evaluate(el=>({value:el.value,start:el.selectionStart,end:el.selectionEnd,top:el.scrollTop}));const writerScroll=await f.locator('#immersiveSurface .edit-scroll').evaluate(el=>el.scrollTop);await f.locator('[data-paper-origin=given-copy]').click();await f.locator('.note-source-peek .note-source-card').waitFor();const shown=await f.locator('.note-source-peek .note-source-card').innerText();row.shownOriginalText=shown;row.sourceFields=await f.locator('.note-source-peek .note-source-card').evaluate(el=>({values:[...el.querySelectorAll('textarea,input')].map(f=>f.value),context:whiteboardNoteEditor.sourceContext(el)}));save();assert.equal(row.sourceFields.context?.library?.id,'given-origin');assert.equal(row.sourceFields.context?.node?.body,original.body);assert([shown,...row.sourceFields.values].join('\n').includes(original.body));assert(![shown,...row.sourceFields.values].join('\n').includes(other.body));assert.equal(await f.locator('.note-source-peek textarea:not([readonly])').count(),0);assert.deepEqual(await f.evaluate(()=>({nodes:clone(board.nodes),edges:clone(board.edges),history:clone(history),future:clone(future)})),before);await p.screenshot({path:O+'/'+width+'-source-peek.png'});pass('the original source renderer shows the exact recorded resource read-only without changing draft or undo history');
@@ -69,9 +63,9 @@ for(const width of [1360,320]){
  assert.equal(response.request(),delayedRequest);
  assert.equal(response.status(),200);
  row.lateResponse={status:response.status(),path:new URL(response.url()).pathname,interceptedRequest:true};save();
- const responseError=await step('cancel-read: response body complete',()=>response.finished());
- assert.equal(responseError,null,'the delayed original response must finish successfully');
- const lateCatalog=await step('cancel-read: exact catalog body',()=>response.json());
+ const lateBody=await step('cancel-read: exact complete response body',()=>response.body());
+ row.lateResponse.completeBodyRead=true;row.lateResponse.bodySHA256=hash(lateBody);row.lateResponse.bytes=lateBody.length;save();
+ const lateCatalog=JSON.parse(lateBody.toString('utf8'));
  assert.deepEqual(lateCatalog,savedCatalog);
  await step('cancel-read: settled writer retained',async()=>{
   await f.waitForTimeout(50);assert.equal(await f.locator('.note-source-peek').count(),0);assert.deepEqual(await currentSnapshot(),afterCancel);assert(await field.evaluate(el=>document.activeElement===el));assert.deepEqual(await field.evaluate(el=>({value:el.value,start:el.selectionStart,end:el.selectionEnd})),activeField);
