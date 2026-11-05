@@ -35,14 +35,26 @@ function syncLibraryFolderNavigation(previous,next){
  assetFolderPick=locate(assetFolderPick)||null;
  const expanded=[...assetExpanded].map(locate).filter(Boolean);assetExpanded.clear();expanded.forEach(path=>assetExpanded.add(path));
  const parts=assetFolder.split('/').filter(Boolean);for(let i=1;i<=parts.length;i++)assetExpanded.add(parts.slice(0,i).join('/'));
- const live=new Set(next.assets.filter(a=>!a.archived).map(a=>a.id));assetSelected=new Set([...assetSelected].filter(id=>live.has(id)));
  const query=$('assetSearch')?.value.trim().toLowerCase()||'';
  if(assetFolderPick&&libraryFolderIdentity(parent(picked),previous)!==libraryFolderIdentity(parent(assetFolderPick),next)&&(query||parent(assetFolderPick)!==assetFolder))assetFolderPick=null;
- const visible=new Set(next.assets.filter(a=>!a.archived&&(query?wfLibraryText(a).toLowerCase().includes(query):a.folder===assetFolder)).map(a=>a.id));
- const oldItems=new Map(previous.assets.map(a=>[a.id,a])),newItems=new Map(next.assets.map(a=>[a.id,a]));
+ if(!assetSelected.size)return;
+ const oldItems=new Map(),newItems=new Map(),live=new Set();
+ for(const item of previous.assets)if(assetSelected.has(item.id))oldItems.set(item.id,item);
+ for(const item of next.assets)if(assetSelected.has(item.id)){
+  newItems.set(item.id,item);
+  if(!item.archived)live.add(item.id);
+ }
  // Explicit research selections may be outside this view. Only a newly moved item
  // that left the current list loses selection; folder renames preserve identity.
- assetSelected=new Set([...assetSelected].filter(id=>{const old=oldItems.get(id),current=newItems.get(id);return !old||libraryFolderIdentity(old.folder,previous)===libraryFolderIdentity(current.folder,next)||visible.has(id)}));
+ const moved=new Set([...live].filter(id=>{
+  const old=oldItems.get(id),current=newItems.get(id);
+  return old&&libraryFolderIdentity(old.folder,previous)!==libraryFolderIdentity(current.folder,next);
+ }));
+ for(const item of next.assets){
+  if(!moved.size)break;
+  if(moved.has(item.id)&&!item.archived&&(query?wfLibraryText(item).toLowerCase().includes(query):item.folder===assetFolder))moved.delete(item.id);
+ }
+ assetSelected=new Set([...assetSelected].filter(id=>live.has(id)&&!moved.has(id)));
 }
 function selectLibraryImports(added,target,startedAt){
  // Navigation during an upload is intentional; do not pull the user back.
