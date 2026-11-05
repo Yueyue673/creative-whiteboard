@@ -364,10 +364,12 @@
   const original=id?assetById(id):null;if(original&&original.mime!==bundleMime)return editFile(id);
   if(id&&!original)return toast('这项内容已移走，请重新选择。');
   if(original&&!original.bundle?.nodes.length)return toast('这份组合没有内容块，可以先把内容收进库，再继续编辑。');
+  const startAtHeading=original&&matchMedia('(max-width:780px)').matches;
   const freshNode=()=>kind==='table'?{id:uid(),type:'table',sizeMode:'manual',x:0,y:0,w:620,h:360,title:'',body:'',userText:'',annotation:'',tags:[],color:'#ffffff',...tableData(Array.from({length:3},()=>['','','']),false),rowIds:Array.from({length:3},()=>uid()),columnIds:Array.from({length:3},()=>uid())}:blankLibraryNote();
   const state={mode:'content',base:original?clone(original):null,draft:original?clone(original):{id:uid(),title:'',path:'',folder:assetFolder,mime:bundleMime,size:0,notes:'',tags:[],bundle:{nodes:[freshNode()],edges:[]}},busy:false,addedNoteIds:new Set(),previewReturn:original?returnToPreview:null};let index=0;
   const supplement=original?'<div id="librarySupplement"></div>':'<details class="library-note-details"><summary><span class="library-note-caret" aria-hidden="true">›</span>补充和备注</summary><div id="librarySupplement"></div></details>';
-  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading"><h2>'+(original?'编辑内容':kind==='table'?'写表格':'写便签')+'</h2>'+(original?'<p class="library-edit-explain">“保存到内容库”更新原件；“另存我的编辑”新建资源。白板副本保持原样。</p>':kind==='table'?'<p class="library-edit-explain">可直接填写三行三列，或从表格文本开始。记录增多时可在末尾加行，保存后继续复用。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(pieceLabel(n,i))+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>{if(!active(state))return;if(!state.busy&&state.previewReturn?.open(state.form))return;$('dialog').close()}],['保存到内容库',()=>save(state)]]);
+  const heading='<h2'+(startAtHeading?' tabindex="-1" autofocus':'')+'>'+(original?'编辑原件':kind==='table'?'写表格':'写便签')+'</h2>';
+  showDialog('<section class="library-edit-form library-content-form'+(original?'':' library-note-create')+'"><div class="library-content-heading">'+heading+(original?'<p class="library-edit-explain">另存会新建资源。白板副本可独立编辑。</p>':kind==='table'?'<p class="library-edit-explain">可直接填写三行三列，或从表格文本开始。记录增多时可在末尾加行，保存后继续复用。</p>':'')+'</div><div class="library-content-layout"><div class="library-content-writing">'+(state.draft.bundle.nodes.length>1?'<label>选择要编辑的内容<select id="libraryPiece">'+state.draft.bundle.nodes.map((n,i)=>'<option value="'+i+'">'+esc(pieceLabel(n,i))+'</option>').join('')+'</select></label>':'')+'<div id="libraryFields"></div>'+(original?'':supplement)+'</div><aside class="library-content-details" aria-label="内容信息">'+(original?'<label>库中的名称<input id="libraryName" value="'+esc(state.draft.title)+'" placeholder="方便自己找到的名称"></label>':'')+'<label>存放位置<select id="libraryDestination">'+libraryFolderOptions(state.draft.folder)+'</select></label>'+(original?supplement:'')+'</aside></div></section>',[['取消',()=>{if(!active(state))return;if(!state.busy&&state.previewReturn?.open(state.form))return;$('dialog').close()}],['保存到内容库',()=>save(state)]]);
   const capturePiece=()=>{for(const key of ['title','body','userText','annotation'])state.draft.bundle.nodes[index][key]=state.form.querySelector('#library-'+key).value;for(const {field,path,initial,initialValue,root}of state.documentFields||[]){let target=root||state.draft.bundle.nodes[index].cellItems[0][0];for(const key of path.slice(0,-1))target=target[key];const key=path.at(-1);if(field.value!==initial)target[key]=field.value;else if(initialValue===undefined)delete target[key];else target[key]=copy(initialValue)}};
   const field=(key,label,rows)=>'<label>'+label+'<textarea id="library-'+key+'" rows="'+rows+'"></textarea></label>';
 
@@ -618,7 +620,17 @@
   }
   state.refreshSavedPieceLabel=()=>{if(piece?.options[index])piece.options[index].textContent=pieceLabel(state.draft.bundle.nodes[index],index);refreshNoteControls()};
   if(piece)piece.onchange=selectPiece;
-  draw();if(!original&&kind==='table')mountTextIntake();const documentField=state.form.querySelector('[data-library-document-field]'),newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});else $(original?'libraryName':'library-body').focus();
+  draw();
+  if(!original&&kind==='table')mountTextIntake();
+  if(startAtHeading){
+   state.form.querySelector('.library-content-heading h2').focus({preventScroll:true});
+   $('dialogBody').scrollTop=0;
+  }else{
+   const documentField=state.form.querySelector('[data-library-document-field]');
+   const newTableField=!original&&kind==='table'?state.form.querySelector('[data-library-table-field="3"]'):null;
+   if(documentField||newTableField)(documentField||newTableField).focus({preventScroll:true});
+   else $(original?'libraryName':'library-body').focus();
+  }
   refreshNoteControls();
   keepWritingOnEscape(state);
  }
