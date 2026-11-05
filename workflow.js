@@ -500,9 +500,15 @@ function sessionRead(key){try{return JSON.parse(localStorage.getItem('creative-r
 function sessionWrite(key,value){try{localStorage.setItem('creative-reading:'+key,JSON.stringify({...value,at:Date.now()}))}catch{}}
 function readerKey(el,kind,asset=''){const node=el.closest('.node'),cell=el.closest('[data-cell-item]'),context=contentContext(el),item=node&&cell?context?.node.cellItems?.[+cell.dataset.cellR]?.[+cell.dataset.cellC]?.[+cell.dataset.cellItem]:null,scope=kind==='media'&&context?.library?JSON.stringify(['library',context.library.id,context.library.rootNodeId??null,context.library.nodeId]):context?context.board+':'+context.node.id:node?boardId+':'+node.dataset.id:'preview';return kind+':'+scope+':'+asset+(cell?':cell:'+ (item?.id||[cell.dataset.cellR,cell.dataset.cellC,cell.dataset.cellItem].join(':')):'')}
 const continuityJSON=renderJSONReader;
-renderJSONReader=function(box,data){continuityJSON(box,data);if(!box.dataset.documentAsset&&!box.dataset.readerAsset)return;const asset=box.dataset.documentAsset||box.dataset.readerAsset,key=readerKey(box,'json',asset),saved=sessionRead(key),viewport=box.querySelector('.inline-json-body');let restoring=true;
+renderJSONReader=function(box,data){
+ const asset=box.dataset.documentAsset||box.dataset.readerAsset;
+ const key=asset?readerKey(box,'json',asset):null;
+ const saved=key?sessionRead(key):null;
+ continuityJSON(box,data,saved?.mode);
+ if(!key)return;
+ const viewport=box.querySelector('.inline-json-body');let restoring=true;
  const capture=()=>{if(restoring||!box.isConnected||!viewport.clientWidth||!viewport.clientHeight)return;sessionWrite(key,{top:viewport.scrollTop,left:viewport.scrollLeft,mode:box.querySelector('[data-json-mode].chosen')?.dataset.jsonMode,zoom:Number(box.querySelector('.json-reader-content').style.zoom)||1,records:box.querySelectorAll('.json-readable-record').length,open:[...box.querySelectorAll('details[open]')].map(d=>jsonDetailPath(d,box))})};
- if(saved){box.querySelector('[data-json-mode="'+(['内容','结构','原文'].includes(saved.mode)?saved.mode:'内容')+'"]')?.click();box._setJSONZoom?.(saved.zoom||1,false);let steps=0;while(box.querySelectorAll('.json-readable-record').length<(saved.records||0)&&steps++<500){const more=[...box.querySelectorAll('button')].find(b=>b.textContent==='继续显示后面的记录');if(!more)break;more.click()} }
+ if(saved){box._setJSONZoom?.(saved.zoom||1,false);let steps=0;while(box.querySelectorAll('.json-readable-record').length<(saved.records||0)&&steps++<500){const more=[...box.querySelectorAll('button')].find(b=>b.textContent==='继续显示后面的记录');if(!more)break;more.click()} }
 
  function restoreDetails(){for(const path of saved?.open||[]){let scope=box;for(const index of path){const details=[...scope.querySelectorAll('details')].filter(d=>!d.parentElement.closest('details')||d.parentElement.closest('details')===scope);const d=details[index];if(!d)break;d.open=true;scope=d}}}
  let rounds=0;const restore=()=>{restoreDetails();viewport.scrollTop=saved?.top||0;viewport.scrollLeft=saved?.left||0;if(++rounds<5)setTimeout(restore,20);else restoring=false};if(saved)setTimeout(restore,0);else restoring=false;
